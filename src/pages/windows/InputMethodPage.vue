@@ -126,7 +126,7 @@ onMounted(() => {
               hide-details
               color="primary"
               :disabled="saving"
-              @update:model-value="(v: boolean) => setEnabled(item.id, v)"
+              @update:model-value="(v: boolean | null) => setEnabled(item.id, v ?? false)"
             />
           </div>
           <p v-if="!loading && listItems.length === 0" class="text-caption text-medium-emphasis">
@@ -154,7 +154,7 @@ onMounted(() => {
   border-radius: 12px;
 }
 .list-row {
-  background: rgba(var(--v-theme-surface-variant), 0.3);
+  background: rgba(var(--v-theme-surface), 0.3);
 }
 .order-num {
   min-width: 1.5rem;

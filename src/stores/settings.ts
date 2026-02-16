@@ -11,8 +11,8 @@ export const useSettingsStore = defineStore('settings', {
     locale: 'system' as LocaleCode,
   }),
   actions: {
-    setRestoreLastRoute(v: boolean) {
-      this.restoreLastRoute = v;
+    setRestoreLastRoute(v: boolean | null) {
+      this.restoreLastRoute = v ?? false;
     },
     setLastRoute(path: string) {
       this.lastRoute = path;
