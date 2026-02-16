@@ -1,0 +1,50 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "file_capability",
+  "description": "Capability for the main window",
+  "windows": [
+    "*"
+  ],
+  "permissions": [
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
+    },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "*"
+        }
+      ]
+    },
+    "dialog:default",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:default",
+    "core:window:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-create",
+    "core:window:allow-set-focus",
+    "core:window:allow-get-all-windows",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-title",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-toggle-maximize",
+    "core:webview:allow-create-webview-window",
+    "core:webview:allow-create-webview",
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen"
+  ],
+  "platforms": [
+    "windows"
+  ]
+}

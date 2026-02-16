@@ -1,0 +1,31 @@
+# editorconfig.org
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+
+[*.md]
+trim_trailing_whitespace = false
+
+[{*.js,*.ts,*.vue}]
+ij_javascript_use_double_quotes = false
+ij_javascript_force_quote_style = true
+ij_javascript_spaces_within_brackets = true
+ij_javascript_force_semicolon_style = true
+ij_typescript_use_double_quotes = false
+ij_typescript_force_quote_style = true
+ij_typescript_spaces_within_brackets = false
+ij_typescript_spaces_within_object_literal_braces = true
+ij_typescript_force_semicolon_style = true
+
+# 强制 JS/TS 方法和函数使用小驼峰命名 (camelCase)
+ij_javascript_naming_convention_function = camel_case
+ij_javascript_naming_convention_method = camel_case
+ij_typescript_naming_convention_function = camel_case
+ij_typescript_naming_convention_method = camel_case

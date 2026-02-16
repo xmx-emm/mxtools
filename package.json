@@ -1,0 +1,44 @@
+{
+  "name": "mxtools",
+  "private": true,
+  "version": "0.0.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri dev": "tauri dev",
+    "build window": "tauri build"
+  },
+  "dependencies": {
+    "@date-io/date-fns": "^3.2.1",
+    "@fontsource/roboto": "^5.2.6",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-dialog": "^2.5.0",
+    "@tauri-apps/plugin-opener": "^2",
+    "date-fns": "^4.1.0",
+    "lodash": "^4.17.21",
+    "pinia": "^3.0.3",
+    "pinia-plugin-persistedstate": "^4.5.0",
+    "vue": "^3.5.13",
+    "vue-i18n": "11",
+    "vue-router": "^4.5.1",
+    "vue-toastification": "^2.0.0-rc.5",
+    "vuetify": "^3.9.6"
+  },
+  "devDependencies": {
+    "@mdi/font": "^7.4.47",
+    "@tauri-apps/cli": "^2",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.3.1",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "sass": "^1.92.1",
+    "sass-loader": "^16.0.5",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vite-plugin-vuetify": "^2.1.2",
+    "vue-tsc": "^2.1.10"
+  }
+}
