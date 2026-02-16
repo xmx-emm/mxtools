@@ -1,0 +1,74 @@
+/* Apple-style tech minimalist base */
+:root {
+    --apple-radius-sm: 8px;
+    --apple-radius-md: 12px;
+    --apple-radius-lg: 16px;
+    --apple-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --apple-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --apple-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.v-application {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/*隐藏主框的滚动条*/
+body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/*隐藏主框的滚动条*/
+html::-webkit-scrollbar {
+    display: none;
+}
+
+/* 设置滚动条的宽度 - Apple style thin */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+/* 设置滚动条滑块的颜色和圆角 */
+::-webkit-scrollbar-thumb {
+    background-color: rgba(128, 128, 128, 0.35);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(128, 128, 128, 0.5);
+}
+
+.v-btn {
+    text-transform: none;
+    letter-spacing: -0.01em;
+}
+
+/* 统一页面内容区布局：边距、滚动、高度 */
+.page-content {
+    padding: 16px;
+    overflow: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+.page-content--narrow { max-width: 480px; }
+.page-content--medium { max-width: 640px; }
+.page-content--wide { max-width: 720px; }
+
+/*!* 设置滚动条轨道的颜色和圆角 *!*/
+/*::-webkit-scrollbar-track {*/
+/*  background-color: #f1f1f1;*/
+/*  border-radius: 6px;*/
+/*}*/
+
+/*!* 设置滚动条按钮的颜色 *!*/
+/*::-webkit-scrollbar-button {*/
+/*  background-color: #ccc;*/
+/*}*/
+
+/*!* 设置滚动条与其他元素交界处的颜色 *!*/
+/*::-webkit-scrollbar-corner {*/
+/*  background-color: #f1f1f1;*/
+/*}*/

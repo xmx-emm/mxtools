@@ -1,0 +1,33 @@
+
+.not_scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge /
+   scrollbar-width: none; / Firefox */
+}
+
+.not_select {
+    -moz-user-select: none; /* Firefox私有属性 */
+    -webkit-user-select: none; /* WebKit内核私有属性 */
+    -ms-user-select: none; /* IE私有属性(IE10及以后) */
+    -khtml-user-select: none; /* KHTML内核私有属性 */
+    -o-user-select: none; /* Opera私有属性 */
+    user-select: none; /* CSS3属性 */
+}
+
+.use_select {
+    -moz-user-select: auto; /* Firefox私有属性 */
+    -webkit-user-select: auto; /* WebKit内核私有属性 */
+    -ms-user-select: auto; /* IE私有属性(IE10及以后) */
+    -khtml-user-select: auto; /* KHTML内核私有属性 */
+    -o-user-select: auto; /* Opera私有属性 */
+    user-select: auto; /* CSS3属性 */
+}
+
+/* This was made with GlassGenerator.netlify.app */
+.glass-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    backdrop-filter: blur(3px);
+}

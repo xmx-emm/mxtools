@@ -1,0 +1,31 @@
+[package]
+name = "mxtools"
+version = "0.0.1"
+description = "萌新工具箱"
+authors = ["小萌新"]
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant, but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "mxtools_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.3", features = [] }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.9.5", features = ["default", "devtools"] }
+tauri-plugin-opener = "2.5.3"
+tauri-plugin-dialog = "2.5.0"
+
+sysinfo = "0.37.2" #系统信息
+tokio = { version = "1.49.0", features = ["time"] } #异步方法调用不提示
+windows_tool = { path = "../../../rust/windows_tool" }
+tauri-plugin-clipboard-manager = "2.3.2"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"

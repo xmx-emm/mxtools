@@ -1,0 +1,115 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { AUTHOR_BILIBILI_URL } from '@/data/url.ts';
+import { XMX_AVATAR_IMG_URL } from '@/data/imgloc.ts';
+
+const { t } = useI18n();
+const appWindow = getCurrentWindow();
+
+const closeWindow = async () => {
+  await appWindow.close();
+};
+
+const techStack = [
+  {name: 'Tauri', color: 'blue-darken-2', icon: 'mdi-rocket-launch'},
+  {name: 'Vue 3', color: 'green-darken-1', icon: 'mdi-vuejs'},
+  {name: 'Vuetify', color: 'blue-lighten-1', icon: 'mdi-vuetify'},
+  {name: 'TypeScript', color: 'blue-darken-1', icon: 'mdi-language-typescript'}
+];
+</script>
+
+<template>
+  <v-app>
+    <v-main class="bg-grey-lighten-4">
+      <v-container
+          :initial="{ opacity: 0, y: 50 }"
+          :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
+          class="fill-height d-flex flex-column align-center justify-center"
+      >
+        <v-card
+            elevation="4"
+            max-width="450"
+            class="rounded-xl overflow-hidden"
+        >
+          <v-img
+              height="120"
+              src="https://cdn.vuetifyjs.com/images/cards/server-room.jpg"
+              cover
+              class="align-end text-white"
+          >
+            <v-card-title>{{ t('about.title') }}</v-card-title>
+          </v-img>
+
+          <v-card-text class="text-center pt-8">
+            <v-avatar size="100" class="elevation-6 mb-4" style="margin-top: -80px; border: 4px solid white;">
+              <v-img :src="XMX_AVATAR_IMG_URL" alt="Avatar"></v-img>
+            </v-avatar>
+
+            <h2 class="text-h5 font-weight-bold mb-1">{{ t('about.appName') }}</h2>
+            <p class="text-body-2 text-grey-darken-1 mb-4">{{ t('about.version') }}</p>
+
+            <v-divider class="mb-4"></v-divider>
+
+            <p class="text-body-1 px-4 mb-6">
+              {{ t('about.description') }}
+            </p>
+
+            <div class="d-flex flex-wrap justify-center gap-2 mb-6">
+              <v-chip
+                  v-for="tech in techStack"
+                  :key="tech.name"
+                  :color="tech.color"
+                  size="small"
+                  variant="flat"
+                  class="ma-1"
+                  :prepend-icon="tech.icon"
+              >
+                {{ tech.name }}
+              </v-chip>
+            </div>
+          </v-card-text>
+
+          <v-divider></v-divider>
+
+          <v-card-actions class="bg-grey-lighten-5 pa-4">
+            <v-btn
+                color="pink-lighten-1"
+                variant="tonal"
+                prepend-icon="mdi-television-classic"
+                @click="openUrl(AUTHOR_BILIBILI_URL)"
+            >
+              {{ t('about.bilibili') }}
+            </v-btn>
+
+            <v-spacer></v-spacer>
+
+            <v-btn
+                color="grey-darken-3"
+                variant="text"
+                @click="closeWindow"
+            >
+              {{ t('common.close') }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+
+        <p class="mt-6 text-caption text-grey">
+          {{ t('about.copyright') }}
+        </p>
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+
+<style scoped>
+.gap-2 {
+  gap: 8px;
+}
+
+/* 禁止页面滚动，适合小窗口关于页 */
+:deep(html) {
+  overflow: hidden !important;
+}
+</style>
