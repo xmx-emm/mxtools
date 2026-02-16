@@ -32,7 +32,7 @@ const tools = [
 
 const routes = [
     {
-        path: '/', component: HomeView, redirect: '/dashboard',
+        path: '/', component: HomeView, redirect: '/apex',
         children: [{path: '/dashboard', component: DashboardView}, {path: '/settings', component: SettingsView},]
     },
     {path: '/about', component: AboutView},
