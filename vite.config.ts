@@ -46,4 +46,15 @@ export default defineConfig(async () => ({
             'ASSETS': path.join(path.resolve(__dirname, 'src'), "assets"), // 设置 @ 指向 src
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor': ['vue', 'vue-router', 'vue-i18n'],
+                    'vuetify': ['vuetify'],
+                },
+            },
+        },
+        chunkSizeWarningLimit: 1000, // 调整警告限制为 1000 kB
+    },
 }));
