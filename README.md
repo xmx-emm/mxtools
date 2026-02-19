@@ -1,8 +1,14 @@
 # Build
 
-RustRover 使用系统代理 socks
+```
+#自行构建
 
-# Tauri + Vue + TypeScript +  [Vueftifyjs](https://vuetifyjs.com/) + [Motion for Vue](https://motion.net.cn/docs/vue)
+npm install
+
+npm run "build window"
+```
+
+# Tauri + Vue + TypeScript +  [Vueftifyjs](https://vuetifyjs.com/)
 
 [Toastification](https://vue-toastification.maronato.dev/) + [Pinia](https://pinia.vuejs.ac.cn/core-concepts/) + [Pinia Plugin Persistedstate](https://prazdevs.github.io/pinia-plugin-persistedstate/zh/guide/) + [i18n](https://vue-i18n.intlify.dev/)
 
@@ -12,7 +18,7 @@ the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-scrip
 
 ## Recommended IDE Setup
 
-- [VS Code](https://code.visualstudio.com/) + [RustRover](https://www.jetbrains.com/rust/) + [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- [RustRover](https://www.jetbrains.com/rust/) + [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
 - [Imgloc 图床](https://imgloc.com/)
 - [Picsum Photos](https://picsum.photos)
