@@ -6,7 +6,9 @@
 npm install
 
 npm run "build window"
+
 ```
+[WebView2运行时](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/?form=MA13LH#download)
 
 # Tauri + Vue + TypeScript +  [Vueftifyjs](https://vuetifyjs.com/)
 
