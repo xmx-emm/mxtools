@@ -2,6 +2,7 @@
 
 import {useRoute, useRouter} from 'vue-router';
 import {tools} from '../router.ts';
+import profilePhoto from '@/assets/images/profile_photo.png';
 import {checkRouterSuffix, includesRoute} from '../utils/router.ts';
 import {computed} from 'vue';
 
@@ -31,7 +32,7 @@ const ComponentTransition = createCssTransition('component-transition');
       </v-list>
       <v-list density="compact" nav class="px-2">
         <v-list-item
-          prepend-avatar="../src/assets/images/profile_photo.png"
+          :prepend-avatar="profilePhoto"
           @click="router.push('/')"
           rounded="lg"
           class="mb-1"

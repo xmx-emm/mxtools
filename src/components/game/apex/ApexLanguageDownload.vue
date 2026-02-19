@@ -7,6 +7,7 @@ import {invoke} from "@tauri-apps/api/core";
 import {onMounted, ref} from "vue";
 import {writeText} from "@tauri-apps/plugin-clipboard-manager";
 import CodeDisplay from "@/components/utils/CodeDisplay.vue";
+import steamConsoleImg from "@/assets/game/steam_console.png";
 import {useToast} from "vue-toastification";
 import {apexStore} from "@/stores/game/apex.ts";
 
@@ -90,7 +91,7 @@ onMounted(async () => {
                     maxHeight="70px"
                     maxWidth="400px"
                     @click="open_console"
-                    src="../src/assets/game/steam_console.png"></v-img>
+                    :src="steamConsoleImg"></v-img>
                 <v-spacer/>
                 <svg @click="openUrl('https://steamdb.info/app/1172470/depots/')" width="40" height="40"
                      style="cursor: pointer "

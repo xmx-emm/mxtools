@@ -1,5 +1,5 @@
 <script setup lang="ts">
-
+// 语音包的选择页面
 import {ApexCommonMilesLanguages, ApexUncommonMilesLanguages} from "@/data/apex_launch_options_config.ts";
 import {computed, ref} from "vue"
 import {SteamLaunchOptionsImpl} from "@/data/steam.ts"

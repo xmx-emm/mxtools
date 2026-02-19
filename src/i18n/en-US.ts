@@ -114,4 +114,7 @@ export const enUS = {
   server: {
     home: 'Server',
   },
+  message: {
+    other: 'Other',
+  },
 };
