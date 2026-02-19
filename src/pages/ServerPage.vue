@@ -12,6 +12,7 @@ const isServer = computed(() => routeFullPath(route) === '/tools/server');
 <template>
   <div v-if="isServer" class="page-content">
     {{ t('server.home') }}
+    这是一个服务器页面
   </div>
   <router-view v-else/>
 </template>

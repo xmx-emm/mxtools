@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
 import {ref} from "vue";
+import vueLogo from "@/assets/vue.svg";
 import {invoke} from "@tauri-apps/api/core";
 
 const greetMsg = ref("");
@@ -24,7 +25,7 @@ async function greet() {
         <img src="/tauri.svg" class="logo tauri" alt="Tauri logo"/>
       </a>
       <a href="https://vuejs.org/" target="_blank">
-        <img src="../assets/vue.svg" class="logo vue" alt="Vue logo"/>
+        <img :src="vueLogo" class="logo vue" alt="Vue logo"/>
       </a>
     </div>
     <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>

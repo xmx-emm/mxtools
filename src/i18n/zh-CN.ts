@@ -114,4 +114,7 @@ export const zhCN = {
   server: {
     home: '服务器',
   },
+  message: {
+    other: '其他',
+  },
 };
