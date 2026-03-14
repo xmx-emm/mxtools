@@ -5,8 +5,149 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>MX Tools</title>
-</head>
+    <script>
+        (function(){
+            var t = '';
+            try { t = localStorage.getItem('mx-theme') || ''; } catch(e){}
+            var isDark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            }
+            // 读取主题色
+            var accent = null;
+            try {
+                var raw = localStorage.getItem('mx-accent');
+                if (raw) accent = JSON.parse(raw);
+            } catch(e){}
+            if (accent && accent.g1 && accent.g2) {
+                var s = document.documentElement.style;
+                s.setProperty('--splash-g1', accent.g1);
+                s.setProperty('--splash-g2', accent.g2);
+                s.setProperty('--splash-primary', accent.p || accent.g1);
+                s.setProperty('--splash-shadow', accent.s || 'rgba(0,122,255,0.25)');
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --splash-g1: #007AFF;
+            --splash-g2: #5856D6;
+            --splash-primary: #007AFF;
+            --splash-shadow: rgba(0, 122, 255, 0.25);
+        }
+        html.dark {
+            --splash-g1: #0a84ff;
+            --splash-g2: #5e5ce6;
+            --splash-primary: #0a84ff;
+            --splash-shadow: rgba(10, 132, 255, 0.3);
+        }
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #f5f5f7;
+        }
+        html.dark, html.dark body { background: #000000; }
+
+        #splash {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            z-index: 99999;
+            transition: opacity .3s ease;
+        }
+
+        #splash.splash-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #splash-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--splash-g1) 0%, var(--splash-g2) 100%);
+            box-shadow: 0 8px 24px var(--splash-shadow);
+            animation: splash-pop .5s cubic-bezier(.34, 1.56, .64, 1) both;
+        }
+
+        #splash-logo svg {
+            width: 28px;
+            height: 28px;
+            fill: #fff;
+        }
+
+        #splash-title {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            opacity: 0;
+            animation: splash-fade-in .4s ease .2s forwards;
+        }
+
+        #splash-bar-track {
+            width: 120px;
+            height: 3px;
+            border-radius: 2px;
+            background: color-mix(in srgb, var(--splash-primary) 12%, transparent);
+            overflow: hidden;
+            opacity: 0;
+            animation: splash-fade-in .4s ease .35s forwards;
+        }
+
+        #splash-bar {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--splash-primary);
+            animation: splash-progress 1.8s cubic-bezier(.4, 0, .2, 1) infinite;
+        }
+
+        @keyframes splash-pop {
+            from { transform: scale(0.6); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+
+        @keyframes splash-fade-in {
+            to { opacity: .75; }
+        }
+
+        @keyframes splash-progress {
+            0%   { width: 0;    margin-left: 0; }
+            50%  { width: 60%;  margin-left: 20%; }
+            100% { width: 0;    margin-left: 100%; }
+        }
+
+        html.dark #splash {
+            background: #000000;
+            color: #f5f5f7;
+        }
+    </style>
+</head>
+<body>
+<div id="splash">
+    <div id="splash-logo">
+        <svg viewBox="0 0 24 24"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7 7 7 0 0 1-7 7Z"/></svg>
+    </div>
+    <div id="splash-title">MX Tools</div>
+    <div id="splash-bar-track">
+        <div id="splash-bar"></div>
+    </div>
+</div>
 <div id="app"></div>
 <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

@@ -22,13 +22,13 @@ async function import_config() {
   }).then(async (filepath) => {
     console.log("import_config", filepath);
     if (await invoke("load_port_forwarding", {filepath: filepath})) {
-      toast.success("Import Port Forwarding Config");
+      toast.success('toast.importPortForwardingConfigSuccess');
       emits("import_finished");
     } else {
-      toast.error("Import Port Forwarding Error");
+      toast.error('toast.importPortForwardingConfigError');
     }
   }).catch(() => {
-    toast.error("Not find config");
+    toast.error('toast.configNotFound');
   })
 }
 
@@ -44,13 +44,13 @@ async function export_config() {
       console.log("output_file", output_file);
       if (await invoke("backups_port_forwarding", {output: output_file})) {
         emits("export_finished");
-        toast.success("Export to Backups Port", {
+        toast.success('toast.exportPortForwardingConfigSuccess', {
           onClick: () => {
             console.log("Export to Backups PortForwarding");
           },
         });
       } else {
-        toast.error("Export Backups Port Error");
+        toast.error('toast.exportPortForwardingConfigError');
       }
     }).catch((error) => {
       console.info(error);

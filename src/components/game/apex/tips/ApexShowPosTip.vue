@@ -1,10 +1,16 @@
 <script setup lang="ts">
-
+import { useI18n } from "vue-i18n";
 import {APEX_SHOW_POS_IMG_URL} from "@/data/imgloc.ts";
-import ApexTipByImage from "@/components/game/apex/tips/template/ApexTipByImage.vue";
+import ApexTipByImage from "@/components/game/apex/common/tips/ApexTipByImage.vue";
+
+const { t } = useI18n();
 </script>
 <template>
-  <ApexTipByImage title="显示pos" subtitle="在左上角显示实时位置及视角移速等信息" :src="APEX_SHOW_POS_IMG_URL"/>
+  <ApexTipByImage
+      :title="t('apexTips.showPos.title')"
+      :subtitle="t('apexTips.showPos.subtitle')"
+      :src="APEX_SHOW_POS_IMG_URL"
+  />
 </template>
 
 <style scoped>

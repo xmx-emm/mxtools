@@ -23,6 +23,9 @@
       ]
     },
     "dialog:default",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:default",
     "core:window:default",
@@ -42,7 +45,8 @@
     "core:webview:allow-create-webview",
     "core:event:default",
     "core:event:allow-emit",
-    "core:event:allow-listen"
+    "core:event:allow-listen",
+    "pinia:default"
   ],
   "platforms": [
     "windows"

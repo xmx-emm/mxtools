@@ -39,3 +39,18 @@ rust
 
 执行操作用 Result<T>
 ```
+
+```angular2html
+--v-theme-on-surface / --v-theme-primary 是 Vuetify 在运行时注入的 CSS 变量，IDE 在单文件里找不到定义就会报“无法解析自定义属性”。
+你有 3 种处理方式（推荐前两种）：
+方式 1（推荐，按规则忽略）
+在 IDE 里把该检查对 Vuetify 变量放行：
+Settings -> Editor -> Inspections -> CSS -> Unresolved custom property
+给忽略模式加：--v-theme-*（或直接降低该检查级别）。
+```
+```angular2html
+版本信息
+src-tauri/Cargo.toml
+src-tauri/tauri.conf.json
+package.json
+```
