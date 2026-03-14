@@ -1,8 +1,8 @@
 <script setup lang="ts">
 //Apex手动下载语音包指示器
-import {apexStore} from "@/stores/game/apex.ts";
+import apexStore from "@/stores/game/apex.ts";
 import {APEX_DOWNLOAD_IMG_URL, APEX_SELECT_LANGUAGE_IMG_URL} from "@/data/imgloc.ts";
-import ApexImage from "@/components/game/apex/tips/template/ApexImage.vue";
+import ApexImage from "@/components/game/apex/common/tips/ApexImage.vue";
 import {invoke} from "@tauri-apps/api/core";
 import {useToast} from "vue-toastification";
 
@@ -26,13 +26,13 @@ function open_audio_folder() {
 }
 
 function open_audio_download_dialog() {
-  apex_store.manual_download_miles_language_dialog = false
-  apex_store.download_miles_language_dialog = true
+  apex_store.download_miles_language_manual_dialog = false
+  apex_store.download_miles_language_semi_automatic_dialog = true
 }
 </script>
 
 <template>
-  <v-dialog class="not_select" v-model="apex_store.manual_download_miles_language_dialog">
+  <v-dialog class="not_select" v-model="apex_store.download_miles_language_manual_dialog">
     <v-card title="手动下载语音包">
       <div class="mx-6" style="height: max-content;overflow-y:scroll;">
         <p class="error_color">tips: 建议使用半自动下载方式,更方便耗时更短</p>><br/>
@@ -60,7 +60,6 @@ function open_audio_download_dialog() {
       </template>
     </v-card>
   </v-dialog>
-
 </template>
 
 <style scoped>

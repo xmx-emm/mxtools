@@ -38,7 +38,7 @@ async function del(item: PortForwarding) {
   if (isDeled) {
     state.list = state.list.filter((i) => JSON.stringify(i) !== JSON.stringify(item));//通过filter删除元素
   } else {
-    toast.error('Not Del');
+    toast.error('toast.deleteFailed');
   }
   state.loading = false;
 }

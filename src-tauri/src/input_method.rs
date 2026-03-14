@@ -1,7 +1,7 @@
 //! Windows input method (keyboard layout) order and enable/disable via registry.
 //! Preload: HKEY_CURRENT_USER\Keyboard Layout\Preload (values "1","2",... = layout id)
 //! Layout names: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\{id}
-//! CTF (Win10+): AssemblyItem 含各 IME（微软拼音、五笔等），TIP\LanguageProfile 含显示名
+//! CTF (Win10+): AssemblyItem 含各 IME(微软拼音、五笔等)，TIP\LanguageProfile 含显示名
 
 #[tauri::command]
 #[cfg(not(windows))]
@@ -58,12 +58,12 @@ fn reg_value_to_string(value: &winreg::RegValue) -> Option<String> {
     if value.bytes.is_empty() {
         return None;
     }
-    // REG_DWORD: 4 字节，转为 8 位十六进制字符串（如 0x0804 -> "00000804"）
+    // REG_DWORD: 4 字节，转为 8 位十六进制字符串(如 0x0804 -> "00000804")
     if value.vtype == RegType::REG_DWORD && value.bytes.len() >= 4 {
         let v = u32::from_le_bytes([value.bytes[0], value.bytes[1], value.bytes[2], value.bytes[3]]);
         return Some(format!("{:08X}", v));
     }
-    // REG_SZ / REG_EXPAND_SZ / REG_MULTI_SZ: UTF-16LE（与 winreg 一致：仅去除末尾 \0）
+    // REG_SZ / REG_EXPAND_SZ / REG_MULTI_SZ: UTF-16LE(与 winreg 一致：仅去除末尾 \0)
     let u16_len = value.bytes.len() / 2;
     let words = unsafe {
         std::slice::from_raw_parts(value.bytes.as_ptr() as *const u16, u16_len)
@@ -95,7 +95,7 @@ fn get_layout_name(id: &str) -> String {
         .unwrap_or(id)
 }
 
-/// 从 TIP LanguageProfile 获取 IME 显示名（微软拼音、微软五笔等）
+/// 从 TIP LanguageProfile 获取 IME 显示名(微软拼音、微软五笔等)
 #[cfg(windows)]
 fn get_tip_profile_name(clsid: &str, lang_id: &str, profile: &str) -> Option<String> {
     use winreg::enums::HKEY_LOCAL_MACHINE;
@@ -138,7 +138,7 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let mut order_to_id: Vec<(u32, String)> = Vec::new();
 
-    // 优先从 Preload 读取（传统方式）
+    // 优先从 Preload 读取(传统方式)
     if let Ok(preload) = hkcu.open_subkey(PRELOAD_PATH) {
         for (name, value) in preload.enum_values().filter_map(|v| v.ok()) {
             let order: u32 = name.parse().unwrap_or(0);
@@ -151,13 +151,13 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
         }
     }
 
-    // Win10/11: Preload 可能为空，回退到 CTF（Language 含美式键盘，AssemblyItem 含微软拼音、五笔等）
+    // Win10/11: Preload 可能为空，回退到 CTF(Language 含美式键盘，AssemblyItem 含微软拼音、五笔等)
     if order_to_id.is_empty() {
         if let Ok(assembly_item) = hkcu.open_subkey(CTF_ASSEMBLY_ITEM_PATH) {
             let lang_order = get_ctf_language_order(&hkcu);
             let mut named_items: Vec<(String, String)> = Vec::new();
             for lang_id in lang_order {
-                // 先加入该语言的基础键盘布局（美式键盘 / Chinese - US Keyboard）
+                // 先加入该语言的基础键盘布局(美式键盘 / Chinese - US Keyboard)
                 let layout_name = get_layout_name(&lang_id);
                 named_items.push((lang_id.clone(), layout_name));
 
