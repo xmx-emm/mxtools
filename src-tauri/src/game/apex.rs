@@ -17,6 +17,7 @@
 }
 */
 
+use crate::log_info;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri_plugin_opener::open_path;
@@ -68,7 +69,7 @@ pub fn apply_apex_miles_language(depot: usize) -> Result<(), String> {
         return Err(format!("未下载语音包,请下载后重试 ! {:?}", download_folder));
     }
 
-    println!(
+    log_info!(
         "{} -> {}",
         download_folder.display(),
         apex_audio_path.display()
@@ -82,13 +83,13 @@ pub fn apply_apex_miles_language(depot: usize) -> Result<(), String> {
 //如果语音包文件不在反回 false
 #[tauri::command]
 pub fn check_apex_miles_language(language: String) -> Result<bool, String> {
-    println!("检查语言 check_apex_miles_language {}", language);
+    log_info!("检查语言 check_apex_miles_language {}", language);
     caml(language)
 }
 #[tauri::command]
 pub fn open_apex_audio_folder_path() -> Result<(), String> {
     if let Some(apex_audio_path) = get_apex_audio_folder_path() {
-        println!("open_apex_audio_folder_path {}", apex_audio_path.display());
+        log_info!("open_apex_audio_folder_path {}", apex_audio_path.display());
         apex_audio_path.open_path()
     } else {
         Err("未找到Apex语音包位置".to_string())
@@ -97,7 +98,7 @@ pub fn open_apex_audio_folder_path() -> Result<(), String> {
 #[tauri::command]
 pub fn open_apex_depot_download_folder_path(depot: usize) -> Result<(), String> {
     if let Some(download_folder) = get_apex_depot_download_folder_path(depot) {
-        println!(
+        log_info!(
             "open_apex_depot_download_folder_path {}",
             download_folder.display()
         );

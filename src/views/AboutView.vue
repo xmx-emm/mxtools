@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { AUTHOR_BILIBILI_URL } from '@/data/url.ts';
-import { XMX_AVATAR_IMG_URL } from '@/data/imgloc.ts';
+import {useI18n} from 'vue-i18n';
+import {getCurrentWindow} from '@tauri-apps/api/window';
+import {openUrl} from '@tauri-apps/plugin-opener';
+import {AUTHOR_BILIBILI_URL, GITHUB_AUTHOR_URL, GITHUB_PROJECT_URL, QQ_CHANNEL_URL} from '@/data/url.ts';
+import {XMX_AVATAR_IMG_URL} from '@/data/imgloc.ts';
+import {version} from "@/env.ts";
 
 const { t } = useI18n();
 const appWindow = getCurrentWindow();
-
+const urls = {
+  'about.bilibili': AUTHOR_BILIBILI_URL,
+  'about.qqChannel': QQ_CHANNEL_URL,
+  'about.github': GITHUB_AUTHOR_URL,
+  'about.project': GITHUB_PROJECT_URL,
+}
 const closeWindow = async () => {
   await appWindow.close();
 };
@@ -48,7 +54,7 @@ const techStack = [
             </v-avatar>
 
             <h2 class="text-h5 font-weight-bold mb-1">{{ t('about.appName') }}</h2>
-            <p class="text-body-2 text-grey-darken-1 mb-4">{{ t('about.version') }}</p>
+            <p class="text-body-2 text-grey-darken-1 mb-4">{{ version }}</p>
 
             <v-divider class="mb-4"></v-divider>
 
@@ -75,12 +81,12 @@ const techStack = [
 
           <v-card-actions class="bg-grey-lighten-5 pa-4">
             <v-btn
+                v-for="(url,text) in urls"
                 color="pink-lighten-1"
                 variant="tonal"
-                prepend-icon="mdi-television-classic"
-                @click="openUrl(AUTHOR_BILIBILI_URL)"
+                @click="openUrl(url)"
             >
-              {{ t('about.bilibili') }}
+              {{ t(text) }}
             </v-btn>
 
             <v-spacer></v-spacer>

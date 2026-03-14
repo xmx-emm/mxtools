@@ -9,7 +9,7 @@ import {writeText} from "@tauri-apps/plugin-clipboard-manager";
 import CodeDisplay from "@/components/utils/CodeDisplay.vue";
 import steamConsoleImg from "@/assets/game/steam_console.png";
 import {useToast} from "vue-toastification";
-import {apexStore} from "@/stores/game/apex.ts";
+import apexStore from "@/stores/game/apex.ts";
 
 const apex_store = apexStore();
 const languages_depots = ref<{ [key: string]: string }>({})
@@ -31,7 +31,7 @@ function apply_miles_language() {
   invoke("apply_apex_miles_language", {
     depot: Number(apex_store.language_depot)
   }).then(() => {
-    toast.success("Apply Miles Language Success!!")
+    toast.success('toast.applyMilesLanguageSuccess')
     is_apply_language.value = false
     apex_store.update_download_language_button_color()
     stepper_ref.value.next()
@@ -70,16 +70,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-dialog class="not_select" v-model="apex_store.download_miles_language_dialog">
-    <template v-slot:activator="{ props: activatorProps }">
-      <v-icon icon="mdi-information-variant"
-              v-bind="activatorProps"
-              @click.stop="console.log('ww download_miles_language_dialog click.stop')"
-              :color="apex_store.download_language_button_color"
-              variant="flat"
-      >
-      </v-icon>
-    </template>
+  <v-dialog class="not_select" v-model="apex_store.download_miles_language_semi_automatic_dialog">
     <template v-slot:default="{  }">
       <v-card title="应用语音包步骤">
         <v-stepper :items="stepper" ref="stepper_ref">
@@ -158,12 +149,12 @@ onMounted(async () => {
                   @click="apply_miles_language"
                   :loading="is_apply_language"
                   variant="tonal"
-              >应用
+              >点我应用
               </v-btn>
             </v-card>
           </template>
           <template v-slot:item.4>
-            <v-card title="注意!" flat class="error_color">
+            <v-card title="注意!" flat class="error_color warning-red-text-edge-animate">
               <div>每次Apex大版本更新或修改语音包时需要重新下载并应用语音包</div>
               <div>不然将会导致无法启动Apex!!!!!</div>
             </v-card>
@@ -184,4 +175,5 @@ onMounted(async () => {
   border-radius: 5px;
   line-height: 1.1;
 }
+
 </style>

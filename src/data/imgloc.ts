@@ -4,6 +4,7 @@ const APEX_SHOW_POS_IMG_URL = "https://i.imgs.ovh/2026/01/06/yCUbge.png"
 const APEX_SHOW_FPS_IMG_URL = "https://i.imgs.ovh/2026/01/06/yCUnW9.png"
 const APEX_HIGH_PRIORITY_IMG_URL = "https://i.imgs.ovh/2026/01/07/yOtM7C.png"
 const APEX_STEAM_LANGUAGE_IMG_URL = "https://i.imgs.ovh/2026/01/08/yZZjAn.png"
+const APEX_FORCED_RESOLUTION_ERROR_IMG_URL = "https://i.imgs.ovh/2026/02/27/yiwjxX.png"
 
 //手动下载语音包
 const APEX_SELECT_LANGUAGE_IMG_URL = "https://i.imgs.ovh/2026/01/09/ya2JjC.png"
@@ -18,6 +19,7 @@ export {
     APEX_SHOW_FPS_IMG_URL,
     APEX_HIGH_PRIORITY_IMG_URL,
     APEX_STEAM_LANGUAGE_IMG_URL,
+    APEX_FORCED_RESOLUTION_ERROR_IMG_URL,
 
     APEX_SELECT_LANGUAGE_IMG_URL,
     APEX_DOWNLOAD_IMG_URL,

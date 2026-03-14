@@ -1,12 +1,9 @@
-import * as components from 'vuetify/components';
-import * as directives from 'vuetify/directives';
 import {createVuetify} from 'vuetify';
 import {aliases, mdi} from 'vuetify/iconsets/mdi';
-
-//Date
 import DateFnsAdapter from '@date-io/date-fns';
+import {deriveThemeColors, findAccent} from '@/themes';
+import type {AccentTheme} from '@/themes';
 
-// Apple-style tech minimalist theme
 const appleLight = {
     dark: false,
     colors: {
@@ -56,8 +53,6 @@ const appleDark = {
 };
 
 const vuetify = createVuetify({
-    components,
-    directives,
     theme: {
         defaultTheme: 'light',
         themes: {
@@ -73,6 +68,9 @@ const vuetify = createVuetify({
         },
     },
     defaults: {
+        VMenu: {
+            contentClass: 'compact-menu',
+        },
         VDialog: {
             maxWidth: 1000,
         },
@@ -80,9 +78,7 @@ const vuetify = createVuetify({
             elevation: 0,
             rounded: 'lg',
         },
-        VBtn: {
-            rounded: 'lg',
-        },
+        VBtn: {},
         VTextField: {
             variant: 'outlined',
             density: 'comfortable',
@@ -103,4 +99,13 @@ const vuetify = createVuetify({
         adapter: DateFnsAdapter,
     }
 });
+
+export function applyAccentTheme(accentId: string) {
+    const accent: AccentTheme = findAccent(accentId);
+    const lt = vuetify.theme.themes.value.light;
+    const dk = vuetify.theme.themes.value.dark;
+    Object.assign(lt.colors, deriveThemeColors(accent.light.primary, false));
+    Object.assign(dk.colors, deriveThemeColors(accent.dark.primary, true));
+}
+
 export default vuetify;

@@ -2,7 +2,7 @@
 
 import {useToast} from "vue-toastification";
 import {POSITION} from "vue-toastification/src/ts/constants.ts";
-import {apexStore} from "@/stores/game/apex.ts";
+import apexStore from "@/stores/game/apex.ts";
 
 const apex_state = apexStore();
 const toast = useToast();
@@ -10,14 +10,14 @@ const toast = useToast();
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!", {
+    toast.success('toast.copiedToClipboard', {
       timeout: 1500,
       closeButton: false,
       position: POSITION.TOP_RIGHT,
       hideProgressBar: true,
     });
   } catch (err) {
-    toast.error("Copy error!");
+    toast.error('toast.copyError');
   }
 }
 

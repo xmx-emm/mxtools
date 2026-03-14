@@ -12,7 +12,7 @@ const toast = useToast();
 async function start_apex() {
   is_launching.value = true;
   await openPath('steam://rungameid/1172470')
-  toast.info("Start Apex")
+  toast.info('apex.startApex')
   await sleep(2000);
   is_launching.value = false;
 }
