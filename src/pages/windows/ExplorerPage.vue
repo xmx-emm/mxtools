@@ -7,7 +7,7 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="page-content page-content--wide">
+  <div class="page-content">
     <RequestAdministratorPrivileges :text="t('explorer.requestAdmin')" />
     <CommonFolders />
   </div>

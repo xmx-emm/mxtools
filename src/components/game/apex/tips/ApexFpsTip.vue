@@ -1,18 +1,21 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+import ApexTipCard from "@/components/game/apex/common/tips/ApexTipCard.vue";
 
+const { t } = useI18n();
 </script>
 
 <template>
-  <v-card title="设置FPS">
+  <ApexTipCard :title="t('apexTips.fps.title')">
     <div class="mx-6">
-      可以锁定FPS上限以获取更平滑的游戏体验<br/>
+      {{ t('apexTips.fps.line1') }}<br/>
       <br/>
-      或是设置无上限 (最高300)<br/>
+      {{ t('apexTips.fps.line2') }}<br/>
       <br/>
-      <p class="error_color">tips: 锁定FPS需要将窗口设置为窗口或是无边框模式</p>
+      <p class="error_color">{{ t('apexTips.fps.tip') }}</p>
 
     </div>
-  </v-card>
+  </ApexTipCard>
 </template>
 
 <style scoped>

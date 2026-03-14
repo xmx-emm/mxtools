@@ -9,7 +9,6 @@ const is_maximized = ref(false)
 async function update_window_state() {
   try {
     is_maximized.value = await WebviewWindow.getCurrent().isMaximized();
-    console.log("update_window_state", is_maximized.value)
   } catch (e) {
     console.log(e);
   }

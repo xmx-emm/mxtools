@@ -2,13 +2,12 @@ import {defineStore} from 'pinia';
 import {invoke} from '@tauri-apps/api/core';
 import {Ipv, PortForwarding} from '@/type.ts';
 
-export const usePortForwardingStore = defineStore('usePortForwardingStore', {
-    state: () => ({
-      loading: true,
-      list: <PortForwarding[]>[],
-    }),
-    getters: {},
-    actions: {
+export const usePortForwardingStore = defineStore('portForwarding', {
+  state: () => ({
+    loading: true,
+    list: <PortForwarding[]>[],
+  }),
+  actions: {
       async update() {
         this.loading = true;
         this.list = await invoke('get_port_forwarding');
@@ -28,7 +27,5 @@ export const usePortForwardingStore = defineStore('usePortForwardingStore', {
           connect: ipvB,
         };
       }
-    },
-    persist: false,
-  }
-);
+  },
+});

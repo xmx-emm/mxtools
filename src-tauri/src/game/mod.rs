@@ -1,3 +1,4 @@
+use crate::log_info;
 use crate::utils::await_time;
 use std::process::Command;
 use sysinfo::System;
@@ -41,7 +42,7 @@ pub fn get_steam_users() -> Result<Vec<SteamUser>, String> {
 
 #[tauri::command]
 pub async fn thoroughly_kill_steam() -> Result<(), ()> {
-    println!("🔫 正在彻底强制关闭 Steam 及相关进程...");
+    log_info!("🔫 正在彻底强制关闭 Steam 及相关进程...");
 
     let mut system = System::new_all();
     system.refresh_all();
@@ -66,7 +67,7 @@ pub async fn thoroughly_kill_steam() -> Result<(), ()> {
 
         for target in &target_processes {
             if process_name.contains(&target.to_lowercase()) {
-                println!(
+                log_info!(
                     "🎯 找到 Steam 相关进程: {:?} (PID: {})",
                     process.name(),
                     pid
@@ -74,10 +75,10 @@ pub async fn thoroughly_kill_steam() -> Result<(), ()> {
 
                 // 强制终止进程
                 if process.kill() {
-                    println!("✅ 已终止: {:?}", process.name());
+                    log_info!("✅ 已终止: {:?}", process.name());
                     killed_count += 1;
                 } else {
-                    println!("❌ 终止失败: {:?}", process.name());
+                    log_info!("❌ 终止失败: {:?}", process.name());
 
                     // 如果标准方法失败，使用系统命令强制终止
                     #[cfg(target_os = "windows")]
@@ -99,9 +100,9 @@ pub async fn thoroughly_kill_steam() -> Result<(), ()> {
     }
 
     if killed_count > 0 {
-        println!("🎉 成功强制关闭了 {} 个 Steam 相关进程", killed_count);
+        log_info!("🎉 成功强制关闭了 {} 个 Steam 相关进程", killed_count);
     } else {
-        println!("ℹ️ 未找到运行的 Steam 进程");
+        log_info!("ℹ️ 未找到运行的 Steam 进程");
     }
     await_time().await;
     Ok(())

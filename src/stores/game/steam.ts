@@ -34,5 +34,5 @@ export const steamStore = defineStore("steam", {
             }
         }
     },
-    persist: true,
+    tauri: { autoStart: true },
 })

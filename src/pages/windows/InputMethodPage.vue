@@ -18,7 +18,7 @@ const items = ref<InputMethodItem[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 
-// 后端仅返回已添加的输入法（Preload），此处即当前列表
+// 后端仅返回已添加的输入法(Preload)，此处即当前列表
 const listItems = computed(() => items.value);
 
 async function load() {
@@ -78,7 +78,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-content page-content--medium">
+  <div class="page-content d-flex flex-column">
     <h2 class="text-h6 font-weight-medium mb-3" style="letter-spacing: -0.02em;">
       {{ t('inputMethod.title') }}
     </h2>

@@ -28,8 +28,6 @@ const ComponentTransition = createCssTransition('component-transition');
 <template>
   <div>
     <v-navigation-drawer permanent rail expand-on-hover :width="160" class="nav-drawer-primary">
-      <v-list class="py-2">
-      </v-list>
       <v-list density="compact" nav class="px-2">
         <v-list-item
           :prepend-avatar="profilePhoto"
@@ -53,15 +51,22 @@ const ComponentTransition = createCssTransition('component-transition');
           </template>
         </v-list-item>
       </v-list>
+
       <template v-slot:append>
-        <v-list-item
-          prepend-icon="mdi-cog"
-          @click="router.push('/settings')"
-          :title="$t('settings.title')"
-          rounded="lg"
-          class="mb-1"
-        />
-        <AppVersion />
+        <v-list density="compact" nav class="px-2">
+          <AppVersion class="nav-version" />
+          <v-list-item
+              prepend-icon="mdi-cog"
+              @click="router.push('/settings')"
+              :title="$t('settings.title')"
+              :active="includesRoute('/settings', route)"
+              rounded="lg"
+              class="mb-1 nav-tool-item"
+              active-class="nav-tool-item-active"
+              density="compact"
+              nav
+          />
+        </v-list>
       </template>
     </v-navigation-drawer>
     <v-navigation-drawer permanent v-if="activeTool && activeTool.children.length !== 0" :width="220" class="nav-drawer-secondary">
@@ -84,13 +89,19 @@ const ComponentTransition = createCssTransition('component-transition');
           <v-list-item
             :title="$t(item.nameKey)"
             :value="item.path"
-            :prepend-icon="item.icon"
+            :prepend-icon="item?.iconComponent ? undefined : item.icon"
             @click="router.push(item?.path ?? '/')"
             :active="includesRoute(item.path, route)"
             rounded="lg"
             class="mx-2 mb-1 nav-tool-item"
             active-class="nav-tool-item-active"
-          />
+          >
+            <template v-if="item?.iconComponent" v-slot:prepend>
+              <v-icon size="small">
+                <component :is="item?.iconComponent" :size="20" />
+              </v-icon>
+            </template>
+          </v-list-item>
         </template>
       </v-list>
     </v-navigation-drawer>
@@ -99,22 +110,32 @@ const ComponentTransition = createCssTransition('component-transition');
 <style lang="scss" scoped>
 .nav-drawer-primary :deep(.v-navigation-drawer__content) {
   background: rgb(var(--v-theme-surface));
-  border-right: 1px solid rgba(var(--v-border-color), 0.08);
+  border-right: 1px solid rgba(var(--v-border-color), 0.06);
 }
 .nav-drawer-secondary :deep(.v-navigation-drawer__content) {
   background: rgb(var(--v-theme-surface));
-  border-right: 1px solid rgba(var(--v-border-color), 0.08);
+  border-right: 1px solid rgba(var(--v-border-color), 0.06);
+}
+.nav-tool-item {
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .nav-tool-item :deep(.v-list-item__content) {
   font-weight: 500;
   letter-spacing: -0.01em;
 }
 .nav-tool-item-active {
-  background: rgba(var(--v-theme-primary), 0.12) !important;
+  background: rgba(var(--v-theme-primary), 0.1) !important;
   color: rgb(var(--v-theme-primary));
 }
 .cursor-pointer {
   cursor: pointer;
+}
+.nav-version {
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.45;
+  padding: 4px 0 2px;
+  color: var(--grey-darken-3);
 }
 </style>
 <style lang="scss">

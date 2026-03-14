@@ -2,10 +2,14 @@ mod backups;
 mod elevated;
 mod game;
 mod input_method;
+mod logger;
+mod stdio_tee;
 mod port_forwarding;
+mod rdp;
 mod registry;
 mod system;
 mod test;
+mod user;
 mod utils;
 
 use crate::backups::{
@@ -29,31 +33,46 @@ use crate::input_method::{get_input_methods, set_input_method_enabled, set_input
 use crate::registry::{
     get_all_common_folders, hide_common_folders, modify_windows_update_time, show_common_folders,
 };
+use crate::rdp::{
+    add_rdp_user, check_remote_port, connect_rdp, export_rdp_file, get_rdp_enabled, get_rdp_port,
+    get_rdp_users, load_rdp_connections, remove_rdp_user, save_rdp_connections, set_rdp_enabled,
+    set_rdp_port,
+};
+use crate::user::{
+    add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
+    rename_windows_user,
+};
+use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_log};
 use crate::system::system_info;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
-    println!("Hello {}!", name);
+    log_info!("Hello {}!", name);
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 #[tauri::command]
 fn open_devtools(window: tauri::WebviewWindow) {
-    // 这行代码会打开开发者工具窗口
-    println!("Opening devtools...");
+    log_info!("Opening devtools...");
     window.open_devtools();
-    // 如果希望关闭，可以使用 window.close_devtools();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logger::init_log_path();
     tauri::Builder::default()
+        .plugin(tauri_plugin_pinia::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            // 日志及调试控制台
             greet,
             open_devtools,
+            write_frontend_log,
+            get_logs_for_feedback,
+            get_log_folder_path,
             //Port Forwarding
             create_multiple_port_forwarding,
             del_port_forwarding,
@@ -98,6 +117,25 @@ pub fn run() {
             check_apex_miles_language,
             open_apex_audio_folder_path,
             open_apex_depot_download_folder_path,
+            //windows user
+            get_windows_users,
+            add_windows_user,
+            delete_windows_user,
+            modify_windows_user_password,
+            rename_windows_user,
+            //rdp
+            get_rdp_enabled,
+            set_rdp_enabled,
+            get_rdp_users,
+            add_rdp_user,
+            remove_rdp_user,
+            get_rdp_port,
+            set_rdp_port,
+            check_remote_port,
+            connect_rdp,
+            save_rdp_connections,
+            load_rdp_connections,
+            export_rdp_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

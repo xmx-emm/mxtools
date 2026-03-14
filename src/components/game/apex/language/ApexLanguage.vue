@@ -4,7 +4,7 @@ import {ApexCommonMilesLanguages, ApexUncommonMilesLanguages} from "@/data/apex_
 import {computed, ref} from "vue"
 import {SteamLaunchOptionsImpl} from "@/data/steam.ts"
 import {useI18n} from "vue-i18n"
-import {apexStore} from "@/stores/game/apex.ts"
+import apexStore from "@/stores/game/apex.ts"
 
 const {t} = useI18n()
 
@@ -62,15 +62,14 @@ function get_par(p: SteamLaunchOptionsImpl) {
   >
     {{ pi.name }}
   </v-btn>
-  <v-menu activator="#menu-activator" closeOnBack openOnClick openOnHover openDelay="150" closeDelay="100">
+  <v-menu closeOnBack :open-on-click="false" openOnHover openDelay="150" closeDelay="100">
     <template v-slot:activator="{ props }">
       <v-btn
-          id="menu-activator"
           color="primary"
           size="small"
           v-bind="props"
           :value="apex_store.settings_config.miles_language || 'menu value'"
-          @click.stop="change_language( apex_store.settings_config.miles_language || 'menu click.stop')"
+          @click.stop.prevent
       >
         {{ other_miles_language }}
       </v-btn>

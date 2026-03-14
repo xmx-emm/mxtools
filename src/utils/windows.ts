@@ -12,10 +12,12 @@ async function openWebWindow(route: string, options?: WindowOptions) {
         return;
     }
     const webview = new WebviewWindow(windowName, {
-        url: `#/${route}`, // 对应 Vue Router 的路径（Hash 模式加 #）
+        url: `#/${route}`, // 对应 Vue Router 的路径(Hash 模式加 #)
         title: title || route,
-        width: 600,
-        height: 400,
+        width: options?.width || (route === 'about' ? 750 : 600),
+        height: options?.height || (route === 'about' ? 600 : 400),
+        // decorations:false,
+        ...options,
     });
     await webview.once('tauri://created', (e) => {
         console.log(`${route}窗口创建成功`, e);
@@ -24,7 +26,10 @@ async function openWebWindow(route: string, options?: WindowOptions) {
         console.error(`${route}窗口创建失败：`, e);
     });
 }
-
+function  openAboutWindow() {
+    openWebWindow('about', {height: 600, title: '关于'}).then( () =>{})
+}
 export {
     openWebWindow,
+    openAboutWindow,
 }
