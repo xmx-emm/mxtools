@@ -151,10 +151,10 @@ const FPS = {
             description: "设置上限,将刷新率设定为整数",
             replace_numbers: true,
             identifier: "restriction_fps",
-            default_parameter: '+fps_max X',
+            default_parameter: '-freq X +fps_max X',
             requirement: ['-window', '-noborder'],
             requirement_description: "限制Fps只能在窗口或无边框模式下",
-            parameter: ["-freq X", "+fps_max X"]
+            parameter: "-freq X +fps_max X"
         }
     ],
     tip: ApexFpsTip,
