@@ -3,6 +3,7 @@ import {version} from '@/env.ts';
 import {ref} from "vue";
 import {invoke} from "@tauri-apps/api/core";
 
+// 上上下下左右左右baba
 const OPEN_DEV_KEY = 'ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightbaba'
 
 const timer = ref<any | null>(null);

@@ -1,3 +1,8 @@
+这里是萌新工具箱
+
+## Apex启动项部分参考
+[Source](https://developer.valvesoftware.com/wiki/Command_line_options) / [EA Help](https://help.ea.com/cn/help/apex-legends/apex-legends/how-to-show-fps/)
+
 # Build
 
 ```
