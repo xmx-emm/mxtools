@@ -226,8 +226,8 @@ watch(
                 </template>
                 <!--替换fps的X   应为 +fps_max X 或 +fps_max unlimited-->
                 <template v-else-if="item.identifier === 'fps' ">
-                  <template v-if="apex_store.settings_config[item.identifier] === '+fps_max X'">
-                    +fps_max {{ String(apex_store.fps) }}
+                  <template v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'">
+                    -freq {{ String(apex_store.fps) }} +fps_max {{ String(apex_store.fps) }}
                   </template>
                   <template v-else>
                     {{ apex_store.settings_config[item.identifier] }}
