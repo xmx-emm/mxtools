@@ -3,8 +3,10 @@
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {TauriEvent} from '@tauri-apps/api/event';
 import {computed, onMounted, onUnmounted, ref} from 'vue';
+import {useStateStore} from '@/stores/state.ts';
 
 const is_maximized = ref(false);
+const state = useStateStore();
 
 async function update_window_state() {
   try {
@@ -53,6 +55,12 @@ onUnmounted(() => {
 <template>
   <v-system-bar window data-tauri-drag-region="true" class="app-title-bar">
     <span class="title-bar-drag flex-grow-1" data-tauri-drag-region="true"></span>
+    <v-icon
+      v-if="state.is_elevated"
+      icon="mdi-security"
+      class="title-bar-btn"
+      title="Administrator"
+    />
     <v-icon icon="mdi-window-minimize" class="title-bar-btn" @click="minimize_window"/>
     <v-icon :icon="icon" class="title-bar-btn ms-1" @click="switch_window"/>
     <v-icon icon="mdi-window-close" class="title-bar-btn title-bar-btn-close ms-1" @click="close_window"/>

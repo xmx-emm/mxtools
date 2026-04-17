@@ -9,7 +9,6 @@ import {getCurrentWindow} from '@tauri-apps/api/window';
 
 const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
-const WelcomeView = () => import('./views/WelcomeView.vue');
 const SettingsView = () => import('./views/SettingsView.vue');
 const GamePage = () => import('./pages/GamePage.vue');
 const WindowsPage = () => import('./pages/WindowsPage.vue');
@@ -23,7 +22,7 @@ const PortForwardingPage = () => import('./pages/server/PortForwardingPage.vue')
 // const PubgPage = () => import('./pages/game/PubgPage.vue');
 
 /** 不参与「恢复上次页面」的路径名列表(不含 query/hash；与 `to.fullPath` 去掉参数字段后比较) */
-export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = ['/about', '/welcome', '/dashboard'];
+export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = ['/about',];
 
 export interface ToolChild {
   path: string;
@@ -96,12 +95,12 @@ const tools = [
 const routes = [
   {
     path: '/', component: HomeView,
-    redirect: import.meta.env.DEV ? '/dashboard' : '/welcome',
+    redirect: '/dashboard',
     children: [{ path: '/dashboard', component: DashboardView }, { path: '/settings', component: SettingsView },]
   },
-  { path: '/about', component: AboutView },
-  { path: '/welcome', component: WelcomeView },
   { path: '/tools', component: HomeView, redirect: '/game', children: tools, name: 'Tools' },
+
+  { path: '/about', component: AboutView },
 
   // 404
   { path: '/404', name: '404', component: Error404View, hidden: true, meta: { title: '404' } },
@@ -109,7 +108,6 @@ const routes = [
 ];
 
 const router = createRouter({
-  // history: createMemoryHistory(),
   history: createWebHashHistory(), // 使用hash模式
   routes,
 });
@@ -136,6 +134,9 @@ export function toolCategoryContainingPath(path: string): string | null {
 /** 若为某分类下的子工具页,返回该分类 path；分类根路径本身返回 null */
 export function toolCategoryForLeafChildPath(path: string): string | null {
   const normalized = path.split(/[?#]/)[0] ?? '';
+  if (!isValidNavigablePath(normalized)) {
+    return null;
+  }
   for (const t of tools) {
     if (normalized === t.path) {
       return null;
@@ -155,6 +156,16 @@ function isRestoreExcludedPath(fullPath: string): boolean {
   return RESTORE_LAST_ROUTE_EXCLUDED_PATHS.includes(path);
 }
 
+function isValidNavigablePath(path: string): boolean {
+  const normalized = path.split(/[?#]/)[0] ?? '';
+  if (!normalized) return false;
+  const resolved = router.resolve(normalized);
+  const lastMatched = resolved.matched[resolved.matched.length - 1];
+  if (!lastMatched) return false;
+  if (resolved.name === '404' || resolved.name === 'notFound') return false;
+  return lastMatched.path !== '/:pathMatch(.*)';
+}
+
 router.afterEach((to) => {
   const settings = useSettingsStore();
   if (settings.restoreLastRoute && !isRestoreExcludedPath(to.fullPath)) {
@@ -171,16 +182,25 @@ router.beforeEach((to, from, next) => {
   const settings = useSettingsStore();
   i18n.global.locale.value = resolveLocale(settings.locale);
 
+  console.log('router.beforeEach', settings.restoreLastRoute, settings.lastRoute, settings.locale);
+
   if (
     settings.restoreLastRoute &&
-    settings.lastRoute &&
-    !isRestoreExcludedPath(settings.lastRoute)
+    settings.lastRoute
   ) {
     const win = getCurrentWindow();
     if (win.label === 'main' && !isRestoreLastRoute) {
       isRestoreLastRoute = true;
-      next(settings.lastRoute);
-      return;
+      if (!isRestoreExcludedPath(settings.lastRoute) && isValidNavigablePath(settings.lastRoute)) {
+        next(settings.lastRoute);
+        return;
+      } else {
+        if (!isRestoreExcludedPath(settings.lastRoute)) {
+          settings.setLastRoute('/');
+        }
+        next('/');
+        return;
+      }
     }
   }
 
@@ -192,9 +212,14 @@ router.beforeEach((to, from, next) => {
     const toCat = toPath;
     if (fromCat !== toCat) {
       const saved = settings.lastToolCategoryChild[toCat];
-      if (saved) {
+      if (saved && isValidNavigablePath(saved)) {
         next({ path: saved, replace: true });
         return;
+      }
+      if (saved) {
+        const nextCategoryChild = {...settings.lastToolCategoryChild};
+        delete nextCategoryChild[toCat];
+        settings.lastToolCategoryChild = nextCategoryChild;
       }
     }
   }
