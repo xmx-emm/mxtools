@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
-import type { WindowsUser } from '@/type.ts';
+import {defineStore} from 'pinia';
+import {invoke} from '@tauri-apps/api/core';
+import type {WindowsUser} from '@/type.ts';
 
 export const useWindowsUserStore = defineStore('windowsUser', {
   state: () => ({

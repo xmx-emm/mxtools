@@ -3,7 +3,10 @@ import {isDarkStyle} from '@/utils/ui.ts';
 import {DEFAULT_ACCENT, findAccent, persistAccentHint} from '@/themes';
 
 function persistThemeHint(resolved: string) {
-  try { localStorage.setItem('mx-theme', resolved); } catch (_) { /* noop */ }
+  try {
+    localStorage.setItem('mx-theme', resolved);
+  } catch (_) { /* noop */
+  }
 }
 
 export const uiStyleStore = defineStore('uiStyle', {

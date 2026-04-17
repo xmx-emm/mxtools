@@ -1,7 +1,8 @@
 <script setup>
 import TestView from '@/views/TestView.vue';
-import {openUrl} from "@tauri-apps/plugin-opener";
-import {openWebWindow} from "@/utils/windows.ts";
+import {openUrl} from '@tauri-apps/plugin-opener';
+import {openWebWindow} from '@/utils/windows.ts';
+import ZoomableImage from '@/components/common/ZoomableImage.vue';
 </script>
 <template>
   <div>
@@ -14,6 +15,7 @@ import {openWebWindow} from "@/utils/windows.ts";
       </template>
     </v-tooltip>
     <v-btn @click="openWebWindow('about','关于页面')">waa</v-btn>
+    <ZoomableImage src="https://picsum.photos/seed/picsum/1024/512"/>
   </div>
 </template>
 <style>

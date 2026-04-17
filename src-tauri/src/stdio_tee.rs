@@ -1,22 +1,21 @@
-//! Windows 下重定向 stdout/stderr，使 println!/eprintln! 同时输出到控制台并写入日志文件
+//! Windows 下重定向 stdout/stderr,使 println!/eprintln! 同时输出到控制台并写入日志文件
 
 #[cfg(windows)]
 mod imp {
-    use std::fs::File;
-    use std::io::{Read, Write};
-    use std::os::windows::io::{FromRawHandle, RawHandle};
-    use std::path::PathBuf;
-    use std::sync::Mutex;
-    use std::thread;
+  use std::fs::File;
+  use std::io::{Read, Write};
+  use std::os::windows::io::{FromRawHandle, RawHandle};
+  use std::sync::Mutex;
+  use std::thread;
 
-    use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-    use winapi::um::namedpipeapi::CreatePipe;
-    use winapi::um::processenv::{GetStdHandle, SetStdHandle};
-    use winapi::um::winbase::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE};
+  use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+  use winapi::um::namedpipeapi::CreatePipe;
+  use winapi::um::processenv::{GetStdHandle, SetStdHandle};
+  use winapi::um::winbase::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE};
 
-    static TEE_INITIALIZED: Mutex<bool> = Mutex::new(false);
+  static TEE_INITIALIZED: Mutex<bool> = Mutex::new(false);
 
-    /// 是否已启用 stdio 重定向（用于避免 log 宏重复写文件）
+    /// 是否已启用 stdio 重定向(用于避免 log 宏重复写文件)
     pub fn is_active() -> bool {
         *TEE_INITIALIZED.lock().unwrap()
     }
@@ -27,13 +26,15 @@ mod imp {
 
     type TruncateFn = fn(&std::path::Path);
 
-    /// 从 pipe 读取并写入控制台和文件
-    fn tee_thread(
+    /// 从 pipe 读取并写入控制台和文件(每次写入前通过 `get_path` 解析路径,以支持按日轮转)
+    fn tee_thread<F>(
         mut pipe_read: File,
         mut console_write: File,
-        log_path: PathBuf,
+        get_path: std::sync::Arc<F>,
         maybe_truncate: TruncateFn,
-    ) {
+    ) where
+        F: Fn() -> std::path::PathBuf + Send + Sync + 'static,
+    {
         let mut buf = [0u8; 4096];
         loop {
             match pipe_read.read(&mut buf) {
@@ -42,6 +43,7 @@ mod imp {
                     let data = &buf[..n];
                     let _ = console_write.write_all(data);
                     let _ = console_write.flush();
+                    let log_path = get_path();
                     maybe_truncate(&log_path);
                     if let Ok(mut file) = std::fs::OpenOptions::new()
                         .create(true)
@@ -57,8 +59,11 @@ mod imp {
         }
     }
 
-    /// 初始化 stdio 重定向：所有 println!/eprintln! 将同时输出到控制台并追加到 backend.log
-    pub fn init(log_path: PathBuf, maybe_truncate: TruncateFn) {
+    /// 初始化 stdio 重定向：所有 println!/eprintln! 将同时输出到控制台并追加到 backend 日志文件
+    pub fn init<F>(get_path: std::sync::Arc<F>, maybe_truncate: TruncateFn)
+    where
+        F: Fn() -> std::path::PathBuf + Send + Sync + 'static,
+    {
         let mut guard = TEE_INITIALIZED.lock().unwrap();
         if *guard {
             return;
@@ -74,8 +79,10 @@ mod imp {
                     if SetStdHandle(STD_OUTPUT_HANDLE, h_write) != 0 {
                         let pipe_read = File::from_raw_handle(h_read as RawHandle);
                         let console_write = File::from_raw_handle(h_stdout as RawHandle);
-                        let path = log_path.clone();
-                        thread::spawn(move || tee_thread(pipe_read, console_write, path, maybe_truncate));
+                        let gp = get_path.clone();
+                        thread::spawn(move || {
+                            tee_thread(pipe_read, console_write, gp, maybe_truncate)
+                        });
                     }
                 }
             }
@@ -89,8 +96,10 @@ mod imp {
                     if SetStdHandle(STD_ERROR_HANDLE, h_write) != 0 {
                         let pipe_read = File::from_raw_handle(h_read as RawHandle);
                         let console_write = File::from_raw_handle(h_stderr as RawHandle);
-                        let path = log_path;
-                        thread::spawn(move || tee_thread(pipe_read, console_write, path, maybe_truncate));
+                        let gp = get_path.clone();
+                        thread::spawn(move || {
+                            tee_thread(pipe_read, console_write, gp, maybe_truncate)
+                        });
                     }
                 }
             }
@@ -102,9 +111,10 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
-    use std::path::PathBuf;
-
-    pub fn init(_log_path: PathBuf, _maybe_truncate: impl FnMut(&std::path::Path) + Send + 'static) {
+  pub fn init<F>(_get_path: std::sync::Arc<F>, _maybe_truncate: fn(&std::path::Path))
+  where
+    F: Fn() -> std::path::PathBuf + Send + Sync + 'static,
+  {
         // 非 Windows 平台暂不实现
     }
 }

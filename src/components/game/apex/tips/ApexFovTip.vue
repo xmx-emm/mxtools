@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-import {APEX_FOV_110_IMG_URL, APEX_FOV_120_IMG_URL} from "@/data/imgloc.ts";
-import ApexImage from "@/components/game/apex/common/tips/ApexImage.vue";
-import ApexTipCard from "@/components/game/apex/common/tips/ApexTipCard.vue";
+import {useI18n} from 'vue-i18n';
+import {APEX_FOV_110_IMG_URL, APEX_FOV_120_IMG_URL} from '@/data/imgloc.ts';
+import ApexImage from '@/components/game/apex/common/tips/ApexImage.vue';
+import ApexTipCard from '@/components/game/apex/common/tips/ApexTipCard.vue';
 
 const { t } = useI18n();
 </script>
@@ -17,7 +17,6 @@ const { t } = useI18n();
       </div>
     </template>
     <template v-slot:default>
-      <v-container>
         <v-row>
           <v-col>
             <ApexImage :src="APEX_FOV_110_IMG_URL" alt="fov 110"/>
@@ -28,7 +27,6 @@ const { t } = useI18n();
             {{ t('apexTips.fov.label120') }}
           </v-col>
         </v-row>
-      </v-container>
     </template>
   </ApexTipCard>
 </template>

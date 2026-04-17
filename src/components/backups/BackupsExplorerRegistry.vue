@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useStateStore } from '@/stores/state.ts';
-import { useToast } from 'vue-toastification';
+import {useI18n} from 'vue-i18n';
+import {onMounted, ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useStateStore} from '@/stores/state.ts';
+import {useToast} from 'vue-toastification';
 import OpenBackupsExplorerRegistryToast from '@/components/toast/OpenBackupsExplorerRegistryToast.vue';
-import { openPath } from '@tauri-apps/plugin-opener';
+import {openPath} from '@tauri-apps/plugin-opener';
 
 const { t } = useI18n();
 const state = useStateStore();

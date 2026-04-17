@@ -1,9 +1,11 @@
 <script setup lang="ts">
 
-import {useToast} from "vue-toastification";
-import {POSITION} from "vue-toastification/src/ts/constants.ts";
-import apexStore from "@/stores/game/apex.ts";
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {POSITION} from 'vue-toastification/src/ts/constants.ts';
+import apexStore from '@/stores/game/apex.ts';
 
+const { t } = useI18n();
 const apex_state = apexStore();
 const toast = useToast();
 
@@ -25,9 +27,10 @@ async function copyToClipboard(text: string) {
 
 <template>
   <v-btn
-      icon="mdi-apple-keyboard-option"
-      @click="copyToClipboard(apex_state.launch_options)"
-      :title="apex_state.launch_options"/>
+    prepend-icon="mdi-apple-keyboard-option"
+    @click="copyToClipboard(apex_state.launch_options)"
+    :title="apex_state.launch_options"
+  >{{ t('common.copyLaunchOptions') }}</v-btn>
 </template>
 
 <style scoped>

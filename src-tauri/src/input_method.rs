@@ -1,7 +1,7 @@
 //! Windows input method (keyboard layout) order and enable/disable via registry.
 //! Preload: HKEY_CURRENT_USER\Keyboard Layout\Preload (values "1","2",... = layout id)
 //! Layout names: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\{id}
-//! CTF (Win10+): AssemblyItem 含各 IME(微软拼音、五笔等)，TIP\LanguageProfile 含显示名
+//! CTF (Win10+): AssemblyItem 含各 IME(微软拼音、五笔等),TIP\LanguageProfile 含显示名
 
 #[tauri::command]
 #[cfg(not(windows))]
@@ -58,16 +58,19 @@ fn reg_value_to_string(value: &winreg::RegValue) -> Option<String> {
     if value.bytes.is_empty() {
         return None;
     }
-    // REG_DWORD: 4 字节，转为 8 位十六进制字符串(如 0x0804 -> "00000804")
+    // REG_DWORD: 4 字节,转为 8 位十六进制字符串(如 0x0804 -> "00000804")
     if value.vtype == RegType::REG_DWORD && value.bytes.len() >= 4 {
-        let v = u32::from_le_bytes([value.bytes[0], value.bytes[1], value.bytes[2], value.bytes[3]]);
+        let v = u32::from_le_bytes([
+            value.bytes[0],
+            value.bytes[1],
+            value.bytes[2],
+            value.bytes[3],
+        ]);
         return Some(format!("{:08X}", v));
     }
     // REG_SZ / REG_EXPAND_SZ / REG_MULTI_SZ: UTF-16LE(与 winreg 一致：仅去除末尾 \0)
     let u16_len = value.bytes.len() / 2;
-    let words = unsafe {
-        std::slice::from_raw_parts(value.bytes.as_ptr() as *const u16, u16_len)
-    };
+    let words = unsafe { std::slice::from_raw_parts(value.bytes.as_ptr() as *const u16, u16_len) };
     let mut s = String::from_utf16_lossy(words);
     while s.ends_with('\u{0}') {
         s.pop();
@@ -102,8 +105,16 @@ fn get_tip_profile_name(clsid: &str, lang_id: &str, profile: &str) -> Option<Str
     use winreg::RegKey;
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let clsid_br = if clsid.starts_with('{') { clsid.to_string() } else { format!("{{{}}}", clsid) };
-    let profile_br = if profile.starts_with('{') { profile.to_string() } else { format!("{{{}}}", profile) };
+    let clsid_br = if clsid.starts_with('{') {
+        clsid.to_string()
+    } else {
+        format!("{{{}}}", clsid)
+    };
+    let profile_br = if profile.starts_with('{') {
+        profile.to_string()
+    } else {
+        format!("{{{}}}", profile)
+    };
     let path = format!(
         "{}\\{}\\LanguageProfile\\0x{}\\{}",
         CTF_TIP_PATH, clsid_br, lang_id, profile_br
@@ -129,7 +140,6 @@ fn get_ctf_language_order(hkcu: &winreg::RegKey) -> Vec<String> {
     order.into_iter().map(|(_, id)| id).collect()
 }
 
-
 #[tauri::command]
 pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
     use winreg::enums::HKEY_CURRENT_USER;
@@ -151,7 +161,7 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
         }
     }
 
-    // Win10/11: Preload 可能为空，回退到 CTF(Language 含美式键盘，AssemblyItem 含微软拼音、五笔等)
+    // Win10/11: Preload 可能为空,回退到 CTF(Language 含美式键盘,AssemblyItem 含微软拼音、五笔等)
     if order_to_id.is_empty() {
         if let Ok(assembly_item) = hkcu.open_subkey(CTF_ASSEMBLY_ITEM_PATH) {
             let lang_order = get_ctf_language_order(&hkcu);
@@ -175,11 +185,28 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
                                     let mut layout_val = None;
                                     for (n, val) in item_key.enum_values().filter_map(|x| x.ok()) {
                                         match n.as_str() {
-                                            "CLSID" => clsid = reg_value_to_string(&val).map(|s| s.trim_matches('{').trim_matches('}').to_uppercase()),
-                                            "Profile" => profile = reg_value_to_string(&val).map(|s| s.trim_matches('{').trim_matches('}').to_uppercase()),
+                                            "CLSID" => {
+                                                clsid = reg_value_to_string(&val).map(|s| {
+                                                    s.trim_matches('{')
+                                                        .trim_matches('}')
+                                                        .to_uppercase()
+                                                })
+                                            }
+                                            "Profile" => {
+                                                profile = reg_value_to_string(&val).map(|s| {
+                                                    s.trim_matches('{')
+                                                        .trim_matches('}')
+                                                        .to_uppercase()
+                                                })
+                                            }
                                             "KeyboardLayout" => {
                                                 if val.bytes.len() >= 4 {
-                                                    layout_val = Some(u32::from_le_bytes([val.bytes[0], val.bytes[1], val.bytes[2], val.bytes[3]]));
+                                                    layout_val = Some(u32::from_le_bytes([
+                                                        val.bytes[0],
+                                                        val.bytes[1],
+                                                        val.bytes[2],
+                                                        val.bytes[3],
+                                                    ]));
                                                 }
                                             }
                                             _ => {}
@@ -188,7 +215,13 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
                                     let (id, name) = if let (Some(c), Some(p)) = (clsid, profile) {
                                         #[cfg(test)]
                                         if c.len() < 30 {
-                                            eprintln!("DEBUG c.len={} c={:?} p.len={} p={:?}", c.len(), c, p.len(), p);
+                                            eprintln!(
+                                                "DEBUG c.len={} c={:?} p.len={} p={:?}",
+                                                c.len(),
+                                                c,
+                                                p.len(),
+                                                p
+                                            );
                                         }
                                         let tip_id = format!("TIP:{}:{}", c, p);
                                         let n = get_tip_profile_name(&c, &lang_id, &p)
@@ -223,7 +256,7 @@ pub fn get_input_methods() -> Result<Vec<InputMethodItem>, String> {
                 .collect();
             return Ok(result);
         }
-        // AssemblyItem 也不存在时，最后尝试 Language
+        // AssemblyItem 也不存在时,最后尝试 Language
         if let Ok(ctf) = hkcu.open_subkey(CTF_LANGUAGE_PATH) {
             for (name, value) in ctf.enum_values().filter_map(|v| v.ok()) {
                 let order: u32 = name.parse().unwrap_or(0);
@@ -260,11 +293,17 @@ pub fn set_input_method_order(ids: Vec<String>) -> Result<(), String> {
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let preload = hkcu
-        .open_subkey_with_flags(PRELOAD_PATH, winreg::enums::KEY_READ | winreg::enums::KEY_WRITE)
+        .open_subkey_with_flags(
+            PRELOAD_PATH,
+            winreg::enums::KEY_READ | winreg::enums::KEY_WRITE,
+        )
         .map_err(|e| format!("Open Preload for write failed: {}", e))?;
 
     // Delete existing values then write new order
-    let names: Vec<String> = preload.enum_values().filter_map(|v| v.ok().map(|(n, _)| n)).collect();
+    let names: Vec<String> = preload
+        .enum_values()
+        .filter_map(|v| v.ok().map(|(n, _)| n))
+        .collect();
     for name in names {
         let _ = preload.delete_value(&name);
     }
@@ -283,7 +322,11 @@ pub fn set_input_method_order(ids: Vec<String>) -> Result<(), String> {
 pub fn set_input_method_enabled(id: String, enabled: bool) -> Result<(), String> {
     let id = normalize_layout_id(&id);
     let items = get_input_methods()?;
-    let ids_enabled: Vec<String> = items.iter().filter(|x| x.enabled).map(|x| x.id.clone()).collect();
+    let ids_enabled: Vec<String> = items
+        .iter()
+        .filter(|x| x.enabled)
+        .map(|x| x.id.clone())
+        .collect();
     let mut new_order: Vec<String> = ids_enabled.into_iter().filter(|x| *x != id).collect();
     if enabled {
         if !new_order.contains(&id) {

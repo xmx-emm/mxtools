@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
-import { useRdpStore } from '@/stores/rdp.ts';
-import type { RdpConnection } from '@/type.ts';
-import { save } from '@tauri-apps/plugin-dialog';
+import {onMounted, ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {useRdpStore} from '@/stores/rdp.ts';
+import type {RdpConnection} from '@/type.ts';
+import {save} from '@tauri-apps/plugin-dialog';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -103,7 +103,7 @@ onMounted(() => {
           :subtitle="`${conn.ip}:${conn.port}${conn.username ? ' (' + conn.username + ')' : ''}`"
         >
           <template v-slot:prepend>
-            <v-icon icon="mdi-monitor" />
+            <v-icon icon="mdi-monitor"/>
           </template>
           <template v-slot:append>
             <v-btn
@@ -115,9 +115,12 @@ onMounted(() => {
               @click="connectTo(conn, index)"
               :title="t('rdp.connect.connect')"
             />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(index)" :title="t('rdp.connect.edit')" />
-            <v-btn icon="mdi-export" size="small" variant="text" @click="exportRdp(conn)" :title="t('rdp.connect.export')" />
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="deleteConnection(index)" :title="t('rdp.connect.delete')" />
+            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(index)"
+                   :title="t('rdp.connect.edit')"/>
+            <v-btn icon="mdi-export" size="small" variant="text" @click="exportRdp(conn)"
+                   :title="t('rdp.connect.export')"/>
+            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="deleteConnection(index)"
+                   :title="t('rdp.connect.delete')"/>
           </template>
         </v-list-item>
       </v-list>
@@ -135,19 +138,22 @@ onMounted(() => {
     <v-dialog v-model="showAddDialog" max-width="460">
       <v-card :title="t('rdp.connect.addTitle')">
         <v-card-text>
-          <v-text-field v-model="form.name" :label="t('rdp.connect.connName')" variant="outlined" density="compact" class="mb-2" />
+          <v-text-field v-model="form.name" :label="t('rdp.connect.connName')" variant="outlined" density="compact"
+                        class="mb-2"/>
           <v-row dense>
             <v-col cols="8">
-              <v-text-field v-model="form.ip" label="IP" variant="outlined" density="compact" placeholder="192.168.1.100" />
+              <v-text-field v-model="form.ip" label="IP" variant="outlined" density="compact"
+                            placeholder="192.168.1.100"/>
             </v-col>
             <v-col cols="4">
-              <v-text-field v-model.number="form.port" :label="t('rdp.port.label')" variant="outlined" density="compact" type="number" />
+              <v-text-field v-model.number="form.port" :label="t('rdp.port.label')" variant="outlined" density="compact"
+                            type="number"/>
             </v-col>
           </v-row>
-          <v-text-field v-model="form.username" :label="t('rdp.user.username')" variant="outlined" density="compact" />
+          <v-text-field v-model="form.username" :label="t('rdp.user.username')" variant="outlined" density="compact"/>
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" @click="addConnection">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
@@ -158,19 +164,21 @@ onMounted(() => {
     <v-dialog v-model="showEditDialog" max-width="460">
       <v-card :title="t('rdp.connect.editTitle')">
         <v-card-text>
-          <v-text-field v-model="form.name" :label="t('rdp.connect.connName')" variant="outlined" density="compact" class="mb-2" />
+          <v-text-field v-model="form.name" :label="t('rdp.connect.connName')" variant="outlined" density="compact"
+                        class="mb-2"/>
           <v-row dense>
             <v-col cols="8">
-              <v-text-field v-model="form.ip" label="IP" variant="outlined" density="compact" />
+              <v-text-field v-model="form.ip" label="IP" variant="outlined" density="compact"/>
             </v-col>
             <v-col cols="4">
-              <v-text-field v-model.number="form.port" :label="t('rdp.port.label')" variant="outlined" density="compact" type="number" />
+              <v-text-field v-model.number="form.port" :label="t('rdp.port.label')" variant="outlined" density="compact"
+                            type="number"/>
             </v-col>
           </v-row>
-          <v-text-field v-model="form.username" :label="t('rdp.user.username')" variant="outlined" density="compact" />
+          <v-text-field v-model="form.username" :label="t('rdp.user.username')" variant="outlined" density="compact"/>
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showEditDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" @click="saveEdit">{{ t('common.save') }}</v-btn>
         </v-card-actions>

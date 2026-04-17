@@ -1,13 +1,13 @@
 import i18n from '@/i18n/i18n';
-import { useSettingsStore } from '@/stores/settings';
-import { resolveLocale } from '@/utils/locale';
+import {useSettingsStore} from '@/stores/settings';
+import {resolveLocale} from '@/utils/locale';
 import {
   isRegistered as isShortcutRegistered,
   register as registerGlobalShortcut,
   unregister as unregisterGlobalShortcut,
 } from '@tauri-apps/plugin-global-shortcut';
 
-const TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+L';
+const TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Z';
 
 function toggleLocale() {
   const settings = useSettingsStore();
