@@ -1,83 +1,81 @@
 
 .not_scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge /
-   scrollbar-width: none; / Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge /
+ scrollbar-width: none; / Firefox */
 }
 
 .not_select {
-    -moz-user-select: none; /* Firefox私有属性 */
-    -webkit-user-select: none; /* WebKit内核私有属性 */
-    -ms-user-select: none; /* IE私有属性(IE10及以后) */
-    -khtml-user-select: none; /* KHTML内核私有属性 */
-    -o-user-select: none; /* Opera私有属性 */
-    user-select: none; /* CSS3属性 */
+  -moz-user-select: none; /* Firefox私有属性 */
+  -webkit-user-select: none; /* WebKit内核私有属性 */
+  -ms-user-select: none; /* IE私有属性(IE10及以后) */
+  -khtml-user-select: none; /* KHTML内核私有属性 */
+  -o-user-select: none; /* Opera私有属性 */
+  user-select: none; /* CSS3属性 */
 }
 
 .use_select {
-    -moz-user-select: auto; /* Firefox私有属性 */
-    -webkit-user-select: auto; /* WebKit内核私有属性 */
-    -ms-user-select: auto; /* IE私有属性(IE10及以后) */
-    -khtml-user-select: auto; /* KHTML内核私有属性 */
-    -o-user-select: auto; /* Opera私有属性 */
-    user-select: auto; /* CSS3属性 */
+  -moz-user-select: auto; /* Firefox私有属性 */
+  -webkit-user-select: auto; /* WebKit内核私有属性 */
+  -ms-user-select: auto; /* IE私有属性(IE10及以后) */
+  -khtml-user-select: auto; /* KHTML内核私有属性 */
+  -o-user-select: auto; /* Opera私有属性 */
+  user-select: auto; /* CSS3属性 */
 }
 
 /* This was made with GlassGenerator.netlify.app */
 .glass-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  backdrop-filter: blur(3px);
 }
 
 .warning-red-text-edge-animate {
-    animation: warning-red-text-edge-pulse 1.8s ease-in-out infinite;
+  animation: warning-red-text-edge-pulse 1.8s ease-in-out infinite;
 }
 
 .warning-red-text-edge-animate:is(.v-btn, .v-card),
 .warning-red-text-edge-animate :is(.v-btn__content, .v-card-title, .v-card-subtitle, .v-card-text) {
-        color: rgba(var(--v-theme-error), 1) !important;
-    animation: warning-red-text-edge-pulse 1.8s ease-in-out infinite;
+  color: rgba(var(--v-theme-error), 1) !important;
+  animation: warning-red-text-edge-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes warning-red-text-edge-pulse {
-    0%,
-    100% {
-        color: rgba(var(--v-theme-error), 0.72);
-        text-shadow: 0 0 0 rgba(var(--v-theme-error), 0);
-    }
-    50% {
-        color: rgba(var(--v-theme-error), 1);
-        text-shadow:
-                0 0 10px rgba(var(--v-theme-error), 0.75),
-                0 0 20px rgba(var(--v-theme-error), 0.5),
-                0 0 32px rgba(var(--v-theme-error), 0.32);
-    }
+  0%,
+  100% {
+    color: rgba(var(--v-theme-error), 0.72);
+    text-shadow: 0 0 0 rgba(var(--v-theme-error), 0);
+  }
+  50% {
+    color: rgba(var(--v-theme-error), 1);
+    text-shadow: 0 0 10px rgba(var(--v-theme-error), 0.75),
+    0 0 20px rgba(var(--v-theme-error), 0.5),
+    0 0 32px rgba(var(--v-theme-error), 0.32);
+  }
 }
 
 .success-green-text-edge-animate {
-    animation: success-green-text-edge-pulse 1.8s ease-in-out infinite;
+  animation: success-green-text-edge-pulse 1.8s ease-in-out infinite;
 }
 
 .success-green-text-edge-animate:is(.v-btn, .v-card),
 .success-green-text-edge-animate :is(.v-btn__content, .v-card-title, .v-card-subtitle, .v-card-text) {
-    color: rgba(var(--v-theme-success), 1) !important;
-    animation: success-green-text-edge-pulse 1.8s ease-in-out infinite;
+  color: rgba(var(--v-theme-success), 1) !important;
+  animation: success-green-text-edge-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes success-green-text-edge-pulse {
-    0%,
-    100% {
-        color: rgba(var(--v-theme-success), 0.72);
-        text-shadow: 0 0 0 rgba(var(--v-theme-success), 0);
-    }
-    50% {
-        color: rgba(var(--v-theme-success), 1);
-        text-shadow:
-                0 0 10px rgba(var(--v-theme-success), 0.75),
-                0 0 20px rgba(var(--v-theme-success), 0.5),
-                0 0 32px rgba(var(--v-theme-success), 0.32);
-    }
+  0%,
+  100% {
+    color: rgba(var(--v-theme-success), 0.72);
+    text-shadow: 0 0 0 rgba(var(--v-theme-success), 0);
+  }
+  50% {
+    color: rgba(var(--v-theme-success), 1);
+    text-shadow: 0 0 10px rgba(var(--v-theme-success), 0.75),
+    0 0 20px rgba(var(--v-theme-success), 0.5),
+    0 0 32px rgba(var(--v-theme-success), 0.32);
+  }
 }

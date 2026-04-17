@@ -48,10 +48,21 @@ export default defineConfig(async () => ({
     },
     build: {
         rollupOptions: {
+            onwarn(warning, warn) {
+                if (
+                    warning.code === 'IMPORT_IS_UNDEFINED' &&
+                    warning.message?.includes('currentInstance') &&
+                    warning.id?.includes('vue-i18n')
+                ) {
+                    return;
+                }
+                warn(warning);
+            },
             output: {
-                manualChunks: {
-                    'vendor': ['vue', 'vue-router', 'vue-i18n'],
-                    'vuetify': ['vuetify'],
+                manualChunks(id) {
+                    if (!id.includes('node_modules')) return;
+                    if (id.includes('vuetify')) return 'vuetify';
+                    return 'vendor';
                 },
             },
         },

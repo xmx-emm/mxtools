@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api/core';
-import { onMounted, ref, computed } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
+import {invoke} from '@tauri-apps/api/core';
+import {computed, onMounted, ref} from 'vue';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
 
 const { t } = useI18n();
 
@@ -18,7 +18,7 @@ const items = ref<InputMethodItem[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 
-// 后端仅返回已添加的输入法(Preload)，此处即当前列表
+// 后端仅返回已添加的输入法(Preload),此处即当前列表
 const listItems = computed(() => items.value);
 
 async function load() {
@@ -94,7 +94,7 @@ onMounted(() => {
         {{ t('inputMethod.cardSubtitle') }}
       </v-card-subtitle>
       <v-card-text>
-        <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3" />
+        <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3"/>
         <div v-else class="enabled-list">
           <div
             v-for="(item, index) in listItems"
@@ -153,9 +153,11 @@ onMounted(() => {
   border: 1px solid rgba(var(--v-border-color), 0.08);
   border-radius: 12px;
 }
+
 .list-row {
   background: rgba(var(--v-theme-surface), 0.3);
 }
+
 .order-num {
   min-width: 1.5rem;
 }

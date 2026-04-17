@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
-import type { RdpConnection } from '@/type.ts';
-import { useWindowsUserStore } from '@/stores/windows_user.ts';
+import {defineStore} from 'pinia';
+import {invoke} from '@tauri-apps/api/core';
+import type {RdpConnection} from '@/type.ts';
+import {useWindowsUserStore} from '@/stores/windows_user.ts';
 
 export const useRdpStore = defineStore('rdp', {
   state: () => ({

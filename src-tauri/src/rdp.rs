@@ -19,7 +19,10 @@ fn connections_file_path() -> Result<String, String> {
     if !dir.exists() {
         std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
     }
-    Ok(dir.join("rdp_connections.json").to_string_lossy().to_string())
+    Ok(dir
+        .join("rdp_connections.json")
+        .to_string_lossy()
+        .to_string())
 }
 
 // ==================== RDP 状态与用户 ====================
@@ -42,9 +45,28 @@ pub fn set_rdp_enabled(enabled: bool) -> Result<(), String> {
     run_powershell(&script)?;
 
     if enabled {
-        run_cmd(&["netsh", "advfirewall", "firewall", "set", "rule", "group=remote desktop", "new", "enable=yes"])?;
+        run_cmd(&[
+            "netsh",
+            "advfirewall",
+            "firewall",
+            "set",
+            "rule",
+            "group=remote desktop",
+            "new",
+            "enable=yes",
+        ])?;
     } else {
-        run_cmd(&["netsh", "advfirewall", "firewall", "set", "rule", "group=remote desktop", "new", "enable=no"]).ok();
+        run_cmd(&[
+            "netsh",
+            "advfirewall",
+            "firewall",
+            "set",
+            "rule",
+            "group=remote desktop",
+            "new",
+            "enable=no",
+        ])
+        .ok();
     }
 
     Ok(())
@@ -58,13 +80,25 @@ pub fn get_rdp_users() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub fn add_rdp_user(username: String) -> Result<(), String> {
-    run_cmd(&["net", "localgroup", "Remote Desktop Users", &username, "/add"])?;
+    run_cmd(&[
+        "net",
+        "localgroup",
+        "Remote Desktop Users",
+        &username,
+        "/add",
+    ])?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn remove_rdp_user(username: String) -> Result<(), String> {
-    run_cmd(&["net", "localgroup", "Remote Desktop Users", &username, "/delete"])?;
+    run_cmd(&[
+        "net",
+        "localgroup",
+        "Remote Desktop Users",
+        &username,
+        "/delete",
+    ])?;
     Ok(())
 }
 

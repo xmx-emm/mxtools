@@ -1,4 +1,8 @@
 
 .error_color {
-    color: palevioletred;
+  color: palevioletred;
+}
+
+.apex_image_heigh{
+  height: 350px;
 }

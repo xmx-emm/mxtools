@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed} from "vue";
+import {computed} from 'vue';
 
 const props = withDefaults(defineProps<{
   modelValue: number | string
@@ -9,27 +9,27 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  (event: "update:modelValue", value: number): void
+  (event: 'update:modelValue', value: number): void
 }>();
 
 const value_proxy = computed({
   get: () => props.modelValue,
   set: (value: number | string) => {
-    emit("update:modelValue", Number(value));
+    emit('update:modelValue', Number(value));
   }
 });
 </script>
 
 <template>
   <input
-      v-model.number="value_proxy"
-      type="number"
-      :step="step"
-      class="apex_number_input"
-      @click.stop=""
-      @mousedown.stop=""
-      @mouseup.stop=""
-      @pointerdown.stop=""
+    v-model.number="value_proxy"
+    type="number"
+    :step="step"
+    class="apex_number_input"
+    @click.stop=""
+    @mousedown.stop=""
+    @mouseup.stop=""
+    @pointerdown.stop=""
   />
 </template>
 

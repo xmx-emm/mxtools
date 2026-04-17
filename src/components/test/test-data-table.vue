@@ -69,7 +69,8 @@
           </v-col>
 
           <v-col cols="12" md="6">
-            <v-select v-model="formModel.genre" :items="['Fiction', 'Dystopian', 'Non-Fiction', 'Sci-Fi']" label="Genre"></v-select>
+            <v-select v-model="formModel.genre" :items="['Fiction', 'Dystopian', 'Non-Fiction', 'Sci-Fi']"
+                      label="Genre"></v-select>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -95,45 +96,45 @@
   </v-dialog>
 </template>
 <script setup>
-import { onMounted, ref, shallowRef, toRef } from 'vue'
+import {onMounted, ref, shallowRef, toRef} from 'vue';
 
-const currentYear = new Date().getFullYear()
+const currentYear = new Date().getFullYear();
 
-function createNewRecord () {
+function createNewRecord() {
   return {
     title: '',
     author: '',
     genre: '',
     year: currentYear,
     pages: 1,
-  }
+  };
 }
 
-const books = ref([])
-const formModel = ref(createNewRecord())
-const dialog = shallowRef(false)
-const isEditing = toRef(() => !!formModel.value.id)
+const books = ref([]);
+const formModel = ref(createNewRecord());
+const dialog = shallowRef(false);
+const isEditing = toRef(() => !!formModel.value.id);
 
 const headers = [
-  { title: 'Title', key: 'title', align: 'start' },
-  { title: 'Author', key: 'author' },
-  { title: 'Genre', key: 'genre' },
-  { title: 'Year', key: 'year', align: 'end' },
-  { title: 'Pages', key: 'pages', align: 'end' },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-]
+  {title: 'Title', key: 'title', align: 'start'},
+  {title: 'Author', key: 'author'},
+  {title: 'Genre', key: 'genre'},
+  {title: 'Year', key: 'year', align: 'end'},
+  {title: 'Pages', key: 'pages', align: 'end'},
+  {title: 'Actions', key: 'actions', align: 'end', sortable: false},
+];
 
 onMounted(() => {
-  reset()
-})
+  reset();
+});
 
-function add () {
-  formModel.value = createNewRecord()
-  dialog.value = true
+function add() {
+  formModel.value = createNewRecord();
+  dialog.value = true;
 }
 
-function edit (id) {
-  const found = books.value.find(book => book.id === id)
+function edit(id) {
+  const found = books.value.find(book => book.id === id);
 
   formModel.value = {
     id: found.id,
@@ -142,37 +143,37 @@ function edit (id) {
     genre: found.genre,
     year: found.year,
     pages: found.pages,
-  }
+  };
 
-  dialog.value = true
+  dialog.value = true;
 }
 
-function remove (id) {
-  const index = books.value.findIndex(book => book.id === id)
-  books.value.splice(index, 1)
+function remove(id) {
+  const index = books.value.findIndex(book => book.id === id);
+  books.value.splice(index, 1);
 }
 
-function save () {
+function save() {
   if (isEditing.value) {
-    const index = books.value.findIndex(book => book.id === formModel.value.id)
-    books.value[index] = formModel.value
+    const index = books.value.findIndex(book => book.id === formModel.value.id);
+    books.value[ index ] = formModel.value;
   } else {
-    formModel.value.id = books.value.length + 1
-    books.value.push(formModel.value)
+    formModel.value.id = books.value.length + 1;
+    books.value.push(formModel.value);
   }
 
-  dialog.value = false
+  dialog.value = false;
 }
 
-function reset () {
-  dialog.value = false
-  formModel.value = createNewRecord()
+function reset() {
+  dialog.value = false;
+  formModel.value = createNewRecord();
   books.value = [
-    { id: 1, title: 'To Kill a Mockingbird', author: 'Harper Lee', genre: 'Fiction', year: 1960, pages: 281 },
-    { id: 2, title: '1984', author: 'George Orwell', genre: 'Dystopian', year: 1949, pages: 328 },
-    { id: 3, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', genre: 'Fiction', year: 1925, pages: 180 },
-    { id: 4, title: 'Sapiens', author: 'Yuval Noah Harari', genre: 'Non-Fiction', year: 2011, pages: 443 },
-    { id: 5, title: 'Dune', author: 'Frank Herbert', genre: 'Sci-Fi', year: 1965, pages: 412 },
-  ]
+    {id: 1, title: 'To Kill a Mockingbird', author: 'Harper Lee', genre: 'Fiction', year: 1960, pages: 281},
+    {id: 2, title: '1984', author: 'George Orwell', genre: 'Dystopian', year: 1949, pages: 328},
+    {id: 3, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', genre: 'Fiction', year: 1925, pages: 180},
+    {id: 4, title: 'Sapiens', author: 'Yuval Noah Harari', genre: 'Non-Fiction', year: 2011, pages: 443},
+    {id: 5, title: 'Dune', author: 'Frank Herbert', genre: 'Sci-Fi', year: 1965, pages: 412},
+  ];
 }
 </script>

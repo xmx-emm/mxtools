@@ -1,39 +1,60 @@
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api/core';
-import { onMounted, Ref, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useStateStore } from '@/stores/state.ts';
-import { useToast } from 'vue-toastification';
+import {invoke} from '@tauri-apps/api/core';
+import {onMounted, Ref, ref} from 'vue';
+import {useI18n} from 'vue-i18n';
+import {useStateStore} from '@/stores/state.ts';
+import {useToast} from 'vue-toastification';
 import BackupsExplorerRegistry from '@/components/backups/BackupsExplorerRegistry.vue';
 
 const { t } = useI18n();
 const state = useStateStore();
 const toast = useToast();
-const items = ref([]);
+const items = ref<Record<string, boolean>>({});
 const loadingList: Ref<string[], string[]> = ref([]);
+/** 点击「刷新」时全表加载 */
+const refreshing = ref(false);
 
+const REFRESH_MIN_MS = 200;
 
-async function switch_common_folders(key: string, show: boolean) {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * @param key 文件夹键名
+ * @param currentlyVisible 当前是否显示(与 chip 上「睁眼」状态一致)
+ */
+async function switch_common_folders(key: string, currentlyVisible: boolean) {
   loadingList.value.push(key);
-  const cmd = !show ? 'hide_common_folders' : 'show_common_folders';
-  invoke(cmd, {key: key}).then((res) => {
-    (items.value as any)[key] = res;
-    loadingList.value = loadingList.value.filter((f) => f != key);
-  }).catch((err) => {
-    toast.error(err);
-    loadingList.value = loadingList.value.filter((f) => f != key);
-  });
+  // 当前已显示 → 点击后隐藏；当前已隐藏 → 点击后显示(之前用反了 !show)
+  const cmd = currentlyVisible ? 'hide_common_folders' : 'show_common_folders';
+  try {
+    const res = await invoke<boolean>(cmd, { key });
+    items.value = { ...items.value, [key]: res };
+  } catch (err: unknown) {
+    toast.error(String(err));
+  } finally {
+    loadingList.value = loadingList.value.filter((f) => f !== key);
+  }
 }
 
 async function update() {
-  items.value = await invoke('get_all_common_folders');
-  const sortedByKeys = Object.keys(items.value)
+  refreshing.value = true;
+  try {
+    const [raw] = await Promise.all([
+      invoke<Record<string, boolean>>('get_all_common_folders'),
+      delay(REFRESH_MIN_MS),
+    ]);
+    const sortedByKeys = Object.keys(raw)
       .sort()
-      .reduce((sortedObj, key) => {
-        sortedObj[key] = items.value[key as any];
+      .reduce((sortedObj, k) => {
+        sortedObj[k] = raw[k];
         return sortedObj;
       }, {} as Record<string, boolean>);
-  items.value = sortedByKeys as any;
+    items.value = sortedByKeys;
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -68,7 +89,7 @@ onMounted(async () => {
               :color="show ? 'error' : 'success'"
               indeterminate
             />
-            <v-icon v-else :icon="show ? 'mdi-eye' : 'mdi-eye-closed'" size="small" :color="show ? 'info' : 'error'" />
+            <v-icon v-else :icon="show ? 'mdi-eye' : 'mdi-eye-closed'" size="small" :color="show ? 'info' : 'error'"/>
           </template>
           {{ t(`explorer.folders.${k}`) || k }}
         </v-chip>
@@ -78,9 +99,18 @@ onMounted(async () => {
       {{ t('explorer.backupWarning') }}
     </v-card-subtitle>
     <v-card-actions class="pt-0">
-      <v-btn variant="tonal" rounded="lg" @click="update">{{ t('common.refresh') }}</v-btn>
-      <v-spacer />
-      <BackupsExplorerRegistry />
+      <v-btn
+        variant="tonal"
+        rounded="lg"
+        :loading="refreshing"
+        :disabled="refreshing"
+        prepend-icon="mdi-refresh"
+        @click="update"
+      >
+        {{ t('common.refresh') }}
+      </v-btn>
+      <v-spacer/>
+      <BackupsExplorerRegistry/>
     </v-card-actions>
   </v-card>
 </template>
@@ -90,6 +120,7 @@ onMounted(async () => {
   border: 1px solid rgba(var(--v-border-color), 0.08);
   border-radius: 12px;
 }
+
 .chip-item {
   border-radius: 10px;
 }

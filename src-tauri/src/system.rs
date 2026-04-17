@@ -83,7 +83,7 @@ pub fn system_info() -> Vec<(String, String)> {
         System::host_name().unwrap_or_default(),
     ));
 
-    // CPU：Windows 下 sysinfo 的 name() 常为空，优先用注册表
+    // CPU：Windows 下 sysinfo 的 name() 常为空,优先用注册表
     let cpu_count = sys.cpus().len();
     let cpu_model = {
         let from_reg = get_cpu_model_from_registry();
@@ -124,4 +124,14 @@ pub fn system_info() -> Vec<(String, String)> {
     }
 
     res
+}
+
+/// 系统物理内存总量(MB,`-maxMem` 常用单位)
+#[tauri::command]
+pub fn system_total_memory_mb() -> u64 {
+    let mut sys = System::new_with_specifics(
+        RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+    );
+    sys.refresh_memory();
+    sys.total_memory() / 1024 / 1024
 }

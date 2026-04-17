@@ -1,7 +1,7 @@
 /**
  * 前端日志：写入 Documents/mxtools/frontend.log
  */
-import { invoke } from '@tauri-apps/api/core';
+import {invoke} from '@tauri-apps/api/core';
 
 const LOG_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const;
 
@@ -22,7 +22,7 @@ function formatArgs(args: unknown[]): string {
 
 function sendToBackend(level: string, message: string) {
   invoke('write_frontend_log', { level, message }).catch(() => {
-    // 静默失败，避免递归
+    // 静默失败,避免递归
   });
 }
 

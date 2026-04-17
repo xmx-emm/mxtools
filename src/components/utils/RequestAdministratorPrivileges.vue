@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { useStateStore } from '@/stores/state.ts';
-import { invoke } from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useStateStore} from '@/stores/state.ts';
+import {invoke} from '@tauri-apps/api/core';
 
 defineProps<{ text: string }>();
 const { t } = useI18n();

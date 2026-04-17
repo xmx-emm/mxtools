@@ -4,7 +4,7 @@ import {getCurrentWindow} from '@tauri-apps/api/window';
 import {openUrl} from '@tauri-apps/plugin-opener';
 import {AUTHOR_BILIBILI_URL, GITHUB_AUTHOR_URL, GITHUB_PROJECT_URL, QQ_CHANNEL_URL} from '@/data/url.ts';
 import {XMX_AVATAR_IMG_URL} from '@/data/imgloc.ts';
-import {version} from "@/env.ts";
+import {version} from '@/env.ts';
 
 const { t } = useI18n();
 const appWindow = getCurrentWindow();
@@ -13,16 +13,16 @@ const urls = {
   'about.qqChannel': QQ_CHANNEL_URL,
   'about.github': GITHUB_AUTHOR_URL,
   'about.project': GITHUB_PROJECT_URL,
-}
+};
 const closeWindow = async () => {
   await appWindow.close();
 };
 
 const techStack = [
-  {name: 'Tauri', color: 'blue-darken-2', icon: 'mdi-rocket-launch'},
-  {name: 'Vue 3', color: 'green-darken-1', icon: 'mdi-vuejs'},
-  {name: 'Vuetify', color: 'blue-lighten-1', icon: 'mdi-vuetify'},
-  {name: 'TypeScript', color: 'blue-darken-1', icon: 'mdi-language-typescript'}
+  { name: 'Tauri', color: 'blue-darken-2', icon: 'mdi-rocket-launch' },
+  { name: 'Vue 3', color: 'green-darken-1', icon: 'mdi-vuejs' },
+  { name: 'Vuetify', color: 'blue-lighten-1', icon: 'mdi-vuetify' },
+  { name: 'TypeScript', color: 'blue-darken-1', icon: 'mdi-language-typescript' }
 ];
 </script>
 
@@ -30,20 +30,20 @@ const techStack = [
   <v-app>
     <v-main class="bg-grey-lighten-4">
       <v-container
-          :initial="{ opacity: 0, y: 50 }"
-          :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
-          class="fill-height d-flex flex-column align-center justify-center"
+        :initial="{ opacity: 0, y: 50 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
+        class="fill-height d-flex flex-column align-center justify-center"
       >
         <v-card
-            elevation="4"
-            max-width="450"
-            class="rounded-xl overflow-hidden"
+          elevation="4"
+          max-width="450"
+          class="rounded-xl overflow-hidden"
         >
           <v-img
-              height="120"
-              src="https://cdn.vuetifyjs.com/images/cards/server-room.jpg"
-              cover
-              class="align-end text-white"
+            height="120"
+            src="https://cdn.vuetifyjs.com/images/cards/server-room.jpg"
+            cover
+            class="align-end text-white"
           >
             <v-card-title>{{ t('about.title') }}</v-card-title>
           </v-img>
@@ -64,13 +64,13 @@ const techStack = [
 
             <div class="d-flex flex-wrap justify-center gap-2 mb-6">
               <v-chip
-                  v-for="tech in techStack"
-                  :key="tech.name"
-                  :color="tech.color"
-                  size="small"
-                  variant="flat"
-                  class="ma-1"
-                  :prepend-icon="tech.icon"
+                v-for="tech in techStack"
+                :key="tech.name"
+                :color="tech.color"
+                size="small"
+                variant="flat"
+                class="ma-1"
+                :prepend-icon="tech.icon"
               >
                 {{ tech.name }}
               </v-chip>
@@ -81,10 +81,10 @@ const techStack = [
 
           <v-card-actions class="bg-grey-lighten-5 pa-4">
             <v-btn
-                v-for="(url,text) in urls"
-                color="pink-lighten-1"
-                variant="tonal"
-                @click="openUrl(url)"
+              v-for="(url,text) in urls"
+              color="pink-lighten-1"
+              variant="tonal"
+              @click="openUrl(url)"
             >
               {{ t(text) }}
             </v-btn>
@@ -92,9 +92,9 @@ const techStack = [
             <v-spacer></v-spacer>
 
             <v-btn
-                color="grey-darken-3"
-                variant="text"
-                @click="closeWindow"
+              color="grey-darken-3"
+              variant="text"
+              @click="closeWindow"
             >
               {{ t('common.close') }}
             </v-btn>
@@ -114,7 +114,7 @@ const techStack = [
   gap: 8px;
 }
 
-/* 禁止页面滚动，适合小窗口关于页 */
+/* 禁止页面滚动,适合小窗口关于页 */
 :deep(html) {
   overflow: hidden !important;
 }
