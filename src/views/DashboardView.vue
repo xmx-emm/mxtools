@@ -6,7 +6,6 @@ import ZoomableImage from '@/components/common/ZoomableImage.vue';
 </script>
 <template>
   <div>
-    <router-link to="/welcome">welcome</router-link>
     <TestView/>
     <v-btn variant="text" @click="openUrl('steam://nav/console')">打开</v-btn>
     <v-tooltip text="Tooltip">
