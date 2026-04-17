@@ -27,3 +27,4 @@ dist-ssr
 /src-tauri/Cargo.lock
 package-lock.json
 components.d.ts
+/.cursor

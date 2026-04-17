@@ -1,0 +1,70 @@
+<script setup lang="ts">
+import {computed} from 'vue';
+import {
+  all_resolution_presets,
+  sort_resolution_presets,
+  type ResolutionPreset,
+} from '@/data/game_resolution_presets.ts';
+
+const props = defineProps<{
+  width: number;
+  height: number;
+}>();
+
+const emit = defineEmits<{
+  'update:width': [v: number];
+  'update:height': [v: number];
+}>();
+
+const sorted_resolutions = computed(() => sort_resolution_presets(all_resolution_presets));
+
+function apply_resolution(item: ResolutionPreset) {
+  emit('update:width', item.width);
+  emit('update:height', item.height);
+}
+
+const selected_resolution_title = computed(() => {
+  const current_value = `${props.width}x${props.height}`;
+  const target = sorted_resolutions.value.find((i) => i.value === current_value);
+  return target?.title ?? '分辨率预设';
+});
+</script>
+
+<template>
+  <v-menu closeOnBack :open-on-click="false" openOnHover openDelay="150" closeDelay="100">
+    <template v-slot:activator="{ props: menuProps }">
+      <div class="preset_hover_box" v-bind="menuProps">
+        <span class="preset_hover_text">{{ selected_resolution_title }}</span>
+      </div>
+    </template>
+    <v-list>
+      <v-list-item
+        v-for="item in sorted_resolutions"
+        :key="item.value"
+        :title="item.title"
+        :active="item.width === width && item.height === height"
+        @click="apply_resolution(item)"
+      />
+    </v-list>
+  </v-menu>
+</template>
+
+<style scoped>
+.preset_hover_box {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 172px;
+  height: 20px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.preset_hover_text {
+  display: inline-block;
+  width: 100%;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 11px;
+}
+</style>

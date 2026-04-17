@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
-import { useRdpStore } from '@/stores/rdp.ts';
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {useRdpStore} from '@/stores/rdp.ts';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -66,7 +66,7 @@ async function savePort() {
           />
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" :loading="saving" @click="savePort">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>

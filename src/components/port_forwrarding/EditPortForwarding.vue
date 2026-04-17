@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { ref } from 'vue';
-import type { PortForwarding } from '@/type.ts';
-import { isValidIPv4Regex } from '@/utils/regex.ts';
-import { cloneDeep } from 'lodash';
-import { invoke } from '@tauri-apps/api/core';
-import { usePortForwardingStore } from '@/stores/port_forwarding.ts';
+import {useI18n} from 'vue-i18n';
+import {ref} from 'vue';
+import type {PortForwarding} from '@/type.ts';
+import {isValidIPv4Regex} from '@/utils/regex.ts';
+import {cloneDeep} from 'lodash';
+import {invoke} from '@tauri-apps/api/core';
+import {usePortForwardingStore} from '@/stores/port_forwarding.ts';
 
 const { t } = useI18n();
 const props = defineProps<{ item: PortForwarding }>();

@@ -1,20 +1,31 @@
 <script setup lang="ts">
-const props = defineProps(["src", "alt"])
+import { useAttrs } from 'vue';
+import ZoomableImage from '@/components/common/ZoomableImage.vue';
+
+defineOptions({ inheritAttrs: false });
+
+const props = withDefaults(defineProps<{
+  src: string;
+  alt?: string;
+  lazySrc?: string;
+  previewable?: boolean;
+}>(), {
+  previewable: true,
+});
+
+const attrs = useAttrs();
 </script>
 
 <template>
-  <v-img :src="props.src" :alt="props.alt" lazy-src="https://picsum.photos/100/60/?blur=2">
-    <template v-slot:placeholder>
-      <div class="d-flex align-center justify-center fill-height">
-        <v-progress-circular
-            color="grey-lighten-4"
-            indeterminate
-        ></v-progress-circular>
-      </div>
+  <ZoomableImage
+    v-bind="attrs"
+    :src="props.src"
+    :alt="props.alt"
+    :lazy-src="props.lazySrc"
+    :previewable="props.previewable"
+  >
+    <template v-if="$slots.placeholder" #placeholder>
+      <slot name="placeholder" />
     </template>
-  </v-img>
+  </ZoomableImage>
 </template>
-
-<style scoped>
-
-</style>

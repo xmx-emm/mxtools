@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
-import { useRdpStore } from '@/stores/rdp.ts';
+import {onMounted, ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {useRdpStore} from '@/stores/rdp.ts';
 
 const { t } = useI18n();
 const toast = useToast();

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { openPath, openUrl } from '@tauri-apps/plugin-opener';
-import { useToast } from 'vue-toastification';
-import { version } from '@/env';
-import {GITHUB_ISSUE_URL} from "@/data/url.ts";
+import {useI18n} from 'vue-i18n';
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {openPath, openUrl} from '@tauri-apps/plugin-opener';
+import {useToast} from 'vue-toastification';
+import {version} from '@/env';
+import {GITHUB_ISSUE_URL} from '@/data/url.ts';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -42,21 +42,21 @@ async function buildIssueBody(): Promise<string> {
       '',
       '> 请将 Documents/mxtools/ 下的 **backend.log** 和 **frontend.log** 拖入本 Issue 编辑区以上传完整日志',
       '',
-      '### 后端日志（摘要）',
+      '### 后端日志(摘要)',
       '```',
       logs?.backend || '(无)',
       '```',
       '',
-      '### 前端日志（摘要）',
+      '### 前端日志(摘要)',
       '```',
       logs?.frontend || '(无)',
       '```',
     ].join('\n');
 
-    // URL 长度限制约 2KB，超长时截断日志部分
+    // URL 长度限制约 2KB,超长时截断日志部分
     const maxLen = 6000;
     if (body.length > maxLen) {
-      return body.slice(0, maxLen) + '\n\n...(日志已截断，请将 Documents/mxtools/ 下的日志文件拖入本 Issue)';
+      return body.slice(0, maxLen) + '\n\n...(日志已截断,请将 Documents/mxtools/ 下的日志文件拖入本 Issue)';
     }
     return body;
   } finally {
@@ -73,7 +73,7 @@ async function openGitHubIssue() {
     });
     const url = `${GITHUB_ISSUE_URL}?${params.toString()}`;
     await openUrl(url);
-    // 打开日志文件夹，方便用户将 backend.log、frontend.log 拖入 Issue
+    // 打开日志文件夹,方便用户将 backend.log、frontend.log 拖入 Issue
     try {
       const logFolder = await invoke<string>('get_log_folder_path');
       await openPath(logFolder);
@@ -111,7 +111,7 @@ async function openGitHubIssue() {
         />
       </v-card-text>
       <v-card-actions>
-        <v-spacer />
+        <v-spacer/>
         <v-btn @click="dialog = false">{{ t('common.cancel') }}</v-btn>
         <v-btn
           color="primary"

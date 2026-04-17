@@ -1,18 +1,17 @@
 <script setup lang="ts">
 /**
- * 下载语音包页面
+ * Steam：半自动下载语音包(Steam 控制台 + Depot)
  */
-import {openUrl} from "@tauri-apps/plugin-opener";
-import {invoke} from "@tauri-apps/api/core";
-import {onMounted, ref} from "vue";
-import {writeText} from "@tauri-apps/plugin-clipboard-manager";
-import CodeDisplay from "@/components/utils/CodeDisplay.vue";
-import steamConsoleImg from "@/assets/game/steam_console.png";
-import {useToast} from "vue-toastification";
-import apexStore from "@/stores/game/apex.ts";
+import {openUrl} from '@tauri-apps/plugin-opener';
+import {invoke} from '@tauri-apps/api/core';
+import {ref} from 'vue';
+import {writeText} from '@tauri-apps/plugin-clipboard-manager';
+import CodeDisplay from '@/components/utils/CodeDisplay.vue';
+import steamConsoleImg from '@/assets/game/steam_console.png';
+import {useToast} from 'vue-toastification';
+import apexStore from '@/stores/game/apex.ts';
 
 const apex_store = apexStore();
-const languages_depots = ref<{ [key: string]: string }>({})
 const written_to_clipboard = ref(false);
 const is_apply_language = ref(false);
 const toast = useToast();
@@ -20,31 +19,33 @@ const toast = useToast();
 const stepper_ref = ref();
 
 const stepper = [
-  "打开控制台",
-  "下载Depot",
-  "应用语音包",
-  "注意事项",
-]
+  '打开控制台',
+  '下载Depot',
+  '应用语音包',
+  '注意事项',
+];
 
 function apply_miles_language() {
-  is_apply_language.value = true
-  invoke("apply_apex_miles_language", {
-    depot: Number(apex_store.language_depot)
+  is_apply_language.value = true;
+  invoke('apply_apex_miles_language', {
+    depot: Number(apex_store.language_depot),
+    platform: 'steam',
+    eaUserId: null,
   }).then(() => {
-    toast.success('toast.applyMilesLanguageSuccess')
-    is_apply_language.value = false
-    apex_store.update_download_language_button_color()
-    stepper_ref.value.next()
+    toast.success('toast.applyMilesLanguageSuccess');
+    is_apply_language.value = false;
+    apex_store.update_download_language_button_color();
+    stepper_ref.value.next();
   }).catch(err => {
-    toast.error(String(err))
-    is_apply_language.value = false
-    apex_store.update_download_language_button_color()
-  })
+    toast.error(String(err));
+    is_apply_language.value = false;
+    apex_store.update_download_language_button_color();
+  });
 }
 
 function copy_code() {
-  writeText(apex_store.download_language_depot_command)
-  written_to_clipboard.value = true
+  writeText(apex_store.download_language_depot_command);
+  written_to_clipboard.value = true;
 }
 
 function open_console() {
@@ -53,36 +54,39 @@ function open_console() {
 }
 
 function open_audio_folder() {
-  invoke("open_apex_audio_folder_path", {}).catch((e) => {
-    toast.error(String(e))
-  })
+  invoke('open_apex_audio_folder_path', {
+    platform: 'steam',
+    eaUserId: null,
+  }).catch((e) => {
+    toast.error(String(e));
+  });
 }
 
 function open_depot_download_folder() {
-  invoke("open_apex_depot_download_folder_path", {depot: Number(apex_store.language_depot)}).catch((e) => {
-    toast.error(String(e))
-  })
+  invoke('open_apex_depot_download_folder_path', {
+    depot: Number(apex_store.language_depot),
+    platform: 'steam',
+    eaUserId: null,
+  }).catch((e) => {
+    toast.error(String(e));
+  });
 }
-
-onMounted(async () => {
-  languages_depots.value = await invoke("get_apex_languages_depots")
-})
 </script>
 
 <template>
   <v-dialog class="not_select" v-model="apex_store.download_miles_language_semi_automatic_dialog">
     <template v-slot:default="{  }">
-      <v-card title="应用语音包步骤">
+      <v-card title="应用语音包步骤(Steam)">
         <v-stepper :items="stepper" ref="stepper_ref">
           <template v-slot:item.1>
             <v-card flat subtitle="通过Steam控制台下载所需的Apex语音包" title="打开Steam控制台">
               <v-row class="d-flex flex-row align-center" style="flex:1;width: 100%;padding: 30px"
                      align-content="space-between">
                 <v-img
-                    maxHeight="70px"
-                    maxWidth="400px"
-                    @click="open_console"
-                    :src="steamConsoleImg"></v-img>
+                  maxHeight="70px"
+                  maxWidth="400px"
+                  @click="open_console"
+                  :src="steamConsoleImg"></v-img>
                 <v-spacer/>
                 <svg @click="openUrl('https://steamdb.info/app/1172470/depots/')" width="40" height="40"
                      style="cursor: pointer "
@@ -105,9 +109,9 @@ onMounted(async () => {
               <v-col>
                 <div class="d-flex align-center">
                   <v-icon
-                      icon="mdi-steam"
-                      size="30px"
-                      @click="openUrl('steam://nav/console')"
+                    icon="mdi-steam"
+                    size="30px"
+                    @click="openUrl('steam://nav/console')"
                   />
                   输入代码
                   <p class="link" @click="copy_code"> {{ apex_store.download_language_depot_command }}</p>
@@ -119,10 +123,9 @@ onMounted(async () => {
                 </div>
                 <v-divider></v-divider>
                 <v-layout>
-                  <!--          输入download_depot  APPID DepotID-->
                   <CodeDisplay
-                      title="等待下载完成"
-                      :code="apex_store.download_language_depot_command"
+                    title="等待下载完成"
+                    :code="apex_store.download_language_depot_command"
                   >
                     // 出现下列代码状态为下载中...<br/>
                     Downloading depot {{ apex_store.language_depot }} (2 files, xxxx MB) ...<br/>
@@ -146,9 +149,9 @@ onMounted(async () => {
               </div>
               <div>再输入指定语音包的启动参数即可</div>
               <v-btn
-                  @click="apply_miles_language"
-                  :loading="is_apply_language"
-                  variant="tonal"
+                @click="apply_miles_language"
+                :loading="is_apply_language"
+                variant="tonal"
               >点我应用
               </v-btn>
             </v-card>

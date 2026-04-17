@@ -22,11 +22,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri_plugin_opener::open_path;
 use windows_tool::game::apex::{
-    check_apex_miles_language as caml, get_apex_audio_folder_path,
-    get_apex_depot_download_folder_path, get_apex_launch_options_by_steam_user_id,
-    set_apex_launch_options_by_steam_user_id, APEX_LANGUAGES_DEPOTS,
+  check_apex_miles_language_by_platform as caml, get_apex_audio_folder_path_by_platform,
+  get_apex_download_folder_path_by_platform, get_apex_launch_options_by_steam_user_id,
+  set_apex_launch_options_by_steam_user_id, APEX_LANGUAGES_DEPOTS,
 };
-use windows_tool::utils::file::copy_dir_all;
+use windows_tool::utils::filesystem::copy_dir_all;
 
 #[tauri::command]
 pub fn get_apex_launch_option(id: usize) -> Result<String, String> {
@@ -57,9 +57,21 @@ pub fn set_apex_launch_option(id: usize, launch_option: String) -> Result<(), St
 替换位置 D:\SteamLibrary\steamapps\common\Apex Legends\audio
  */
 #[tauri::command]
-pub fn apply_apex_miles_language(depot: usize) -> Result<(), String> {
-    let apex_audio_path = get_apex_audio_folder_path().ok_or("未找到Apex语音包位置")?;
-    let download_folder = get_apex_depot_download_folder_path(depot)
+pub fn apply_apex_miles_language(
+    depot: usize,
+    platform: Option<String>,
+    ea_user_id: Option<String>,
+) -> Result<(), String> {
+    let apex_audio_path = get_apex_audio_folder_path_by_platform(
+        platform.as_deref(),
+        ea_user_id.as_deref(),
+    )
+    .ok_or("未找到Apex语音包位置")?;
+    let download_folder = get_apex_download_folder_path_by_platform(
+        depot,
+        platform.as_deref(),
+        ea_user_id.as_deref(),
+    )
         .ok_or(format!("未找到下载的Apex语音包,请下载后重试 {}", depot))?;
 
     if !apex_audio_path.exists() {
@@ -82,13 +94,22 @@ pub fn apply_apex_miles_language(depot: usize) -> Result<(), String> {
 }
 //如果语音包文件不在反回 false
 #[tauri::command]
-pub fn check_apex_miles_language(language: String) -> Result<bool, String> {
+pub fn check_apex_miles_language(
+    language: String,
+    platform: Option<String>,
+    ea_user_id: Option<String>,
+) -> Result<bool, String> {
     log_info!("检查语言 check_apex_miles_language {}", language);
-    caml(language)
+    caml(language, platform.as_deref(), ea_user_id.as_deref())
 }
 #[tauri::command]
-pub fn open_apex_audio_folder_path() -> Result<(), String> {
-    if let Some(apex_audio_path) = get_apex_audio_folder_path() {
+pub fn open_apex_audio_folder_path(
+    platform: Option<String>,
+    ea_user_id: Option<String>,
+) -> Result<(), String> {
+    if let Some(apex_audio_path) =
+        get_apex_audio_folder_path_by_platform(platform.as_deref(), ea_user_id.as_deref())
+    {
         log_info!("open_apex_audio_folder_path {}", apex_audio_path.display());
         apex_audio_path.open_path()
     } else {
@@ -96,8 +117,16 @@ pub fn open_apex_audio_folder_path() -> Result<(), String> {
     }
 }
 #[tauri::command]
-pub fn open_apex_depot_download_folder_path(depot: usize) -> Result<(), String> {
-    if let Some(download_folder) = get_apex_depot_download_folder_path(depot) {
+pub fn open_apex_depot_download_folder_path(
+    depot: usize,
+    platform: Option<String>,
+    ea_user_id: Option<String>,
+) -> Result<(), String> {
+    if let Some(download_folder) = get_apex_download_folder_path_by_platform(
+        depot,
+        platform.as_deref(),
+        ea_user_id.as_deref(),
+    ) {
         log_info!(
             "open_apex_depot_download_folder_path {}",
             download_folder.display()

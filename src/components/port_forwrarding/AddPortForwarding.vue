@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { computed, ref } from 'vue';
-import type { Ipv, PortForwarding } from '@/type.ts';
-import { invoke } from '@tauri-apps/api/core';
-import { cloneDeep } from 'lodash';
-import { isValidIPv4Regex } from '@/utils/regex.ts';
-import { usePortForwardingStore } from '@/stores/port_forwarding.ts';
+import {useI18n} from 'vue-i18n';
+import {computed, ref} from 'vue';
+import type {Ipv, PortForwarding} from '@/type.ts';
+import {invoke} from '@tauri-apps/api/core';
+import {cloneDeep} from 'lodash';
+import {isValidIPv4Regex} from '@/utils/regex.ts';
+import {usePortForwardingStore} from '@/stores/port_forwarding.ts';
 
 const { t } = useI18n();
 const isCreateDialog = ref(false);

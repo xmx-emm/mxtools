@@ -258,5 +258,6 @@ export function persistAccentHint(accent: AccentTheme, isDark: boolean) {
       p: mode.primary,
       s: mode.shadow,
     }));
-  } catch (_) { /* noop */ }
+  } catch (_) { /* noop */
+  }
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { usePortForwardingStore } from '@/stores/port_forwarding.ts';
+import {useI18n} from 'vue-i18n';
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {usePortForwardingStore} from '@/stores/port_forwarding.ts';
 
 const { t } = useI18n();
 const isClearDialog = ref(false);

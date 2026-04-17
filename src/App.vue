@@ -2,7 +2,7 @@
 import {uiStyleStore} from '@/stores/style.ts';
 import {nextTick, onMounted} from 'vue';
 import {useStateStore} from '@/stores/state.ts';
-import {DisableRightClick} from "@/utils/event.ts";
+import {DisableRightClick} from '@/utils/event.ts';
 
 const ui = uiStyleStore();
 
@@ -12,7 +12,7 @@ function dismissSplash() {
   const el = document.getElementById('splash');
   if (!el) return;
   el.classList.add('splash-hidden');
-  el.addEventListener('transitionend', () => el.remove(), {once: true});
+  el.addEventListener('transitionend', () => el.remove(), { once: true });
 }
 
 onMounted(() => {
@@ -27,7 +27,7 @@ onMounted(() => {
     }
   });
 });
-DisableRightClick()
+DisableRightClick();
 </script>
 
 <template>

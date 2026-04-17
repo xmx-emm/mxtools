@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
-import {WebviewWindow} from "@tauri-apps/api/webviewWindow";
-import {TauriEvent} from "@tauri-apps/api/event";
-import {computed, onMounted, onUnmounted, ref} from "vue";
+import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
+import {TauriEvent} from '@tauri-apps/api/event';
+import {computed, onMounted, onUnmounted, ref} from 'vue';
 
-const is_maximized = ref(false)
+const is_maximized = ref(false);
 
 async function update_window_state() {
   try {
@@ -33,21 +33,21 @@ async function switch_window() {
 
 
 const icon = computed(() => {
-  return is_maximized.value ? 'mdi-window-restore' : 'mdi-window-maximize'
-})
+  return is_maximized.value ? 'mdi-window-restore' : 'mdi-window-maximize';
+});
 
-let unlistenResize: (() => void) | null = null
+let unlistenResize: (() => void) | null = null;
 
 onMounted(async () => {
-  update_window_state()
+  update_window_state();
   unlistenResize = await WebviewWindow.getCurrent().listen(TauriEvent.WINDOW_RESIZED, () => {
-    update_window_state()
-  })
-})
+    update_window_state();
+  });
+});
 
 onUnmounted(() => {
-  unlistenResize?.()
-})
+  unlistenResize?.();
+});
 </script>
 
 <template>
@@ -55,7 +55,7 @@ onUnmounted(() => {
     <span class="title-bar-drag flex-grow-1" data-tauri-drag-region="true"></span>
     <v-icon icon="mdi-window-minimize" class="title-bar-btn" @click="minimize_window"/>
     <v-icon :icon="icon" class="title-bar-btn ms-1" @click="switch_window"/>
-    <v-icon icon="mdi-window-close" class="title-bar-btn ms-1" @click="close_window"/>
+    <v-icon icon="mdi-window-close" class="title-bar-btn title-bar-btn-close ms-1" @click="close_window"/>
   </v-system-bar>
 </template>
 
@@ -81,5 +81,17 @@ onUnmounted(() => {
 .title-bar-btn:hover {
   opacity: 1;
   background: rgba(128, 128, 128, 0.15);
+}
+
+.title-bar-btn.title-bar-btn-close {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.title-bar-btn.title-bar-btn-close:hover {
+  background-color: rgb(232, 17, 35);
+  color: rgb(255, 255, 255);
 }
 </style>

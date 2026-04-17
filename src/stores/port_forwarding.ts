@@ -8,24 +8,24 @@ export const usePortForwardingStore = defineStore('portForwarding', {
     list: <PortForwarding[]>[],
   }),
   actions: {
-      async update() {
-        this.loading = true;
-        this.list = await invoke('get_port_forwarding');
-        this.loading = false;
-      },
-      default(): PortForwarding {
-        const ipvA: Ipv = {
-          address: '127.0.0.1',
-          port: 100
-        };
-        const ipvB: Ipv = {
-          address: '127.0.0.1',
-          port: 100
-        };
-        return {
-          listen: ipvA,
-          connect: ipvB,
-        };
-      }
+    async update() {
+      this.loading = true;
+      this.list = await invoke('get_port_forwarding');
+      this.loading = false;
+    },
+    default(): PortForwarding {
+      const ipvA: Ipv = {
+        address: '127.0.0.1',
+        port: 100
+      };
+      const ipvB: Ipv = {
+        address: '127.0.0.1',
+        port: 100
+      };
+      return {
+        listen: ipvA,
+        connect: ipvB,
+      };
+    }
   },
 });

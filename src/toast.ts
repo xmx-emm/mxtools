@@ -1,5 +1,5 @@
-import { PluginOptions } from 'vue-toastification';
-import { POSITION } from 'vue-toastification/src/ts/constants.ts';
+import {PluginOptions} from 'vue-toastification';
+import {POSITION} from 'vue-toastification/src/ts/constants.ts';
 import i18n from '@/i18n/i18n';
 
 const TOAST_CLASS_NAME = 'mx-toast-no-select';
@@ -16,7 +16,6 @@ function translateText(text: string): string {
   if (i18n.global.te(text)) {
     return String(i18n.global.t(text));
   }
-
   return text;
 }
 
@@ -65,6 +64,12 @@ function ensureToastNoSelectStyle(): void {
   user-select: none;
   -webkit-user-select: none;
 }
+
+.Vue-Toastification__container.top-right,
+.Vue-Toastification__container.top-left,
+.Vue-Toastification__container.top-center {
+  top: 40px;
+}
 `;
   document.head.appendChild(style);
 }
@@ -73,7 +78,7 @@ ensureToastNoSelectStyle();
 
 const toastOptions: PluginOptions = {
   position: POSITION.TOP_RIGHT,
-  timeout: 2500,
+  timeout: 2000,
   closeOnClick: true,
   pauseOnFocusLoss: true,
   pauseOnHover: true,
@@ -88,4 +93,4 @@ const toastOptions: PluginOptions = {
   filterBeforeCreate: (toast) => translateToastContent(toast),
 };
 
-export { toastOptions };
+export {toastOptions};

@@ -1,40 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::process::Command;
+pub use windows_tool::utils::{run_cmd, run_powershell};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WindowsUser {
     pub name: String,
     pub is_rdp_user: bool,
-}
-
-pub fn run_cmd(args: &[&str]) -> Result<String, String> {
-    let output = Command::new("cmd")
-        .args(["/C"])
-        .args(args)
-        .output()
-        .map_err(|e| format!("执行命令失败: {}", e))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        Err(if stderr.is_empty() { stdout } else { stderr })
-    }
-}
-
-pub fn run_powershell(script: &str) -> Result<String, String> {
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command", script])
-        .output()
-        .map_err(|e| format!("执行PowerShell失败: {}", e))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(stderr)
-    }
 }
 
 pub fn parse_user_list_from_net_user(output: &str) -> Vec<String> {

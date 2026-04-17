@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import {version} from '@/env.ts';
-import {ref} from "vue";
-import {invoke} from "@tauri-apps/api/core";
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
 
 // 上上下下左右左右baba
-const OPEN_DEV_KEY = 'ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightbaba'
+const OPEN_DEV_KEY = 'ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightbaba';
 
 const timer = ref<any | null>(null);
-const openToolKeys = ref("");
+const openToolKeys = ref('');
 
 function showTool() {
   if (timer.value) {

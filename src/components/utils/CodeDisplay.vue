@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import {ref} from "vue";
+import {ref} from 'vue';
 
 function copy_to_clipboard(text: string) {
-  written_to_clipboard.value = true
+  written_to_clipboard.value = true;
   navigator.clipboard.writeText(text);
   setTimeout(() => {
-    written_to_clipboard.value = false
-  }, 800)
+    written_to_clipboard.value = false;
+  }, 800);
 }
 
 const written_to_clipboard = ref(false);
 
-const props = defineProps(["title", "code"]);
+const props = defineProps(['title', 'code']);
 </script>
 
 <template>
@@ -21,12 +21,12 @@ const props = defineProps(["title", "code"]);
       <v-spacer></v-spacer>
       <div class="copy_button" v-if="props.code">
         <v-icon
-            class="ma-2"
-            :color="written_to_clipboard ? 'red-lighten-2' : 'orange-darken-2'"
-            :icon="written_to_clipboard ? 'mdi-clipboard-check-outline' : 'mdi-clipboard-outline'"
-            variant="text"
-            size="x-small"
-            @click="copy_to_clipboard(props.code)"
+          class="ma-2"
+          :color="written_to_clipboard ? 'red-lighten-2' : 'orange-darken-2'"
+          :icon="written_to_clipboard ? 'mdi-clipboard-check-outline' : 'mdi-clipboard-outline'"
+          variant="text"
+          size="x-small"
+          @click="copy_to_clipboard(props.code)"
         ></v-icon>
       </div>
     </div>

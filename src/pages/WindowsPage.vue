@@ -7,7 +7,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {useToast} from 'vue-toastification';
 
-const {t} = useI18n();
+const { t } = useI18n();
 const toast = useToast();
 const route = useRoute();
 const systemInfo = ref<[string, string][]>([]);
@@ -21,12 +21,12 @@ const showData = computed(() => {
   }));
 });
 const headers = computed(() => [
-  {title: t('common.name'), key: 'name', sortable: false},
-  {title: t('common.value'), key: 'value', sortable: false},
+  { title: t('common.name'), key: 'name', sortable: false },
+  { title: t('common.value'), key: 'value', sortable: false },
 ] as { title: string; key: string; sortable: boolean }[]);
 
 function copySysInfoText(): string {
-  return showData.value.map(({name, value}) => `${name}: ${value}`).join('\n');
+  return showData.value.map(({ name, value }) => `${name}: ${value}`).join('\n');
 }
 
 async function copySysInfo() {
@@ -63,19 +63,19 @@ onMounted(async () => {
     <v-card variant="flat" class="windows-card">
       <div v-if="isLoading" class="pa-4">
         <v-skeleton-loader
-            v-for="index in 8"
-            :key="index"
-            type="text"
-            class="mb-2"
+          v-for="index in 8"
+          :key="index"
+          type="text"
+          class="mb-2"
         />
       </div>
       <v-data-table-virtual
-          v-else
-          :items="showData"
-          :headers="headers"
-          hide-default-footer
-          density="compact"
-          class="elevation-0 system-info-table"
+        v-else
+        :items="showData"
+        :headers="headers"
+        hide-default-footer
+        density="compact"
+        class="elevation-0 system-info-table"
       />
     </v-card>
   </div>

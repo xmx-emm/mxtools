@@ -4,6 +4,7 @@ import {onMounted, onUnmounted, ref} from 'vue';
 
 const isChangeWindowSize = ref(false);
 let timeout: number | null = null;
+
 function handleResize() {
   console.log('handleResize');
   if (isChangeWindowSize.value) {
@@ -27,7 +28,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  {{ isChangeWindowSize}}
+  {{ isChangeWindowSize }}
   <v-overlay v-model="isChangeWindowSize" class="glass-container"></v-overlay>
 </template>
 <style scoped>
