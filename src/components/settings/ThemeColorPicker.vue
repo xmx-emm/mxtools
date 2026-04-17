@@ -4,7 +4,7 @@ import {uiStyleStore} from '@/stores/style';
 import {accentThemes} from '@/themes';
 import {applyAccentTheme} from '@/vuetify';
 
-const {t} = useI18n();
+const { t } = useI18n();
 const uiStore = uiStyleStore();
 
 function selectAccent(id: string) {
@@ -41,7 +41,8 @@ function selectAccent(id: string) {
             class="accent-check"
             size="14"
             color="primary"
-          >mdi-check-circle</v-icon>
+          >mdi-check-circle
+          </v-icon>
         </div>
       </div>
     </div>

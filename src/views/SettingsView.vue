@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import {useSettingsStore} from '@/stores/settings';
+import {useDebugStore} from '@/stores/debug';
 import {uiStyleStore} from '@/stores/style.ts';
 import {computed, ref} from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { openPath } from '@tauri-apps/plugin-opener';
-import { openAboutWindow } from '@/utils/windows.ts';
+import {invoke} from '@tauri-apps/api/core';
+import {openPath} from '@tauri-apps/plugin-opener';
+import {openAboutWindow} from '@/utils/windows.ts';
 import FeedbackErrorDialog from '@/components/settings/FeedbackErrorDialog.vue';
 import ClearPersistedDataDialog from '@/components/settings/ClearPersistedDataDialog.vue';
 import ThemeColorPicker from '@/components/settings/ThemeColorPicker.vue';
@@ -15,6 +16,7 @@ import {useToast} from 'vue-toastification';
 
 const { t, locale: i18nLocale } = useI18n();
 const settingsStore = useSettingsStore();
+const debugStore = useDebugStore();
 const uiStore = uiStyleStore();
 const toast = useToast();
 
@@ -68,7 +70,7 @@ function onCleared() {
           @update:model-value="uiStore.setTheme(editTheme)"
         />
 
-        <ThemeColorPicker />
+        <ThemeColorPicker/>
 
         <v-select
           :model-value="settingsStore.locale"
@@ -89,12 +91,27 @@ function onCleared() {
           <v-btn color="primary" variant="tonal" rounded="lg" @click="openAboutWindow">
             {{ t('settings.about') }}
           </v-btn>
+        </div>
+        <v-sheet
+          border="md"
+          class="pa-6"
+          rounded="xl"
+        >
+          <v-col>
           <v-btn color="primary" variant="tonal" rounded="lg" @click="openLogFolder">
             {{ t('settings.openLogFolder') }}
           </v-btn>
-          <FeedbackErrorDialog />
-          <ClearPersistedDataDialog @cleared="onCleared" />
-        </div>
+          <FeedbackErrorDialog/>
+          <ClearPersistedDataDialog @cleared="onCleared"/>
+          <v-switch
+            :model-value="debugStore.game"
+            :label="t('settings.debugGame')"
+            hide-details
+            color="primary"
+            @update:model-value="debugStore.setGame"
+          />
+          </v-col>
+        </v-sheet>
       </v-card-text>
     </v-card>
   </div>

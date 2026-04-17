@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-import ApexTipCard from "@/components/game/apex/common/tips/ApexTipCard.vue";
+import {useI18n} from 'vue-i18n';
+import ApexTipCard from '@/components/game/apex/common/tips/ApexTipCard.vue';
 
 const { t } = useI18n();
 </script>
@@ -15,15 +15,15 @@ const { t } = useI18n();
       <div class="tip-item">
         <p class="tip-title"><code>+m_rawinput 1</code></p>
         <p class="tip-desc">
-          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.rawinputEffect') }}<br />
-          <strong>{{ t('apexTips.inputMouse.explain') }}</strong>{{ t('apexTips.inputMouse.rawinputExplain') }}<br />
+          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.rawinputEffect') }}<br/>
+          <strong>{{ t('apexTips.inputMouse.explain') }}</strong>{{ t('apexTips.inputMouse.rawinputExplain') }}<br/>
         </p>
       </div>
 
       <div class="tip-item">
         <p class="tip-title"><code>-noforcemaccel</code></p>
         <p class="tip-desc">
-          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.accelEffect') }}<br />
+          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.accelEffect') }}<br/>
           <strong>{{ t('apexTips.inputMouse.explain') }}</strong>{{ t('apexTips.inputMouse.accelExplain') }}
         </p>
       </div>
@@ -31,7 +31,7 @@ const { t } = useI18n();
       <div class="tip-item">
         <p class="tip-title"><code>-noforcemspd</code></p>
         <p class="tip-desc">
-          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.spdEffect') }}<br />
+          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.spdEffect') }}<br/>
           <strong>{{ t('apexTips.inputMouse.explain') }}</strong>{{ t('apexTips.inputMouse.spdExplain') }}
         </p>
       </div>
@@ -39,7 +39,7 @@ const { t } = useI18n();
       <div class="tip-item">
         <p class="tip-title"><code>-noforcemparms</code></p>
         <p class="tip-desc">
-          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.parmsEffect') }}<br />
+          <strong>{{ t('apexTips.inputMouse.effect') }}</strong>{{ t('apexTips.inputMouse.parmsEffect') }}<br/>
           <strong>{{ t('apexTips.inputMouse.explain') }}</strong>{{ t('apexTips.inputMouse.parmsExplain') }}
         </p>
       </div>

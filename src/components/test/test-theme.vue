@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { useTheme } from 'vuetify'
+import {useTheme} from 'vuetify';
 
-const theme = useTheme()
+const theme = useTheme();
 </script>

@@ -1,6 +1,6 @@
 [package]
 name = "mxtools"
-version = "0.0.2"
+version = "0.0.3"
 description = "萌新工具箱"
 authors = ["小萌新"]
 edition = "2021"
@@ -18,18 +18,20 @@ tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.10", features = ["default", "devtools"] }
+tauri = { version = "2.10", features = ["default"] }
 tauri-plugin-opener = "2.5.3"
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-global-shortcut = "2.3.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-pinia = "4.1.1"
 
 sysinfo = "0.38.1" #系统信息
 serde_json = "1.0.149"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tokio = { version = "1.49.0", features = ["time"] } #异步方法调用不提示
 windows_tool = { path = "../../../rust/windows_tool" }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55.0"
-winapi = { version = "0.3", features = ["consoleapi", "handleapi", "namedpipeapi", "processenv", "winbase"] }
+winreg = "0.56.0"
+winapi = { version = "0.3", features = ["ntdef", "consoleapi", "handleapi", "namedpipeapi", "processenv", "winbase", "shellapi", "winuser", "wincon"] }
+

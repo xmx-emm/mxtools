@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
-import { useWindowsUserStore } from '@/stores/windows_user.ts';
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {useWindowsUserStore} from '@/stores/windows_user.ts';
 
 const { t } = useI18n();
 const toast = useToast();

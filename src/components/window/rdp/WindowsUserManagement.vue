@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
-import { useToast } from 'vue-toastification';
-import { useWindowsUserStore } from '@/stores/windows_user.ts';
+import {ref} from 'vue';
+import {invoke} from '@tauri-apps/api/core';
+import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
+import {useWindowsUserStore} from '@/stores/windows_user.ts';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -107,15 +107,18 @@ async function renameUser() {
           :title="user.name"
         >
           <template v-slot:prepend>
-            <v-icon icon="mdi-account" />
+            <v-icon icon="mdi-account"/>
           </template>
           <template v-slot:append>
             <v-chip v-if="user.is_rdp_user" color="primary" size="small" variant="tonal" class="mr-2">
               RDP
             </v-chip>
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openRenameDialog(user.name)" :title="t('rdp.user.rename')" />
-            <v-btn icon="mdi-lock-reset" size="small" variant="text" @click="openModifyDialog(user.name)" :title="t('rdp.user.modifyPassword')" />
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="deleteUser(user.name)" :title="t('rdp.user.delete')" />
+            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openRenameDialog(user.name)"
+                   :title="t('rdp.user.rename')"/>
+            <v-btn icon="mdi-lock-reset" size="small" variant="text" @click="openModifyDialog(user.name)"
+                   :title="t('rdp.user.modifyPassword')"/>
+            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="deleteUser(user.name)"
+                   :title="t('rdp.user.delete')"/>
           </template>
         </v-list-item>
       </v-list>
@@ -133,11 +136,13 @@ async function renameUser() {
     <v-dialog v-model="showAddDialog" max-width="420">
       <v-card :title="t('rdp.user.addTitle')">
         <v-card-text>
-          <v-text-field v-model="newUsername" :label="t('rdp.user.username')" variant="outlined" density="compact" class="mb-2" />
-          <v-text-field v-model="newPassword" :label="t('rdp.user.password')" variant="outlined" density="compact" type="password" />
+          <v-text-field v-model="newUsername" :label="t('rdp.user.username')" variant="outlined" density="compact"
+                        class="mb-2"/>
+          <v-text-field v-model="newPassword" :label="t('rdp.user.password')" variant="outlined" density="compact"
+                        type="password"/>
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" :loading="actionLoading" @click="addUser">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
@@ -148,11 +153,13 @@ async function renameUser() {
     <v-dialog v-model="showModifyDialog" max-width="420">
       <v-card :title="t('rdp.user.modifyPasswordTitle')">
         <v-card-text>
-          <div class="text-body-2 mb-2">{{ t('rdp.user.modifyPasswordFor') }} <strong>{{ modifyUsername }}</strong></div>
-          <v-text-field v-model="modifyPassword" :label="t('rdp.user.newPassword')" variant="outlined" density="compact" type="password" />
+          <div class="text-body-2 mb-2">{{ t('rdp.user.modifyPasswordFor') }} <strong>{{ modifyUsername }}</strong>
+          </div>
+          <v-text-field v-model="modifyPassword" :label="t('rdp.user.newPassword')" variant="outlined" density="compact"
+                        type="password"/>
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showModifyDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" :loading="actionLoading" @click="modifyPassword_">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
@@ -164,10 +171,10 @@ async function renameUser() {
       <v-card :title="t('rdp.user.renameTitle')">
         <v-card-text>
           <div class="text-body-2 mb-2">{{ t('rdp.user.renameFrom') }} <strong>{{ renameOldName }}</strong></div>
-          <v-text-field v-model="renameNewName" :label="t('rdp.user.newName')" variant="outlined" density="compact" />
+          <v-text-field v-model="renameNewName" :label="t('rdp.user.newName')" variant="outlined" density="compact"/>
         </v-card-text>
         <v-card-actions>
-          <v-spacer />
+          <v-spacer/>
           <v-btn @click="showRenameDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" :loading="actionLoading" @click="renameUser">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>

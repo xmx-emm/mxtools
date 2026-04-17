@@ -3,47 +3,53 @@ mod elevated;
 mod game;
 mod input_method;
 mod logger;
-mod stdio_tee;
 mod port_forwarding;
 mod rdp;
 mod registry;
+mod stdio_tee;
 mod system;
 mod test;
 mod user;
 mod utils;
 
 use crate::backups::{
-    backups_explorer_registry, backups_port_forwarding, backups_port_forwarding_default_path,
-    check_backups_explorer_registry, explorer_folder, explorer_registry_path, load_port_forwarding,
+  backups_explorer_registry, backups_port_forwarding, backups_port_forwarding_default_path,
+  check_backups_explorer_registry, explorer_folder, explorer_registry_path, load_port_forwarding,
 };
 use crate::elevated::{is_elevated, restart_request_elevation};
 use crate::game::apex::{
-    apply_apex_miles_language, check_apex_miles_language, get_apex_languages_depots,
-    get_apex_launch_option, open_apex_audio_folder_path, open_apex_depot_download_folder_path,
-    set_apex_launch_option,
+  apply_apex_miles_language, check_apex_miles_language, get_apex_languages_depots,
+  get_apex_launch_option, open_apex_audio_folder_path, open_apex_depot_download_folder_path,
+  set_apex_launch_option,
+};
+use crate::game::pubg::{
+  check_pubg_skip_intro_movies_disabled, get_pubg_launch_option, get_pubg_logs_folder_path,
+  open_folder_detached, set_pubg_launch_option, set_pubg_skip_intro_movies_disabled,
 };
 use crate::game::{
-    get_steam_users, steam_is_running, steam_is_running_by_tasklist, thoroughly_kill_steam,
-};
-use crate::port_forwarding::{
-    create_multiple_port_forwarding, del_port_forwarding, get_port_forwarding,
-    reset_port_forwarding, set_port_forwarding,
+  ea_desktop_is_running_by_tasklist, get_apex_launch_option_ea, get_ea_desktop_users,
+  get_steam_users, set_apex_launch_option_ea, steam_is_running, steam_is_running_by_tasklist,
+  thoroughly_kill_ea_desktop, thoroughly_kill_steam,
 };
 use crate::input_method::{get_input_methods, set_input_method_enabled, set_input_method_order};
-use crate::registry::{
-    get_all_common_folders, hide_common_folders, modify_windows_update_time, show_common_folders,
+use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_log};
+use crate::port_forwarding::{
+  create_multiple_port_forwarding, del_port_forwarding, get_port_forwarding,
+  reset_port_forwarding, set_port_forwarding,
 };
 use crate::rdp::{
-    add_rdp_user, check_remote_port, connect_rdp, export_rdp_file, get_rdp_enabled, get_rdp_port,
-    get_rdp_users, load_rdp_connections, remove_rdp_user, save_rdp_connections, set_rdp_enabled,
-    set_rdp_port,
+  add_rdp_user, check_remote_port, connect_rdp, export_rdp_file, get_rdp_enabled, get_rdp_port,
+  get_rdp_users, load_rdp_connections, remove_rdp_user, save_rdp_connections, set_rdp_enabled,
+  set_rdp_port,
 };
+use crate::registry::{
+  get_all_common_folders, hide_common_folders, modify_windows_update_time, show_common_folders,
+};
+use crate::system::{system_info, system_total_memory_mb};
 use crate::user::{
-    add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
-    rename_windows_user,
+  add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
+  rename_windows_user,
 };
-use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_log};
-use crate::system::system_info;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -53,12 +59,30 @@ fn greet(name: &str) -> String {
 }
 #[tauri::command]
 fn open_devtools(window: tauri::WebviewWindow) {
-    log_info!("Opening devtools...");
-    window.open_devtools();
+    #[cfg(debug_assertions)]
+    {
+        log_info!("Opening devtools...");
+        window.open_devtools();
+    }
+    #[cfg(not(debug_assertions))]
+    let _ = window;
+}
+
+/// 将控制台输入/输出代码页设为 UTF-8,避免 `println!` 与 stdio tee 写入的字节在 GBK 控制台下显示为乱码.
+#[cfg(windows)]
+fn init_windows_console_utf8() {
+    use winapi::um::wincon::{SetConsoleCP, SetConsoleOutputCP};
+    const CP_UTF8: u32 = 65001;
+    unsafe {
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    init_windows_console_utf8();
     logger::init_log_path();
     tauri::Builder::default()
         .plugin(tauri_plugin_pinia::init())
@@ -81,6 +105,7 @@ pub fn run() {
             get_port_forwarding,
             //System
             system_info,
+            system_total_memory_mb,
             //Common Folders
             get_all_common_folders,
             hide_common_folders,
@@ -117,6 +142,18 @@ pub fn run() {
             check_apex_miles_language,
             open_apex_audio_folder_path,
             open_apex_depot_download_folder_path,
+            get_ea_desktop_users,
+            get_apex_launch_option_ea,
+            set_apex_launch_option_ea,
+            ea_desktop_is_running_by_tasklist,
+            thoroughly_kill_ea_desktop,
+            //pubg
+            get_pubg_launch_option,
+            set_pubg_launch_option,
+            check_pubg_skip_intro_movies_disabled,
+            set_pubg_skip_intro_movies_disabled,
+            get_pubg_logs_folder_path,
+            open_folder_detached,
             //windows user
             get_windows_users,
             add_windows_user,
