@@ -295,11 +295,21 @@ const RagdollCollide = {
   is_new: true,
   tip: ApexRagdollCollideTip,
 };
-const DX12 = {
-  name: 'apexLaunchOptions.dx12.name',
-  identifier: 'dx12',
-  parameter: '-anticheat_settings=SettingsDX12.json',
-  description: 'apexLaunchOptions.dx12.description',
+const GraphicsApi = {
+  name: 'apexLaunchOptions.graphicsApi.name',
+  identifier: 'graphics_api',
+  description: 'apexLaunchOptions.graphicsApi.description',
+  default_parameter: '-anticheat_settings=SettingsDX12.json',
+  parameters: [
+    {
+      name: 'apexLaunchOptions.graphicsApi.dx11',
+      parameter: '-anticheat_settings=SettingsDX11.json',
+    },
+    {
+      name: 'apexLaunchOptions.graphicsApi.dx12',
+      parameter: '-anticheat_settings=SettingsDX12.json',
+    },
+  ],
   hide_in_normal_filter: true,
   is_new: true,
   tip: ApexDX12Tip,
@@ -362,7 +372,7 @@ const ApexLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   ForcePreload,
   RagdollCollide,
   LimitvsConst,
-  DX12,
+  GraphicsApi,
   'apexLaunchOptions.categories.localeExperience',
   ApexSkip,
   MilesChannels,

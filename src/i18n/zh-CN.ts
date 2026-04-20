@@ -360,9 +360,11 @@ export const zhCN = {
       name: '禁用布娃娃',
       description: '禁用布娃娃(尸体)之间的碰撞计算,减少多人战斗时尸体堆叠导致的物理计算卡顿,提升FPS',
     },
-    dx12: {
-      name: '强制使用DX 12',
-      description: 'Dx12',
+    graphicsApi: {
+      name: '图形 API (DirectX)',
+      description: '在 DX11 和 DX12 之间切换渲染后端。DX12 可能帧时间更稳，DX11 兼容性通常更好',
+      dx11: 'DX11（兼容优先）',
+      dx12: 'DX12（性能优先）',
     },
     limitvsconst: {
       name: '限制顶点着色器数量',
@@ -498,6 +500,13 @@ export const zhCN = {
       line2: '作用：减少多人战斗时尸体堆叠导致的物理计算卡顿,提升FPS.',
       line3: '效果：在激烈团战中特别明显,尸体不会互相“卡住”计算.',
       line4: '推荐保留,这是经典的FPS优化命令.',
+    },
+    graphicsApi: {
+      title: '图形 API (DX11 / DX12)',
+      line1: '用于切换 Apex 的渲染后端：DX11 兼容性更好，DX12 通常帧时间更稳定。',
+      line2: '如果出现启动崩溃、黑屏、贴图异常或驱动报错，优先切回 DX11 测试。',
+      line3: '如果你是较新显卡并且希望更平滑的帧时间，可优先尝试 DX12。',
+      recommend: '建议：稳定性优先选 DX11；性能与新硬件优先可尝试 DX12。',
     },
     limitvsconst: {
       title: '限制顶点着色器数量',
