@@ -362,9 +362,11 @@ export const enUS = {
       name: 'Disable ragdoll collisions',
       description: 'Disables collision between ragdolls (corpses) to reduce physics spikes in fights and improve FPS',
     },
-    dx12: {
-      name: 'Force DX12',
-      description: 'DX12',
+    graphicsApi: {
+      name: 'Graphics API (DirectX)',
+      description: 'Switch rendering backend between DX11 and DX12. DX12 may provide steadier frame-time while DX11 is often more compatible',
+      dx11: 'DX11 (Compatibility)',
+      dx12: 'DX12 (Performance)',
     },
     limitvsconst: {
       name: 'Limit vertex shader constants',
@@ -500,6 +502,13 @@ export const enUS = {
       line2: 'Effect: reduces physics spikes from corpse stacking in team fights, improving FPS.',
       line3: 'Especially noticeable in chaotic fights; corpses are less likely to "stick" to each other.',
       line4: 'Recommended to keep; this is a classic FPS optimization flag.',
+    },
+    graphicsApi: {
+      title: 'Graphics API (DX11 / DX12)',
+      line1: 'Switches Apex rendering backend: DX11 is usually more compatible, DX12 often has steadier frame-time.',
+      line2: 'If you see startup crashes, black screen, texture glitches, or driver errors, switch back to DX11 first.',
+      line3: 'If you have newer hardware and want smoother frame pacing, try DX12.',
+      recommend: 'Recommendation: choose DX11 for stability; try DX12 for newer hardware and potential performance gains.',
     },
     limitvsconst: {
       title: 'Limit Vertex Shader Constants',
