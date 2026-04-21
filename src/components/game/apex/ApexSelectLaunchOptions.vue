@@ -17,7 +17,7 @@ import ApexLobbyFpsPreset from '@/components/game/apex/preset/ApexLobbyFpsPreset
 
 const apex_store = apexStore();
 const settings_store = useSettingsStore();
-const {t} = useI18n();
+const { t } = useI18n();
 
 /** 搜索时同时匹配 zh-CN / en-US 文案(与当前界面语言无关) */
 const SEARCH_MATCH_LOCALES = ['zh-CN', 'en-US'] as const;
@@ -179,94 +179,80 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
       class="rounded-0 apex-options-list flex-grow-1 min-height-0"
       style="overflow-y: auto"
     >
-    <template v-for="item in displayedLaunchOptions">
-      <template v-if="isSteamLaunchOptionsImpl(item)">
-        <v-list-item :value="item" @click="apex_store.update_download_language_button_color();check_item(item)"
-                     v-tooltip="{text: t('apexLaunchOptions.ui.rightClickTip'), location:'bottom', openDelay: '800'}"
-                     @contextmenu.prevent="apex_store.showTip(<SteamLaunchOptionsImpl>item)"
-        >
-          <!--中间的内容-->
-          <template v-slot:default="{isSelected}"
-                    style="align-content: center;text-align: center;">
-            <div class="d-flex flex-row align-center w-100 selected_item_row" v-if="isSelected">
-              <!--多参数-->
-              <template v-if="item?.parameters && item.identifier && !item?.is_combination_parameters">
-                <v-btn-toggle
-                  v-model:model-value="apex_store.settings_config[item.identifier]"
-                  v-if="isSelected"
-                  color="primary"
-                  variant="text"
-                  class="apex-parameter-toggle"
-                  style="max-height: 25px"
-                  border
-                  divided>
-                  <!--配音设置-->
-                  <template v-if="item?.identifier === 'miles_language'">
-                    <ApexLanguage/>
-                    <br/>
-                  </template>
-                  <!--item.parameters-->
-                  <template v-else>
-                    <v-tooltip v-slot:activator="{props}"
-                               v-for="pi in item.parameters"
-                               :text="parameterTooltipText(pi)"
-                               :disabled="!(pi?.requirement_description && !checkRequirement(pi))"
-                    >
-                      <v-btn
-                        size="small"
-                        v-bind="props"
-                        v-if="item.identifier && apex_store.settings_config[item.identifier]"
-                        :color="pi.requirement ? ( checkRequirement(pi) ? 'info':'error') : 'info'"
-                        :value="pi?.default_parameter || pi.parameter"
-                        @click.stop="apex_store.settings_config[item.identifier] = pi?.default_parameter || pi.parameter"
+      <template v-for="item in displayedLaunchOptions">
+        <template v-if="isSteamLaunchOptionsImpl(item)">
+          <v-list-item :value="item" @click="apex_store.update_download_language_button_color();check_item(item)"
+                       v-tooltip="{text: t('apexLaunchOptions.ui.rightClickTip'), location:'bottom', openDelay: '800'}"
+                       @contextmenu.prevent="apex_store.showTip(<SteamLaunchOptionsImpl>item)"
+          >
+            <!--中间的内容-->
+            <template v-slot:default="{isSelected}"
+                      style="align-content: center;text-align: center;">
+              <div class="d-flex flex-row align-center w-100 selected_item_row" v-if="isSelected">
+                <!--多参数-->
+                <template v-if="item?.parameters && item.identifier && !item?.is_combination_parameters">
+                  <v-btn-toggle
+                    v-model:model-value="apex_store.settings_config[item.identifier]"
+                    v-if="isSelected"
+                    color="primary"
+                    variant="text"
+                    class="apex-parameter-toggle"
+                    style="max-height: 25px"
+                    border
+                    divided>
+                    <template v-if="item?.identifier === 'miles_language'">
+                      <!--配音设置-->
+                      <ApexLanguage/>
+                      <br/>
+                    </template>
+                    <template v-else>
+                      <!--item.parameters-->
+                      <v-tooltip v-slot:activator="{props}"
+                                 v-for="pi in item.parameters"
+                                 :text="parameterTooltipText(pi)"
+                                 :disabled="!(pi?.requirement_description && !checkRequirement(pi))"
                       >
-                        {{ translateApexLaunchOptionText(pi.name) }}
-                      </v-btn>
-                    </v-tooltip>
+                        <v-btn
+                          size="small"
+                          v-bind="props"
+                          v-if="item.identifier && apex_store.settings_config[item.identifier]"
+                          :color="pi.requirement ? ( checkRequirement(pi) ? 'info':'error') : 'info'"
+                          :value="pi?.default_parameter || pi.parameter"
+                          @click.stop="apex_store.settings_config[item.identifier] = pi?.default_parameter || pi.parameter"
+                        >
+                          {{ translateApexLaunchOptionText(pi.name) }}
+                        </v-btn>
+                        <template v-else>error apex_store.settings_config not find id</template>
+                      </v-tooltip>
+                    </template>
+                  </v-btn-toggle>
+                  <template v-if="item?.identifier === 'miles_language'">
+                    <v-spacer/>
+                    <v-icon icon="mdi-information-variant"
+                            @click.stop="open_miles_language_download_help"
+                            @mousedown.stop=""
+                            @mouseup.stop=""
+                            @pointerdown.stop=""
+                            :color="apex_store.download_language_button_color"
+                            :class="{ 'warning-red-text-edge-animate': is_download_button_danger }"
+                            v-tooltip="{ text: t('apexLaunchOptions.ui.voicePackRequired'), location: 'bottom', openDelay: '200', disabled: !is_download_button_danger }"
+                            variant="flat"
+                    >
+                    </v-icon>
                   </template>
-                </v-btn-toggle>
-                <template v-if="item?.identifier === 'miles_language'">
-                  <v-spacer/>
-                  <v-icon icon="mdi-information-variant"
-                          @click.stop="open_miles_language_download_help"
-                          @mousedown.stop=""
-                          @mouseup.stop=""
-                          @pointerdown.stop=""
-                          :color="apex_store.download_language_button_color"
-                          :class="{ 'warning-red-text-edge-animate': is_download_button_danger }"
-                          v-tooltip="{ text: t('apexLaunchOptions.ui.voicePackRequired'), location: 'bottom', openDelay: '200', disabled: !is_download_button_danger }"
-                          variant="flat"
-                  >
-                  </v-icon>
                 </template>
-              </template>
 
-              <!--强制分辨率-->
-              <template v-if="item?.identifier=== 'forced_resolution'">
-                <div
-                  style="max-height: 25px;  font-size: 11px;color: rgba(135,135,135,0.82)" class="d-flex flex-row align-center">
-                  <span class="input_inline_label">{{ t('apexLaunchOptions.ui.widthLabel') }}</span>
-                  <ApexNumberInput v-model="apex_store.width"/>
-                  <span/>
-                  <span class="input_inline_label">{{ t('apexLaunchOptions.ui.heightLabel') }}</span>
-                  <ApexNumberInput v-model="apex_store.height"/>
-                </div>
-                <v-spacer/>
-                <div
-                  class="preset_tail"
-                  @click.stop=""
-                  @mousedown.stop=""
-                  @mouseup.stop=""
-                  @pointerdown.stop=""
-                >
-                  <ApexForcedResolutionPreset/>
-                </div>
-              </template>
-              <!--fps-->
-              <template v-else-if="item?.identifier == 'fps'"
-                        style="max-height: 25px;">
-                <div class="d-flex" style="flex: 1">
-                  <ApexNumberInput v-model="apex_store.fps"/>
+                <template v-if="item?.identifier=== 'forced_resolution'">
+                  <!--强制分辨率-->
+                  <div
+                    style="max-height: 25px;  font-size: 11px;color: rgba(135,135,135,0.82)"
+                    class="d-flex flex-row align-center">
+                    <span class="input_inline_label">{{ t('apexLaunchOptions.ui.widthLabel') }}</span>
+                    <ApexNumberInput v-model="apex_store.width"/>
+                    <span/>
+                    <span class="input_inline_label">{{ t('apexLaunchOptions.ui.heightLabel') }}</span>
+                    <ApexNumberInput v-model="apex_store.height"/>
+                  </div>
                   <v-spacer/>
                   <div
                     class="preset_tail"
@@ -275,160 +261,176 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     @mouseup.stop=""
                     @pointerdown.stop=""
                   >
-                    <ApexFpsPreset/>
+                    <ApexForcedResolutionPreset/>
                   </div>
-                </div>
-              </template>
-              <!--大厅Fps-->
-              <template v-else-if="item?.identifier == 'lobby_max_fps'"
-                        style="max-height: 25px;">
-                <ApexNumberInput v-model="apex_store.lobby_max_fps"/>
-                <v-spacer/>
-                <div
-                  class="preset_tail"
-                  @click.stop=""
-                  @mousedown.stop=""
-                  @mouseup.stop=""
-                  @pointerdown.stop=""
-                >
-                  <ApexLobbyFpsPreset/>
-                </div>
-              </template>
-              <!--比例-->
-              <template v-else-if="item?.identifier == 'letterbox_aspect'">
-                <div class="letterbox_aspect_inline">
-                  <div class="letterbox_aspect_field">
+                </template>
+                <template v-else-if="item?.identifier == 'fps'"
+                          style="max-height: 25px;">
+                  <!--fps-->
+                  <div class="d-flex" style="flex: 1">
+                    <ApexNumberInput v-model="apex_store.fps"/>
+                    <v-spacer/>
+                    <div
+                      class="preset_tail"
+                      @click.stop=""
+                      @mousedown.stop=""
+                      @mouseup.stop=""
+                      @pointerdown.stop=""
+                    >
+                      <ApexFpsPreset/>
+                    </div>
+                  </div>
+                </template>
+                <template v-else-if="item?.identifier == 'lobby_max_fps'"
+                          style="max-height: 25px;">
+                  <!--大厅Fps-->
+                  <ApexNumberInput v-model="apex_store.lobby_max_fps"/>
+                  <v-spacer/>
+                  <div
+                    class="preset_tail"
+                    @click.stop=""
+                    @mousedown.stop=""
+                    @mouseup.stop=""
+                    @pointerdown.stop=""
+                  >
+                    <ApexLobbyFpsPreset/>
+                  </div>
+                </template>
+                <template v-else-if="item?.identifier == 'letterbox_aspect'">
+                  <!--比例-->
+                  <div class="letterbox_aspect_inline">
+                    <div class="letterbox_aspect_field">
                     <span
                       class="letterbox_aspect_label"
                       :title="t('apexLaunchOptions.ui.aspectGoalLabel')"
                     >
                       {{ t('apexLaunchOptions.ui.aspectGoalLabel') }}
                     </span>
-                    <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_goal" :step="0.1"/>
-                  </div>
-                  <div class="letterbox_aspect_field">
+                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_goal" :step="0.1"/>
+                    </div>
+                    <div class="letterbox_aspect_field">
                     <span
                       class="letterbox_aspect_label"
                       :title="t('apexLaunchOptions.ui.aspectMinLabel')"
                     >
                       {{ t('apexLaunchOptions.ui.aspectMinLabel') }}
                     </span>
-                    <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_min" :step="0.1"/>
-                  </div>
-                  <div class="letterbox_aspect_field">
+                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_min" :step="0.1"/>
+                    </div>
+                    <div class="letterbox_aspect_field">
                     <span
                       class="letterbox_aspect_label"
                       :title="t('apexLaunchOptions.ui.aspectThresholdLabel')"
                     >
                       {{ t('apexLaunchOptions.ui.aspectThresholdLabel') }}
                     </span>
-                    <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_threshold" :step="0.1"/>
+                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_threshold" :step="0.1"/>
+                    </div>
                   </div>
-                </div>
-                <v-spacer/>
-                <div
-                  class="preset_tail"
-                  @click.stop=""
-                  @mousedown.stop=""
-                  @mouseup.stop=""
-                  @pointerdown.stop=""
+                  <v-spacer/>
+                  <div
+                    class="preset_tail"
+                    @click.stop=""
+                    @mousedown.stop=""
+                    @mouseup.stop=""
+                    @pointerdown.stop=""
+                  >
+                    <ApexAspectPreset/>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!--抬头-->
+            <template v-slot:title>
+              <div class="d-flex flex-row align-center">
+                <p style="font-size: 15px"> {{ translateApexLaunchOptionText(item?.name) }} </p>
+                <v-chip
+                  v-if="item.is_new && !settings_store.apexNewItemsSeen.includes(item.identifier ?? '')"
+                  color="error"
+                  size="x-small"
+                  variant="flat"
+                  class="ml-2 font-weight-bold px-1"
+                  style="height: 16px; font-size: 10px;"
                 >
-                  <ApexAspectPreset/>
-                </div>
-              </template>
+                  NEW
+                </v-chip>
+                <v-spacer></v-spacer>
+                <!--参数信息放在右上角的-->
+                <p class="parameter_info">
+                  <!--先看哈是不是大厅的参数,这个排前面-->
+                  <template v-if="item.identifier === 'lobby_max_fps'">
+                    +lobby_max_fps {{ apex_store.lobby_max_fps }}
+                  </template>
+                  <!--强制分辨率-->
+                  <template v-else-if="item.identifier === 'forced_resolution'">
+                    -width {{ apex_store.width }} -height {{ apex_store.height }}
+                  </template>
+                  <!--比例-->
+                  <template v-else-if="item?.identifier == 'letterbox_aspect'">
+                    +mat_letterbox_aspect_min {{ apex_store.mat_letterbox_aspect_min }}
+                    +mat_letterbox_aspect_goal {{ apex_store.mat_letterbox_aspect_goal }}
+                    +mat_letterbox_aspect_threshold {{ apex_store.mat_letterbox_aspect_threshold }}
+                  </template>
+                  <!--fov_scale-->
+                  <template v-else-if="item?.identifier == 'fov_scale'">
+                    <template v-if="apex_store.active_apex_account?.kind === 'steam'">
+                      +cl_fovScale "1.7"
+                    </template>
+                    <template v-else>
+                      +cl_fovScale 1.7
+                    </template>
+                  </template>
+                  <!--替换fps的X   应为 +fps_max X 或 +fps_max unlimited-->
+                  <template v-else-if="item.identifier === 'fps'">
+                    <template v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'">
+                      -freq {{ String(apex_store.fps) }} +fps_max {{ String(apex_store.fps) }}
+                    </template>
+                    <template v-else>
+                      {{ apex_store.settings_config[item.identifier] }}
+                    </template>
+                  </template>
+                  <!--只有单个参数的时候直接显示输入的参数-->
+                  <template v-else-if="item?.parameter">{{ item.default_parameter || item.parameter }}</template>
+                  <!---->
+                  <template v-else-if="item?.parameters && item?.identifier && item?.is_combination_parameters">
+                    {{ item.parameters?.map((i) => i.parameter).join(' ') }}
+                  </template>
+                  <!--有多个参数的时候取看是那个值用来显示如 window,fps,miles_language -->
+                  <template v-else-if="item?.parameters && item?.identifier">
+                    {{ apex_store.settings_config[item?.identifier] }}
+                  </template>
+                </p>
+              </div>
+            </template>
+
+            <!--前面的按钮-->
+            <template v-slot:prepend="{ isSelected, select }">
+              <v-list-item-action start>
+                <v-progress-circular :size="20" style="margin: 0 0" v-if="apex_store.is_start_loading"
+                                     transition="scroll-x-transition"
+                                     indeterminate/>
+                <v-checkbox-btn v-else :model-value="isSelected" @update:modelValue="select"/>
+              </v-list-item-action>
+            </template>
+
+            <!--子标题-->
+            <template v-slot:subtitle>
+              <p>{{ item?.description ? translateApexLaunchOptionText(item.description) : '' }}</p>
+            </template>
+
+          </v-list-item>
+          <v-divider inset></v-divider>
+        </template>
+        <template v-else>
+          <v-list-subheader class="apex-category px-4">
+            <div class="apex-category-inner">
+              <span class="apex-category-text">{{ t(item) }}</span>
             </div>
-          </template>
-
-          <!--抬头-->
-          <template v-slot:title>
-            <div class="d-flex flex-row align-center">
-              <p style="font-size: 15px"> {{ translateApexLaunchOptionText(item?.name) }} </p>
-              <v-chip
-                v-if="item.is_new && !settings_store.apexNewItemsSeen.includes(item.identifier ?? '')"
-                color="error"
-                size="x-small"
-                variant="flat"
-                class="ml-2 font-weight-bold px-1"
-                style="height: 16px; font-size: 10px;"
-              >
-                NEW
-              </v-chip>
-              <v-spacer></v-spacer>
-              <!--参数信息放在右上角的-->
-              <p class="parameter_info">
-                <!--先看哈是不是大厅的参数,这个排前面-->
-                <template v-if="item.identifier === 'lobby_max_fps'">
-                  +lobby_max_fps {{ apex_store.lobby_max_fps }}
-                </template>
-                <!--强制分辨率-->
-                <template v-else-if="item.identifier === 'forced_resolution'">
-                  -width {{ apex_store.width }} -height {{ apex_store.height }}
-                </template>
-                <!--比例-->
-                <template v-else-if="item?.identifier == 'letterbox_aspect'">
-                  +mat_letterbox_aspect_min {{ apex_store.mat_letterbox_aspect_min }}
-                  +mat_letterbox_aspect_goal {{ apex_store.mat_letterbox_aspect_goal }}
-                  +mat_letterbox_aspect_threshold {{ apex_store.mat_letterbox_aspect_threshold }}
-                </template>
-                <!--fov_scale-->
-                <template v-else-if="item?.identifier == 'fov_scale'">
-                  <template v-if="apex_store.active_apex_account?.kind === 'steam'">
-                    +cl_fovScale "1.7"
-                  </template>
-                  <template v-else>
-                    +cl_fovScale 1.7
-                  </template>
-                </template>
-                <!--替换fps的X   应为 +fps_max X 或 +fps_max unlimited-->
-                <template v-else-if="item.identifier === 'fps'">
-                  <template v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'">
-                    -freq {{ String(apex_store.fps) }} +fps_max {{ String(apex_store.fps) }}
-                  </template>
-                  <template v-else>
-                    {{ apex_store.settings_config[item.identifier] }}
-                  </template>
-                </template>
-                <!--只有单个参数的时候直接显示输入的参数-->
-                <template v-else-if="item?.parameter">{{ item.default_parameter || item.parameter }}</template>
-                <!---->
-                <template v-else-if="item?.parameters && item?.identifier && item?.is_combination_parameters">
-                  {{ item.parameters?.map((i) => i.parameter).join(' ') }}
-                </template>
-                <!--有多个参数的时候取看是那个值用来显示如 window,fps,miles_language -->
-                <template v-else-if="item?.parameters && item?.identifier">
-                  {{ apex_store.settings_config[item?.identifier] }}
-                </template>
-              </p>
-            </div>
-          </template>
-
-          <!--前面的按钮-->
-          <template v-slot:prepend="{ isSelected, select }">
-            <v-list-item-action start>
-              <v-progress-circular :size="20" style="margin: 0 0" v-if="apex_store.is_start_loading"
-                                   transition="scroll-x-transition"
-                                   indeterminate/>
-              <v-checkbox-btn v-else :model-value="isSelected" @update:modelValue="select"/>
-            </v-list-item-action>
-          </template>
-
-          <!--子标题-->
-          <template v-slot:subtitle>
-            <p>{{ item?.description ? translateApexLaunchOptionText(item.description) : '' }}</p>
-          </template>
-
-        </v-list-item>
-        <v-divider inset></v-divider>
+          </v-list-subheader>
+        </template>
       </template>
-      <template v-else>
-        <v-list-subheader class="apex-category px-4">
-          <div class="apex-category-inner">
-            <span class="apex-category-text">{{ t(item) }}</span>
-          </div>
-        </v-list-subheader>
-      </template>
-    </template>
-  </v-list>
+    </v-list>
   </div>
 </template>
 
