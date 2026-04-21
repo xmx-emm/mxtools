@@ -22,7 +22,6 @@
 - **Apex 配置**：新增配置项如下
   - 渲染多线程模式：（`+mat_queue_mode 2`）
   - Alt+Tab 时窗口最小化：（`+mat_minimize_on_alt_tab 1`）
-  - 钳制鼠标：（`+clip_mouse_to_letterbox 0`）
   - 透明准星颜色：（`+reticle_color "2147483648 2147483648 2147483648"`）
   - 强制禁用垂直同步：（`-forcenovsync`）
   - 禁用手柄：（`-nojoy`）
