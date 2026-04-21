@@ -13,8 +13,10 @@ import {
   match_apex_fps_by_fps_max,
   match_apex_fps_by_freq,
   match_apex_height,
-  match_apex_lobby_max_fps, match_apex_mat_letterbox_aspect_goal,
-  match_apex_mat_letterbox_aspect_min, match_apex_mat_letterbox_aspect_threshold,
+  match_apex_lobby_max_fps,
+  match_apex_mat_letterbox_aspect_goal,
+  match_apex_mat_letterbox_aspect_min,
+  match_apex_mat_letterbox_aspect_threshold,
   match_apex_width
 } from '@/utils/game/apex.ts';
 import {Component, markRaw} from 'vue';
@@ -67,6 +69,7 @@ const apexStore = defineStore('apex', {
       fps: '+fps_max unlimited',
       miles_language: '+miles_language japanese',
       miles_channels: '+miles_channels 2',
+      graphics_api: '-anticheat_settings=SettingsDX11.json'
     }),//多选项配置
 
     original_launch_options: '',//从Steam加载后的启动项快照
