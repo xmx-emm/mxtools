@@ -3,7 +3,7 @@
 基于 **Tauri 2** 与 **Vue 3 + TypeScript + Vuetify** 的 Windows 桌面工具集,提供游戏(如 Apex 启动项)、系统与网络(如端口转发、RDP 相关)等辅助能力.具体能力以后端 `invoke` 命令与前端页面为准.
 
 - 项目结构说明：[docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
-- 更新日志：[CHANGELOG.md](CHANGELOG.md)
+- 更新日志：[CHANGELOG.md](docs/CHANGELOG.md)
 
 ## 环境准备(Windows)
 

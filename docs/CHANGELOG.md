@@ -6,6 +6,38 @@
 
 ---
 
+## [0.0.3] 2026-4-21
+
+### 新增
+
+- **PUBG 启动项**：新增 PUBG 启动选项配置能力,支持在工具箱中统一管理相关启动参数
+- **模块仪表盘**：新增模块化 Dashboard 页面,替换原测试视图并作为主功能入口
+
+### 变更
+
+- **路由结构**：移除欢迎页面并优化路由跳转逻辑,缩短进入功能页路径
+- **Apex 页面**: 
+  - 添加对EA帐户的支持,可读取及应用EA客户端的配置项
+  - 添加配置项搜索过滤及常用分类,更方便的查找
+- **Apex 配置**：新增配置项如下
+  - 渲染多线程模式：（`+mat_queue_mode 2`）
+  - Alt+Tab 时窗口最小化：（`+mat_minimize_on_alt_tab 1`）
+  - 钳制鼠标：（`+clip_mouse_to_letterbox 0`）
+  - 透明准星颜色：（`+reticle_color "2147483648 2147483648 2147483648"`）
+  - 强制禁用垂直同步：（`-forcenovsync`）
+  - 禁用手柄：（`-nojoy`）
+  - 强制音频输出：（`+miles_channels 2/4/6/8`）
+  - 禁用布娃娃：（`+cl_ragdoll_collide 0`）
+  - 图形 API (DirectX)：（`-anticheat_settings=SettingsDX11.json` / `-anticheat_settings=SettingsDX12.json`）
+  - 限制顶点着色器数量：（`-limitvsconst`）
+  - 强制预加载：（`+cl_forcepreload 1` / `-preload`）
+
+### 重构
+
+- **代码组织**：重构 Dashboard 与路由相关实现,提升模块可维护性与后续扩展性
+
+---
+
 ## [0.0.2] 2026-3-10
 
 ### 新增
@@ -42,3 +74,4 @@
 ---
 
 [0.0.2]: https://github.com/xmx-emm/mxtools/compare/98804e6198f4c36a8475bde3b10a2829ffc3d532...HEAD
+[0.0.3]: https://github.com/xmx-emm/mxtools/compare/v0.0.2...HEAD
