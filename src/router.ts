@@ -6,6 +6,7 @@ import {useSettingsStore} from '@/stores/settings.ts';
 import i18n from '@/i18n/i18n.ts';
 import {resolveLocale} from '@/utils/locale.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
+import {openAboutWindow} from '@/utils/windows.ts';
 
 const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
@@ -183,6 +184,16 @@ router.beforeEach((to, from, next) => {
   i18n.global.locale.value = resolveLocale(settings.locale);
 
   console.log('router.beforeEach', settings.restoreLastRoute, settings.lastRoute, settings.locale);
+
+  const toPathOnly = to.path.split(/[?#]/)[0] ?? '';
+  if (toPathOnly === '/about') {
+    const win = getCurrentWindow();
+    if (win.label === 'main') {
+      openAboutWindow();
+      next(false);
+      return;
+    }
+  }
 
   if (
     settings.restoreLastRoute &&
