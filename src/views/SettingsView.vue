@@ -53,73 +53,103 @@ function onCleared() {
 </script>
 
 <template>
-  <div class="page-content">
-    <h2 class="text-h6 font-weight-medium mb-4" style="letter-spacing: -0.02em;">
-      {{ t('settings.title') }}
-    </h2>
+  <div class="settings-root d-flex flex-column h-100">
+    <div class="settings-scroll flex-1">
+      <div class="page-content d-flex flex-column h-100">
+        <v-card variant="flat" class="settings-card d-flex flex-column h-100">
+          <v-card-title class="settings-card-title">
+            <h2 class="text-h6 font-weight-medium" style="letter-spacing: -0.02em;">
+              {{ t('settings.title') }}
+            </h2>
+          </v-card-title>
+          <v-card-text class="settings-card-body d-flex flex-column" style="gap: 16px;">
+            <v-select
+              v-model="editTheme"
+              :items="themeItems"
+              :label="t('settings.theme')"
+              item-title="title"
+              item-value="value"
+              @update:model-value="uiStore.setTheme(editTheme)"
+            />
 
-    <!-- 外观设置 -->
-    <v-card variant="flat" class="settings-card mb-4">
-      <v-card-text class="d-flex flex-column" style="gap: 16px;">
-        <v-select
-          v-model="editTheme"
-          :items="themeItems"
-          :label="t('settings.theme')"
-          item-title="title"
-          item-value="value"
-          @update:model-value="uiStore.setTheme(editTheme)"
-        />
+            <ThemeColorPicker/>
 
-        <ThemeColorPicker/>
-
-        <v-select
-          :model-value="settingsStore.locale"
-          :items="localeItems"
-          :label="t('settings.language')"
-          item-title="title"
-          item-value="value"
-          @update:model-value="applyLocale"
-        />
-        <v-switch
-          :model-value="settingsStore.restoreLastRoute"
-          :label="t('settings.restoreLastPage')"
-          hide-details
-          color="primary"
-          @update:model-value="settingsStore.setRestoreLastRoute"
-        />
-        <div class="d-flex flex-wrap ga-2 mt-2">
-          <v-btn color="primary" variant="tonal" rounded="lg" @click="openAboutWindow">
-            {{ t('settings.about') }}
-          </v-btn>
-        </div>
-        <v-sheet
-          border="md"
-          class="pa-6"
-          rounded="xl"
-        >
-          <v-col>
-          <v-btn color="primary" variant="tonal" rounded="lg" @click="openLogFolder">
-            {{ t('settings.openLogFolder') }}
-          </v-btn>
-          <FeedbackErrorDialog/>
-          <ClearPersistedDataDialog @cleared="onCleared"/>
-          <v-switch
-            :model-value="debugStore.game"
-            :label="t('settings.debugGame')"
-            hide-details
-            color="primary"
-            @update:model-value="debugStore.setGame"
-          />
-          </v-col>
-        </v-sheet>
-      </v-card-text>
-    </v-card>
+            <v-select
+              :model-value="settingsStore.locale"
+              :items="localeItems"
+              :label="t('settings.language')"
+              item-title="title"
+              item-value="value"
+              @update:model-value="applyLocale"
+            />
+            <v-switch
+              :model-value="settingsStore.restoreLastRoute"
+              :label="t('settings.restoreLastPage')"
+              hide-details
+              color="primary"
+              @update:model-value="settingsStore.setRestoreLastRoute"
+            />
+            <div class="d-flex flex-wrap ga-2 mt-2">
+              <v-btn color="primary" variant="tonal" rounded="lg" @click="openAboutWindow">
+                {{ t('settings.about') }}
+              </v-btn>
+            </div>
+            <v-sheet
+              border="md"
+              class="pa-6"
+              rounded="xl"
+            >
+              <v-col>
+                <v-btn color="primary" variant="tonal" rounded="lg" @click="openLogFolder">
+                  {{ t('settings.openLogFolder') }}
+                </v-btn>
+                <FeedbackErrorDialog/>
+                <ClearPersistedDataDialog @cleared="onCleared"/>
+                <v-switch
+                  :model-value="debugStore.game"
+                  :label="t('settings.debugGame')"
+                  hide-details
+                  color="primary"
+                  @update:model-value="debugStore.setGame"
+                />
+              </v-col>
+            </v-sheet>
+          </v-card-text>
+        </v-card>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.settings-root {
+  min-height: 0;
+}
+
+.settings-scroll {
+  min-height: 0;
+}
+
+.page-content {
+  min-height: 0;
+  padding: 24px 16px;
+}
+
 .settings-card {
+  min-height: 0;
   border: 1px solid rgba(var(--v-border-color), 0.08);
   border-radius: 12px;
+}
+
+.settings-card-title {
+  flex: 0 0 auto;
+  padding: 20px 24px 12px;
+}
+
+.settings-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 24px 24px;
 }
 </style>
