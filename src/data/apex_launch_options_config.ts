@@ -14,7 +14,6 @@ import ApexInputMouseTip from '@/components/game/apex/tips/ApexInputMouseTip.vue
 import ApexLobbyFpsTip from '@/components/game/apex/tips/ApexLobbyFpsTip.vue';
 import ApexAspectTip from '@/components/game/apex/tips/ApexAspectTip.vue';
 import ApexAltTabMinimizeTip from '@/components/game/apex/tips/ApexAltTabMinimizeTip.vue';
-import ApexClipMouseTip from '@/components/game/apex/tips/ApexClipMouseTip.vue';
 import ApexReticleColorTip from '@/components/game/apex/tips/ApexReticleColorTip.vue';
 import ApexForceNoVSyncTip from '@/components/game/apex/tips/ApexForceNoVSyncTip.vue';
 import ApexNoJoyTip from '@/components/game/apex/tips/ApexNoJoyTip.vue';
@@ -108,14 +107,6 @@ const AltTabMinimize = {
   hide_in_normal_filter: true,
   is_new: true,
   tip: ApexAltTabMinimizeTip,
-};
-const ClipMouse = {
-  name: 'apexLaunchOptions.clipMouse.name',
-  description: 'apexLaunchOptions.clipMouse.description',
-  parameter: '+clip_mouse_to_letterbox 0',
-  identifier: 'clip_mouse_to_letterbox',
-  is_new: true,
-  tip: ApexClipMouseTip,
 };
 const Window = {
   name: 'apexLaunchOptions.window.name',
@@ -379,7 +370,6 @@ const ApexLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   ApexMilesLanguages,
   SoftenedLocale,
   'apexLaunchOptions.categories.input',
-  ClipMouse,
   InputMouse,
   InputLatency,
   NoJoy,
