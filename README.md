@@ -108,3 +108,11 @@ VITE_APP_VERSION=0.0.3
 - `src-tauri/tauri.conf.json`
 - `package.json`
 - `.env`
+
+## 其它内容
+
+### 图标生成
+```
+替换1024x1024.png图片后
+npm run tauri icon .\src-tauri\icons\1024x1024.png
+```

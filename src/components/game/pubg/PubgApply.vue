@@ -2,7 +2,7 @@
 import {useI18n} from 'vue-i18n';
 import {invoke} from '@tauri-apps/api/core';
 import {useToast} from 'vue-toastification';
-import {computed, ref, shallowRef} from 'vue';
+import {computed, onUnmounted, ref, shallowRef} from 'vue';
 import steamStore from '@/stores/game/steam.ts';
 import pubgStore from '@/stores/game/pubg.ts';
 
@@ -16,6 +16,25 @@ const dialog = shallowRef(false);
 const is_thoroughly_kill_steam = ref(false);
 const interval_id = ref<number | any>(null);
 const is_apply_running = ref(false);
+const WAIT_CLOSE_POLL_MS = 1500;
+
+function stop_monitoring() {
+  if (!interval_id.value) return;
+  clearInterval(interval_id.value);
+  interval_id.value = null;
+}
+
+function start_monitoring() {
+  stop_monitoring();
+  interval_id.value = setInterval(async () => {
+    const is_running = await invoke('steam_is_running_by_tasklist');
+    if (!is_running) {
+      stop_monitoring();
+      set_launch_option();
+      dialog.value = false;
+    }
+  }, WAIT_CLOSE_POLL_MS);
+}
 
 const apply_button_class = computed(() => {
   if (pubg_store.is_start_loading || !pubg_store.is_launch_options_modified) return '';
@@ -27,16 +46,17 @@ const apply_button_class = computed(() => {
 
 async function force_close_steam() {
   is_thoroughly_kill_steam.value = true;
+  stop_monitoring();
   await invoke('thoroughly_kill_steam');
 
   if (await invoke('steam_is_running_by_tasklist')) {
     toast.error('toast.cannotCloseSteam');
+    is_thoroughly_kill_steam.value = false;
+    start_monitoring();
   } else {
     is_thoroughly_kill_steam.value = false;
     dialog.value = false;
-    if (interval_id.value) {
-      clearInterval(interval_id.value);
-    }
+    stop_monitoring();
     set_launch_option();
   }
 }
@@ -61,20 +81,12 @@ function set_launch_option() {
 function cancel() {
   dialog.value = false;
   is_thoroughly_kill_steam.value = false;
-  clearInterval(interval_id.value);
+  stop_monitoring();
   is_apply_running.value = false;
 }
 
 function continuously_monitor_the_operational_status() {
-  interval_id.value = setInterval(async () => {
-    const is_running = await invoke('steam_is_running_by_tasklist');
-    if (!is_running && interval_id.value) {
-      clearInterval(interval_id.value);
-      set_launch_option();
-      dialog.value = false;
-      interval_id.value = null;
-    }
-  }, 1500);
+  start_monitoring();
 }
 
 async function apply_check() {
@@ -85,9 +97,14 @@ async function apply_check() {
     dialog.value = true;
     continuously_monitor_the_operational_status();
   } else {
+    stop_monitoring();
     set_launch_option();
   }
 }
+
+onUnmounted(() => {
+  stop_monitoring();
+});
 </script>
 
 <template>

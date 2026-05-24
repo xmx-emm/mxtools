@@ -28,3 +28,6 @@ dist-ssr
 package-lock.json
 components.d.ts
 /.cursor
+
+/src-tauri/icons/android/*
+/src-tauri/icons/ios/*

@@ -3,6 +3,7 @@ import {invoke} from '@tauri-apps/api/core';
 import PubgLaunchOptionsConfig from '@/data/pubg_launch_options_config.ts';
 import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/data/steam.ts';
 import steamStore from '@/stores/game/steam.ts';
+import {Component, markRaw} from 'vue';
 
 function optionKey(item: SteamLaunchOptionsImpl): string {
   return item.identifier ?? item.name;
@@ -26,11 +27,34 @@ function clampViewDistance(v: number): number {
   return Math.min(1, Math.max(0.5, v));
 }
 
+function normalizeTotalMemMb(totalMemMb: number): number {
+  if (!Number.isFinite(totalMemMb) || totalMemMb < 512) return 8192;
+  return Math.floor(totalMemMb);
+}
+
+function calcSafeMaxMemMb(totalMemMb: number): number {
+  return Math.max(512, Math.floor(totalMemMb) - 1024);
+}
+
+function clampMaxMemMb(valueMb: number, safeLimitMb: number): number {
+  if (!Number.isFinite(valueMb)) return 512;
+  const minMb = 512;
+  const maxMb = Math.max(minMb, Math.floor(safeLimitMb));
+  return Math.min(maxMb, Math.max(minMb, Math.floor(valueMb)));
+}
+
 function tokensForGraphicsSub(sub: SteamLaunchOptionsImpl): string[] {
   const par = sub.parameter;
   if (Array.isArray(par)) return par.filter((t): t is string => typeof t === 'string');
   if (typeof par === 'string') return [par];
   return [];
+}
+
+function tokensForCombinationParameters(item: SteamLaunchOptionsImpl): string[] {
+  if (!item.parameters) return [];
+  return item.parameters
+    .map((sub) => sub.parameter)
+    .filter((t): t is string => typeof t === 'string' && t.length > 0);
 }
 
 const pubgStore = defineStore('pubg', {
@@ -44,6 +68,8 @@ const pubgStore = defineStore('pubg', {
       window: '-fullscreen',
       graphics_api: 'dx11',
     }),
+    max_mem_unit: <'mb' | 'gb'>'gb',
+    max_mem_safe_limit_mb: 8192,
     max_mem: 0,
     refresh_rate: 144,
     res_width: 1920,
@@ -51,9 +77,19 @@ const pubgStore = defineStore('pubg', {
     view_distance_scale: 0.8,
     parameter_overrides: <{ [key: string]: string[] }>{},
     original_launch_options: '',
+    tip_view: <Component | null | undefined>null,
+    tip_dialog: false,
   }),
   actions: {
-    closeTip() {},
+    closeTip() {
+      this.tip_dialog = false;
+    },
+    showTip(item: SteamLaunchOptionsImpl) {
+      if (item.tip !== null && item.tip !== undefined) {
+        this.tip_view = markRaw(item.tip);
+        this.tip_dialog = true;
+      }
+    },
     start_launch() {
       this.is_start_loading = true;
       this.options_selection = [];
@@ -77,17 +113,18 @@ const pubgStore = defineStore('pubg', {
       }
       let default_mem_mb = 8192;
       try {
-        default_mem_mb = Number(await invoke<number>('system_total_memory_mb'));
-        if (!Number.isFinite(default_mem_mb) || default_mem_mb < 512) default_mem_mb = 8192;
+        default_mem_mb = normalizeTotalMemMb(Number(await invoke<number>('system_total_memory_mb')));
       } catch {
         default_mem_mb = 8192;
       }
-      this.max_mem = default_mem_mb;
+      const safe_max_mem_mb = calcSafeMaxMemMb(default_mem_mb);
+      this.max_mem_safe_limit_mb = safe_max_mem_mb;
+      this.max_mem = clampMaxMemMb(safe_max_mem_mb, safe_max_mem_mb);
       await invoke<string>('get_pubg_launch_option', {id: Number(user_id)})
         .then((start_launch_option) => {
           this.options_selection = [];
           this.parameter_overrides = {};
-          this.max_mem = default_mem_mb;
+          this.max_mem = clampMaxMemMb(safe_max_mem_mb, safe_max_mem_mb);
           for (const item of PubgLaunchOptionsConfig) {
             if (!isSteamLaunchOptionsImpl(item)) continue;
             if (item.identifier === 'graphics_api' && item.parameters) {
@@ -139,7 +176,7 @@ const pubgStore = defineStore('pubg', {
             if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
               const v = matchInt(/-maxMem=(\d+)/i, start_launch_option);
               if (v !== null) {
-                this.max_mem = v;
+                this.max_mem = clampMaxMemMb(v, this.max_mem_safe_limit_mb);
                 this.options_selection.push(item);
               }
               continue;
@@ -152,11 +189,12 @@ const pubgStore = defineStore('pubg', {
               }
               continue;
             }
-            if (item.identifier === 'forced_resolution' || item.parameter === '-res W H') {
-              const m = start_launch_option.match(/-res\s+(\d+)\s+(\d+)/i);
-              if (m?.[1] && m?.[2]) {
-                this.res_width = Number(m[1]);
-                this.res_height = Number(m[2]);
+            if (item.identifier === 'forced_resolution' || item.parameter === '-ResX=W -ResY=H') {
+              const x = matchInt(/-resx=(\d+)/i, start_launch_option);
+              const y = matchInt(/-resy=(\d+)/i, start_launch_option);
+              if (x !== null && y !== null) {
+                this.res_width = x;
+                this.res_height = y;
                 this.options_selection.push(item);
               }
               continue;
@@ -171,6 +209,13 @@ const pubgStore = defineStore('pubg', {
               );
               if (v !== null) {
                 this.view_distance_scale = clampViewDistance(v);
+                this.options_selection.push(item);
+              }
+              continue;
+            }
+            if (item.is_combination_parameters && item.parameters) {
+              const tokens = tokensForCombinationParameters(item);
+              if (tokens.some((tok) => start_launch_option.includes(tok))) {
                 this.options_selection.push(item);
               }
               continue;
@@ -202,22 +247,17 @@ const pubgStore = defineStore('pubg', {
       this.skip_intro_movies_disabled = disabled;
       this.sync_skip_intro_selection_with_movies_disabled(disabled);
     },
-    sync_skip_intro_selection_with_movies_disabled(disabled: boolean) {
+    sync_skip_intro_selection_with_movies_disabled(_disabled: boolean) {
       const skipItem = PubgLaunchOptionsConfig.find(
         (raw) => isSteamLaunchOptionsImpl(raw) && raw.identifier === 'skip_intro',
       ) as SteamLaunchOptionsImpl | undefined;
       if (!skipItem) return;
 
-      if (disabled) {
-        if (!this.options_selection.some((i) => i.identifier === skipItem.identifier)) {
-          this.options_selection.push(skipItem);
-        }
-      } else {
-        this.options_selection = this.options_selection.filter((i) => i.identifier !== skipItem.identifier);
-        // 清理“由 Steam 启动项解析得到的”覆盖参数，避免恢复后仍带上 skip_intro token。
-        const key = String(skipItem.identifier ?? skipItem.name);
-        delete (this.parameter_overrides as Record<string, string[]>)[key];
-      }
+      // "跳过开场动画" 是一次性目录重命名操作，不参与 Steam 启动项选择与拼接。
+      this.options_selection = this.options_selection.filter((i) => i.identifier !== skipItem.identifier);
+      // 清理“由 Steam 启动项解析得到的”覆盖参数，避免残留 skip_intro token。
+      const key = String(skipItem.identifier ?? skipItem.name);
+      delete (this.parameter_overrides as Record<string, string[]>)[key];
     },
     async set_skip_intro_movies_disabled(disabled: boolean) {
       if (this.is_skip_intro_movies_loading) return;
@@ -230,21 +270,40 @@ const pubgStore = defineStore('pubg', {
         this.is_skip_intro_movies_loading = false;
       }
     },
+    set_max_mem_from_display(value: number) {
+      const baseValueMb = this.max_mem_unit === 'gb' ? value * 1024 : value;
+      this.max_mem = clampMaxMemMb(baseValueMb, this.max_mem_safe_limit_mb);
+    },
   },
   getters: {
+    max_mem_display_value(state): number {
+      if (state.max_mem_unit === 'gb') return Number((state.max_mem / 1024).toFixed(2));
+      return state.max_mem;
+    },
+    max_mem_display_max(state): number {
+      if (state.max_mem_unit === 'gb') {
+        return Number((state.max_mem_safe_limit_mb / 1024).toFixed(2));
+      }
+      return state.max_mem_safe_limit_mb;
+    },
+    max_mem_display_step(state): number {
+      return state.max_mem_unit === 'gb' ? 0.25 : 256;
+    },
     launch_options(state) {
       const items: string[] = [];
       for (const item of state.options_selection) {
+        if (item.identifier === 'skip_intro') continue;
         if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
-          items.push(`-maxMem=${state.max_mem}`);
+          const safeMemMb = clampMaxMemMb(state.max_mem, state.max_mem_safe_limit_mb);
+          items.push(`-maxMem=${safeMemMb}`);
           continue;
         }
         if (item.identifier === 'refresh_rate' || item.parameter === '-refresh X') {
           items.push(`-refresh ${state.refresh_rate}`);
           continue;
         }
-        if (item.identifier === 'forced_resolution' || item.parameter === '-res W H') {
-          items.push(`-res ${state.res_width} ${state.res_height}`);
+        if (item.identifier === 'forced_resolution' || item.parameter === '-ResX=W -ResY=H') {
+          items.push(`-ResX=${state.res_width} -ResY=${state.res_height}`);
           continue;
         }
         if (
@@ -254,6 +313,10 @@ const pubgStore = defineStore('pubg', {
           items.push(
             `+r.ViewDistanceScale=${clampViewDistance(Number(state.view_distance_scale))}`,
           );
+          continue;
+        }
+        if (item.is_combination_parameters && item.parameters) {
+          items.push(...tokensForCombinationParameters(item));
           continue;
         }
         if (item.identifier === 'window') {
@@ -280,7 +343,7 @@ const pubgStore = defineStore('pubg', {
           continue;
         }
       }
-      return items.sort().join(' ');
+      return items.join(' ');
     },
     is_launch_options_modified(state): boolean {
       return state.original_launch_options !== '' && this.launch_options !== state.original_launch_options;

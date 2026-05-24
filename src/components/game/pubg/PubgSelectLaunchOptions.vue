@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted} from 'vue';
+import {computed, onMounted} from 'vue';
 import {invoke} from '@tauri-apps/api/core';
 import {openPath} from '@tauri-apps/plugin-opener';
 import {useToast} from 'vue-toastification';
@@ -27,14 +27,17 @@ function graphicsPreviewTokens(item: SteamLaunchOptionsImpl): string {
 }
 
 function getParameterPreview(item: SteamLaunchOptionsImpl): string {
+  if (item.identifier === 'skip_intro') {
+    return pubg_store.skip_intro_movies_disabled ? '当前已禁用开场动画' : '当前未禁用开场动画';
+  }
   if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
     return `-maxMem=${pubg_store.max_mem}`;
   }
   if (item.identifier === 'refresh_rate' || item.parameter === '-refresh X') {
     return `-refresh ${pubg_store.refresh_rate}`;
   }
-  if (item.identifier === 'forced_resolution' || item.parameter === '-res W H') {
-    return `-res ${pubg_store.res_width} ${pubg_store.res_height}`;
+  if (item.identifier === 'forced_resolution' || item.parameter === '-ResX=W -ResY=H') {
+    return `-ResX=${pubg_store.res_width} -ResY=${pubg_store.res_height}`;
   }
   if (
     item.identifier === 'view_distance_scale' ||
@@ -48,6 +51,12 @@ function getParameterPreview(item: SteamLaunchOptionsImpl): string {
   if (item.identifier === 'graphics_api' && item.parameters) {
     return graphicsPreviewTokens(item);
   }
+  if (item.is_combination_parameters && item.parameters) {
+    return item.parameters
+      .map((p) => p.parameter)
+      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+      .join(' ');
+  }
   if (typeof item.parameter === 'string') return item.parameter;
   if (Array.isArray(item.parameter)) {
     const key = item.identifier ?? item.name;
@@ -57,6 +66,13 @@ function getParameterPreview(item: SteamLaunchOptionsImpl): string {
     return item.parameter.join(' ');
   }
   return item.description || '';
+}
+
+function parameterInfoClass(item: SteamLaunchOptionsImpl): string {
+  if (item.identifier === 'skip_intro' && pubg_store.skip_intro_movies_disabled) {
+    return 'parameter_info_active';
+  }
+  return '';
 }
 
 function windowModeBtnValue(p: SteamLaunchOptionsImpl): string {
@@ -84,10 +100,20 @@ async function toggleSkipIntroMovies() {
 }
 
 function onSkipIntroItemClick(e: Event) {
+  e.preventDefault();
   e.stopPropagation();
   // 不阻塞 UI，实际 await 在 toggleSkipIntroMovies 内部处理异常
   void toggleSkipIntroMovies();
 }
+
+const maxMemDisplayProxy = computed({
+  get: () => pubg_store.max_mem_display_value,
+  set: (value: number | string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return;
+    pubg_store.set_max_mem_from_display(n);
+  },
+});
 </script>
 
 <template>
@@ -102,6 +128,8 @@ function onSkipIntroItemClick(e: Event) {
         <v-list-item
           :value="raw"
           @click="raw.identifier === 'skip_intro' ? onSkipIntroItemClick($event) : undefined"
+          v-tooltip="{ text: '右键查看说明', location: 'bottom', openDelay: '800' }"
+          @contextmenu.prevent="pubg_store.showTip(raw)"
         >
           <template #default="{isSelected}">
             <div v-if="isSelected" class="d-flex flex-row align-center w-100 flex-wrap gap-1">
@@ -151,7 +179,25 @@ function onSkipIntroItemClick(e: Event) {
 
               <template v-else-if="raw.identifier === 'max_mem' || raw.parameter === '-maxMem=X'">
                 <span class="input_inline_label">最大内存</span>
-                <PubgNumberInput v-model="pubg_store.max_mem" />
+                <PubgNumberInput
+                  v-model="maxMemDisplayProxy"
+                  :step="pubg_store.max_mem_display_step"
+                  :min="pubg_store.max_mem_unit === 'gb' ? 0.5 : 512"
+                  :max="pubg_store.max_mem_display_max"
+                />
+                <v-btn-toggle
+                  v-model="pubg_store.max_mem_unit"
+                  color="primary"
+                  variant="text"
+                  style="max-height: 25px"
+                  border
+                  divided
+                  @click.stop=""
+                  @mousedown.stop=""
+                >
+                  <v-btn size="small" value="mb">MB</v-btn>
+                  <v-btn size="small" value="gb">GB</v-btn>
+                </v-btn-toggle>
               </template>
 
               <template v-else-if="raw.identifier === 'refresh_rate' || raw.parameter === '-refresh X'">
@@ -207,7 +253,9 @@ function onSkipIntroItemClick(e: Event) {
             <div class="d-flex flex-row align-center w-100 min-width-0">
               <p class="pubg-title-text">{{ raw?.name }}</p>
               <v-spacer />
-              <p class="parameter_info text-truncate">{{ getParameterPreview(raw) }}</p>
+              <p class="parameter_info text-truncate" :class="parameterInfoClass(raw)">
+                {{ getParameterPreview(raw) }}
+              </p>
             </div>
           </template>
 
@@ -233,7 +281,7 @@ function onSkipIntroItemClick(e: Event) {
           </template>
 
           <template #prepend="{ isSelected, select }">
-            <v-list-item-action start>
+            <v-list-item-action start class="pubg-prepend-action">
               <template v-if="raw.identifier === 'skip_intro'">
                 <v-progress-circular
                   v-if="pubg_store.is_start_loading || pubg_store.is_skip_intro_movies_loading"
@@ -244,9 +292,10 @@ function onSkipIntroItemClick(e: Event) {
                 />
                 <v-btn
                   v-else
-                  :color="pubg_store.skip_intro_movies_disabled ? 'error' : 'primary'"
+                  class="skip-intro-action-btn"
+                  color="primary"
                   variant="flat"
-                  size="small"
+                  density="compact"
                   icon
                   :title="pubg_store.skip_intro_movies_disabled ? '恢复开场动画（重命名 Movies_disabled -> Movies）' : '禁用开场动画（重命名 Movies -> Movies_disabled）'"
                   @click.stop="toggleSkipIntroMovies"
@@ -307,6 +356,10 @@ function onSkipIntroItemClick(e: Event) {
   margin: 0;
 }
 
+.parameter_info_active {
+  color: #4caf50;
+}
+
 .input_inline_label {
   font-size: 13px;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
@@ -351,5 +404,33 @@ function onSkipIntroItemClick(e: Event) {
   letter-spacing: 0.5px;
   color: rgba(var(--v-theme-on-surface), 0.75);
   white-space: nowrap;
+}
+
+.skip-intro-action-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skip-intro-action-btn :deep(.v-btn__content) {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.pubg-prepend-action {
+  width: 40px;
+  min-width: 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

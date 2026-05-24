@@ -1,6 +1,5 @@
 import {createApp} from 'vue';
 import App from './App.vue';
-import router from './router';
 // CSS
 import '@/assets/styles/global.css';
 import '@/assets/styles/styles.css';
@@ -28,6 +27,7 @@ import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import {initFrontendLogger} from '@/utils/logger';
 import {findAccent, persistAccentHint} from '@/themes';
+import {alignWindowHashWithStoredLastRoute} from '@/utils/restore-last-route-hash';
 
 initFrontendLogger();
 
@@ -46,6 +46,10 @@ async function bootstrap() {
   const settings = useSettingsStore();
   const style = uiStyleStore();
   await Promise.all([settings.$tauri.start(), style.$tauri.start()]);
+
+  // 必须在首次 import `./router`（创建 hash history）之前对齐 hash，否则会出现「默认首屏 + replace 恢复」两次导航
+  alignWindowHashWithStoredLastRoute(settings.restoreLastRoute, settings.lastRoute);
+  const {default: router} = await import('./router');
 
   // 应用主题色到 Vuetify
   applyAccentTheme(style.accent);
