@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/).
 
 ---
+## [0.0.4]
+
+### 新增
+
+- **支持PUBG配置**：可设置PUBG启动项
+
 
 ## [0.0.3] 2026-4-21
 

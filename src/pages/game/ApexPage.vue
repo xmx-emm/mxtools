@@ -3,7 +3,8 @@ import {useI18n} from 'vue-i18n';
 import ApexLauncherUser from '@/components/game/apex/ApexLauncherUser.vue';
 import eaStore from '@/stores/game/ea.ts';
 import steamStore from '@/stores/game/steam.ts';
-import {onMounted, onUnmounted, ref} from 'vue';
+import {onMounted, onUnmounted, ref, watch} from 'vue';
+import {onBeforeRouteLeave} from 'vue-router';
 import ApexApply from '@/components/game/apex/ApexApply.vue';
 import ApexStart from '@/components/game/apex/ApexStart.vue';
 import ApexApexCopyButton from '@/components/game/apex/ApexCopyButton.vue';
@@ -22,20 +23,58 @@ const ea_store = eaStore();
 const apex_store = apexStore();
 
 const interval_id = ref<number | any>(null);
+const NORMAL_STATUS_POLL_MS = 15000;
+
+function stop_status_polling() {
+  if (!interval_id.value) return;
+  clearInterval(interval_id.value);
+  interval_id.value = null;
+}
+
+async function refresh_running_for_active_account() {
+  const acc = apex_store.active_apex_account;
+  if (!acc) return;
+  if (acc.kind === 'steam') {
+    await check_is_steam_running();
+  } else {
+    await ea_store.check_is_ea_desktop_running();
+  }
+}
+
+function start_status_polling() {
+  stop_status_polling();
+  if (!apex_store.active_apex_account) return;
+  interval_id.value = setInterval(() => {
+    void refresh_running_for_active_account();
+  }, NORMAL_STATUS_POLL_MS);
+}
 
 onMounted(async () => {
   await refresh_users();
   await apex_store.refresh_apex_accounts();
   // 子组件 onMounted 先于本页,故不能在 ApexSelectLaunchOptions 里首屏 start_launch,否则会先于 refresh 触发 noLauncherAccount
   apex_store.start_launch();
-  await ea_store.check_is_ea_desktop_running();
-  interval_id.value = setInterval(async () => {
-    await check_is_steam_running();
-    await ea_store.check_is_ea_desktop_running();
-  }, 5000);
+  await refresh_running_for_active_account();
+  start_status_polling();
 });
+
+// 监听「当前选中的启动器账户」而非仅 kind：同 kind 换 Steam 账号时 key 会变；首屏 key 从 null→有值
+// 不跑 watch（prev==null），避免与 onMounted 里 refresh_running 重复调用 check_is_steam_running
+watch(
+  () => apex_store.launcher_selection_key,
+  async (_key, prevKey) => {
+    if (prevKey == null) return;
+    await refresh_running_for_active_account();
+    stop_status_polling();
+    start_status_polling();
+  },
+);
 onUnmounted(() => {
-  clearInterval(interval_id.value);
+  stop_status_polling();
+});
+
+onBeforeRouteLeave(() => {
+  stop_status_polling();
 });
 
 async function reload_apex_launch_options() {
