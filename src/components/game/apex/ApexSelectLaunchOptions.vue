@@ -366,6 +366,10 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                   <template v-else-if="item.identifier === 'forced_resolution'">
                     -width {{ apex_store.width }} -height {{ apex_store.height }}
                   </template>
+                  <!--跳过开场动画-->
+                  <template v-else-if="item.identifier === 'skip_intro_animation'">
+                    -novid -dev
+                  </template>
                   <!--比例-->
                   <template v-else-if="item?.identifier == 'letterbox_aspect'">
                     +mat_letterbox_aspect_min {{ apex_store.mat_letterbox_aspect_min }}

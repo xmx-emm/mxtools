@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {computed, ref, shallowRef} from 'vue';
+import {computed, onUnmounted, ref, shallowRef} from 'vue';
 import eaStore from '@/stores/game/ea.ts';
 import steamStore from '@/stores/game/steam.ts';
 import {invoke} from '@tauri-apps/api/core';
@@ -21,6 +21,13 @@ const is_thoroughly_kill = ref(false);
 const interval_id = ref<number | any>(null);
 const is_apply_running = ref(false);
 const is_setting_launch_option = ref(false);
+const WAIT_CLOSE_POLL_MS = 1500;
+
+function stop_monitoring() {
+  if (!interval_id.value) return;
+  clearInterval(interval_id.value);
+  interval_id.value = null;
+}
 
 const apply_button_class = computed(() => {
   if (!apex_store.active_apex_account) return '';
@@ -49,15 +56,13 @@ const close_dialog_icon = computed(() =>
 
 async function force_close_launcher() {
   is_thoroughly_kill.value = true;
-  if (interval_id.value) {
-    clearInterval(interval_id.value);
-    interval_id.value = null;
-  }
+  stop_monitoring();
   if (close_launcher_kind.value === 'steam') {
     await invoke('thoroughly_kill_steam');
     if (await invoke<boolean>('steam_is_running_by_tasklist')) {
       toast.error('toast.cannotCloseSteam');
       is_thoroughly_kill.value = false;
+      continuously_monitor_until_closed();
       return;
     }
   } else {
@@ -65,6 +70,7 @@ async function force_close_launcher() {
     if (await invoke<boolean>('ea_desktop_is_running_by_tasklist')) {
       toast.error('toast.cannotCloseEaDesktop');
       is_thoroughly_kill.value = false;
+      continuously_monitor_until_closed();
       return;
     }
   }
@@ -116,11 +122,12 @@ function set_launch_option() {
 function cancel() {
   dialog.value = false;
   is_thoroughly_kill.value = false;
-  clearInterval(interval_id.value);
+  stop_monitoring();
   is_apply_running.value = false;
 }
 
 function continuously_monitor_until_closed() {
+  stop_monitoring();
   interval_id.value = setInterval(async () => {
     let still_running: boolean;
     if (close_launcher_kind.value === 'steam') {
@@ -128,13 +135,12 @@ function continuously_monitor_until_closed() {
     } else {
       still_running = await invoke<boolean>('ea_desktop_is_running_by_tasklist');
     }
-    if (!still_running && interval_id.value) {
-      clearInterval(interval_id.value);
+    if (!still_running) {
+      stop_monitoring();
       set_launch_option();
       dialog.value = false;
-      interval_id.value = null;
     }
-  }, 1500);
+  }, WAIT_CLOSE_POLL_MS);
 }
 
 async function apply_check() {
@@ -171,9 +177,14 @@ async function apply_check() {
     dialog.value = true;
     continuously_monitor_until_closed();
   } else {
+    stop_monitoring();
     set_launch_option();
   }
 }
+
+onUnmounted(() => {
+  stop_monitoring();
+});
 </script>
 
 <template>

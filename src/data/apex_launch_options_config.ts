@@ -1,28 +1,78 @@
 import {SteamLaunchOptionsImpl} from '@/data/steam.ts';
-import ApexMilesLanguageTip from '@/components/game/apex/tips/ApexMilesLanguageTip.vue';
-import ApexSkipAnimationTip from '@/components/game/apex/tips/ApexSkipAnimationTip.vue';
-import ApexHighPriorityTip from '@/components/game/apex/tips/ApexHighPriorityTip.vue';
-import ApexWindowTip from '@/components/game/apex/tips/ApexWindowTip.vue';
-import ApexFpsTip from '@/components/game/apex/tips/ApexFpsTip.vue';
-import ApexShowFpsTip from '@/components/game/apex/tips/ApexShowFpsTip.vue';
-import ApexShowPosTip from '@/components/game/apex/tips/ApexShowPosTip.vue';
-import ApexFovTip from '@/components/game/apex/tips/ApexFovTip.vue';
-import ApexRedHitTip from '@/components/game/apex/tips/ApexRedHitTip.vue';
-import ApexInputLatencyTip from '@/components/game/apex/tips/ApexInputLatencyTip.vue';
-import ApexForcedResolutionTip from '@/components/game/apex/tips/ApexForcedResolutionTip.vue';
-import ApexInputMouseTip from '@/components/game/apex/tips/ApexInputMouseTip.vue';
-import ApexLobbyFpsTip from '@/components/game/apex/tips/ApexLobbyFpsTip.vue';
-import ApexAspectTip from '@/components/game/apex/tips/ApexAspectTip.vue';
-import ApexAltTabMinimizeTip from '@/components/game/apex/tips/ApexAltTabMinimizeTip.vue';
-import ApexReticleColorTip from '@/components/game/apex/tips/ApexReticleColorTip.vue';
-import ApexForceNoVSyncTip from '@/components/game/apex/tips/ApexForceNoVSyncTip.vue';
-import ApexNoJoyTip from '@/components/game/apex/tips/ApexNoJoyTip.vue';
-import ApexMatQueueModeTip from '@/components/game/apex/tips/ApexMatQueueModeTip.vue';
-import ApexRagdollCollideTip from '@/components/game/apex/tips/ApexRagdollCollideTip.vue';
-import ApexDX12Tip from '@/components/game/apex/tips/ApexDX12Tip.vue';
-import ApexLimitvsConstTip from '@/components/game/apex/tips/ApexLimitvsConstTip.vue';
-import ApexMilesChannelsTip from '@/components/game/apex/tips/ApexMilesChannelsTip.vue';
-import ApexForcePreloadTip from '@/components/game/apex/tips/ApexForcePreloadTip.vue';
+import {defineAsyncComponent} from 'vue';
+
+const ApexMilesLanguageTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexMilesLanguageTip.vue'),
+);
+const ApexSkipAnimationTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexSkipAnimationTip.vue'),
+);
+const ApexHighPriorityTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexHighPriorityTip.vue'),
+);
+const ApexWindowTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexWindowTip.vue'),
+);
+const ApexFpsTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexFpsTip.vue'),
+);
+const ApexShowFpsTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexShowFpsTip.vue'),
+);
+const ApexShowPosTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexShowPosTip.vue'),
+);
+const ApexFovTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexFovTip.vue'),
+);
+const ApexRedHitTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexRedHitTip.vue'),
+);
+const ApexInputLatencyTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexInputLatencyTip.vue'),
+);
+const ApexForcedResolutionTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexForcedResolutionTip.vue'),
+);
+const ApexInputMouseTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexInputMouseTip.vue'),
+);
+const ApexLobbyFpsTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexLobbyFpsTip.vue'),
+);
+const ApexAspectTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexAspectTip.vue'),
+);
+const ApexAltTabMinimizeTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexAltTabMinimizeTip.vue'),
+);
+const ApexReticleColorTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexReticleColorTip.vue'),
+);
+const ApexForceNoVSyncTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexForceNoVSyncTip.vue'),
+);
+const ApexNoJoyTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexNoJoyTip.vue'),
+);
+const ApexMatQueueModeTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexMatQueueModeTip.vue'),
+);
+const ApexRagdollCollideTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexRagdollCollideTip.vue'),
+);
+const ApexDX12Tip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexDX12Tip.vue'),
+);
+const ApexLimitvsConstTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexLimitvsConstTip.vue'),
+);
+const ApexMilesChannelsTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexMilesChannelsTip.vue'),
+);
+const ApexForcePreloadTip = defineAsyncComponent(() =>
+  import('@/components/game/apex/tips/ApexForcePreloadTip.vue'),
+);
 
 // -allow_thrid_party_software 这个参数好像没用?
 
@@ -89,8 +139,9 @@ const ApexMilesLanguages = {
 const ApexSkip = {
   name: 'apexLaunchOptions.skipIntro.name',
   description: 'apexLaunchOptions.skipIntro.description',
-  default_parameter: '-dev',
   parameter: ['-novid', '-dev'],
+  identifier: 'skip_intro_animation',
+  is_combination_parameters: true,
   tip: ApexSkipAnimationTip,
 };
 const HighPriority = {
