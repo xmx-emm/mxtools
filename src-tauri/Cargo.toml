@@ -1,6 +1,6 @@
 [package]
 name = "mxtools"
-version = "0.0.3"
+version = "0.0.4"
 description = "萌新工具箱"
 authors = ["小萌新"]
 edition = "2021"

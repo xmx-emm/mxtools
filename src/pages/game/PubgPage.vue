@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted, ref} from 'vue';
+import {onBeforeRouteLeave} from 'vue-router';
 import SteamUser from '@/components/game/SteamUser.vue';
 import PubgApply from '@/components/game/pubg/PubgApply.vue';
 import PubgCopyButton from '@/components/game/pubg/PubgCopyButton.vue';
@@ -12,16 +13,33 @@ const steam_store = steamStore();
 const pubg_store = pubgStore();
 
 const interval_id = ref<number | any>(null);
+const NORMAL_STATUS_POLL_MS = 15000;
 
-onMounted(async () => {
-  steam_store.refresh_users();
+function stop_status_polling() {
+  if (!interval_id.value) return;
+  clearInterval(interval_id.value);
+  interval_id.value = null;
+}
+
+function start_status_polling() {
+  stop_status_polling();
   interval_id.value = setInterval(async () => {
     await steam_store.check_is_steam_running();
-  }, 5000);
+  }, NORMAL_STATUS_POLL_MS);
+}
+
+onMounted(async () => {
+  await steam_store.refresh_users();
+  await steam_store.check_is_steam_running();
+  start_status_polling();
 });
 
 onUnmounted(() => {
-  clearInterval(interval_id.value);
+  stop_status_polling();
+});
+
+onBeforeRouteLeave(() => {
+  stop_status_polling();
 });
 </script>
 
@@ -54,6 +72,17 @@ onUnmounted(() => {
         <PubgApply/>
       </v-btn-group>
     </div>
+
+    <v-dialog
+      v-model="pubg_store.tip_dialog"
+      content-class="pubg-tip-dialog-no-ripple"
+    >
+      <component
+        :is="pubg_store.tip_view"
+        class="not_select"
+        @contextmenu.prevent="pubg_store.closeTip()"
+      />
+    </v-dialog>
   </v-col>
 </template>
 
@@ -64,6 +93,12 @@ onUnmounted(() => {
 
 .button {
   max-height: 35px;
+}
+</style>
+
+<style>
+.pubg-tip-dialog-no-ripple .v-ripple__container {
+  display: none !important;
 }
 </style>
 

@@ -189,6 +189,12 @@ const apexStore = defineStore('apex', {
             if (start_launch_option.includes('fovScale')) {
               this.options_selection.push(option);
             }
+            // } else if (option?.identifier === 'skip_intro_animation') { //可以不用在这里处理?
+            //   const is_dev = start_launch_option.includes('-dev');
+            //   const is_novid = start_launch_option.includes('-novid');
+            //   if (is_dev || is_novid) {
+            //     this.options_selection.push(option);
+            //   }
           } else if (option?.identifier === 'lobby_max_fps') {
             if (start_launch_option.includes('+lobby_max_fps')) {
               this.lobby_max_fps = match_apex_lobby_max_fps(start_launch_option) || 114;
@@ -341,6 +347,8 @@ const apexStore = defineStore('apex', {
               items.push('+cl_fovScale "1.7"');
             }
           }
+        } else if (item?.identifier === 'skip_intro_animation') {//跳过开场动画
+          items.push('-novid -dev');
         } else if (item?.identifier === 'forced_resolution') {//强制分辨率
           items.push(`-width ${state.width} -height ${state.height}`);
         } else if (item?.identifier === 'letterbox_aspect') {//宽高比
