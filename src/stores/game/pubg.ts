@@ -1,7 +1,7 @@
 import {defineStore} from 'pinia';
 import {invoke} from '@tauri-apps/api/core';
 import PubgLaunchOptionsConfig from '@/data/pubg_launch_options_config.ts';
-import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/data/steam.ts';
+import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import steamStore from '@/stores/game/steam.ts';
 import {Component, markRaw} from 'vue';
 
@@ -60,6 +60,7 @@ function tokensForCombinationParameters(item: SteamLaunchOptionsImpl): string[] 
 const pubgStore = defineStore('pubg', {
   state: () => ({
     is_start_loading: false,
+    is_accounts_loading: false,
     options_selection: <SteamLaunchOptionsImpl[]>[],
     // 通过“重命名 Content/Movies 目录”来禁用/恢复 PUBG 开场动画。
     skip_intro_movies_disabled: false,
@@ -77,6 +78,7 @@ const pubgStore = defineStore('pubg', {
     view_distance_scale: 0.8,
     parameter_overrides: <{ [key: string]: string[] }>{},
     original_launch_options: '',
+    launch_loaded_for_user_id: <string | null>null,
     tip_view: <Component | null | undefined>null,
     tip_dialog: false,
   }),
@@ -90,25 +92,208 @@ const pubgStore = defineStore('pubg', {
         this.tip_dialog = true;
       }
     },
-    start_launch() {
-      this.is_start_loading = true;
-      this.options_selection = [];
-      this.skip_intro_movies_disabled = false;
-      this.is_skip_intro_movies_loading = false;
-      this.parameter_overrides = {};
-      this.settings_config.window = '-fullscreen';
-      this.settings_config.graphics_api = 'dx11';
-      setTimeout(async () => {
-        await this.start_load_pubg_launch_options_data();
-        this.is_start_loading = false;
-        this.original_launch_options = this.launch_options;
-      }, 300);
+    start_launch(force = false) {
+      const user_id = steamStore().active_steam_user?.id ?? null;
+      if (!force && user_id && this.launch_loaded_for_user_id === user_id && this.original_launch_options !== '') {
+        return;
+      }
+      void this.load_launch_data();
     },
+
+    async load_launch_data() {
+      if (this.is_start_loading) return;
+      this.is_start_loading = true;
+      try {
+        await this.start_load_pubg_launch_options_data();
+        this.original_launch_options = this.launch_options;
+        this.launch_loaded_for_user_id = steamStore().active_steam_user?.id ?? null;
+      } finally {
+        this.is_start_loading = false;
+      }
+    },
+
+    /** 刷新 Steam 账户列表 */
+    async refresh_steam_accounts(options?: { silent?: boolean }) {
+      if (this.is_accounts_loading) return;
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        this.is_accounts_loading = true;
+      }
+      try {
+        await steamStore().refresh_users({ silent });
+      } finally {
+        if (!silent) {
+          this.is_accounts_loading = false;
+        }
+      }
+    },
+
+    /** 刷新账户列表并重新加载启动项(与 Apex reload_launch_page 一致) */
+    async reload_launch_page() {
+      if (this.is_start_loading) return;
+      this.is_start_loading = true;
+      try {
+        await this.refresh_steam_accounts({ silent: true });
+        await this.start_load_pubg_launch_options_data();
+        this.original_launch_options = this.launch_options;
+        this.launch_loaded_for_user_id = steamStore().active_steam_user?.id ?? null;
+      } finally {
+        this.is_start_loading = false;
+      }
+    },
+
+    parse_loaded_launch_string(start_launch_option: string, safe_max_mem_mb: number) {
+      const selection: SteamLaunchOptionsImpl[] = [];
+      const parameter_overrides: Record<string, string[]> = {};
+      let window = '-fullscreen';
+      let graphics_api = 'dx11';
+      let max_mem = clampMaxMemMb(safe_max_mem_mb, safe_max_mem_mb);
+      let refresh_rate: number | undefined;
+      let res_width: number | undefined;
+      let res_height: number | undefined;
+      let view_distance_scale: number | undefined;
+
+      for (const item of PubgLaunchOptionsConfig) {
+        if (!isSteamLaunchOptionsImpl(item)) continue;
+        if (item.identifier === 'graphics_api' && item.parameters) {
+          let mode: string | null = null;
+          if (start_launch_option.includes('-d3d12')) mode = 'dx12';
+          else if (start_launch_option.includes('-force-feature-level-11-0')) mode = 'dx11';
+          else if (start_launch_option.includes('-sm4') || start_launch_option.includes('-d3d10')) {
+            mode = 'dx10';
+          }
+          else if (start_launch_option.includes('-dx9')) {
+            mode = 'dx9';
+          }
+          if (mode) {
+            graphics_api = mode;
+            selection.push(item);
+          }
+          continue;
+        }
+        if (item.identifier === 'window' && item.parameters) {
+          let matchedToken: string | null = null;
+          for (const p of item.parameters) {
+            const token =
+              typeof p.parameter === 'string'
+                ? p.parameter
+                : Array.isArray(p.parameter)
+                  ? p.parameter[0]
+                  : null;
+            if (!token) continue;
+            if (token === '-window') {
+              if (start_launch_option.includes('-windowed')) {
+                matchedToken = '-window';
+                break;
+              }
+              if (/(?:^|\s)-window(?:\s|$)/.test(start_launch_option)) {
+                matchedToken = '-window';
+                break;
+              }
+            } else if (start_launch_option.includes(token)) {
+              matchedToken = token;
+              break;
+            }
+          }
+          if (matchedToken) {
+            window = matchedToken;
+            selection.push(item);
+          }
+          continue;
+        }
+        if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
+          const v = matchInt(/-maxMem=(\d+)/i, start_launch_option);
+          if (v !== null) {
+            max_mem = clampMaxMemMb(v, safe_max_mem_mb);
+            selection.push(item);
+          }
+          continue;
+        }
+        if (item.identifier === 'refresh_rate' || item.parameter === '-refresh X') {
+          const v = matchInt(/-refresh\s+(\d+)/i, start_launch_option);
+          if (v !== null) {
+            refresh_rate = v;
+            selection.push(item);
+          }
+          continue;
+        }
+        if (item.identifier === 'forced_resolution' || item.parameter === '-ResX=W -ResY=H') {
+          const x = matchInt(/-resx=(\d+)/i, start_launch_option);
+          const y = matchInt(/-resy=(\d+)/i, start_launch_option);
+          if (x !== null && y !== null) {
+            res_width = x;
+            res_height = y;
+            selection.push(item);
+          }
+          continue;
+        }
+        if (
+          item.identifier === 'view_distance_scale' ||
+          item.parameter === '+r.ViewDistanceScale=X'
+        ) {
+          const v = matchFloat(
+            /\+r\.ViewDistanceScale=([0-9]*\.?[0-9]+)/i,
+            start_launch_option,
+          );
+          if (v !== null) {
+            view_distance_scale = clampViewDistance(v);
+            selection.push(item);
+          }
+          continue;
+        }
+        if (item.is_combination_parameters && item.parameters) {
+          const tokens = tokensForCombinationParameters(item);
+          if (tokens.some((tok) => start_launch_option.includes(tok))) {
+            selection.push(item);
+          }
+          continue;
+        }
+        if (typeof item.parameter === 'string') {
+          if (start_launch_option.includes(item.parameter)) selection.push(item);
+          continue;
+        }
+        if (Array.isArray(item.parameter)) {
+          const matched = item.parameter.filter((tok) => start_launch_option.includes(tok));
+          if (matched.length > 0) {
+            const key = optionKey(item);
+            parameter_overrides[key] = matched;
+            selection.push(item);
+          }
+          continue;
+        }
+      }
+
+      this.max_mem_safe_limit_mb = safe_max_mem_mb;
+      this.options_selection = selection;
+      this.parameter_overrides = parameter_overrides;
+      const selectedIds = new Set(selection.map((i) => i.identifier));
+      if (selectedIds.has('window')) {
+        this.settings_config.window = window;
+      }
+      if (selectedIds.has('graphics_api')) {
+        this.settings_config.graphics_api = graphics_api;
+      }
+      if (selectedIds.has('max_mem')) {
+        this.max_mem = max_mem;
+      }
+      if (refresh_rate !== undefined && selectedIds.has('refresh_rate')) {
+        this.refresh_rate = refresh_rate;
+      }
+      if (res_width !== undefined && res_height !== undefined && selectedIds.has('forced_resolution')) {
+        this.res_width = res_width;
+        this.res_height = res_height;
+      }
+      if (view_distance_scale !== undefined && selectedIds.has('view_distance_scale')) {
+        this.view_distance_scale = view_distance_scale;
+      }
+    },
+
     async start_load_pubg_launch_options_data() {
       const steam_state = steamStore();
       const user_id = steam_state.active_steam_user?.id;
       if (!user_id) {
         console.warn('pubg: no steam user selected');
+        this.options_selection = [];
         return;
       }
       let default_mem_mb = 8192;
@@ -118,128 +303,16 @@ const pubgStore = defineStore('pubg', {
         default_mem_mb = 8192;
       }
       const safe_max_mem_mb = calcSafeMaxMemMb(default_mem_mb);
-      this.max_mem_safe_limit_mb = safe_max_mem_mb;
-      this.max_mem = clampMaxMemMb(safe_max_mem_mb, safe_max_mem_mb);
-      await invoke<string>('get_pubg_launch_option', {id: Number(user_id)})
-        .then((start_launch_option) => {
-          this.options_selection = [];
-          this.parameter_overrides = {};
-          this.max_mem = clampMaxMemMb(safe_max_mem_mb, safe_max_mem_mb);
-          for (const item of PubgLaunchOptionsConfig) {
-            if (!isSteamLaunchOptionsImpl(item)) continue;
-            if (item.identifier === 'graphics_api' && item.parameters) {
-              let mode: string | null = null;
-              if (start_launch_option.includes('-d3d12')) mode = 'dx12';
-              else if (start_launch_option.includes('-force-feature-level-11-0')) mode = 'dx11';
-              else if (start_launch_option.includes('-sm4') || start_launch_option.includes('-d3d10')) {
-                mode = 'dx10';
-              }
-              else if (start_launch_option.includes('-dx9')) {
-                mode = 'dx9';
-              }
-              if (mode) {
-                this.settings_config.graphics_api = mode;
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (item.identifier === 'window' && item.parameters) {
-              let matchedToken: string | null = null;
-              for (const p of item.parameters) {
-                const token =
-                  typeof p.parameter === 'string'
-                    ? p.parameter
-                    : Array.isArray(p.parameter)
-                      ? p.parameter[0]
-                      : null;
-                if (!token) continue;
-                if (token === '-window') {
-                  if (start_launch_option.includes('-windowed')) {
-                    matchedToken = '-window';
-                    break;
-                  }
-                  if (/(?:^|\s)-window(?:\s|$)/.test(start_launch_option)) {
-                    matchedToken = '-window';
-                    break;
-                  }
-                } else if (start_launch_option.includes(token)) {
-                  matchedToken = token;
-                  break;
-                }
-              }
-              if (matchedToken) {
-                this.settings_config.window = matchedToken;
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
-              const v = matchInt(/-maxMem=(\d+)/i, start_launch_option);
-              if (v !== null) {
-                this.max_mem = clampMaxMemMb(v, this.max_mem_safe_limit_mb);
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (item.identifier === 'refresh_rate' || item.parameter === '-refresh X') {
-              const v = matchInt(/-refresh\s+(\d+)/i, start_launch_option);
-              if (v !== null) {
-                this.refresh_rate = v;
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (item.identifier === 'forced_resolution' || item.parameter === '-ResX=W -ResY=H') {
-              const x = matchInt(/-resx=(\d+)/i, start_launch_option);
-              const y = matchInt(/-resy=(\d+)/i, start_launch_option);
-              if (x !== null && y !== null) {
-                this.res_width = x;
-                this.res_height = y;
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (
-              item.identifier === 'view_distance_scale' ||
-              item.parameter === '+r.ViewDistanceScale=X'
-            ) {
-              const v = matchFloat(
-                /\+r\.ViewDistanceScale=([0-9]*\.?[0-9]+)/i,
-                start_launch_option,
-              );
-              if (v !== null) {
-                this.view_distance_scale = clampViewDistance(v);
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (item.is_combination_parameters && item.parameters) {
-              const tokens = tokensForCombinationParameters(item);
-              if (tokens.some((tok) => start_launch_option.includes(tok))) {
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-            if (typeof item.parameter === 'string') {
-              if (start_launch_option.includes(item.parameter)) this.options_selection.push(item);
-              continue;
-            }
-            if (Array.isArray(item.parameter)) {
-              const matched = item.parameter.filter((tok) => start_launch_option.includes(tok));
-              if (matched.length > 0) {
-                const key = optionKey(item);
-                this.parameter_overrides[key] = matched;
-                this.options_selection.push(item);
-              }
-              continue;
-            }
-          }
-        })
-        .catch((err) => {
-          console.warn('pubg launch option load failed', err);
-        });
+      let start_launch_option = '';
+      try {
+        start_launch_option = await invoke<string>('get_pubg_launch_option', {id: Number(user_id)});
+      } catch (err) {
+        console.warn('pubg launch option load failed', err);
+        return;
+      }
+      this.parse_loaded_launch_string(start_launch_option, safe_max_mem_mb);
 
-      // 同步 Movies 目录状态（用于“跳过开场动画”可恢复重命名方案）
+      // 同步 Movies 目录状态(用于“跳过开场动画”可恢复重命名方案)
       const disabled = await invoke<boolean>('check_pubg_skip_intro_movies_disabled').catch((err) => {
         console.warn('pubg skip_intro movies state check failed', err);
         return false;
@@ -254,10 +327,15 @@ const pubgStore = defineStore('pubg', {
       if (!skipItem) return;
 
       // "跳过开场动画" 是一次性目录重命名操作，不参与 Steam 启动项选择与拼接。
-      this.options_selection = this.options_selection.filter((i) => i.identifier !== skipItem.identifier);
+      const hadSkipSelected = this.options_selection.some((i) => i.identifier === skipItem.identifier);
+      if (hadSkipSelected) {
+        this.options_selection = this.options_selection.filter((i) => i.identifier !== skipItem.identifier);
+      }
       // 清理“由 Steam 启动项解析得到的”覆盖参数，避免残留 skip_intro token。
       const key = String(skipItem.identifier ?? skipItem.name);
-      delete (this.parameter_overrides as Record<string, string[]>)[key];
+      if (key in this.parameter_overrides) {
+        delete (this.parameter_overrides as Record<string, string[]>)[key];
+      }
     },
     async set_skip_intro_movies_disabled(disabled: boolean) {
       if (this.is_skip_intro_movies_loading) return;

@@ -1,22 +1,26 @@
+import {h} from 'vue';
 import {createVuetify} from 'vuetify';
-import {aliases, mdi} from 'vuetify/iconsets/mdi';
+import {aliases, mdi} from 'vuetify/iconsets/mdi-svg';
+import {resolveMdiIcon} from '@/icons/mdi-icons';
 import DateFnsAdapter from '@date-io/date-fns';
 import type {AccentTheme} from '@/themes';
 import {deriveThemeColors, findAccent} from '@/themes';
 
+/** 浅色主题：参考 Edge / Fluent 的柔和灰白，避免纯白刺眼 */
 const appleLight = {
   dark: false,
   colors: {
-    background: '#f5f5f7',
-    surface: '#ffffff',
-    'surface-bright': '#ffffff',
-    'surface-variant': '#f5f5f7',
-    'on-surface-variant': '#6e6e73',
-    outline: 'rgba(0,0,0,0.12)',
-    'outline-variant': 'rgba(0,0,0,0.08)',
+    background: '#f3f3f3',
+    surface: '#f8f8f8',
+    'surface-bright': '#fafafa',
+    'surface-variant': '#ececec',
+    'on-surface': '#1f1f1f',
+    'on-surface-variant': '#5a5a5a',
+    outline: 'rgba(0,0,0,0.10)',
+    'outline-variant': 'rgba(0,0,0,0.06)',
     primary: '#007AFF',
     'on-primary': '#ffffff',
-    'primary-container': '#e3f2fd',
+    'primary-container': '#dfe8f4',
     'on-primary-container': '#0d47a1',
     secondary: '#8e8e93',
     'on-secondary': '#ffffff',
@@ -28,21 +32,23 @@ const appleLight = {
   },
 };
 
+/** 暗色主题：参考 Edge / Fluent 分层深灰，避免纯黑发闷、控件贴底 */
 const appleDark = {
   dark: true,
   colors: {
-    background: '#000000',
-    surface: '#1c1c1e',
-    'surface-bright': '#2c2c2e',
-    'surface-variant': '#2c2c2e',
-    'on-surface-variant': '#8e8e93',
-    outline: 'rgba(255,255,255,0.12)',
-    'outline-variant': 'rgba(255,255,255,0.08)',
+    background: '#202020',
+    surface: '#2b2b2b',
+    'surface-bright': '#383838',
+    'surface-variant': '#333333',
+    'on-surface': '#e8e8e8',
+    'on-surface-variant': '#a0a0a0',
+    outline: 'rgba(255,255,255,0.14)',
+    'outline-variant': 'rgba(255,255,255,0.10)',
     primary: '#0a84ff',
     'on-primary': '#ffffff',
-    'primary-container': '#1a1a2e',
+    'primary-container': '#2a3044',
     'on-primary-container': '#90caf9',
-    secondary: '#8e8e93',
+    secondary: '#98989d',
     'on-secondary': '#ffffff',
     error: '#ff453a',
     'on-error': '#ffffff',
@@ -64,7 +70,12 @@ const vuetify = createVuetify({
     defaultSet: 'mdi',
     aliases,
     sets: {
-      mdi,
+      mdi: {
+        component: (props) => h(mdi.component, {
+          ...props,
+          icon: resolveMdiIcon(typeof props.icon === 'string' ? props.icon : undefined) ?? props.icon,
+        }),
+      },
     },
   },
   defaults: {

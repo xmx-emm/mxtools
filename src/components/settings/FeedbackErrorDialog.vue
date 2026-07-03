@@ -5,7 +5,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {openPath, openUrl} from '@tauri-apps/plugin-opener';
 import {useToast} from 'vue-toastification';
 import {version} from '@/env';
-import {GITHUB_ISSUE_URL} from '@/data/url.ts';
+import {GITHUB_ISSUE_URL} from '@/data/url_other.ts';
 
 const { t } = useI18n();
 const toast = useToast();

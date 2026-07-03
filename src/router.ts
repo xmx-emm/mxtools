@@ -97,7 +97,7 @@ const tools = [
 ];
 
 
-/** 应用顶层路由表（含首页、工具区、关于、404） */
+/** 应用顶层路由表(含首页、工具区、关于、404) */
 const routes = [
   {
     path: '/', component: HomeView,
@@ -125,11 +125,11 @@ const router = createRouter({
 let isRestoreLastRoute = false;
 
 /**
- * 判断给定路径属于哪一个「工具大类」路由（侧栏一级：/game、/windows、/server）。
+ * 判断给定路径属于哪一个「工具大类」路由(侧栏一级：/game、/windows、/server)。
  * 用于跨类切换时决定是否跳转到该大类下记住的子页。
  *
- * @param path 路由 path（可含 query/hash，会先取 path 段）
- * @returns 大类 path；若不在上述任一分类下（含子工具路径无法归属时）为 null
+ * @param path 路由 path(可含 query/hash，会先取 path 段)
+ * @returns 大类 path；若不在上述任一分类下(含子工具路径无法归属时)为 null
  */
 export function toolCategoryContainingPath(path: string): string | null {
   const normalized = path.split(/[?#]/)[0] ?? '';
@@ -148,8 +148,8 @@ export function toolCategoryContainingPath(path: string): string | null {
 }
 
 /**
- * 若当前路径是某工具大类下的「叶子子工具页」（如 /apex、/pubg），返回所属大类 path（/game 等）。
- * 若路径是大类根（如仅 /game）、无效路径或 404，返回 null。
+ * 若当前路径是某工具大类下的「叶子子工具页」(如 /apex、/pubg)，返回所属大类 path(/game 等)。
+ * 若路径是大类根(如仅 /game)、无效路径或 404，返回 null。
  * 与 `toolCategoryContainingPath` 的区别：本函数排除「停在大类根」的情况，专用于 `afterEach` 记录「最后打开的叶子工具」。
  *
  * @param path 路由 path
@@ -175,9 +175,9 @@ export function toolCategoryForLeafChildPath(path: string): string | null {
 }
 
 /**
- * 是否不应把该路径写入「上次路由」或用于自动恢复（例如关于页单独窗口打开）。
+ * 是否不应把该路径写入「上次路由」或用于自动恢复(例如关于页单独窗口打开)。
  *
- * @param fullPath 完整路径或带 query 的片段（与设置里存的 `fullPath` 规则一致即可）
+ * @param fullPath 完整路径或带 query 的片段(与设置里存的 `fullPath` 规则一致即可)
  */
 function isRestoreExcludedPath(fullPath: string): boolean {
   const path = fullPath.split(/[?#]/)[0] ?? '';
@@ -185,10 +185,10 @@ function isRestoreExcludedPath(fullPath: string): boolean {
 }
 
 /**
- * 路径能否解析为应用内真实页面（非 404、非通配 notFound）。
+ * 路径能否解析为应用内真实页面(非 404、非通配 notFound)。
  * 用于恢复上次路由、跳转记住的子工具前校验，避免跳到无效或已删路由。
  *
- * @param path 待校验 path（可含 query/hash，比较前会规范化）
+ * @param path 待校验 path(可含 query/hash，比较前会规范化)
  */
 function isValidNavigablePath(path: string): boolean {
   const normalized = path.split(/[?#]/)[0] ?? '';
@@ -249,8 +249,6 @@ router.beforeEach((to, from, next) => {
   const settings = useSettingsStore();
   i18n.global.locale.value = resolveLocale(settings.locale);
 
-  console.log('router.beforeEach', settings.restoreLastRoute, settings.lastRoute, settings.locale);
-
   const toPathOnly = to.path.split(/[?#]/)[0] ?? '';
   // 主窗口不渲染 /about，改为打开独立关于窗口并取消本次导航
   if (toPathOnly === '/about') {
@@ -262,7 +260,7 @@ router.beforeEach((to, from, next) => {
     }
   }
 
-  // 主窗口首次导航：可选把地址替换为上次关闭前记录的 fullPath（replace 避免多一层历史）
+  // 主窗口首次导航：可选把地址替换为上次关闭前记录的 fullPath(replace 避免多一层历史)
   if (
     settings.restoreLastRoute &&
     settings.lastRoute

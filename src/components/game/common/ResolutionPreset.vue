@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {computed} from 'vue';
+import type {ResolutionPreset} from '@/types/game.ts';
 import {
   all_resolution_presets,
   sort_resolution_presets,
-  type ResolutionPreset,
-} from '@/data/game_resolution_presets.ts';
+} from '@/data/presets/game_resolution_presets.ts';
 
 const props = defineProps<{
   width: number;

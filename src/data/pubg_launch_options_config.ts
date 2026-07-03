@@ -1,4 +1,4 @@
-import {SteamLaunchOptionsImpl} from '@/data/steam.ts';
+import {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {defineAsyncComponent} from 'vue';
 
 const PubgHighPriorityTip = defineAsyncComponent(() =>

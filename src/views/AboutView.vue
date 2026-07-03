@@ -1,12 +1,35 @@
 <script setup lang="ts">
+import {computed, onMounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import {openUrl} from '@tauri-apps/plugin-opener';
-import {AUTHOR_BILIBILI_URL, GITHUB_AUTHOR_URL, GITHUB_PROJECT_URL, QQ_CHANNEL_URL} from '@/data/url.ts';
-import {XMX_AVATAR_IMG_URL} from '@/data/imgloc.ts';
-import {version} from '@/env.ts';
+import {AUTHOR_BILIBILI_URL, GITHUB_AUTHOR_URL, GITHUB_PROJECT_URL, QQ_CHANNEL_URL} from '@/data/url_other.ts';
+import avatarImg from '@/assets/images/avatar.jpg';
+import type {AppInfo} from '@/types/app.ts';
+import {fetchAppInfo} from '@/utils/app_info.ts';
 
 const { t } = useI18n();
+const appInfo = ref<AppInfo | null>(null);
+
+onMounted(() => {
+  fetchAppInfo()
+    .then((info) => {
+      appInfo.value = info;
+    })
+    .catch(() => {
+      /* 非 Tauri 环境忽略 */
+    });
+});
+
+const versionLine = computed(() => {
+  if (!appInfo.value) return '';
+  return t('about.versionLabel', { version: appInfo.value.version });
+});
+
+const distributionLabel = computed(() => {
+  if (!appInfo.value) return '';
+  return t(`about.distribution.${appInfo.value.distribution}`);
+});
 const appWindow = getCurrentWindow();
 const urls = {
   'about.bilibili': AUTHOR_BILIBILI_URL,
@@ -50,11 +73,20 @@ const techStack = [
 
           <v-card-text class="text-center pt-8">
             <v-avatar size="100" class="elevation-6 mb-4" style="margin-top: -80px; border: 4px solid white;">
-              <v-img :src="XMX_AVATAR_IMG_URL" alt="Avatar"></v-img>
+              <v-img :src="avatarImg" alt="Avatar"></v-img>
             </v-avatar>
 
             <h2 class="text-h5 font-weight-bold mb-1">{{ t('about.appName') }}</h2>
-            <p class="text-body-2 text-grey-darken-1 mb-4">{{ version }}</p>
+            <p v-if="versionLine" class="text-body-2 text-grey-darken-1 mb-1">{{ versionLine }}</p>
+            <v-chip
+              v-if="distributionLabel"
+              class="mb-4"
+              size="small"
+              variant="tonal"
+              color="primary"
+            >
+              {{ distributionLabel }}
+            </v-chip>
 
             <v-divider class="mb-4"></v-divider>
 

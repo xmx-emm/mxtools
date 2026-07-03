@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import {ref} from 'vue';
-import type {PortForwarding} from '@/type.ts';
+import type {PortForwarding} from '@/types/network.ts';
 import {isValidIPv4Regex} from '@/utils/regex.ts';
 import {cloneDeep} from 'lodash';
 import {invoke} from '@tauri-apps/api/core';

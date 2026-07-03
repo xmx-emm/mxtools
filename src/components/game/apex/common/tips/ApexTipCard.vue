@@ -24,10 +24,17 @@ const apex_store = apexStore();
     <template v-if="$slots.text" v-slot:text style="padding:0">
         <slot name="text" />
     </template>
-    <div class="mx-6 mb-6">
+    <div class="mx-6 mb-6 tip-body">
       <slot/>
     </div>
   </v-card>
 </template>
 <style scoped>
+:deep(.v-card-subtitle) {
+  white-space: pre-line;
+}
+
+.tip-body :deep(p) {
+  white-space: pre-line;
+}
 </style>

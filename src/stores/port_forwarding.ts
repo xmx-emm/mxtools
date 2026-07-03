@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia';
 import {invoke} from '@tauri-apps/api/core';
-import {Ipv, PortForwarding} from '@/type.ts';
+import type {Ipv, PortForwarding} from '@/types/network.ts';
 
 export const usePortForwardingStore = defineStore('portForwarding', {
   state: () => ({
