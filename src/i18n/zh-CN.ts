@@ -721,8 +721,8 @@ export const zhCN = {
       goalExample: '例：+mat_letterbox_aspect_goal 1.33(4:3)',
       goalDesc: '→ 游戏尽量按 4:3 渲染,接近这个比例就不加黑边',
       thresholdTitle: '容忍偏差范围',
-      thresholdExample: '例：+mat_letterbox_aspect_threshold 3',
-      thresholdDesc: '→ 只要当前比例在 goal ±3 内就不黑边',
+      thresholdExample: '例：+mat_letterbox_aspect_threshold 8',
+      thresholdDesc: '→ 只要当前比例在 goal ±8 内就不黑边',
     },
     noJoy: {
       title: '禁用游戏手柄',

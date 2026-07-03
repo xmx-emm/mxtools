@@ -9,7 +9,7 @@ import type {
 export const FPS_CAP_MAX = 279;
 
 /** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
-export const ASPECT_LETTERBOX_THRESHOLD = 3;
+export const ASPECT_LETTERBOX_THRESHOLD = 8;
 
 /** 快速预设默认画面配置(始终应用，覆盖画质档位中的同键项) */
 export const defaultVideoConfigValues: Record<string, string> = {

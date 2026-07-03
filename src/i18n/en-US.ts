@@ -721,8 +721,8 @@ export const enUS = {
       goalExample: 'Example: +mat_letterbox_aspect_goal 1.33 (4:3)',
       goalDesc: '→ The game tries to render near 4:3 and avoids black bars when close to this ratio.',
       thresholdTitle: 'Tolerance range',
-      thresholdExample: 'Example: +mat_letterbox_aspect_threshold 3',
-      thresholdDesc: '→ No black bars as long as the current ratio is within goal ±3.',
+      thresholdExample: 'Example: +mat_letterbox_aspect_threshold 8',
+      thresholdDesc: '→ No black bars as long as the current ratio is within goal ±8.',
     },
     noJoy: {
       title: 'Disable Gamepad',
