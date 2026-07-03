@@ -8,6 +8,7 @@ import steamStore from '@/stores/game/steam.ts';
 import eaStore from '@/stores/game/ea.ts';
 import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
+import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import {
   aspectPresets,
   buildDefaultLaunchOptions,
@@ -15,10 +16,12 @@ import {
   graphicsQualityPresets,
   quickPresetLaunchOptionToggles,
 } from '@/data/presets/apex_quick_preset.ts';
-import type {ApexQuickPresetSelection, PrimaryDisplayInfo, ResolutionLockAxis} from '@/types/apex_quick_preset.ts';
+import type {ApexQuickPresetLaunchOptionToggle, ApexQuickPresetSelection, PrimaryDisplayInfo, ResolutionLockAxis} from '@/types/apex_quick_preset.ts';
+import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {
   buildQuickPresetPreview,
   defaultFpsCap,
+  findLaunchOptionRef,
   formatAspectRatioLabel,
   initLaunchOptionsForDialog,
 } from '@/utils/game/apex_quick_preset.ts';
@@ -128,6 +131,20 @@ watch(
 
 function on_close() {
   apex_store.close_quick_preset_dialog();
+}
+
+function show_launch_option_tip(toggle: ApexQuickPresetLaunchOptionToggle) {
+  const ref = findLaunchOptionRef(toggle);
+  if (ref) apex_store.showTip(ref);
+}
+
+function show_reticle_tip() {
+  for (const row of ApexLaunchOptionsConfig) {
+    if (isSteamLaunchOptionsImpl(row) && row.identifier === 'reticle_color') {
+      apex_store.showTip(row);
+      return;
+    }
+  }
 }
 
 async function run_persist() {
@@ -263,22 +280,22 @@ async function on_apply() {
           </div>
 
           <div class="section-label">{{ t('apexQuickPreset.fpsCap') }}</div>
-          <div class="d-flex align-center gap-2 mb-1">
+          <div class="d-flex align-center gap-2 mb-4 flex-wrap fps-row">
             <ApexNumberInput v-model="fps_cap" :step="1" />
             <span class="text-caption">FPS</span>
             <v-chip size="x-small" variant="tonal">{{ t('apexQuickPreset.fpsCapMax', { max: FPS_CAP_MAX }) }}</v-chip>
+            <span class="text-caption text-medium-emphasis">{{ t('apexQuickPreset.lobbyFpsHint') }}</span>
           </div>
-          <div class="text-caption text-medium-emphasis mb-4">{{ t('apexQuickPreset.lobbyFpsHint') }}</div>
 
           <div class="preset-box mb-4">
             <div class="preset-box-header">
-              <span class="preset-box-title">{{ t('apexQuickPreset.resolutionAspectSettings') }}</span>
-              <v-switch
+              <v-checkbox
                 v-model="enable_resolution_preset"
+                :label="t('apexQuickPreset.resolutionAspectSettings')"
                 density="compact"
                 hide-details
                 color="primary"
-                class="preset-box-switch"
+                class="preset-box-checkbox"
               />
             </div>
             <v-expand-transition>
@@ -287,9 +304,12 @@ async function on_apply() {
                 <v-btn-toggle
                   v-model="aspect_value"
                   mandatory
+                  color="primary"
+                  variant="text"
+                  class="apex-parameter-toggle aspect-preset-toggle mb-2"
+                  style="max-height: 25px"
+                  border
                   divided
-                  density="compact"
-                  class="flex-wrap mb-2"
                 >
                   <v-btn
                     v-for="item in aspectPresets"
@@ -301,10 +321,19 @@ async function on_apply() {
                   </v-btn>
                 </v-btn-toggle>
 
-                <v-radio-group v-model="lock_axis" inline density="compact" hide-details class="mb-2">
-                  <v-radio :label="t('apexQuickPreset.lockWidth')" value="width" />
-                  <v-radio :label="t('apexQuickPreset.lockHeight')" value="height" />
-                </v-radio-group>
+                <v-btn-toggle
+                  v-model="lock_axis"
+                  mandatory
+                  color="primary"
+                  variant="text"
+                  class="apex-parameter-toggle mb-2"
+                  style="max-height: 25px"
+                  border
+                  divided
+                >
+                  <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
+                  <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
+                </v-btn-toggle>
 
                 <div v-if="resolution_preview" class="text-caption">
                   {{ t('apexQuickPreset.resolutionPreview') }}:
@@ -318,50 +347,57 @@ async function on_apply() {
           </div>
 
           <div class="section-label">{{ t('apexQuickPreset.graphicsLabel') }}</div>
-          <v-btn-toggle
-            v-model="graphics_preset_id"
-            mandatory
-            divided
-            density="compact"
-            class="flex-wrap"
-          >
-            <v-btn
+          <div class="checkbox-grid mb-2">
+            <v-checkbox
               v-for="item in graphicsQualityPresets"
               :key="item.identifier"
-              :value="item.identifier"
-              size="small"
-            >
-              {{ t(item.name) }}
-            </v-btn>
-          </v-btn-toggle>
+              :model-value="graphics_preset_id === item.identifier"
+              :label="t(item.name)"
+              density="compact"
+              hide-details
+              color="primary"
+              class="compact-checkbox"
+              @update:model-value="(v: boolean | null) => { if (v) graphics_preset_id = item.identifier; }"
+            />
+          </div>
           <div
             v-if="graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)?.description"
-            class="text-caption text-medium-emphasis mt-2 mb-4"
+            class="text-caption text-medium-emphasis mb-4"
           >
             {{ t(graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)!.description!) }}
           </div>
 
           <div class="section-label mt-2">{{ t('apexQuickPreset.launchOptionsLabel') }}</div>
-          <v-switch
+          <div
             v-for="opt in quickPresetLaunchOptionToggles"
             :key="opt.key"
-            v-model="launch_options[opt.key]"
-            :label="t(opt.label)"
-            density="compact"
-            hide-details
-            color="primary"
-            class="launch-option-switch"
-          />
-          <v-switch
-            v-model="simplified_reticle"
-            :label="t('apexQuickPreset.simplifiedReticle')"
-            :hint="t('apexQuickPreset.simplifiedReticleHint')"
-            persistent-hint
-            density="compact"
-            hide-details="auto"
-            color="primary"
-            class="mt-1"
-          />
+            class="option-tip-wrap"
+            :title="t('apexLaunchOptions.ui.rightClickTip')"
+            @contextmenu.prevent="show_launch_option_tip(opt)"
+          >
+            <v-checkbox
+              v-model="launch_options[opt.key]"
+              :label="t(opt.label)"
+              density="compact"
+              hide-details
+              color="primary"
+              class="compact-checkbox"
+            />
+          </div>
+          <div
+            class="option-tip-wrap"
+            :title="t('apexLaunchOptions.ui.rightClickTip')"
+            @contextmenu.prevent="show_reticle_tip()"
+          >
+            <v-checkbox
+              v-model="simplified_reticle"
+              :label="t('apexQuickPreset.simplifiedReticle')"
+              density="compact"
+              hide-details
+              color="primary"
+              class="compact-checkbox"
+            />
+          </div>
         </template>
       </v-card-text>
 
@@ -434,8 +470,59 @@ async function on_apply() {
   gap: 8px;
 }
 
-.launch-option-switch {
-  margin-bottom: -4px;
+.apex-parameter-toggle {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+:deep(.apex-parameter-toggle .v-btn-group) {
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+:deep(.apex-parameter-toggle .v-btn) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.aspect-preset-toggle :deep(.v-btn-group) {
+  flex-wrap: nowrap;
+}
+
+.aspect-preset-toggle :deep(.v-btn) {
+  flex: 1 1 0;
+  padding-inline: 6px;
+  font-size: 0.75rem;
+  height: 25px;
+}
+
+.fps-row {
+  row-gap: 4px;
+}
+
+.checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 0;
+}
+
+.compact-checkbox {
+  flex: 0 0 auto;
+}
+
+.compact-checkbox :deep(.v-selection-control) {
+  min-height: 28px;
+}
+
+.compact-checkbox :deep(.v-label) {
+  font-size: 0.8rem;
+}
+
+.option-tip-wrap {
+  cursor: default;
 }
 
 .preset-box {
@@ -445,22 +532,18 @@ async function on_apply() {
 }
 
 .preset-box-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
+  padding: 4px 8px 4px 4px;
   background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
-.preset-box-title {
+.preset-box-checkbox {
+  width: 100%;
+}
+
+.preset-box-checkbox :deep(.v-label) {
   font-size: 0.8rem;
   font-weight: 600;
   color: rgba(var(--v-theme-on-surface), 0.75);
-}
-
-.preset-box-switch {
-  flex-shrink: 0;
-  margin: -4px -8px -4px 0;
 }
 
 .preset-box-body {

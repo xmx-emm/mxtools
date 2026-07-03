@@ -22,6 +22,10 @@ export const defaultVideoConfigValues: Record<string, string> = {
 
 /** 比例预设(与启动项 letterbox aspect 一致) */
 export const aspectPresets: ApexAspectPreset[] = [
+  { label: 'apexQuickPreset.aspect.1_1', aspectValue: 1 },
+  { label: 'apexQuickPreset.aspect.1_2', aspectValue: 0.5 },
+  { label: 'apexQuickPreset.aspect.2_1', aspectValue: 2 },
+  { label: 'apexQuickPreset.aspect.3_4', aspectValue: 0.75 },
   { label: 'apexQuickPreset.aspect.4_3', aspectValue: 1.3333 },
   { label: 'apexQuickPreset.aspect.5_4', aspectValue: 1.25 },
   { label: 'apexQuickPreset.aspect.3_2', aspectValue: 1.5 },

@@ -465,6 +465,10 @@ export const enUS = {
     displayLoadFailed: 'Could not read display info',
     graphicsNotFound: 'Graphics preset not found',
     aspect: {
+      '1_1': '1:1',
+      '1_2': '1:2',
+      '2_1': '2:1',
+      '3_4': '3:4',
       '4_3': '4:3',
       '5_4': '5:4',
       '3_2': '3:2',
