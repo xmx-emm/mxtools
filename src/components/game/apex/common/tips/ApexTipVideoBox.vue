@@ -6,9 +6,5 @@ import BiliBiliIVideoIframeBox from '@/components/utils/BiliBiliIVideoIframeBox.
 </script>
 
 <template>
-  <BiliBiliIVideoIframeBox :src="props.src"  style="width: 100%"/>
+  <BiliBiliIVideoIframeBox :src="props.src" style="width: 100%"/>
 </template>
-
-<style scoped>
-
-</style>

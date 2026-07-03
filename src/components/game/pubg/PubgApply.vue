@@ -5,6 +5,7 @@ import {useToast} from 'vue-toastification';
 import {computed, onUnmounted, ref, shallowRef} from 'vue';
 import steamStore from '@/stores/game/steam.ts';
 import pubgStore from '@/stores/game/pubg.ts';
+import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
 
 const {t} = useI18n();
 const toast = useToast();
@@ -127,8 +128,13 @@ onUnmounted(() => {
       <v-card
         prepend-icon="mdi-steam"
         :title="t('apex.closeSteam')"
-        :text="t('apex.closeSteamTip')"
       >
+        <v-card-text>
+          <p class="mb-0">
+            {{ t('apex.closeSteamTip') }}
+          </p>
+          <CloseSteamApplyAccount :user="steam_store.active_steam_user" />
+        </v-card-text>
         <template v-slot:actions>
           <v-btn
             @click="force_close_steam"

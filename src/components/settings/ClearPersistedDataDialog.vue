@@ -3,6 +3,8 @@ import {useI18n} from 'vue-i18n';
 import {useSettingsStore} from '@/stores/settings';
 import {uiStyleStore} from '@/stores/style.ts';
 import steamStore from '@/stores/game/steam.ts';
+import eaStore from '@/stores/game/ea.ts';
+import apexStore from '@/stores/game/apex.ts';
 import {ref} from 'vue';
 import {useToast} from 'vue-toastification';
 import {resolveLocale} from '@/utils/locale';
@@ -16,6 +18,8 @@ const toast = useToast();
 const settingsStore = useSettingsStore();
 const uiStore = uiStyleStore();
 const steam_store = steamStore();
+const ea_store = eaStore();
+const apex_store = apexStore();
 
 const clearConfirmDialog = ref(false);
 
@@ -23,6 +27,8 @@ async function clearPersistedData() {
   settingsStore.$reset();
   uiStore.$reset();
   steam_store.$reset();
+  ea_store.$reset();
+  apex_store.$reset();
   applyAccentTheme(DEFAULT_ACCENT);
   i18nLocale.value = resolveLocale(settingsStore.locale);
   clearConfirmDialog.value = false;

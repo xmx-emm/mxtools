@@ -27,8 +27,9 @@ async function copyToClipboard(text: string) {
   <v-btn
     prepend-icon="mdi-apple-keyboard-option"
     @click="copyToClipboard(pubg_state.launch_options)"
-    :title="pubg_state.launch_options"
-  >{{ t('common.copyLaunchOptions') }}</v-btn>
+    :title="pubg_state.launch_options + t('common.copyLaunchOptionsTips')"
+  >{{ t('common.copyLaunchOptions') }}
+  </v-btn>
 </template>
 
 <style scoped>

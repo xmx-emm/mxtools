@@ -1,5 +1,10 @@
 import {defineStore} from 'pinia';
 import type {LocaleCode} from '@/utils/locale';
+import {
+  clampNavPrimaryWidth,
+  clampNavSecondaryWidth,
+  NAV_MIN_WIDTH,
+} from '@/constants/nav_layout.ts';
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
@@ -15,6 +20,10 @@ export const useSettingsStore = defineStore('settings', {
     apexNewItemsSeen: [] as string[],
     /** 已关闭的提示标签列表 */
     dismissedHintTags: [] as string[],
+    /** 一级导航栏宽度(px) */
+    navPrimaryWidth: NAV_MIN_WIDTH,
+    /** 二级导航栏宽度(px) */
+    navSecondaryWidth: NAV_MIN_WIDTH,
   }),
   actions: {
     markApexNewItemSeen(identifier: string) {
@@ -40,6 +49,12 @@ export const useSettingsStore = defineStore('settings', {
     addDismissedHintTag(tag: string) {
       if (!tag || this.dismissedHintTags.includes(tag)) return;
       this.dismissedHintTags = [...this.dismissedHintTags, tag];
+    },
+    setNavPrimaryWidth(width: number) {
+      this.navPrimaryWidth = clampNavPrimaryWidth(width);
+    },
+    setNavSecondaryWidth(width: number) {
+      this.navSecondaryWidth = clampNavSecondaryWidth(width);
     },
   },
   tauri: {},

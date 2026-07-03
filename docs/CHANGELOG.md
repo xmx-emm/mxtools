@@ -25,16 +25,16 @@
   - 添加对EA帐户的支持,可读取及应用EA客户端的配置项
   - 添加配置项搜索过滤及常用分类,更方便的查找
 - **Apex 配置**：新增配置项如下
-  - 渲染多线程模式：（`+mat_queue_mode 2`）
-  - Alt+Tab 时窗口最小化：（`+mat_minimize_on_alt_tab 1`）
-  - 透明准星颜色：（`+reticle_color "2147483648 2147483648 2147483648"`）
-  - 强制禁用垂直同步：（`-forcenovsync`）
-  - 禁用手柄：（`-nojoy`）
-  - 强制音频输出：（`+miles_channels 2/4/6/8`）
-  - 禁用布娃娃：（`+cl_ragdoll_collide 0`）
-  - 图形 API (DirectX)：（`-anticheat_settings=SettingsDX11.json` / `-anticheat_settings=SettingsDX12.json`）
-  - 限制顶点着色器数量：（`-limitvsconst`）
-  - 强制预加载：（`+cl_forcepreload 1` / `-preload`）
+  - 渲染多线程模式：(`+mat_queue_mode 2`)
+  - Alt+Tab 时窗口最小化：(`+mat_minimize_on_alt_tab 1`)
+  - 透明准星颜色：(`+reticle_color "2147483648 2147483648 2147483648"`)
+  - 强制禁用垂直同步：(`-forcenovsync`)
+  - 禁用手柄：(`-nojoy`)
+  - 强制音频输出：(`+miles_channels 2/4/6/8`)
+  - 禁用布娃娃：(`+cl_ragdoll_collide 0`)
+  - 图形 API (DirectX)：(`-anticheat_settings=SettingsDX11.json` / `-anticheat_settings=SettingsDX12.json`)
+  - 限制顶点着色器数量：(`-limitvsconst`)
+  - 强制预加载：(`+cl_forcepreload 1` / `-preload`)
 
 ### 重构
 
@@ -46,7 +46,7 @@
 
 ### 新增
 
-- **关于页**：添加腾讯频道、GitHub、项目地址等链接,链接统一放在 `src/data/url.ts`
+- **关于页**：添加腾讯频道、GitHub、项目地址等链接,链接统一放在 `src/data/url_other.ts`
 - **Apex 启动项**：新增 NEW 角标标识新特性(比例、强制分辨率、大厅 FPS、优化鼠标),点击或勾选后隐藏并持久化记录
 - **设置页**：添加「清除持久化数据」按钮,可重置主题、语言、Steam 用户、上次页面等设置
 - **Apex 启动项**：支持比例(Aspect)、强制分辨率(ForcedResolution)、大厅 FPS(LobbyFps)、优化鼠标(InputMouse)等新参数

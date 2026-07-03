@@ -1,24 +1,28 @@
 use crate::log_info;
-use crate::utils::{await_time, kill_processes_by_names, ProcessNameMatchMode};
-use windows_tool::game::steam::user::SteamUser;
-use windows_tool::game::steam::{
-    steam_is_running_by_tasklist as steam_running_by_tasklist_impl, steam_is_running_state_by_registry,
+use crate::utils::{
+    await_time, blocking_cmd, is_steam_running_by_process_scan, kill_processes_by_names,
+    ProcessNameMatchMode,
 };
+use windows_tool::game::steam::user::SteamUser;
 
 #[tauri::command]
-pub fn steam_is_running() -> bool {
-    steam_is_running_state_by_registry()
+pub async fn steam_is_running() -> Result<bool, String> {
+    blocking_cmd(|| Ok(is_steam_running_by_process_scan())).await
 }
 
+/// 保留命令名以兼容前端;实现已改为 sysinfo 进程扫描(非 `tasklist`).
 #[tauri::command]
 pub async fn steam_is_running_by_tasklist() -> Result<bool, String> {
-    steam_running_by_tasklist_impl()
+    blocking_cmd(|| Ok(is_steam_running_by_process_scan())).await
 }
 
 #[tauri::command]
-pub fn get_steam_users() -> Result<Vec<SteamUser>, String> {
-    use windows_tool::game::steam::user::get_steam_users as steam_users;
-    steam_users()
+pub async fn get_steam_users() -> Result<Vec<SteamUser>, String> {
+    blocking_cmd(|| {
+        use windows_tool::game::steam::user::get_steam_users as steam_users;
+        steam_users()
+    })
+    .await
 }
 
 #[tauri::command]
@@ -33,7 +37,11 @@ pub async fn thoroughly_kill_steam() -> Result<(), ()> {
         vec!["steam", "steamwebhelper"]
     };
 
-    let killed_count = kill_processes_by_names(&target_processes, ProcessNameMatchMode::Contains);
+    let killed_count = tokio::task::spawn_blocking(move || {
+        kill_processes_by_names(&target_processes, ProcessNameMatchMode::Contains)
+    })
+    .await
+    .unwrap_or(0);
 
     if killed_count > 0 {
         log_info!("🎉 成功强制关闭了 {} 个 Steam 相关进程", killed_count);
