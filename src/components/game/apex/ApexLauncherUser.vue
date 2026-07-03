@@ -4,7 +4,7 @@ import {convertFileSrc} from '@tauri-apps/api/core';
 import {useI18n} from 'vue-i18n';
 import EAIcon from '@/components/icons/EAIcon.vue';
 import apexStore from '@/stores/game/apex.ts';
-import type {ApexLauncherAccount} from '@/type.ts';
+import type {ApexLauncherAccount} from '@/types/apex.ts';
 import {steamAvatarUrl} from '@/utils/game/steam.ts';
 
 const emits = defineEmits<{ (e: 'update_user'): void }>();
@@ -29,6 +29,14 @@ const activeAvatarSrc = computed(() => {
   } catch {
     return undefined;
   }
+});
+
+const accountDetailTitle = computed(() => {
+  const acc = apex_store.active_apex_account;
+  if (!acc) return undefined;
+  if (acc.kind === 'steam') return `id: ${acc.user.id}`;
+  if (acc.kind === 'ea') return `userid: ${acc.user.user_userid}`;
+  return undefined;
 });
 
 function listItemAvatarSrc(acc: ApexLauncherAccount): string | undefined {
@@ -119,36 +127,24 @@ function selectAccount(acc: ApexLauncherAccount) {
           </v-avatar>
         </v-btn>
         <div class="launcher-user-text">
-          <v-tooltip>
-            <template  #default>
-              <template v-if="apex_store.active_apex_account?.kind=== 'steam'">
-                id: {{ apex_store.active_apex_account?.user.id }}
-              </template>
-              <template v-else-if="apex_store.active_apex_account?.kind=== 'ea'">
-                userid: {{ apex_store.active_apex_account?.user.user_userid }}
-              </template>
-            </template>
-            <template #activator="{ props: tipProps }">
-              <span v-bind="tipProps" class="d-inline-flex align-center ga-1">
-                <v-icon
-                  v-if="apex_store.active_apex_account?.kind === 'steam'"
-                  icon="mdi-steam"
-                  size="small"
-                  color="primary"
-                />
-                <EAIcon
-                  v-else-if="apex_store.active_apex_account?.kind === 'ea'"
-                  :size="16"
-                />
-                <v-icon
-                  v-else
-                  icon="mdi-account-question"
-                  size="small"
-                  color="medium-emphasis"
-                />
-              </span>
-            </template>
-          </v-tooltip>
+          <span :title="accountDetailTitle" class="d-inline-flex align-center ga-1">
+            <v-icon
+              v-if="apex_store.active_apex_account?.kind === 'steam'"
+              icon="mdi-steam"
+              size="small"
+              color="primary"
+            />
+            <EAIcon
+              v-else-if="apex_store.active_apex_account?.kind === 'ea'"
+              :size="16"
+            />
+            <v-icon
+              v-else
+              icon="mdi-account-question"
+              size="small"
+              color="medium-emphasis"
+            />
+          </span>
           <div v-bind="props" class="launcher-user-name text-body-2">
             {{ apex_store.active_apex_account?.user.name ?? '—' }}
           </div>

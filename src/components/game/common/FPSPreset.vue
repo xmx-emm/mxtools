@@ -3,7 +3,7 @@ import {computed} from 'vue';
 import {
   common_refresh_rate_presets,
   sorted_refresh_rate_presets,
-} from '@/data/game_refresh_rate_presets.ts';
+} from '@/data/presets/game_refresh_rate_presets.ts';
 
 const props = withDefaults(
   defineProps<{

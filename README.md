@@ -43,7 +43,8 @@ npm run "tauri dev"
 打包 Windows 安装包/可执行文件：
 
 ```bash
-npm run "build window"
+npm run "build window portable" #便携版
+npm run "build window installer" #安装版
 ```
 
 PowerShell 下也可写作：`npm run build\ window`(转义空格).

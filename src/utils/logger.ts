@@ -1,9 +1,11 @@
 /**
  * 前端日志：写入 Documents/mxtools/frontend.log
+ * 仅 warn/error 写盘，避免 console.log 洪泛阻塞 IPC。
  */
 import {invoke} from '@tauri-apps/api/core';
 
 const LOG_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const;
+const BACKEND_LEVELS = new Set(['WARN', 'ERROR']);
 
 function formatArgs(args: unknown[]): string {
   return args
@@ -21,10 +23,13 @@ function formatArgs(args: unknown[]): string {
 }
 
 function sendToBackend(level: string, message: string) {
+  if (!BACKEND_LEVELS.has(level)) return;
   invoke('write_frontend_log', { level, message }).catch(() => {
     // 静默失败,避免递归
   });
 }
+
+const LOGGER_GUARD_KEY = '__mx_frontend_logger_v1';
 
 function wrapConsole() {
   const original = {
@@ -45,10 +50,9 @@ function wrapConsole() {
   }
 }
 
-let initialized = false;
-
 export function initFrontendLogger() {
-  if (initialized) return;
-  initialized = true;
+  const g = globalThis as { [LOGGER_GUARD_KEY]?: boolean };
+  if (g[LOGGER_GUARD_KEY]) return;
+  g[LOGGER_GUARD_KEY] = true;
   wrapConsole();
 }

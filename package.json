@@ -10,12 +10,11 @@
     "tauri": "tauri",
     "tauri dev": "tauri dev",
     "build window": "tauri build",
-    "build window portable": "tauri build --no-bundle",
-    "build window installer": "tauri build --bundles nsis"
+    "build window release": "tauri build --bundles nsis && node scripts/rename-release-builds.mjs"
   },
   "dependencies": {
     "@date-io/date-fns": "^3.2.1",
-    "@fontsource/roboto": "^5.2.6",
+    "@mdi/js": "^7.4.47",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "2.7.0",
@@ -32,7 +31,6 @@
     "vuetify": "^3.9.6"
   },
   "devDependencies": {
-    "@mdi/font": "^7.4.47",
     "@tauri-apps/cli": "^2.10.1",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.3.1",

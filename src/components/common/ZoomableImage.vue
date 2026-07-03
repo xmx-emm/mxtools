@@ -2,7 +2,6 @@
 import { computed, onUnmounted, ref, useAttrs, watch } from 'vue';
 import { useTheme } from 'vuetify';
 import { useSettingsStore } from '@/stores/settings';
-
 defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
@@ -26,6 +25,8 @@ const passthroughAttrs = computed(() => {
   const { class: _cls, ...rest } = attrs as Record<string, unknown>;
   return rest;
 });
+
+const displaySrc = ref(props.src);
 
 const previewOpen = ref(false);
 const scale = ref(1);
@@ -180,6 +181,14 @@ watch(
   },
 );
 
+watch(
+  () => props.src,
+  (src) => {
+    displaySrc.value = src;
+  },
+  { immediate: true },
+);
+
 onUnmounted(() => {
   onPanEnd();
   window.removeEventListener('keydown', onPreviewKeydown);
@@ -198,7 +207,7 @@ onUnmounted(() => {
   >
     <v-img
       v-bind="passthroughAttrs"
-      :src="props.src"
+      :src="displaySrc"
       :alt="props.alt"
       :lazy-src="props.lazySrc"
       :class="['zoomable-image-thumb', attrs.class]"
@@ -237,7 +246,7 @@ onUnmounted(() => {
         @mousedown="onPanStart"
       >
         <img
-          :src="props.src"
+          :src="displaySrc"
           :alt="props.alt"
           :style="previewImageStyle"
           draggable="false"
