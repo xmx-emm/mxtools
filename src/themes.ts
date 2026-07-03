@@ -244,7 +244,7 @@ export function deriveThemeColors(primary: string, isDark: boolean) {
   return {
     primary,
     info: primary,
-    'primary-container': lighten(primary, 0.85),
+    'primary-container': lighten(primary, 0.78),
     'on-primary-container': darken(primary, 0.45),
   };
 }

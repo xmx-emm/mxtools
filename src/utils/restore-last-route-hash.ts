@@ -1,13 +1,13 @@
 /**
- * 在加载 `router.ts`（创建 `createWebHashHistory`）之前调用。
+ * 在加载 `router.ts`(创建 `createWebHashHistory`)之前调用。
  * 若地址栏仍是默认空 hash，则把 fragment 写成上次记录的 fullPath，
  * 使 Vue Router 的首次解析即落在 lastRoute 上，避免「先默认页再 replace」触发的第二次 beforeEach。
  *
- * 若用户已带有具体 hash（如 #/dashboard），则不覆盖，保留其选择。
+ * 若用户已带有具体 hash(如 #/dashboard)，则不覆盖，保留其选择。
  */
 const RESTORE_EXCLUDED_PATH_PREFIXES = ['/about'] as const;
 
-/** 本次 bootstrap 是否在 import router 之前把 hash 写成了 lastRoute（供 router 跳过重复的 replace） */
+/** 本次 bootstrap 是否在 import router 之前把 hash 写成了 lastRoute(供 router 跳过重复的 replace) */
 let didAlignHashThisBootstrap = false;
 
 export function alignWindowHashWithStoredLastRoute(

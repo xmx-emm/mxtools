@@ -20,12 +20,12 @@ function showTool() {
     if (openToolKeys.value.endsWith(OPEN_DEV_KEY)) {
       invoke('open_devtools');
       openToolKeys.value = '';
-      clearTimeout(timer.value);
+      clearInterval(timer.value);
       timer.value = null;
       window.onkeydown = () => {
       };
     }
-  }, 100);
+  }, 100) as unknown as number;
 }
 
 </script>

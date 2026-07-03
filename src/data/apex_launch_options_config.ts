@@ -1,77 +1,77 @@
-import {SteamLaunchOptionsImpl} from '@/data/steam.ts';
+import {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {defineAsyncComponent} from 'vue';
 
 const ApexMilesLanguageTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexMilesLanguageTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexMilesLanguageTip.vue'),
 );
 const ApexSkipAnimationTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexSkipAnimationTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexSkipAnimationTip.vue'),
 );
 const ApexHighPriorityTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexHighPriorityTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexHighPriorityTip.vue'),
 );
 const ApexWindowTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexWindowTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexWindowTip.vue'),
 );
 const ApexFpsTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexFpsTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexFpsTip.vue'),
 );
 const ApexShowFpsTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexShowFpsTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexShowFpsTip.vue'),
 );
 const ApexShowPosTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexShowPosTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexShowPosTip.vue'),
 );
 const ApexFovTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexFovTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexFovTip.vue'),
 );
 const ApexRedHitTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexRedHitTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexRedHitTip.vue'),
 );
 const ApexInputLatencyTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexInputLatencyTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexInputLatencyTip.vue'),
 );
 const ApexForcedResolutionTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexForcedResolutionTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexForcedResolutionTip.vue'),
 );
 const ApexInputMouseTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexInputMouseTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexInputMouseTip.vue'),
 );
 const ApexLobbyFpsTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexLobbyFpsTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexLobbyFpsTip.vue'),
 );
 const ApexAspectTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexAspectTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexAspectTip.vue'),
 );
 const ApexAltTabMinimizeTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexAltTabMinimizeTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexAltTabMinimizeTip.vue'),
 );
 const ApexReticleColorTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexReticleColorTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexReticleColorTip.vue'),
 );
 const ApexForceNoVSyncTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexForceNoVSyncTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexForceNoVSyncTip.vue'),
 );
 const ApexNoJoyTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexNoJoyTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexNoJoyTip.vue'),
 );
 const ApexMatQueueModeTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexMatQueueModeTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexMatQueueModeTip.vue'),
 );
 const ApexRagdollCollideTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexRagdollCollideTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexRagdollCollideTip.vue'),
 );
 const ApexDX12Tip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexDX12Tip.vue'),
+  import('@/components/game/apex/launch/tips/ApexDX12Tip.vue'),
 );
 const ApexLimitvsConstTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexLimitvsConstTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexLimitvsConstTip.vue'),
 );
 const ApexMilesChannelsTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexMilesChannelsTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexMilesChannelsTip.vue'),
 );
 const ApexForcePreloadTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/tips/ApexForcePreloadTip.vue'),
+  import('@/components/game/apex/launch/tips/ApexForcePreloadTip.vue'),
 );
 
 // -allow_thrid_party_software 这个参数好像没用?
@@ -160,21 +160,21 @@ const AltTabMinimize = {
   tip: ApexAltTabMinimizeTip,
 };
 const Window = {
-  name: 'apexLaunchOptions.window.name',
-  description: 'apexLaunchOptions.window.description',
+  name: 'apexVideoConfig.windowMode.name',
+  description: 'apexVideoConfig.windowMode.description',
   identifier: 'window',
   hide_in_normal_filter: true,
   parameters: [
     {
-      name: 'apexLaunchOptions.window.fullscreen',
+      name: 'apexVideoConfig.windowMode.fullscreen',
       parameter: '-fullscreen'
     },
     {
-      name: 'apexLaunchOptions.window.windowed',
+      name: 'apexVideoConfig.windowMode.windowed',
       parameter: '-window'
     },
     {
-      name: 'apexLaunchOptions.window.borderless',
+      name: 'apexVideoConfig.windowMode.borderless',
       parameter: '-noborder'
     }
   ],
@@ -186,7 +186,6 @@ const ForcedResolution = {
   identifier: 'forced_resolution',
   replace_numbers: true,
   requirement: ['-fullscreen'],
-  hide_in_normal_filter: true,
   tip: ApexForcedResolutionTip,
 };
 const InputMouse = {
@@ -249,7 +248,6 @@ const Aspect = {
   name: 'apexLaunchOptions.aspect.name',
   description: 'apexLaunchOptions.aspect.description',
   identifier: 'letterbox_aspect',
-  hide_in_normal_filter: true,
   tip: ApexAspectTip,
 };
 const ShowFps = {

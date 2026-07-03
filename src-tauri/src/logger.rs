@@ -291,28 +291,31 @@ fn now_iso() -> String {
 
 /// 前端调用：写入日志到按日目录下的 frontend.log
 #[tauri::command]
-pub fn write_frontend_log(level: String, message: String) {
-    let line = format!(
-        "[{}] [{}] {}\n",
-        now_iso(),
-        level,
-        message.replace('\n', " ")
-    );
-    let Some(log_path) = frontend_path_for_write() else {
-        return;
-    };
-    if let Some(parent) = log_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    maybe_truncate_log(&log_path);
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-    {
-        let _ = file.write_all(line.as_bytes());
-        let _ = file.flush();
-    }
+pub async fn write_frontend_log(level: String, message: String) {
+    let _ = tokio::task::spawn_blocking(move || {
+        let line = format!(
+            "[{}] [{}] {}\n",
+            now_iso(),
+            level,
+            message.replace('\n', " ")
+        );
+        let Some(log_path) = frontend_path_for_write() else {
+            return;
+        };
+        if let Some(parent) = log_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        maybe_truncate_log(&log_path);
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            let _ = file.write_all(line.as_bytes());
+            let _ = file.flush();
+        }
+    })
+    .await;
 }
 
 /// 读取日志内容用于反馈

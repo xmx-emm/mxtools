@@ -1,5 +1,83 @@
+use crate::utils::{blocking_cmd, blocking_value};
+use serde::Serialize;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 use windows_tool::utils::unit_conversion::{ByteConversionStandard, ByteToGB};
+
+/// 主显示器信息(Apex 快速预设用)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrimaryDisplayInfo {
+    pub width: u32,
+    pub height: u32,
+    pub aspect_ratio: f64,
+    pub max_refresh_rate: u32,
+}
+
+#[cfg(windows)]
+fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
+    use std::mem::zeroed;
+    use winapi::shared::minwindef::DWORD;
+    use winapi::um::wingdi::DEVMODEW;
+    use winapi::um::winuser::{EnumDisplaySettingsW, ENUM_CURRENT_SETTINGS};
+
+    let mut current: DEVMODEW = unsafe { zeroed() };
+    current.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
+    let ok = unsafe {
+        EnumDisplaySettingsW(
+            std::ptr::null(),
+            ENUM_CURRENT_SETTINGS,
+            &mut current,
+        )
+    };
+    if ok == 0 {
+        return Err("无法读取主显示器当前分辨率".to_string());
+    }
+
+    let width = current.dmPelsWidth;
+    let height = current.dmPelsHeight;
+    if width == 0 || height == 0 {
+        return Err("主显示器分辨率无效".to_string());
+    }
+
+    let mut max_refresh: DWORD = current.dmDisplayFrequency;
+    let mut i: DWORD = 0;
+    loop {
+        let mut mode: DEVMODEW = unsafe { zeroed() };
+        mode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
+        let ok = unsafe { EnumDisplaySettingsW(std::ptr::null(), i, &mut mode) };
+        if ok == 0 {
+            break;
+        }
+        if mode.dmDisplayFrequency > max_refresh {
+            max_refresh = mode.dmDisplayFrequency;
+        }
+        i = i.saturating_add(1);
+    }
+
+    if max_refresh == 0 {
+        max_refresh = 60;
+    }
+
+    let aspect_ratio = ((width as f64 / height as f64) * 10000.0).round() / 10000.0;
+
+    Ok(PrimaryDisplayInfo {
+        width,
+        height,
+        aspect_ratio,
+        max_refresh_rate: max_refresh,
+    })
+}
+
+#[cfg(not(windows))]
+fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
+    Err("仅支持 Windows".to_string())
+}
+
+/// 获取主显示器分辨率、比例与最高刷新率
+#[tauri::command]
+pub async fn get_primary_display_info() -> Result<PrimaryDisplayInfo, String> {
+    blocking_cmd(get_primary_display_info_inner).await
+}
 
 #[cfg(windows)]
 fn get_cpu_model_from_registry() -> String {
@@ -128,10 +206,13 @@ pub fn system_info() -> Vec<(String, String)> {
 
 /// 系统物理内存总量(MB,`-maxMem` 常用单位)
 #[tauri::command]
-pub fn system_total_memory_mb() -> u64 {
-    let mut sys = System::new_with_specifics(
-        RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
-    );
-    sys.refresh_memory();
-    sys.total_memory() / 1024 / 1024
+pub async fn system_total_memory_mb() -> Result<u64, String> {
+    blocking_value(|| {
+        let mut sys = System::new_with_specifics(
+            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+        );
+        sys.refresh_memory();
+        sys.total_memory() / 1024 / 1024
+    })
+    .await
 }

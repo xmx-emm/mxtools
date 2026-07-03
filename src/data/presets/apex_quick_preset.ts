@@ -1,0 +1,157 @@
+import type {
+  ApexAspectPreset,
+  ApexAspectResolutionEntry,
+  ApexGraphicsQualityPreset,
+  ApexQuickPresetLaunchOptionToggle,
+} from '@/types/apex_quick_preset.ts';
+
+/** Apex 锁帧上限(Hz) */
+export const FPS_CAP_MAX = 279;
+
+/** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
+export const ASPECT_LETTERBOX_THRESHOLD = 3;
+
+/** 快速预设默认画面配置(始终应用，覆盖画质档位中的同键项) */
+export const defaultVideoConfigValues: Record<string, string> = {
+  // 抗锯齿：开启 TSAA
+  'setting.mat_antialias_mode': '12',
+  // 纹理过滤：16x 各向异性
+  'setting.mat_forceaniso': '16',
+  'setting.mat_mip_linear': '1',
+};
+
+/** 比例预设(与启动项 letterbox aspect 一致) */
+export const aspectPresets: ApexAspectPreset[] = [
+  { label: 'apexQuickPreset.aspect.4_3', aspectValue: 1.3333 },
+  { label: 'apexQuickPreset.aspect.5_4', aspectValue: 1.25 },
+  { label: 'apexQuickPreset.aspect.3_2', aspectValue: 1.5 },
+  { label: 'apexQuickPreset.aspect.16_10', aspectValue: 1.6 },
+  { label: 'apexQuickPreset.aspect.16_9', aspectValue: 1.7778 },
+  // { label: 'apexQuickPreset.aspect.21_9', aspectValue: 2.3333 },
+  // { label: 'apexQuickPreset.aspect.32_9', aspectValue: 3.5556 },
+];
+
+/**
+ * 比例 + 屏幕分辨率查表；未命中时由算法按锁宽/锁高计算。
+ * 后续可直接在此追加 screenToGame 条目。
+ *   {
+ *     aspectValue: 1.7778,
+ *     screenToGame: {
+ *       '1920x1080': { width: 1920, height: 1080 },
+ *       '2560x1440': { width: 2560, height: 1440 },
+ *       '3840x2160': { width: 3840, height: 2160 },
+ *     },
+ *   },
+ *   {
+ *     aspectValue: 2.3333,
+ *     screenToGame: {
+ *       '2560x1080': { width: 2560, height: 1080 },
+ *       '3440x1440': { width: 3440, height: 1440 },
+ *     },
+ *   },
+ *   {
+ *     aspectValue: 1.3333,
+ *     screenToGame: {
+ *       '1920x1080': { width: 1440, height: 1080 },
+ *       // '2560x1440': { width: 1920, height: 1440 },
+ *     },
+ *   },
+ */
+export const aspectResolutionTable: ApexAspectResolutionEntry[] = [
+];
+
+/**
+ * 画面显示画质档位。
+ * values 键名对应 videoconfig.txt 中 setting.*，便于后续追加新档位。
+ */
+export const graphicsQualityPresets: ApexGraphicsQualityPreset[] = [
+  {
+    identifier: 'competitive',
+    name: 'apexQuickPreset.graphicsPresets.competitive',
+    description: 'apexQuickPreset.graphicsPresets.competitiveDesc',
+    values: {
+      // 纹理质量：低
+      'setting.stream_memory': '300000',
+      'setting.mat_picmip': '0',
+      'setting.dynamic_streaming_budget': '1',
+      // 纹理过滤：双线性
+      'setting.mat_forceaniso': '1',
+      'setting.mat_mip_linear': '0',
+      // 模型细节：低
+      'setting.r_lod_switch_scale': '0.6',
+      // 阳光阴影：关
+      'setting.csm_enabled': '0',
+      'setting.csm_coverage': '0',
+      // 阳光阴影细节：低
+      'setting.csm_cascade_res': '512',
+      // 点光源阴影：禁用
+      'setting.shadow_enable': '0',
+      'setting.shadow_depth_dimen_min': '0',
+      'setting.shadow_depth_upres_factor_max': '0',
+      'setting.shadow_maxdynamic': '0',
+      // 环境光遮蔽：关
+      'setting.ssao_quality': '0',
+      // 体积光/雾：关
+      'setting.volumetric_lighting': '0',
+      'setting.volumetric_fog': '0',
+      // 地图细节：低
+      'setting.map_detail_level': '1',
+      // 特效细节：低
+      'setting.particle_cpu_level': '0',
+      'setting.cl_particle_fallback_base': '3',
+      'setting.cl_particle_fallback_multiplier': '2',
+      // 布娃娃：低
+      'setting.cl_gib_allow': '0',
+      'setting.cl_ragdoll_maxcount': '0',
+      // 冲撞痕迹：禁用
+      'setting.r_createmodeldecals': '0',
+      'setting.r_decals': '0',
+      // 抗锯齿：关
+      'setting.mat_antialias_mode': '0',
+    },
+  },
+];
+
+export function findGraphicsQualityPreset(id: string): ApexGraphicsQualityPreset | undefined {
+  return graphicsQualityPresets.find((p) => p.identifier === id);
+}
+
+/** 快速预设可选启动项(默认全部勾选) */
+export const quickPresetLaunchOptionToggles: ApexQuickPresetLaunchOptionToggle[] = [
+  {
+    key: 'fov_scale',
+    label: 'apexLaunchOptions.fov.name',
+    identifier: 'fov_scale',
+    defaultEnabled: true,
+  },
+  {
+    key: 'show_fps',
+    label: 'apexLaunchOptions.showFps.name',
+    parameter: '+cl_showfps 1',
+    defaultEnabled: true,
+  },
+  {
+    key: 'show_pos',
+    label: 'apexLaunchOptions.showPos.name',
+    parameter: '+cl_showpos 1',
+    defaultEnabled: true,
+  },
+  {
+    key: 'skip_intro_animation',
+    label: 'apexLaunchOptions.skipIntro.name',
+    identifier: 'skip_intro_animation',
+    defaultEnabled: true,
+  },
+  {
+    key: 'red_knockdown',
+    label: 'apexLaunchOptions.redKnockdown.name',
+    parameter: '+cl_is_softened_locale 1',
+    defaultEnabled: true,
+  },
+];
+
+export function buildDefaultLaunchOptions(): Record<string, boolean> {
+  return Object.fromEntries(
+    quickPresetLaunchOptionToggles.map((opt) => [opt.key, opt.defaultEnabled]),
+  );
+}

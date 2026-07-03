@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import {computed, onMounted} from 'vue';
+import {computed, ref, watch} from 'vue';
 import {invoke} from '@tauri-apps/api/core';
 import {openPath} from '@tauri-apps/plugin-opener';
 import {useToast} from 'vue-toastification';
 import PubgLaunchOptionsConfig from '@/data/pubg_launch_options_config.ts';
-import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/data/steam.ts';
+import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import pubgStore from '@/stores/game/pubg.ts';
 import PubgNumberInput from '@/components/game/pubg/common/PubgNumberInput.vue';
 import ResolutionPreset from '@/components/game/common/ResolutionPreset.vue';
@@ -13,9 +13,23 @@ import FpsPreset from '@/components/game/common/FPSPreset.vue';
 const pubg_store = pubgStore();
 const toast = useToast();
 
-onMounted(() => {
-  pubg_store.start_launch();
-});
+const listWrapRef = ref<HTMLElement | null>(null);
+const lockedListHeight = ref<number | null>(null);
+
+watch(
+  () => pubg_store.is_start_loading,
+  (loading) => {
+    if (loading) {
+      lockedListHeight.value = listWrapRef.value?.offsetHeight ?? null;
+    } else {
+      lockedListHeight.value = null;
+    }
+  },
+);
+
+const listWrapStyle = computed(() =>
+  lockedListHeight.value != null ? { minHeight: `${lockedListHeight.value}px` } : undefined,
+);
 
 function graphicsPreviewTokens(item: SteamLaunchOptionsImpl): string {
   const mode = String(pubg_store.settings_config.graphics_api || 'dx11');
@@ -117,11 +131,12 @@ const maxMemDisplayProxy = computed({
 </script>
 
 <template>
+  <div ref="listWrapRef" class="h-100 min-height-0" :style="listWrapStyle">
   <v-list
     v-model:selected="pubg_store.options_selection"
     select-strategy="leaf"
-    class="rounded-0 pubg-options-list"
-    style="height: 100%;overflow-y: auto"
+    class="rounded-0 pubg-options-list h-100 min-height-0"
+    style="overflow-y: auto"
   >
     <template v-for="raw in PubgLaunchOptionsConfig" :key="typeof raw === 'string' ? raw : raw.name">
       <template v-if="isSteamLaunchOptionsImpl(raw)">
@@ -132,7 +147,8 @@ const maxMemDisplayProxy = computed({
           @contextmenu.prevent="pubg_store.showTip(raw)"
         >
           <template #default="{isSelected}">
-            <div v-if="isSelected" class="d-flex flex-row align-center w-100 flex-wrap gap-1">
+            <v-expand-transition>
+            <div v-if="isSelected" class="d-flex flex-row align-center w-100 flex-wrap gap-1 launch-option-expand-body">
               <template v-if="raw.identifier === 'window' && raw.parameters">
                 <v-btn-toggle
                   v-model="pubg_store.settings_config.window"
@@ -247,6 +263,7 @@ const maxMemDisplayProxy = computed({
                 />
               </template>
             </div>
+            </v-expand-transition>
           </template>
 
           <template #title>
@@ -284,7 +301,7 @@ const maxMemDisplayProxy = computed({
             <v-list-item-action start class="pubg-prepend-action">
               <template v-if="raw.identifier === 'skip_intro'">
                 <v-progress-circular
-                  v-if="pubg_store.is_start_loading || pubg_store.is_skip_intro_movies_loading"
+                  v-if="pubg_store.is_skip_intro_movies_loading"
                   :size="20"
                   style="margin: 0 0"
                   transition="scroll-x-transition"
@@ -297,7 +314,7 @@ const maxMemDisplayProxy = computed({
                   variant="flat"
                   density="compact"
                   icon
-                  :title="pubg_store.skip_intro_movies_disabled ? '恢复开场动画（重命名 Movies_disabled -> Movies）' : '禁用开场动画（重命名 Movies -> Movies_disabled）'"
+                  :title="pubg_store.skip_intro_movies_disabled ? '恢复开场动画(重命名 Movies_disabled -> Movies)' : '禁用开场动画(重命名 Movies -> Movies_disabled)'"
                   @click.stop="toggleSkipIntroMovies"
                 >
                   <v-icon size="20">
@@ -307,14 +324,7 @@ const maxMemDisplayProxy = computed({
               </template>
 
               <template v-else>
-                <v-progress-circular
-                  v-if="pubg_store.is_start_loading"
-                  :size="20"
-                  style="margin: 0 0"
-                  transition="scroll-x-transition"
-                  indeterminate
-                />
-                <v-checkbox-btn v-else :model-value="isSelected" @update:model-value="select" />
+                <v-checkbox-btn :model-value="isSelected" @update:model-value="select" />
               </template>
             </v-list-item-action>
           </template>
@@ -330,6 +340,7 @@ const maxMemDisplayProxy = computed({
       </template>
     </template>
   </v-list>
+  </div>
 </template>
 
 <style scoped>

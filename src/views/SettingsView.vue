@@ -64,6 +64,15 @@ function onCleared() {
           </v-card-title>
           <v-card-text class="settings-card-body d-flex flex-column" style="gap: 16px;">
             <v-select
+              :model-value="settingsStore.locale"
+              :items="localeItems"
+              :label="t('settings.language')"
+              item-title="title"
+              item-value="value"
+              @update:model-value="applyLocale"
+            />
+
+            <v-select
               v-model="editTheme"
               :items="themeItems"
               :label="t('settings.theme')"
@@ -74,14 +83,6 @@ function onCleared() {
 
             <ThemeColorPicker/>
 
-            <v-select
-              :model-value="settingsStore.locale"
-              :items="localeItems"
-              :label="t('settings.language')"
-              item-title="title"
-              item-value="value"
-              @update:model-value="applyLocale"
-            />
             <v-switch
               :model-value="settingsStore.restoreLastRoute"
               :label="t('settings.restoreLastPage')"

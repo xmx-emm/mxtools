@@ -1,29 +1,35 @@
 //! Tauri 封装；实现位于 `windows_tool::game::ea`.
 
 use crate::log_info;
-use crate::utils::{await_time, kill_processes_by_names, ProcessNameMatchMode};
+use crate::utils::{
+    await_time, blocking_cmd, is_ea_desktop_running_by_process_scan, kill_processes_by_names,
+    ProcessNameMatchMode,
+};
 use windows_tool::game::ea::{self, EaDesktopUser};
 
 #[tauri::command]
-pub fn get_ea_desktop_users() -> Result<Vec<EaDesktopUser>, String> {
-    ea::get_ea_desktop_users()
+pub async fn get_ea_desktop_users() -> Result<Vec<EaDesktopUser>, String> {
+    blocking_cmd(ea::get_ea_desktop_users).await
 }
 
 #[tauri::command]
-pub fn get_apex_launch_option_ea(ea_user_id: String) -> Result<String, String> {
-    ea::get_apex_launch_option_ea(&ea_user_id)
+pub async fn get_apex_launch_option_ea(ea_user_id: String) -> Result<String, String> {
+    blocking_cmd(move || ea::get_apex_launch_option_ea(&ea_user_id)).await
 }
 
 #[tauri::command]
-pub fn set_apex_launch_option_ea(ea_user_id: String, launch_option: String) -> Result<(), String> {
-    ea::set_apex_launch_option_ea(&ea_user_id, &launch_option)
+pub async fn set_apex_launch_option_ea(
+    ea_user_id: String,
+    launch_option: String,
+) -> Result<(), String> {
+    blocking_cmd(move || ea::set_apex_launch_option_ea(&ea_user_id, &launch_option)).await
 }
 
 #[tauri::command]
 pub async fn ea_desktop_is_running_by_tasklist() -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
-        return ea::ea_desktop_is_running_by_tasklist();
+        blocking_cmd(|| Ok(is_ea_desktop_running_by_process_scan())).await
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -48,7 +54,11 @@ pub async fn thoroughly_kill_ea_desktop() -> Result<(), ()> {
         vec![]
     };
 
-    let killed_count = kill_processes_by_names(&target_processes, ProcessNameMatchMode::Exact);
+    let killed_count = tokio::task::spawn_blocking(move || {
+        kill_processes_by_names(&target_processes, ProcessNameMatchMode::Exact)
+    })
+    .await
+    .unwrap_or(0);
 
     if killed_count > 0 {
         log_info!("已关闭 {} 个 EA 相关进程", killed_count);

@@ -1,4 +1,4 @@
-import {createApp} from 'vue';
+import {createApp, type App as VueApp} from 'vue';
 import App from './App.vue';
 // CSS
 import '@/assets/styles/global.css';
@@ -9,7 +9,6 @@ import Toast from 'vue-toastification';
 import 'vue-toastification/dist/index.css';
 // Vuetify
 import 'vuetify/styles';
-import '@mdi/font/css/materialdesignicons.css';
 
 // Store
 import {createPinia} from 'pinia';
@@ -28,6 +27,8 @@ import {getCurrentWindow} from '@tauri-apps/api/window';
 import {initFrontendLogger} from '@/utils/logger';
 import {findAccent, persistAccentHint} from '@/themes';
 import {alignWindowHashWithStoredLastRoute} from '@/utils/restore-last-route-hash';
+import {runAllHmrCleanups} from '@/utils/hmr.ts';
+import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 
 initFrontendLogger();
 
@@ -36,18 +37,37 @@ getCurrentWindow().show().then(() => {
 const splashStart = Date.now();
 (window as any).__splashStart = splashStart;
 
+let vueApp: VueApp | null = null;
 
 async function bootstrap() {
+  if (vueApp) {
+    vueApp.unmount();
+    vueApp = null;
+  }
+
   const app = createApp(App);
-  const pinia = createPinia();
-  pinia.use(createPlugin());
+  const pinia = import.meta.env.DEV
+    ? ((globalThis as { __mx_pinia?: ReturnType<typeof createPinia> }).__mx_pinia ?? (() => {
+        const p = createPinia();
+        p.use(createPlugin());
+        (globalThis as { __mx_pinia?: ReturnType<typeof createPinia> }).__mx_pinia = p;
+        return p;
+      })())
+    : (() => {
+        const p = createPinia();
+        p.use(createPlugin());
+        return p;
+      })();
   app.use(pinia);
 
   const settings = useSettingsStore();
   const style = uiStyleStore();
-  await Promise.all([settings.$tauri.start(), style.$tauri.start()]);
+  await Promise.all([
+    startTauriStoreOnce('settings', () => settings.$tauri.start()),
+    startTauriStoreOnce('style', () => style.$tauri.start()),
+  ]);
 
-  // 必须在首次 import `./router`（创建 hash history）之前对齐 hash，否则会出现「默认首屏 + replace 恢复」两次导航
+  // 必须在首次 import `./router`(创建 hash history)之前对齐 hash，否则会出现「默认首屏 + replace 恢复」两次导航
   alignWindowHashWithStoredLastRoute(settings.restoreLastRoute, settings.lastRoute);
   const {default: router} = await import('./router');
 
@@ -75,7 +95,25 @@ async function bootstrap() {
   }
 
   app.mount('#app');
-  void setupLocaleToggleShortcut();
+  vueApp = app;
+  if (import.meta.env.DEV) {
+    const shortcutKey = '__mx_locale_shortcut_setup_v1';
+    const g = globalThis as { [shortcutKey]?: boolean };
+    if (!g[shortcutKey]) {
+      g[shortcutKey] = true;
+      void setupLocaleToggleShortcut();
+    }
+  } else {
+    void setupLocaleToggleShortcut();
+  }
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    runAllHmrCleanups();
+    vueApp?.unmount();
+    vueApp = null;
+  });
 }
 
 bootstrap().then(() => {

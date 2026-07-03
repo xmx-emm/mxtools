@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import EditPortForwarding from '@/components/port_forwrarding/EditPortForwarding.vue';
-import type {PortForwarding} from '@/type.ts';
+import type {PortForwarding} from '@/types/network.ts';
 import {computed} from 'vue';
 import {useToast} from 'vue-toastification';
 import {invoke} from '@tauri-apps/api/core';

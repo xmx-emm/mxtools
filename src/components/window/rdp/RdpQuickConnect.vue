@@ -4,7 +4,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useRdpStore} from '@/stores/rdp.ts';
-import type {RdpConnection} from '@/type.ts';
+import type {RdpConnection} from '@/types/rdp.ts';
 import {save} from '@tauri-apps/plugin-dialog';
 
 const { t } = useI18n();
