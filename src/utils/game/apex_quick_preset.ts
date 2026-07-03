@@ -70,6 +70,10 @@ export function buildVideoResolutionValues(width: number, height: number): Recor
 
 export function formatAspectRatioLabel(aspectValue: number): string {
   const preset = [
+    { v: 1, t: '1:1' },
+    { v: 0.5, t: '1:2' },
+    { v: 2, t: '2:1' },
+    { v: 0.75, t: '3:4' },
     { v: 1.3333, t: '4:3' },
     { v: 1.25, t: '5:4' },
     { v: 1.5, t: '3:2' },
@@ -89,7 +93,7 @@ export function buildQuickPresetPreview(
   return resolveGameResolution(screen, selection.aspectValue, selection.lockAxis);
 }
 
-function findLaunchOptionRef(
+export function findLaunchOptionRef(
   toggle: ApexQuickPresetLaunchOptionToggle,
 ): SteamLaunchOptionsImpl | undefined {
   for (const row of ApexLaunchOptionsConfig) {
