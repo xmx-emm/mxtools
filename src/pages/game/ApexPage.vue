@@ -143,7 +143,9 @@ onMounted(async () => {
   } else {
     apex_store.start_launch();
   }
-  await refresh_running_for_active_account();
+  if (!import.meta.env.DEV) {
+    await refresh_running_for_active_account();
+  }
   start_status_polling();
   window.addEventListener('visibilitychange', on_visibility_change);
   window.addEventListener('pointerdown', on_user_activity, true);
@@ -366,10 +368,10 @@ function open_quick_preset() {
         @contextmenu.prevent="apex_store.closeTip()"
       />
     </v-dialog>
-    <ApexSteamManualDownloadMilesLanguage/>
-    <ApexEaManualDownloadMilesLanguage/>
-    <ApexSemiAutomaticDownloadLanguage/>
-    <ApexQuickPresetDialog/>
+    <ApexSteamManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog"/>
+    <ApexEaManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog_ea"/>
+    <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
+    <ApexQuickPresetDialog v-if="apex_store.quick_preset_dialog"/>
   </v-col>
 </template>
 <style scoped>

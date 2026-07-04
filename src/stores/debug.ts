@@ -2,12 +2,15 @@ import {defineStore} from 'pinia';
 
 export const useDebugStore = defineStore('debug', {
   state: () => ({
-    /** 游戏相关调试日志开关 */
-    game: false,
+    /** 调试模式：控制前端 console 调试输出 */
+    enabled: import.meta.env.DEV,
   }),
+  getters: {
+    isEnabled: (state) => state.enabled,
+  },
   actions: {
-    setGame(value: boolean | null) {
-      this.game = value ?? false;
+    setEnabled(value: boolean | null) {
+      this.enabled = value ?? false;
     },
   },
   tauri: {autoStart: true},

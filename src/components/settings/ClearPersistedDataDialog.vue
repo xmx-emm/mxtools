@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import {useSettingsStore} from '@/stores/settings';
+import {useDebugStore} from '@/stores/debug';
 import {uiStyleStore} from '@/stores/style.ts';
+import {setDebugEnabled} from '@/utils/debug';
 import steamStore from '@/stores/game/steam.ts';
 import eaStore from '@/stores/game/ea.ts';
 import apexStore from '@/stores/game/apex.ts';
@@ -16,6 +18,7 @@ const emit = defineEmits<{ cleared: [] }>();
 const { t, locale: i18nLocale } = useI18n();
 const toast = useToast();
 const settingsStore = useSettingsStore();
+const debugStore = useDebugStore();
 const uiStore = uiStyleStore();
 const steam_store = steamStore();
 const ea_store = eaStore();
@@ -25,6 +28,8 @@ const clearConfirmDialog = ref(false);
 
 async function clearPersistedData() {
   settingsStore.$reset();
+  debugStore.$reset();
+  setDebugEnabled(import.meta.env.DEV);
   uiStore.$reset();
   steam_store.$reset();
   ea_store.$reset();

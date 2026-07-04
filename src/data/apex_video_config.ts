@@ -334,6 +334,11 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         outOfPreset: true
       },
       {
+        label: '只看得清手模',
+        values: { 'setting.stream_memory': '20000', 'setting.mat_picmip': '2', 'setting.dynamic_streaming_budget': '1' },
+        outOfPreset: true
+      },
+      {
         label: 'apexVideoConfig.options.none',
         values: { 'setting.stream_memory': '0', 'setting.mat_picmip': '2', 'setting.dynamic_streaming_budget': '0' }
       },

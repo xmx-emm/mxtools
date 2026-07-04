@@ -2,7 +2,6 @@ import {defineStore} from 'pinia';
 import {invoke} from '@tauri-apps/api/core';
 import type {EaDesktopUser} from '@/types/ea.ts';
 import {useToast} from 'vue-toastification';
-import {useDebugStore} from '@/stores/debug';
 import {
   type EaProfileCache,
   mergeEaUserProfile,
@@ -10,7 +9,6 @@ import {
 } from '@/utils/game/ea.ts';
 
 const toast = useToast();
-const debugStore = useDebugStore();
 
 const EA_RUNNING_CHECK_CACHE_MS = import.meta.env.DEV ? 45000 : 12000;
 let ea_running_check_cache: { at: number; value: boolean } | null = null;
@@ -89,10 +87,8 @@ const eaStore = defineStore('ea', {
           ea_running_check_in_flight = null;
         });
       const is_running = await ea_running_check_in_flight;
-      if (debugStore.game && this.is_ea_desktop_running !== is_running) {
-        console.log('is_ea_desktop_running', is_running);
-      }
       if (this.is_ea_desktop_running !== is_running) {
+        console.log('is_ea_desktop_running', is_running);
         this.is_ea_desktop_running = is_running;
       }
     },

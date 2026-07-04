@@ -90,6 +90,14 @@ function onCleared() {
               color="primary"
               @update:model-value="settingsStore.setRestoreLastRoute"
             />
+            <v-switch
+              :model-value="debugStore.enabled"
+              :label="t('settings.debugMode')"
+              :hint="t('settings.debugModeHint')"
+              persistent-hint
+              color="primary"
+              @update:model-value="debugStore.setEnabled"
+            />
             <div class="d-flex flex-wrap ga-2 mt-2">
               <v-btn color="primary" variant="tonal" rounded="lg" @click="openAboutWindow">
                 {{ t('settings.about') }}
@@ -106,13 +114,6 @@ function onCleared() {
                 </v-btn>
                 <FeedbackErrorDialog/>
                 <ClearPersistedDataDialog @cleared="onCleared"/>
-                <v-switch
-                  :model-value="debugStore.game"
-                  :label="t('settings.debugGame')"
-                  hide-details
-                  color="primary"
-                  @update:model-value="debugStore.setGame"
-                />
               </v-col>
             </v-sheet>
           </v-card-text>

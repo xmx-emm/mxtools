@@ -204,7 +204,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
       <template v-for="item in displayedLaunchOptions">
         <template v-if="isSteamLaunchOptionsImpl(item)">
           <div class="apex-list-item-wrap" :title="t('apexLaunchOptions.ui.rightClickTip')">
-          <v-list-item :value="item" @click="apex_store.update_download_language_button_color();check_item(item)"
+          <v-list-item :value="item" @click="check_item(item)"
                        @contextmenu.prevent="apex_store.showTip(<SteamLaunchOptionsImpl>item)"
           >
             <!--中间的内容-->
