@@ -31,9 +31,20 @@ export const aspectPresets: ApexAspectPreset[] = [
   { label: 'apexQuickPreset.aspect.3_2', aspectValue: 1.5 },
   { label: 'apexQuickPreset.aspect.16_10', aspectValue: 1.6 },
   { label: 'apexQuickPreset.aspect.16_9', aspectValue: 1.7778 },
-  // { label: 'apexQuickPreset.aspect.21_9', aspectValue: 2.3333 },
-  // { label: 'apexQuickPreset.aspect.32_9', aspectValue: 3.5556 },
+  { label: 'apexQuickPreset.aspect.21_9', aspectValue: 2.3333 },
+  { label: 'apexQuickPreset.aspect.32_9', aspectValue: 3.5556 },
 ];
+
+export function sortedAspectPresets(values: ApexAspectPreset[] = aspectPresets): ApexAspectPreset[] {
+  return [...values].sort((a, b) => a.aspectValue - b.aspectValue);
+}
+
+export function findAspectPresetByValue(
+  value: number,
+  values: ApexAspectPreset[] = aspectPresets,
+): ApexAspectPreset | undefined {
+  return values.find((p) => p.aspectValue === value);
+}
 
 /**
  * 比例 + 屏幕分辨率查表；未命中时由算法按锁宽/锁高计算。

@@ -1,10 +1,12 @@
 /**
  * 前端日志：写入 Documents/mxtools/frontend.log
- * 仅 warn/error 写盘，避免 console.log 洪泛阻塞 IPC。
+ * log/info/debug/warn 受调试开关控制；error 始终输出。
  */
 import {invoke} from '@tauri-apps/api/core';
+import {isDebugEnabled} from '@/utils/debug';
 
 const LOG_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const;
+const GATED_LEVELS = new Set(['log', 'info', 'warn', 'debug']);
 const BACKEND_LEVELS = new Set(['WARN', 'ERROR']);
 
 function formatArgs(args: unknown[]): string {
@@ -43,6 +45,7 @@ function wrapConsole() {
   for (const level of LOG_LEVELS) {
     const orig = original[level];
     (console as unknown as Record<string, (...args: unknown[]) => void>)[level] = function (...args: unknown[]) {
+      if (GATED_LEVELS.has(level) && !isDebugEnabled()) return;
       orig(...args);
       const message = formatArgs(args);
       sendToBackend(level.toUpperCase(), message);

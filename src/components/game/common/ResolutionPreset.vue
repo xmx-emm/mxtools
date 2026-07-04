@@ -31,7 +31,14 @@ const selected_resolution_title = computed(() => {
 </script>
 
 <template>
-  <v-menu closeOnBack :open-on-click="false" openOnHover openDelay="150" closeDelay="100">
+  <v-menu
+    closeOnBack
+    :open-on-click="false"
+    openOnHover
+    openDelay="150"
+    closeDelay="100"
+    content-class="compact-menu preset-compact-menu"
+  >
     <template v-slot:activator="{ props: menuProps }">
       <div class="preset_hover_box" v-bind="menuProps">
         <span class="preset_hover_text">{{ selected_resolution_title }}</span>
@@ -48,23 +55,3 @@ const selected_resolution_title = computed(() => {
     </v-list>
   </v-menu>
 </template>
-
-<style scoped>
-.preset_hover_box {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: 172px;
-  height: 20px;
-  padding: 0 6px;
-  cursor: pointer;
-}
-
-.preset_hover_text {
-  display: inline-block;
-  width: 100%;
-  text-align: right;
-  white-space: nowrap;
-  font-size: 11px;
-}
-</style>

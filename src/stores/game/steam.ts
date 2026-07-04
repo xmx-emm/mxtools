@@ -2,10 +2,8 @@ import {defineStore} from 'pinia';
 import type {SteamUser} from '@/types/steam.ts';
 import {invoke} from '@tauri-apps/api/core';
 import {useToast} from 'vue-toastification';
-import {useDebugStore} from '@/stores/debug';
 
 const toast = useToast();
-const debugStore = useDebugStore();
 
 const STEAM_RUNNING_CHECK_CACHE_MS = import.meta.env.DEV ? 45000 : 12000;
 let steam_running_check_cache: { at: number; value: boolean } | null = null;
@@ -73,10 +71,8 @@ const steamStore = defineStore('steam', {
           steam_running_check_in_flight = null;
         });
       const is_running = await steam_running_check_in_flight;
-      if (debugStore.game && this.is_steam_running !== is_running) {
-        console.log('is_steam_running', is_running);
-      }
       if (this.is_steam_running !== is_running) {
+        console.log('is_steam_running', is_running);
         this.is_steam_running = is_running;
       }
     },

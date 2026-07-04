@@ -17,11 +17,15 @@ export function match_apex_fps_by_fps_max(launch_options: string): number | null
 }
 
 export function match_apex_fps_by_freq(launch_options: string): number | null {
-  const match = launch_options.match(/(?:^|\s)\+freq\s+(\d+)(?=\s|$)/);
+  const match = launch_options.match(/(?:^|\s)-freq\s+(\d+)(?=\s|$)/);
   if (match) {
     return Number(match[1]);
   }
   return null;
+}
+
+export function is_apex_fps_unlimited(launch_options: string): boolean {
+  return /(?:^|\s)\+fps_max\s+unlimited(?=\s|$)/.test(launch_options);
 }
 
 export function match_apex_lobby_max_fps(launch_options: string): number | null {

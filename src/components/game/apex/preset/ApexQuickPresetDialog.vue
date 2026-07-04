@@ -15,6 +15,7 @@ import {
   FPS_CAP_MAX,
   graphicsQualityPresets,
   quickPresetLaunchOptionToggles,
+  sortedAspectPresets,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {ApexQuickPresetLaunchOptionToggle, ApexQuickPresetSelection, PrimaryDisplayInfo, ResolutionLockAxis} from '@/types/apex_quick_preset.ts';
 import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
@@ -48,6 +49,8 @@ const launcher_close_dialog = ref(false);
 const close_launcher_kind = ref<'steam' | 'ea'>('steam');
 const is_thoroughly_kill = ref(false);
 const close_poll_id = ref<number | null>(null);
+
+const sorted_aspect_presets = computed(() => sortedAspectPresets());
 
 const selection = computed((): ApexQuickPresetSelection => ({
   fpsCap: fps_cap.value,
@@ -312,7 +315,7 @@ async function on_apply() {
                   divided
                 >
                   <v-btn
-                    v-for="item in aspectPresets"
+                    v-for="item in sorted_aspect_presets"
                     :key="item.aspectValue"
                     :value="item.aspectValue"
                     size="small"

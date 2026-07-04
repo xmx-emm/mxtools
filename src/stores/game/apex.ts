@@ -12,6 +12,7 @@ import type {ApexLauncherAccount} from '@/types/apex.ts';
 import {
   match_apex_fps_by_fps_max,
   match_apex_fps_by_freq,
+  is_apex_fps_unlimited,
   match_apex_height,
   match_apex_lobby_max_fps,
   match_apex_mat_letterbox_aspect_goal,
@@ -59,6 +60,23 @@ export type ApexVideoWindowMode = 'fullscreen' | 'windowed' | 'borderless';
 
 function launcherAccountKey(acc: ApexLauncherAccount): string {
   return `${acc.kind}:${acc.user.id}`;
+}
+
+const MILES_LANGUAGE_CHECK_CACHE_MS = import.meta.env.DEV ? 120000 : 60000;
+let miles_language_check_cache: { key: string; at: number; value: boolean } | null = null;
+let miles_language_check_in_flight: Promise<boolean> | null = null;
+
+function milesLanguageCheckKey(
+  acc: ApexLauncherAccount | null,
+  language: string,
+  milesEnabled: boolean,
+): string | null {
+  if (!acc || !milesEnabled) return null;
+  return `${acc.kind}:${acc.user.id}:${language}`;
+}
+
+function invalidateMilesLanguageCheckCache() {
+  miles_language_check_cache = null;
 }
 
 function findApexAccountByKey(accounts: ApexLauncherAccount[], key: string | null): ApexLauncherAccount | null {
@@ -205,29 +223,69 @@ const apexStore = defineStore('apex', {
   }),
   actions: {
     //从steam加载启动数据
-    async check_miles_language() {
+    async check_miles_language(force = false) {
       const acc = this.active_apex_account;
+      const milesEnabled = this.is_enabled_miles_language;
+      if (!milesEnabled) {
+        invalidateMilesLanguageCheckCache();
+        return true;
+      }
+      if (this.language === 'english') {
+        invalidateMilesLanguageCheckCache();
+        return true;
+      }
+      const cacheKey = milesLanguageCheckKey(acc, this.language, milesEnabled);
+      const now = Date.now();
+      if (
+        !force
+        && cacheKey
+        && miles_language_check_cache
+        && miles_language_check_cache.key === cacheKey
+        && now - miles_language_check_cache.at < MILES_LANGUAGE_CHECK_CACHE_MS
+      ) {
+        return miles_language_check_cache.value;
+      }
+      if (miles_language_check_in_flight) {
+        return miles_language_check_in_flight;
+      }
       const platform = acc?.kind === 'ea' ? 'ea' : 'steam';
       const eaUserId = acc?.kind === 'ea' ? acc.user.id : null;
-      for (const item of this.options_selection) {
-        if (item.identifier === 'miles_language') {
-          if (this.language === 'english') {//默认语言为英语,不需要下载操作
-            return true;
+      const t0 = performance.now();
+      miles_language_check_in_flight = invoke<boolean>('check_apex_miles_language', {
+        language: this.language,
+        platform,
+        eaUserId,
+      })
+        .then((is_ok) => {
+          const ms = Math.round(performance.now() - t0);
+          if (cacheKey) {
+            miles_language_check_cache = { key: cacheKey, at: Date.now(), value: is_ok };
           }
-          return await invoke<boolean>('check_apex_miles_language', {
-            language: this.language,
-            platform,
-            eaUserId,
-          }).then((is_ok) => {
-            console.log('check_apex_miles_language ok', is_ok);
-            return is_ok;
-          }).catch((e) => {
-            console.log('check_apex_miles_language err', this.language, e);
-            return false;
-          });
-        }
-      }
-      return true;
+          // #region agent log
+          fetch('http://127.0.0.1:7444/ingest/66dbfdc8-b457-46f4-a047-8abb5a080193', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2dd425' },
+            body: JSON.stringify({
+              sessionId: '2dd425',
+              location: 'apex.ts:check_miles_language',
+              message: 'miles_language_ipc',
+              data: { ms, ok: is_ok, cacheKey },
+              timestamp: Date.now(),
+              hypothesisId: 'H6',
+            }),
+          }).catch(() => {});
+          // #endregion
+          console.log('check_apex_miles_language', is_ok, `${ms}ms`);
+          return is_ok;
+        })
+        .catch((e) => {
+          console.warn('check_apex_miles_language err', this.language, e);
+          return false;
+        })
+        .finally(() => {
+          miles_language_check_in_flight = null;
+        });
+      return miles_language_check_in_flight;
     },
     //通过读取对应steam user用户的loadconfig.vdf获取启动参数并解析
     closeTip() {
@@ -295,6 +353,7 @@ const apexStore = defineStore('apex', {
         this.original_launch_options = '';
         this.original_video_config = {};
         this.video_config_values = {};
+        invalidateMilesLanguageCheckCache();
       }
       this.launcher_selection_key = nextKey;
       if (acc.kind === 'steam') {
@@ -395,11 +454,21 @@ const apexStore = defineStore('apex', {
               }
             }
           } else if (option?.identifier === 'fps') {
-            const fps_max_ok = start_launch_option.includes('+fps_max');
-            const freq_ok = start_launch_option.includes('+freq');
-            if (fps_max_ok || freq_ok) {
-              fps = match_apex_fps_by_fps_max(start_launch_option) || match_apex_fps_by_freq(start_launch_option) || 114;
+            const has_fps_max = /(?:^|\s)\+fps_max\s/.test(start_launch_option);
+            const has_freq = /(?:^|\s)-freq\s/.test(start_launch_option);
+            if (has_fps_max || has_freq) {
               selection.push(option);
+              if (is_apex_fps_unlimited(start_launch_option)) {
+                settingsPatch['fps'] = '+fps_max unlimited';
+              } else {
+                const parsed =
+                  match_apex_fps_by_fps_max(start_launch_option)
+                  ?? match_apex_fps_by_freq(start_launch_option);
+                if (parsed !== null) {
+                  fps = parsed;
+                }
+                settingsPatch['fps'] = '-freq X +fps_max X';
+              }
             }
           } else if (option?.parameter) {
             if (typeof option?.parameter === 'string') {
@@ -465,6 +534,10 @@ const apexStore = defineStore('apex', {
           });
         }
         this.parse_loaded_launch_string(start_launch_option);
+        console.log('[apex] launch options loaded', {
+          account: { kind: acc.kind, id: acc.user.id, name: acc.user.name },
+          raw: start_launch_option,
+        });
       };
       try {
         await run();

@@ -63,6 +63,40 @@ html::-webkit-scrollbar {
   line-height: 1.2;
 }
 
+/* 启动项/分辨率等预设下拉：在 compact-menu 基础上再缩 0.5 */
+.compact-menu.preset-compact-menu .v-list {
+  padding: 0;
+}
+
+.compact-menu.preset-compact-menu .v-list-item {
+  min-height: 12px;
+  padding-inline: 4px;
+}
+
+.compact-menu.preset-compact-menu .v-list-item-title {
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.preset_hover_box {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 172px;
+  height: 10px;
+  padding: 0 3px;
+  cursor: pointer;
+}
+
+.preset_hover_text {
+  display: inline-block;
+  width: 100%;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1;
+}
+
 /* 统一页面内容区布局：边距、滚动、高度 */
 .page-content {
   padding: 10px;

@@ -24,7 +24,6 @@ const { t } = useI18n();
 
 const SEARCH_MATCH_LOCALES = ['zh-CN', 'en-US'] as const;
 const subtitle_overflow_map = ref<Record<string, boolean>>({});
-const hovered_subtitle_id = ref<string | null>(null);
 const subtitle_elements = new Map<string, HTMLElement>();
 let subtitle_resize_observer: ResizeObserver | null = null;
 
@@ -241,16 +240,6 @@ function setSubtitleElement(identifier: string, el: unknown) {
   }
 }
 
-function onSubtitleEnter(identifier: string) {
-  hovered_subtitle_id.value = identifier;
-}
-
-function onSubtitleLeave(identifier: string) {
-  if (hovered_subtitle_id.value === identifier) {
-    hovered_subtitle_id.value = null;
-  }
-}
-
 onMounted(async () => {
   subtitle_resize_observer = new ResizeObserver(() => {
     refreshSubtitleOverflow();
@@ -325,12 +314,10 @@ onBeforeUnmount(() => {
             <template v-slot:subtitle>
               <div class="video-subtitle-wrap">
                 <div class="video-subtitle-main-row">
-                  <div class="video-subtitle-marquee" :class="{ 'is-scrolling': subtitleNeedsMarquee(item) }">
+                  <div class="video-subtitle-marquee">
                     <span
                       :ref="(el) => setSubtitleElement(item.identifier, el)"
-                      :class="{ 'subtitle-scroll-active': subtitleNeedsMarquee(item) && hovered_subtitle_id === item.identifier }"
-                      @mouseenter="onSubtitleEnter(item.identifier)"
-                      @mouseleave="onSubtitleLeave(item.identifier)"
+                      :title="subtitleNeedsMarquee(item) ? subtitleText(item) : undefined"
                     >
                       {{ subtitleText(item) }}
                     </span>
@@ -580,11 +567,6 @@ onBeforeUnmount(() => {
   display: inline-block;
 }
 
-.video-subtitle-marquee.is-scrolling > span.subtitle-scroll-active {
-  padding-left: 100%;
-  animation: subtitle-marquee 10s linear infinite;
-}
-
 .video-controls-row {
   display: flex;
   align-items: center;
@@ -676,10 +658,5 @@ onBeforeUnmount(() => {
 :deep(.apex-parameter-switch.v-switch--inset .v-selection-control--dirty .v-switch__thumb),
 :deep(.apex-parameter-switch.v-switch--inset .v-switch__thumb--filled) {
   transform: none;
-}
-
-@keyframes subtitle-marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
 }
 </style>

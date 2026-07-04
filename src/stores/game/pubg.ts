@@ -311,6 +311,10 @@ const pubgStore = defineStore('pubg', {
         return;
       }
       this.parse_loaded_launch_string(start_launch_option, safe_max_mem_mb);
+      console.log('[pubg] launch options loaded', {
+        account: { id: user_id, name: steam_state.active_steam_user?.name },
+        raw: start_launch_option,
+      });
 
       // 同步 Movies 目录状态(用于“跳过开场动画”可恢复重命名方案)
       const disabled = await invoke<boolean>('check_pubg_skip_intro_movies_disabled').catch((err) => {

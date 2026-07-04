@@ -20,7 +20,9 @@ import {toastOptions} from '@/toast.ts';
 // i18n
 import i18n from '@/i18n/i18n';
 import {useSettingsStore} from '@/stores/settings';
+import {useDebugStore} from '@/stores/debug';
 import {uiStyleStore} from '@/stores/style';
+import {setDebugEnabled} from '@/utils/debug';
 import {resolveLocale} from '@/utils/locale';
 import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
@@ -61,11 +63,17 @@ async function bootstrap() {
   app.use(pinia);
 
   const settings = useSettingsStore();
+  const debugStore = useDebugStore();
   const style = uiStyleStore();
   await Promise.all([
     startTauriStoreOnce('settings', () => settings.$tauri.start()),
+    startTauriStoreOnce('debug', () => debugStore.$tauri.start()),
     startTauriStoreOnce('style', () => style.$tauri.start()),
   ]);
+  setDebugEnabled(debugStore.enabled);
+  debugStore.$subscribe(() => {
+    setDebugEnabled(debugStore.enabled);
+  });
 
   // 必须在首次 import `./router`(创建 hash history)之前对齐 hash，否则会出现「默认首屏 + replace 恢复」两次导航
   alignWindowHashWithStoredLastRoute(settings.restoreLastRoute, settings.lastRoute);

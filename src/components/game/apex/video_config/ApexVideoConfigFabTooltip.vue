@@ -13,24 +13,15 @@ const {t} = useI18n();
 const hintKey = computed(() =>
   props.kind === 'lock' ? 'apex.fabHintLock' : 'apex.fabHintIndividual',
 );
-
-const location = computed(() => (props.side === 'left' ? 'end' : 'start'));
 </script>
 
 <template>
-  <v-tooltip
-    :text="t(hintKey)"
-    :location="location"
-    :open-delay="400"
-    :disabled="disabled"
-    max-width="280"
+  <div
+    class="apex-fab-tooltip-activator"
+    :title="disabled ? undefined : t(hintKey)"
   >
-    <template #activator="{ props: tipProps }">
-      <div v-bind="tipProps" class="apex-fab-tooltip-activator">
-        <slot />
-      </div>
-    </template>
-  </v-tooltip>
+    <slot />
+  </div>
 </template>
 
 <style scoped>
