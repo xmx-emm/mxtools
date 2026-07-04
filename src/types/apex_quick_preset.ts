@@ -39,6 +39,20 @@ export interface ApexQuickPresetLaunchOptionToggle {
   defaultEnabled: boolean;
 }
 
+/** 快速预设可选视频配置开关 */
+export interface ApexQuickPresetVideoToggle {
+  key: string;
+  /** i18n key */
+  label: string;
+  /** 勾选时写入的 videoconfig 键值 */
+  onValues: Record<string, string>;
+  /** 取消勾选时写入的 videoconfig 键值 */
+  offValues: Record<string, string>;
+  defaultEnabled: boolean;
+  /** apex_video_config 中对应项 identifier，用于右键 tip */
+  tipIdentifier?: string;
+}
+
 export interface ApexQuickPresetSelection {
   fpsCap: number;
   aspectValue: number;
@@ -50,4 +64,6 @@ export interface ApexQuickPresetSelection {
   enableSimplifiedReticle: boolean;
   /** 可选启动项 key -> 是否启用 */
   launchOptions: Record<string, boolean>;
+  /** 视频配置开关 key -> 是否启用(onValues) */
+  videoOptions: Record<string, boolean>;
 }

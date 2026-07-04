@@ -30,13 +30,15 @@ import {
 } from '@/types/apex.ts';
 import {
   ASPECT_LETTERBOX_THRESHOLD,
-  defaultVideoConfigValues,
   findGraphicsQualityPreset,
+  quickPresetVideoConfigToggles,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
 import {
   applyQuickPresetLaunchOptions,
+  applyQuickPresetVideoOptions,
   buildVideoResolutionValues,
+  quickPresetVideoToggleKeys,
   resolveGameResolution,
 } from '@/utils/game/apex_quick_preset.ts';
 import {
@@ -833,11 +835,30 @@ const apexStore = defineStore('apex', {
       }
       this.settings_config['fps'] = '-freq X +fps_max X';
 
+      const toggle_keys = quickPresetVideoToggleKeys();
+      const prior_toggle_values: Record<string, string> = {};
+      for (const key of toggle_keys) {
+        const value = this.get_video_config_value(key);
+        if (value !== '') {
+          prior_toggle_values[key] = value;
+        }
+      }
+
       for (const [key, value] of Object.entries(gfx.values)) {
         this.set_video_config_value(key, value);
       }
-      for (const [key, value] of Object.entries(defaultVideoConfigValues)) {
-        this.set_video_config_value(key, value);
+      applyQuickPresetVideoOptions(
+        (key, value) => this.set_video_config_value(key, value),
+        selection.videoOptions,
+      );
+      for (const opt of quickPresetVideoConfigToggles) {
+        const enabled = selection.videoOptions[opt.key] ?? opt.defaultEnabled;
+        if (enabled) continue;
+        for (const key of Object.keys(opt.onValues)) {
+          if (key in prior_toggle_values) {
+            this.set_video_config_value(key, prior_toggle_values[key]);
+          }
+        }
       }
     },
 

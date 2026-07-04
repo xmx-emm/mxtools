@@ -2,8 +2,10 @@ import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import {
   aspectResolutionTable,
   buildDefaultLaunchOptions,
+  buildDefaultVideoOptions,
   FPS_CAP_MAX,
   quickPresetLaunchOptionToggles,
+  quickPresetVideoConfigToggles,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {
   ApexQuickPresetLaunchOptionToggle,
@@ -160,4 +162,68 @@ export function applyQuickPresetLaunchOptions(
       selection.splice(idx, 1);
     }
   }
+}
+
+function videoConfigValueEquals(a: string, b: string): boolean {
+  if (a === b) return true;
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb)) {
+    return Math.abs(na - nb) < 1e-6;
+  }
+  return false;
+}
+
+function getVideoConfigValue(
+  values: Record<string, string>,
+  key: string,
+): string | undefined {
+  return values[key] ?? values[`"${key}"`];
+}
+
+export function matchesVideoToggleValues(
+  values: Record<string, string>,
+  toggleValues: Record<string, string>,
+): boolean {
+  return Object.entries(toggleValues).every(([key, expected]) => {
+    const actual = getVideoConfigValue(values, key);
+    return actual != null && videoConfigValueEquals(actual, expected);
+  });
+}
+
+/** 打开对话框时初始化视频开关：匹配 onValues 为勾选，否则不勾选；无配置时用 defaultEnabled */
+export function initVideoOptionsForDialog(
+  values: Record<string, string>,
+): Record<string, boolean> {
+  if (Object.keys(values).length === 0) {
+    return buildDefaultVideoOptions();
+  }
+  return Object.fromEntries(
+    quickPresetVideoConfigToggles.map((opt) => [
+      opt.key,
+      matchesVideoToggleValues(values, opt.onValues),
+    ]),
+  );
+}
+
+/** 勾选时写入 onValues；未勾选不修改(由调用方在应用竞技基线后恢复原有值) */
+export function applyQuickPresetVideoOptions(
+  setValue: (identifier: string, value: string) => void,
+  toggles: Record<string, boolean>,
+): void {
+  for (const opt of quickPresetVideoConfigToggles) {
+    const enabled = toggles[opt.key] ?? opt.defaultEnabled;
+    if (!enabled) continue;
+    for (const [key, value] of Object.entries(opt.onValues)) {
+      setValue(key, value);
+    }
+  }
+}
+
+export function quickPresetVideoToggleKeys(): string[] {
+  return [
+    ...new Set(
+      quickPresetVideoConfigToggles.flatMap((opt) => Object.keys(opt.onValues)),
+    ),
+  ];
 }
