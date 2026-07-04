@@ -9,22 +9,33 @@ import eaStore from '@/stores/game/ea.ts';
 import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
+import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
   aspectPresets,
   buildDefaultLaunchOptions,
+  buildDefaultVideoOptions,
   FPS_CAP_MAX,
   graphicsQualityPresets,
   quickPresetLaunchOptionToggles,
+  quickPresetVideoConfigToggles,
   sortedAspectPresets,
 } from '@/data/presets/apex_quick_preset.ts';
-import type {ApexQuickPresetLaunchOptionToggle, ApexQuickPresetSelection, PrimaryDisplayInfo, ResolutionLockAxis} from '@/types/apex_quick_preset.ts';
-import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
+import type {
+  ApexQuickPresetLaunchOptionToggle,
+  ApexQuickPresetSelection,
+  ApexQuickPresetVideoToggle,
+  PrimaryDisplayInfo,
+  ResolutionLockAxis,
+} from '@/types/apex_quick_preset.ts';
+import {isApexVideoConfigImpl} from '@/types/apex.ts';
+import {isSteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {
   buildQuickPresetPreview,
   defaultFpsCap,
   findLaunchOptionRef,
   formatAspectRatioLabel,
   initLaunchOptionsForDialog,
+  initVideoOptionsForDialog,
 } from '@/utils/game/apex_quick_preset.ts';
 
 const { t } = useI18n();
@@ -44,6 +55,7 @@ const enable_resolution_preset = ref(true);
 const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competitive');
 const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
+const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
 
 const launcher_close_dialog = ref(false);
 const close_launcher_kind = ref<'steam' | 'ea'>('steam');
@@ -60,6 +72,7 @@ const selection = computed((): ApexQuickPresetSelection => ({
   graphicsPresetId: graphics_preset_id.value,
   enableSimplifiedReticle: simplified_reticle.value,
   launchOptions: launch_options.value,
+  videoOptions: video_options.value,
 }));
 
 const resolution_preview = computed(() => {
@@ -108,10 +121,14 @@ async function load_display_info() {
     if (apex_store.original_launch_options === '') {
       await apex_store.start_load_apex_launch_options_data();
     }
+    if (Object.keys(apex_store.video_config_values).length === 0) {
+      await apex_store.load_apex_video_config();
+    }
     simplified_reticle.value = apex_store.options_selection.some(
       (item) => item.identifier === 'reticle_color',
     );
     launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection);
+    video_options.value = initVideoOptionsForDialog(apex_store.video_config_values);
   } catch (e) {
     display_error.value = String(e);
     local_display.value = null;
@@ -130,6 +147,7 @@ watch(
       launcher_close_dialog.value = false;
     }
   },
+  { immediate: true },
 );
 
 function on_close() {
@@ -144,6 +162,17 @@ function show_launch_option_tip(toggle: ApexQuickPresetLaunchOptionToggle) {
 function show_reticle_tip() {
   for (const row of ApexLaunchOptionsConfig) {
     if (isSteamLaunchOptionsImpl(row) && row.identifier === 'reticle_color') {
+      apex_store.showTip(row);
+      return;
+    }
+  }
+}
+
+function show_video_option_tip(toggle: ApexQuickPresetVideoToggle) {
+  if (!toggle.tipIdentifier) return;
+  for (const row of ApexVideoConfig) {
+    if (typeof row === 'string') continue;
+    if (isApexVideoConfigImpl(row) && row.identifier === toggle.tipIdentifier) {
       apex_store.showTip(row);
       return;
     }
@@ -250,13 +279,13 @@ async function on_apply() {
 <template>
   <v-dialog
     :model-value="apex_store.quick_preset_dialog"
-    max-width="520"
+    max-width="600"
     scrollable
     @update:model-value="(v: boolean) => { if (!v) on_close(); }"
   >
     <v-card :title="t('apexQuickPreset.title')">
       <v-card-text>
-        <v-progress-linear v-if="display_loading" indeterminate class="mb-3" />
+        <v-progress-linear v-if="display_loading" indeterminate class="mb-3"/>
         <v-alert
           v-else-if="display_error"
           type="error"
@@ -284,7 +313,7 @@ async function on_apply() {
 
           <div class="section-label">{{ t('apexQuickPreset.fpsCap') }}</div>
           <div class="d-flex align-center gap-2 mb-4 flex-wrap fps-row">
-            <ApexNumberInput v-model="fps_cap" :step="1" />
+            <ApexNumberInput v-model="fps_cap" :step="1"/>
             <span class="text-caption">FPS</span>
             <v-chip size="x-small" variant="tonal">{{ t('apexQuickPreset.fpsCapMax', { max: FPS_CAP_MAX }) }}</v-chip>
             <span class="text-caption text-medium-emphasis">{{ t('apexQuickPreset.lobbyFpsHint') }}</span>
@@ -305,6 +334,19 @@ async function on_apply() {
               <div v-show="enable_resolution_preset" class="preset-box-body">
                 <div class="section-label">{{ t('apexQuickPreset.aspectPreset') }}</div>
                 <v-btn-toggle
+                  v-model="lock_axis"
+                  mandatory
+                  color="primary"
+                  variant="text"
+                  class="apex-parameter-toggle mb-2"
+                  style="max-height: 25px"
+                  border
+                  divided
+                >
+                  <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
+                  <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
+                </v-btn-toggle>
+                <v-btn-toggle
                   v-model="aspect_value"
                   mandatory
                   color="primary"
@@ -322,20 +364,6 @@ async function on_apply() {
                   >
                     {{ t(item.label) }}
                   </v-btn>
-                </v-btn-toggle>
-
-                <v-btn-toggle
-                  v-model="lock_axis"
-                  mandatory
-                  color="primary"
-                  variant="text"
-                  class="apex-parameter-toggle mb-2"
-                  style="max-height: 25px"
-                  border
-                  divided
-                >
-                  <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
-                  <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
                 </v-btn-toggle>
 
                 <div v-if="resolution_preview" class="text-caption">
@@ -370,42 +398,66 @@ async function on_apply() {
             {{ t(graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)!.description!) }}
           </div>
 
-          <div class="section-label mt-2">{{ t('apexQuickPreset.launchOptionsLabel') }}</div>
-          <div
-            v-for="opt in quickPresetLaunchOptionToggles"
-            :key="opt.key"
-            class="option-tip-wrap"
-            :title="t('apexLaunchOptions.ui.rightClickTip')"
-            @contextmenu.prevent="show_launch_option_tip(opt)"
-          >
-            <v-checkbox
-              v-model="launch_options[opt.key]"
-              :label="t(opt.label)"
-              density="compact"
-              hide-details
-              color="primary"
-              class="compact-checkbox"
-            />
-          </div>
-          <div
-            class="option-tip-wrap"
-            :title="t('apexLaunchOptions.ui.rightClickTip')"
-            @contextmenu.prevent="show_reticle_tip()"
-          >
-            <v-checkbox
-              v-model="simplified_reticle"
-              :label="t('apexQuickPreset.simplifiedReticle')"
-              density="compact"
-              hide-details
-              color="primary"
-              class="compact-checkbox"
-            />
+          <div class="preset-options-columns mt-2">
+            <div class="preset-options-column">
+              <div class="section-label">{{ t('apexQuickPreset.launchOptionsLabel') }}</div>
+              <div
+                v-for="opt in quickPresetLaunchOptionToggles"
+                :key="opt.key"
+                class="option-tip-wrap"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_launch_option_tip(opt)"
+              >
+                <v-checkbox
+                  v-model="launch_options[opt.key]"
+                  :label="t(opt.label)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+              </div>
+              <div
+                class="option-tip-wrap"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_reticle_tip()"
+              >
+                <v-checkbox
+                  v-model="simplified_reticle"
+                  :label="t('apexQuickPreset.simplifiedReticle')"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+              </div>
+            </div>
+
+            <div class="preset-options-column">
+              <div class="section-label">{{ t('apexQuickPreset.videoConfigLabel') }}</div>
+              <div
+                v-for="opt in quickPresetVideoConfigToggles"
+                :key="opt.key"
+                class="option-tip-wrap"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_video_option_tip(opt)"
+              >
+                <v-checkbox
+                  v-model="video_options[opt.key]"
+                  :label="t(opt.label)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+              </div>
+            </div>
           </div>
         </template>
       </v-card-text>
 
       <v-card-actions>
-        <v-spacer />
+        <v-spacer/>
         <v-btn variant="text" @click="on_close">{{ t('common.cancel') }}</v-btn>
         <v-btn
           color="primary"
@@ -435,11 +487,11 @@ async function on_apply() {
         <v-btn color="red" :loading="is_thoroughly_kill" @click="force_close_launcher">
           {{ t('apex.forceClose') }}
         </v-btn>
-        <v-spacer />
+        <v-spacer/>
         <v-btn @click="cancel_launcher_close">{{ t('common.cancel') }}</v-btn>
       </template>
       <template #append>
-        <v-progress-circular indeterminate size="16" color="red" width="2" />
+        <v-progress-circular indeterminate size="16" color="red" width="2"/>
       </template>
     </v-card>
   </v-dialog>
@@ -551,5 +603,21 @@ async function on_apply() {
 
 .preset-box-body {
   padding: 10px 12px 12px;
+}
+
+.preset-options-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.preset-options-column {
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .preset-options-columns {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

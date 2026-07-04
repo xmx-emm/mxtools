@@ -3,6 +3,7 @@ import type {
   ApexAspectResolutionEntry,
   ApexGraphicsQualityPreset,
   ApexQuickPresetLaunchOptionToggle,
+  ApexQuickPresetVideoToggle,
 } from '@/types/apex_quick_preset.ts';
 
 /** Apex 锁帧上限(Hz) */
@@ -10,15 +11,6 @@ export const FPS_CAP_MAX = 279;
 
 /** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
 export const ASPECT_LETTERBOX_THRESHOLD = 8;
-
-/** 快速预设默认画面配置(始终应用，覆盖画质档位中的同键项) */
-export const defaultVideoConfigValues: Record<string, string> = {
-  // 抗锯齿：开启 TSAA
-  'setting.mat_antialias_mode': '12',
-  // 纹理过滤：16x 各向异性
-  'setting.mat_forceaniso': '16',
-  'setting.mat_mip_linear': '1',
-};
 
 /** 比例预设(与启动项 letterbox aspect 一致) */
 export const aspectPresets: ApexAspectPreset[] = [
@@ -168,5 +160,93 @@ export const quickPresetLaunchOptionToggles: ApexQuickPresetLaunchOptionToggle[]
 export function buildDefaultLaunchOptions(): Record<string, boolean> {
   return Object.fromEntries(
     quickPresetLaunchOptionToggles.map((opt) => [opt.key, opt.defaultEnabled]),
+  );
+}
+
+/** 快速预设可选视频配置开关 */
+export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
+  {
+    key: 'antialias',
+    label: 'apexVideoConfig.matAntialiasMode.name',
+    tipIdentifier: 'setting.mat_antialias_mode',
+    defaultEnabled: true,
+    onValues: { 'setting.mat_antialias_mode': '12' },
+    offValues: { 'setting.mat_antialias_mode': '0' },
+  },
+  {
+    key: 'map_detail_ultra_low',
+    label: 'apexQuickPreset.video.mapDetailUltraLow',
+    tipIdentifier: 'group.mapDetailLevel',
+    defaultEnabled: false,
+    onValues: { 'setting.map_detail_level': '0' },
+    offValues: { 'setting.map_detail_level': '1' },
+  },
+  {
+    key: 'texture_filter_aniso16',
+    label: 'apexVideoConfig.options.aniso16',
+    tipIdentifier: 'group.textureFilter',
+    defaultEnabled: true,
+    onValues: { 'setting.mat_forceaniso': '16', 'setting.mat_mip_linear': '1' },
+    offValues: { 'setting.mat_forceaniso': '1', 'setting.mat_mip_linear': '0' },
+  },
+  {
+    key: 'disable_sun_shadows',
+    label: 'apexQuickPreset.video.disableSunShadows',
+    tipIdentifier: 'group.csm',
+    defaultEnabled: true,
+    onValues: { 'setting.csm_enabled': '0', 'setting.csm_coverage': '0' },
+    offValues: {
+      'setting.csm_enabled': '1',
+      'setting.csm_coverage': '3',
+      'setting.csm_cascade_res': '1024',
+    },
+  },
+  {
+    key: 'disable_decals',
+    label: 'apexQuickPreset.video.disableDecals',
+    tipIdentifier: 'group.decals',
+    defaultEnabled: true,
+    onValues: { 'setting.r_createmodeldecals': '0', 'setting.r_decals': '0' },
+    offValues: { 'setting.r_createmodeldecals': '1', 'setting.r_decals': '256' },
+  },
+  {
+    key: 'disable_volumetric',
+    label: 'apexQuickPreset.video.disableVolumetric',
+    tipIdentifier: 'setting.volumetric_lighting',
+    defaultEnabled: true,
+    onValues: { 'setting.volumetric_lighting': '0', 'setting.volumetric_fog': '0' },
+    offValues: { 'setting.volumetric_lighting': '1', 'setting.volumetric_fog': '1' },
+  },
+  {
+    key: 'disable_point_lights',
+    label: 'apexQuickPreset.video.disablePointLights',
+    tipIdentifier: 'group.shadowDetail',
+    defaultEnabled: true,
+    onValues: {
+      'setting.shadow_enable': '0',
+      'setting.shadow_depth_dimen_min': '0',
+      'setting.shadow_depth_upres_factor_max': '0',
+      'setting.shadow_maxdynamic': '0',
+    },
+    offValues: {
+      'setting.shadow_enable': '1',
+      'setting.shadow_depth_dimen_min': '128',
+      'setting.shadow_depth_upres_factor_max': '2',
+      'setting.shadow_maxdynamic': '0',
+    },
+  },
+  {
+    key: 'disable_ssao',
+    label: 'apexQuickPreset.video.disableSsao',
+    tipIdentifier: 'group.ssaoQuality',
+    defaultEnabled: true,
+    onValues: { 'setting.ssao_quality': '0' },
+    offValues: { 'setting.ssao_quality': '1' },
+  },
+];
+
+export function buildDefaultVideoOptions(): Record<string, boolean> {
+  return Object.fromEntries(
+    quickPresetVideoConfigToggles.map((opt) => [opt.key, opt.defaultEnabled]),
   );
 }

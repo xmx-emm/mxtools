@@ -327,7 +327,7 @@ export const zhCN = {
     shadowDepthDimenMin: { name: '阴影贴图最小尺寸', description: '0 可近似关闭阴影分辨率' },
     shadowDepthUpresFactorMax: { name: '阴影深度上采样上限', description: '控制阴影的采样' },
     shadowMaxdynamic: { name: '动态阴影数量上限', description: 'setting.shadow_maxdynamic' },
-    ssaoQuality: { name: 'SSAO 质量', description: '室内角落的遮蔽效果,建议关闭,开着角落会变黑(小心蟑螂)' },
+    ssaoQuality: { name: '环境光遮蔽', description: '室内角落的遮蔽效果,建议关闭,开着角落会变黑(小心蟑螂)' },
     volumetricLighting: { name: '体积光', description: '瞎眼效果,建议关闭' },
     volumetricFog: { name: '体积雾', description: '暂时还不知道有什么作用' },
     matDepthfeatherEnable: { name: '开镜景深', description: '暂时看不出来有什么作用' },
@@ -462,6 +462,7 @@ export const zhCN = {
     fromTable: '预设表',
     graphicsLabel: '画面显示',
     launchOptionsLabel: '启动项',
+    videoConfigLabel: '视频配置',
     applySuccess: '快速预设应用成功',
     applyError: '快速预设应用失败',
     displayLoadFailed: '无法读取屏幕信息',
@@ -482,6 +483,14 @@ export const zhCN = {
     graphicsPresets: {
       competitive: '竞技',
       competitiveDesc: '低纹理、关阴影与特效，适合追求帧率',
+    },
+    video: {
+      mapDetailUltraLow: '地图细节（超低）',
+      disableSunShadows: '关闭阳光阴影',
+      disableDecals: '禁用冲撞痕迹',
+      disableVolumetric: '禁用体积光',
+      disablePointLights: '禁用点光源',
+      disableSsao: '禁用环境光遮蔽',
     },
   },
   pubg: {

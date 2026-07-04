@@ -326,7 +326,7 @@ export const enUS = {
     shadowDepthDimenMin: { name: 'Min shadow map size', description: '0 ≈ minimal shadow resolution' },
     shadowDepthUpresFactorMax: { name: 'Shadow depth upres max', description: 'Controls shadow sampling quality' },
     shadowMaxdynamic: { name: 'Max dynamic shadows', description: 'setting.shadow_maxdynamic' },
-    ssaoQuality: { name: 'SSAO quality', description: 'Indoor corner occlusion; corners get darker when enabled—easier to miss enemies in shadow. Recommended to turn off' },
+    ssaoQuality: { name: 'Ambient occlusion', description: 'Indoor corner occlusion; corners get darker when enabled—easier to miss enemies in shadow. Recommended to turn off' },
     volumetricLighting: { name: 'Volumetric lighting', description: 'Harsh sun glare; recommended to turn off' },
     volumetricFog: { name: 'Volumetric fog', description: 'Purpose not yet known' },
     matDepthfeatherEnable: { name: 'ADS depth of field', description: 'No noticeable effect yet' },
@@ -461,6 +461,7 @@ export const enUS = {
     fromTable: 'from preset table',
     graphicsLabel: 'Graphics',
     launchOptionsLabel: 'Launch options',
+    videoConfigLabel: 'Video settings',
     applySuccess: 'Quick preset applied',
     applyError: 'Failed to apply quick preset',
     displayLoadFailed: 'Could not read display info',
@@ -481,6 +482,14 @@ export const enUS = {
     graphicsPresets: {
       competitive: 'Competitive',
       competitiveDesc: 'Low textures, shadows and effects off — favors frame rate',
+    },
+    video: {
+      mapDetailUltraLow: 'Map detail (ultra low)',
+      disableSunShadows: 'Disable sun shadows',
+      disableDecals: 'Disable impact marks',
+      disableVolumetric: 'Disable volumetric lighting',
+      disablePointLights: 'Disable point lights',
+      disableSsao: 'Disable ambient occlusion',
     },
   },
   pubg: {
