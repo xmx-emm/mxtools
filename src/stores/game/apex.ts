@@ -31,14 +31,13 @@ import {
 import {
   ASPECT_LETTERBOX_THRESHOLD,
   findGraphicsQualityPreset,
-  quickPresetVideoConfigToggles,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
 import {
   applyQuickPresetLaunchOptions,
   applyQuickPresetVideoOptions,
   buildVideoResolutionValues,
-  quickPresetVideoToggleKeys,
+  uncheckedQuickPresetVideoKeys,
   resolveGameResolution,
 } from '@/utils/game/apex_quick_preset.ts';
 import {
@@ -795,11 +794,6 @@ const apexStore = defineStore('apex', {
 
     /** 将快速预设选项写入内存状态(启动项 + 视频配置)，不落盘 */
     prepare_quick_preset(screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection) {
-      const gfx = findGraphicsQualityPreset(selection.graphicsPresetId);
-      if (!gfx) {
-        throw new Error('GRAPHICS_PRESET_NOT_FOUND');
-      }
-
       this.fps = selection.fpsCap;
       this.lobby_max_fps = selection.fpsCap;
 
@@ -819,9 +813,6 @@ const apexStore = defineStore('apex', {
         for (const [key, value] of Object.entries(buildVideoResolutionValues(width, height))) {
           this.set_video_config_value(key, value);
         }
-      } else {
-        remove_option_from_selection(this.options_selection, 'forced_resolution');
-        remove_option_from_selection(this.options_selection, 'letterbox_aspect');
       }
 
       ensure_option_in_selection(this.options_selection, 'fps');
@@ -830,36 +821,25 @@ const apexStore = defineStore('apex', {
 
       if (selection.enableSimplifiedReticle) {
         ensure_option_in_selection(this.options_selection, 'reticle_color');
-      } else {
-        remove_option_from_selection(this.options_selection, 'reticle_color');
       }
       this.settings_config['fps'] = '-freq X +fps_max X';
 
-      const toggle_keys = quickPresetVideoToggleKeys();
-      const prior_toggle_values: Record<string, string> = {};
-      for (const key of toggle_keys) {
-        const value = this.get_video_config_value(key);
-        if (value !== '') {
-          prior_toggle_values[key] = value;
-        }
-      }
+      const skip_video_keys = uncheckedQuickPresetVideoKeys(selection.videoOptions);
 
-      for (const [key, value] of Object.entries(gfx.values)) {
-        this.set_video_config_value(key, value);
+      if (selection.enableGraphicsPreset) {
+        const gfx = findGraphicsQualityPreset(selection.graphicsPresetId);
+        if (!gfx) {
+          throw new Error('GRAPHICS_PRESET_NOT_FOUND');
+        }
+        for (const [key, value] of Object.entries(gfx.values)) {
+          if (skip_video_keys.has(key)) continue;
+          this.set_video_config_value(key, value);
+        }
       }
       applyQuickPresetVideoOptions(
         (key, value) => this.set_video_config_value(key, value),
         selection.videoOptions,
       );
-      for (const opt of quickPresetVideoConfigToggles) {
-        const enabled = selection.videoOptions[opt.key] ?? opt.defaultEnabled;
-        if (enabled) continue;
-        for (const key of Object.keys(opt.onValues)) {
-          if (key in prior_toggle_values) {
-            this.set_video_config_value(key, prior_toggle_values[key]);
-          }
-        }
-      }
     },
 
     /** 将当前 launch_options 写入 Steam / EA(不含启动器关闭检测) */

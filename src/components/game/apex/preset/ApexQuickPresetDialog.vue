@@ -52,6 +52,7 @@ const fps_cap = ref(144);
 const aspect_value = ref(1.7778);
 const lock_axis = ref<ResolutionLockAxis>('width');
 const enable_resolution_preset = ref(true);
+const enable_graphics_preset = ref(true);
 const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competitive');
 const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
@@ -69,6 +70,7 @@ const selection = computed((): ApexQuickPresetSelection => ({
   aspectValue: aspect_value.value,
   lockAxis: lock_axis.value,
   enableResolutionPreset: enable_resolution_preset.value,
+  enableGraphicsPreset: enable_graphics_preset.value,
   graphicsPresetId: graphics_preset_id.value,
   enableSimplifiedReticle: simplified_reticle.value,
   launchOptions: launch_options.value,
@@ -377,25 +379,46 @@ async function on_apply() {
             </v-expand-transition>
           </div>
 
-          <div class="section-label">{{ t('apexQuickPreset.graphicsLabel') }}</div>
-          <div class="checkbox-grid mb-2">
-            <v-checkbox
-              v-for="item in graphicsQualityPresets"
-              :key="item.identifier"
-              :model-value="graphics_preset_id === item.identifier"
-              :label="t(item.name)"
-              density="compact"
-              hide-details
-              color="primary"
-              class="compact-checkbox"
-              @update:model-value="(v: boolean | null) => { if (v) graphics_preset_id = item.identifier; }"
-            />
-          </div>
-          <div
-            v-if="graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)?.description"
-            class="text-caption text-medium-emphasis mb-4"
-          >
-            {{ t(graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)!.description!) }}
+          <div class="preset-box mb-4">
+            <div class="preset-box-header">
+              <v-checkbox
+                v-model="enable_graphics_preset"
+                :label="t('apexQuickPreset.graphicsSettingsLabel')"
+                density="compact"
+                hide-details
+                color="primary"
+                class="preset-box-checkbox"
+              />
+            </div>
+            <v-expand-transition>
+              <div v-show="enable_graphics_preset" class="preset-box-body">
+                <v-btn-toggle
+                  v-model="graphics_preset_id"
+                  mandatory
+                  color="primary"
+                  variant="text"
+                  class="apex-parameter-toggle graphics-preset-toggle mb-2"
+                  style="max-height: 25px"
+                  border
+                  divided
+                >
+                  <v-btn
+                    v-for="item in graphicsQualityPresets"
+                    :key="item.identifier"
+                    :value="item.identifier"
+                    size="small"
+                  >
+                    {{ t(item.name) }}
+                  </v-btn>
+                </v-btn-toggle>
+                <div
+                  v-if="graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)?.description"
+                  class="text-caption text-medium-emphasis"
+                >
+                  {{ t(graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)!.description!) }}
+                </div>
+              </div>
+            </v-expand-transition>
           </div>
 
           <div class="preset-options-columns mt-2">
@@ -549,6 +572,17 @@ async function on_apply() {
 .aspect-preset-toggle :deep(.v-btn) {
   flex: 1 1 0;
   padding-inline: 6px;
+  font-size: 0.75rem;
+  height: 25px;
+}
+
+.graphics-preset-toggle :deep(.v-btn-group) {
+  flex-wrap: wrap;
+}
+
+.graphics-preset-toggle :deep(.v-btn) {
+  flex: 1 1 auto;
+  padding-inline: 8px;
   font-size: 0.75rem;
   height: 25px;
 }

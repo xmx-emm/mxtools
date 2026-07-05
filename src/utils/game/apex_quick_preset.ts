@@ -153,13 +153,12 @@ export function applyQuickPresetLaunchOptions(
 ): void {
   for (const opt of quickPresetLaunchOptionToggles) {
     const enabled = toggles[opt.key] ?? opt.defaultEnabled;
+    if (!enabled) continue;
     const option = findLaunchOptionRef(opt);
     if (!option) continue;
     const idx = findLaunchOptionSelectionIndex(selection, opt);
-    if (enabled && idx < 0) {
+    if (idx < 0) {
       selection.push(option);
-    } else if (!enabled && idx >= 0) {
-      selection.splice(idx, 1);
     }
   }
 }
@@ -226,4 +225,19 @@ export function quickPresetVideoToggleKeys(): string[] {
       quickPresetVideoConfigToggles.flatMap((opt) => Object.keys(opt.onValues)),
     ),
   ];
+}
+
+/** 未勾选的视频开关所涉及的 videoconfig 键(竞技基线与应用时均跳过) */
+export function uncheckedQuickPresetVideoKeys(
+  toggles: Record<string, boolean>,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const opt of quickPresetVideoConfigToggles) {
+    const enabled = toggles[opt.key] ?? opt.defaultEnabled;
+    if (enabled) continue;
+    for (const key of Object.keys(opt.onValues)) {
+      keys.add(key);
+    }
+  }
+  return keys;
 }

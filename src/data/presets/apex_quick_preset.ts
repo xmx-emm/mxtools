@@ -68,8 +68,8 @@ export const aspectResolutionTable: ApexAspectResolutionEntry[] = [
 ];
 
 /**
- * 画面显示画质档位。
- * values 键名对应 videoconfig.txt 中 setting.*，便于后续追加新档位。
+ * 画面设置画质档位。
+ * values 键名对应 videoconfig.txt 中 setting.*，与 apex_video_config 枚举档位一致。
  */
 export const graphicsQualityPresets: ApexGraphicsQualityPreset[] = [
   {
@@ -77,44 +77,65 @@ export const graphicsQualityPresets: ApexGraphicsQualityPreset[] = [
     name: 'apexQuickPreset.graphicsPresets.competitive',
     description: 'apexQuickPreset.graphicsPresets.competitiveDesc',
     values: {
-      // 纹理质量：低
+      'setting.stream_memory': '0',
+      'setting.mat_picmip': '3',
+      'setting.dynamic_streaming_budget': '0',
+      'setting.r_lod_switch_scale': '0.2',
+    },
+  },
+  {
+    identifier: 'low',
+    name: 'apexVideoConfig.options.low',
+    description: 'apexQuickPreset.graphicsPresets.lowDesc',
+    values: {
       'setting.stream_memory': '300000',
       'setting.mat_picmip': '0',
       'setting.dynamic_streaming_budget': '1',
-      // 纹理过滤：双线性
-      'setting.mat_forceaniso': '1',
-      'setting.mat_mip_linear': '0',
-      // 模型细节：低
       'setting.r_lod_switch_scale': '0.6',
-      // 阳光阴影：关
-      'setting.csm_enabled': '0',
-      'setting.csm_coverage': '0',
-      // 阳光阴影细节：低
-      'setting.csm_cascade_res': '512',
-      // 点光源阴影：禁用
-      'setting.shadow_enable': '0',
-      'setting.shadow_depth_dimen_min': '0',
-      'setting.shadow_depth_upres_factor_max': '0',
-      'setting.shadow_maxdynamic': '0',
-      // 环境光遮蔽：关
-      'setting.ssao_quality': '0',
-      // 体积光/雾：关
-      'setting.volumetric_lighting': '0',
-      'setting.volumetric_fog': '0',
-      // 地图细节：低
-      'setting.map_detail_level': '1',
-      // 特效细节：低
-      'setting.particle_cpu_level': '0',
-      'setting.cl_particle_fallback_base': '3',
-      'setting.cl_particle_fallback_multiplier': '2',
-      // 布娃娃：低
-      'setting.cl_gib_allow': '0',
-      'setting.cl_ragdoll_maxcount': '0',
-      // 冲撞痕迹：禁用
-      'setting.r_createmodeldecals': '0',
-      'setting.r_decals': '0',
-      // 抗锯齿：关
-      'setting.mat_antialias_mode': '0',
+    },
+  },
+  {
+    identifier: 'medium',
+    name: 'apexVideoConfig.options.medium',
+    description: 'apexQuickPreset.graphicsPresets.mediumDesc',
+    values: {
+      'setting.stream_memory': '600000',
+      'setting.mat_picmip': '0',
+      'setting.dynamic_streaming_budget': '1',
+      'setting.r_lod_switch_scale': '0.8',
+    },
+  },
+  {
+    identifier: 'high',
+    name: 'apexVideoConfig.options.high',
+    description: 'apexQuickPreset.graphicsPresets.highDesc',
+    values: {
+      'setting.stream_memory': '1000000',
+      'setting.mat_picmip': '0',
+      'setting.dynamic_streaming_budget': '1',
+      'setting.r_lod_switch_scale': '1',
+    },
+  },
+  {
+    identifier: 'very_high',
+    name: 'apexVideoConfig.options.veryHigh',
+    description: 'apexQuickPreset.graphicsPresets.veryHighDesc',
+    values: {
+      'setting.stream_memory': '2000000',
+      'setting.mat_picmip': '0',
+      'setting.dynamic_streaming_budget': '1',
+      'setting.r_lod_switch_scale': '2',
+    },
+  },
+  {
+    identifier: 'ultra',
+    name: 'apexVideoConfig.options.ultra',
+    description: 'apexQuickPreset.graphicsPresets.ultraDesc',
+    values: {
+      'setting.stream_memory': '3000000',
+      'setting.mat_picmip': '0',
+      'setting.dynamic_streaming_budget': '1',
+      'setting.r_lod_switch_scale': '3',
     },
   },
 ];
@@ -171,15 +192,20 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'setting.mat_antialias_mode',
     defaultEnabled: true,
     onValues: { 'setting.mat_antialias_mode': '12' },
-    offValues: { 'setting.mat_antialias_mode': '0' },
   },
   {
-    key: 'map_detail_ultra_low',
-    label: 'apexQuickPreset.video.mapDetailUltraLow',
+    key: 'map_detail_low',
+    label: 'apexVideoConfig.mapDetailLevel.name',
     tipIdentifier: 'group.mapDetailLevel',
+    defaultEnabled: true,
+    onValues: { 'setting.map_detail_level': '1' },
+  },
+  {
+    key: 'reduce_fade_dist_scale',
+    label: 'apexQuickPreset.video.reduceFadeDistScale',
+    tipIdentifier: 'group.fadeDistScale',
     defaultEnabled: false,
-    onValues: { 'setting.map_detail_level': '0' },
-    offValues: { 'setting.map_detail_level': '1' },
+    onValues: { 'setting.fadeDistScale': '1' },
   },
   {
     key: 'texture_filter_aniso16',
@@ -187,7 +213,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'group.textureFilter',
     defaultEnabled: true,
     onValues: { 'setting.mat_forceaniso': '16', 'setting.mat_mip_linear': '1' },
-    offValues: { 'setting.mat_forceaniso': '1', 'setting.mat_mip_linear': '0' },
   },
   {
     key: 'disable_sun_shadows',
@@ -195,11 +220,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'group.csm',
     defaultEnabled: true,
     onValues: { 'setting.csm_enabled': '0', 'setting.csm_coverage': '0' },
-    offValues: {
-      'setting.csm_enabled': '1',
-      'setting.csm_coverage': '3',
-      'setting.csm_cascade_res': '1024',
-    },
   },
   {
     key: 'disable_decals',
@@ -207,7 +227,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'group.decals',
     defaultEnabled: true,
     onValues: { 'setting.r_createmodeldecals': '0', 'setting.r_decals': '0' },
-    offValues: { 'setting.r_createmodeldecals': '1', 'setting.r_decals': '256' },
   },
   {
     key: 'disable_volumetric',
@@ -215,7 +234,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'setting.volumetric_lighting',
     defaultEnabled: true,
     onValues: { 'setting.volumetric_lighting': '0', 'setting.volumetric_fog': '0' },
-    offValues: { 'setting.volumetric_lighting': '1', 'setting.volumetric_fog': '1' },
   },
   {
     key: 'disable_point_lights',
@@ -228,12 +246,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
       'setting.shadow_depth_upres_factor_max': '0',
       'setting.shadow_maxdynamic': '0',
     },
-    offValues: {
-      'setting.shadow_enable': '1',
-      'setting.shadow_depth_dimen_min': '128',
-      'setting.shadow_depth_upres_factor_max': '2',
-      'setting.shadow_maxdynamic': '0',
-    },
   },
   {
     key: 'disable_ssao',
@@ -241,7 +253,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'group.ssaoQuality',
     defaultEnabled: true,
     onValues: { 'setting.ssao_quality': '0' },
-    offValues: { 'setting.ssao_quality': '1' },
   },
 ];
 
