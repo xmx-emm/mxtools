@@ -6,18 +6,19 @@ import type {
   ApexQuickPresetVideoToggle,
 } from '@/types/apex_quick_preset.ts';
 
+/** Apex 锁帧下限(Hz) */
+export const FPS_CAP_MIN = 24;
+
 /** Apex 锁帧上限(Hz) */
 export const FPS_CAP_MAX = 279;
 
 /** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
 export const ASPECT_LETTERBOX_THRESHOLD = 8;
 
-/** 比例预设(与启动项 letterbox aspect 一致) */
+/** 比例预设(与启动项 letterbox aspect 一致; 仅宽≥高的横屏比例) */
 export const aspectPresets: ApexAspectPreset[] = [
   { label: 'apexQuickPreset.aspect.1_1', aspectValue: 1 },
-  { label: 'apexQuickPreset.aspect.1_2', aspectValue: 0.5 },
   { label: 'apexQuickPreset.aspect.2_1', aspectValue: 2 },
-  { label: 'apexQuickPreset.aspect.3_4', aspectValue: 0.75 },
   { label: 'apexQuickPreset.aspect.4_3', aspectValue: 1.3333 },
   { label: 'apexQuickPreset.aspect.5_4', aspectValue: 1.25 },
   { label: 'apexQuickPreset.aspect.3_2', aspectValue: 1.5 },
@@ -35,7 +36,22 @@ export function findAspectPresetByValue(
   value: number,
   values: ApexAspectPreset[] = aspectPresets,
 ): ApexAspectPreset | undefined {
-  return values.find((p) => p.aspectValue === value);
+  return values.find((p) => Math.abs(p.aspectValue - value) < 0.001);
+}
+
+/** 与预设列表中某一档最接近的比例值 */
+export function closestAspectPresetValue(
+  value: number,
+  values: ApexAspectPreset[] = aspectPresets,
+): number | null {
+  if (values.length === 0) return null;
+  let best = values[0];
+  for (const preset of values) {
+    if (Math.abs(preset.aspectValue - value) < Math.abs(best.aspectValue - value)) {
+      best = preset;
+    }
+  }
+  return best.aspectValue;
 }
 
 /**

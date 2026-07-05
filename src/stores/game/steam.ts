@@ -5,10 +5,6 @@ import {useToast} from 'vue-toastification';
 
 const toast = useToast();
 
-const STEAM_RUNNING_CHECK_CACHE_MS = import.meta.env.DEV ? 45000 : 12000;
-let steam_running_check_cache: { at: number; value: boolean } | null = null;
-let steam_running_check_in_flight: Promise<boolean> | null = null;
-
 const steamStore = defineStore('steam', {
   state: () => ({
     active_steam_user: <SteamUser | null>null,
@@ -43,37 +39,12 @@ const steamStore = defineStore('steam', {
     set_active_steam_user(user: SteamUser) {
       this.last_steam_user = this.active_steam_user = user;
     },
-    async check_is_steam_running(force = false) {
-      const now = Date.now();
-      if (
-        !force
-        && steam_running_check_cache
-        && now - steam_running_check_cache.at < STEAM_RUNNING_CHECK_CACHE_MS
-      ) {
-        if (this.is_steam_running !== steam_running_check_cache.value) {
-          this.is_steam_running = steam_running_check_cache.value;
-        }
-        return;
-      }
-      if (steam_running_check_in_flight) {
-        const cached = await steam_running_check_in_flight;
-        if (this.is_steam_running !== cached) {
-          this.is_steam_running = cached;
-        }
-        return;
-      }
-      steam_running_check_in_flight = invoke<boolean>('steam_is_running_by_tasklist')
-        .then((is_running) => {
-          steam_running_check_cache = { at: Date.now(), value: is_running };
-          return is_running;
-        })
-        .finally(() => {
-          steam_running_check_in_flight = null;
-        });
-      const is_running = await steam_running_check_in_flight;
-      if (this.is_steam_running !== is_running) {
-        console.log('is_steam_running', is_running);
-        this.is_steam_running = is_running;
+    /** 查询 Steam 是否在运行(无缓存,每次调用均向后端发起检测) */
+    async check_is_steam_running() {
+      try {
+        this.is_steam_running = await invoke<boolean>('steam_is_running_by_tasklist');
+      } catch (e) {
+        console.warn('check_is_steam_running failed', e);
       }
     },
   },

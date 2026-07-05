@@ -30,6 +30,27 @@ function stop_monitoring() {
   interval_id.value = null;
 }
 
+async function is_launcher_still_running(): Promise<boolean> {
+  if (close_launcher_kind.value === 'steam') {
+    return invoke<boolean>('steam_is_running_by_tasklist');
+  }
+  return invoke<boolean>('ea_desktop_is_running_by_tasklist');
+}
+
+async function poll_launcher_closed_once() {
+  const still_running = await is_launcher_still_running();
+  if (!still_running) {
+    stop_monitoring();
+    dialog.value = false;
+    if (close_launcher_kind.value === 'steam') {
+      void steam_store.check_is_steam_running();
+    } else {
+      void ea_store.check_is_ea_desktop_running();
+    }
+    set_launch_option();
+  }
+}
+
 const apply_button_class = computed(() => {
   if (!apex_store.active_apex_account) return '';
   if (apex_store.is_start_loading || !apex_store.is_launch_options_modified) return '';
@@ -65,7 +86,7 @@ async function force_close_launcher() {
   stop_monitoring();
   if (close_launcher_kind.value === 'steam') {
     await invoke('thoroughly_kill_steam');
-    if (await invoke<boolean>('steam_is_running_by_tasklist')) {
+    if (await is_launcher_still_running()) {
       toast.error('toast.cannotCloseSteam');
       is_thoroughly_kill.value = false;
       continuously_monitor_until_closed();
@@ -73,7 +94,7 @@ async function force_close_launcher() {
     }
   } else {
     await invoke('thoroughly_kill_ea_desktop');
-    if (await invoke<boolean>('ea_desktop_is_running_by_tasklist')) {
+    if (await is_launcher_still_running()) {
       toast.error('toast.cannotCloseEaDesktop');
       is_thoroughly_kill.value = false;
       continuously_monitor_until_closed();
@@ -134,19 +155,13 @@ function cancel() {
 
 function continuously_monitor_until_closed() {
   stop_monitoring();
-  interval_id.value = setInterval(async () => {
-    let still_running: boolean;
-    if (close_launcher_kind.value === 'steam') {
-      still_running = await invoke<boolean>('steam_is_running_by_tasklist');
-    } else {
-      still_running = await invoke<boolean>('ea_desktop_is_running_by_tasklist');
-    }
-    if (!still_running) {
-      stop_monitoring();
-      set_launch_option();
-      dialog.value = false;
-    }
-  }, WAIT_CLOSE_POLL_MS);
+  const poll = () => {
+    void poll_launcher_closed_once().catch((e) => {
+      console.warn('launcher close poll failed', e);
+    });
+  };
+  poll();
+  interval_id.value = setInterval(poll, WAIT_CLOSE_POLL_MS);
 }
 
 async function apply_check() {

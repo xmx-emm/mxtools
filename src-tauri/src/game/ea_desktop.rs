@@ -1,10 +1,7 @@
 //! Tauri 封装；实现位于 `windows_tool::game::ea`.
 
 use crate::log_info;
-use crate::utils::{
-    await_time, blocking_cmd, is_ea_desktop_running_by_process_scan, kill_processes_by_names,
-    ProcessNameMatchMode,
-};
+use crate::utils::{await_time, blocking_cmd, kill_processes_by_names, ProcessNameMatchMode};
 use windows_tool::game::ea::{self, EaDesktopUser};
 
 #[tauri::command]
@@ -29,7 +26,7 @@ pub async fn set_apex_launch_option_ea(
 pub async fn ea_desktop_is_running_by_tasklist() -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
-        blocking_cmd(|| Ok(is_ea_desktop_running_by_process_scan())).await
+        blocking_cmd(ea::ea_desktop_is_running_by_tasklist).await
     }
     #[cfg(not(target_os = "windows"))]
     {

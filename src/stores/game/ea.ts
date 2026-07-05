@@ -10,10 +10,6 @@ import {
 
 const toast = useToast();
 
-const EA_RUNNING_CHECK_CACHE_MS = import.meta.env.DEV ? 45000 : 12000;
-let ea_running_check_cache: { at: number; value: boolean } | null = null;
-let ea_running_check_in_flight: Promise<boolean> | null = null;
-
 const eaStore = defineStore('ea', {
   state: () => ({
     ea_desktop_users: <EaDesktopUser[]>[],
@@ -59,37 +55,12 @@ const eaStore = defineStore('ea', {
     set_active_ea_user(user: EaDesktopUser) {
       this.active_ea_user = user;
     },
-    async check_is_ea_desktop_running(force = false) {
-      const now = Date.now();
-      if (
-        !force
-        && ea_running_check_cache
-        && now - ea_running_check_cache.at < EA_RUNNING_CHECK_CACHE_MS
-      ) {
-        if (this.is_ea_desktop_running !== ea_running_check_cache.value) {
-          this.is_ea_desktop_running = ea_running_check_cache.value;
-        }
-        return;
-      }
-      if (ea_running_check_in_flight) {
-        const cached = await ea_running_check_in_flight;
-        if (this.is_ea_desktop_running !== cached) {
-          this.is_ea_desktop_running = cached;
-        }
-        return;
-      }
-      ea_running_check_in_flight = invoke<boolean>('ea_desktop_is_running_by_tasklist')
-        .then((is_running) => {
-          ea_running_check_cache = { at: Date.now(), value: is_running };
-          return is_running;
-        })
-        .finally(() => {
-          ea_running_check_in_flight = null;
-        });
-      const is_running = await ea_running_check_in_flight;
-      if (this.is_ea_desktop_running !== is_running) {
-        console.log('is_ea_desktop_running', is_running);
-        this.is_ea_desktop_running = is_running;
+    /** 查询 EA Desktop 是否在运行(无缓存,每次调用均向后端发起检测) */
+    async check_is_ea_desktop_running() {
+      try {
+        this.is_ea_desktop_running = await invoke<boolean>('ea_desktop_is_running_by_tasklist');
+      } catch (e) {
+        console.warn('check_is_ea_desktop_running failed', e);
       }
     },
   },
