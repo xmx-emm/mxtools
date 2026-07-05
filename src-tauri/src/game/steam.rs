@@ -1,19 +1,17 @@
 use crate::log_info;
-use crate::utils::{
-    await_time, blocking_cmd, is_steam_running_by_process_scan, kill_processes_by_names,
-    ProcessNameMatchMode,
-};
+use crate::utils::{await_time, blocking_cmd, kill_processes_by_names, ProcessNameMatchMode};
+use windows_tool::game::steam::steam_is_running_by_tasklist as detect_steam_running_by_tasklist;
 use windows_tool::game::steam::user::SteamUser;
 
 #[tauri::command]
 pub async fn steam_is_running() -> Result<bool, String> {
-    blocking_cmd(|| Ok(is_steam_running_by_process_scan())).await
+    blocking_cmd(detect_steam_running_by_tasklist).await
 }
 
-/// 保留命令名以兼容前端;实现已改为 sysinfo 进程扫描(非 `tasklist`).
+/// 通过 `tasklist` 检测 `steam.exe` 进程(非注册表;注册表在强关 Steam 后不会更新).
 #[tauri::command]
 pub async fn steam_is_running_by_tasklist() -> Result<bool, String> {
-    blocking_cmd(|| Ok(is_steam_running_by_process_scan())).await
+    blocking_cmd(detect_steam_running_by_tasklist).await
 }
 
 #[tauri::command]

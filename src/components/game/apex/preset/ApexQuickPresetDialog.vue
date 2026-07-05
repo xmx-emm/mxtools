@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue';
+import {computed, onUnmounted, ref, watch} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {invoke} from '@tauri-apps/api/core';
 import {useToast} from 'vue-toastification';
@@ -11,10 +11,10 @@ import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
-  aspectPresets,
   buildDefaultLaunchOptions,
   buildDefaultVideoOptions,
   FPS_CAP_MAX,
+  FPS_CAP_MIN,
   graphicsQualityPresets,
   quickPresetLaunchOptionToggles,
   quickPresetVideoConfigToggles,
@@ -31,11 +31,13 @@ import {isApexVideoConfigImpl} from '@/types/apex.ts';
 import {isSteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {
   buildQuickPresetPreview,
+  clampFpsCap,
   defaultFpsCap,
   findLaunchOptionRef,
   formatAspectRatioLabel,
   initLaunchOptionsForDialog,
   initVideoOptionsForDialog,
+  resolveQuickPresetInitialAspectValue,
 } from '@/utils/game/apex_quick_preset.ts';
 
 const { t } = useI18n();
@@ -49,7 +51,7 @@ const display_error = ref<string | null>(null);
 const local_display = ref<PrimaryDisplayInfo | null>(null);
 
 const fps_cap = ref(144);
-const aspect_value = ref(1.7778);
+const aspect_value = ref<number | null>(null);
 const lock_axis = ref<ResolutionLockAxis>('width');
 const enable_resolution_preset = ref(true);
 const enable_graphics_preset = ref(true);
@@ -65,21 +67,26 @@ const close_poll_id = ref<number | null>(null);
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
 
-const selection = computed((): ApexQuickPresetSelection => ({
-  fpsCap: fps_cap.value,
-  aspectValue: aspect_value.value,
-  lockAxis: lock_axis.value,
-  enableResolutionPreset: enable_resolution_preset.value,
-  enableGraphicsPreset: enable_graphics_preset.value,
-  graphicsPresetId: graphics_preset_id.value,
-  enableSimplifiedReticle: simplified_reticle.value,
-  launchOptions: launch_options.value,
-  videoOptions: video_options.value,
-}));
+function build_selection(): ApexQuickPresetSelection {
+  return {
+    fpsCap: clampFpsCap(fps_cap.value),
+    aspectValue: aspect_value.value!,
+    lockAxis: lock_axis.value,
+    enableResolutionPreset: enable_resolution_preset.value,
+    enableGraphicsPreset: enable_graphics_preset.value,
+    graphicsPresetId: graphics_preset_id.value,
+    enableSimplifiedReticle: simplified_reticle.value,
+    launchOptions: launch_options.value,
+    videoOptions: video_options.value,
+  };
+}
 
 const resolution_preview = computed(() => {
-  if (!local_display.value) return null;
-  return buildQuickPresetPreview(local_display.value, selection.value);
+  if (!local_display.value || aspect_value.value == null) return null;
+  return buildQuickPresetPreview(local_display.value, {
+    aspectValue: aspect_value.value,
+    lockAxis: lock_axis.value,
+  });
 });
 
 const close_dialog_title = computed(() =>
@@ -105,6 +112,27 @@ function stop_close_poll() {
   close_poll_id.value = null;
 }
 
+async function is_launcher_still_running(): Promise<boolean> {
+  if (close_launcher_kind.value === 'steam') {
+    return invoke<boolean>('steam_is_running_by_tasklist');
+  }
+  return invoke<boolean>('ea_desktop_is_running_by_tasklist');
+}
+
+async function poll_launcher_closed_once() {
+  const still_running = await is_launcher_still_running();
+  if (!still_running) {
+    stop_close_poll();
+    launcher_close_dialog.value = false;
+    if (close_launcher_kind.value === 'steam') {
+      void steam_store.check_is_steam_running();
+    } else {
+      void ea_store.check_is_ea_desktop_running();
+    }
+    await run_persist();
+  }
+}
+
 async function load_display_info() {
   display_loading.value = true;
   display_error.value = null;
@@ -113,19 +141,20 @@ async function load_display_info() {
     local_display.value = info;
     apex_store.set_quick_preset_display(info);
     fps_cap.value = defaultFpsCap(info.maxRefreshRate);
-    const screenAspect = info.aspectRatio;
-    const closest = [...aspectPresets].sort(
-      (a, b) => Math.abs(a.aspectValue - screenAspect) - Math.abs(b.aspectValue - screenAspect),
-    )[0];
-    if (closest) {
-      aspect_value.value = closest.aspectValue;
-    }
     if (apex_store.original_launch_options === '') {
       await apex_store.start_load_apex_launch_options_data();
     }
     if (Object.keys(apex_store.video_config_values).length === 0) {
       await apex_store.load_apex_video_config();
     }
+    const has_letterbox = apex_store.options_selection.some(
+      (item) => item.identifier === 'letterbox_aspect',
+    );
+    aspect_value.value = resolveQuickPresetInitialAspectValue(
+      has_letterbox,
+      apex_store.mat_letterbox_aspect_goal,
+      info.aspectRatio,
+    );
     simplified_reticle.value = apex_store.options_selection.some(
       (item) => item.identifier === 'reticle_color',
     );
@@ -183,9 +212,13 @@ function show_video_option_tip(toggle: ApexQuickPresetVideoToggle) {
 
 async function run_persist() {
   if (!local_display.value) return;
+  if (enable_resolution_preset.value && aspect_value.value == null) {
+    toast.warning('apexQuickPreset.selectAspect');
+    return;
+  }
   try {
     await apex_store.ensure_configs_loaded_for_preset();
-    apex_store.prepare_quick_preset(local_display.value, selection.value);
+    apex_store.prepare_quick_preset(local_display.value, build_selection());
     await apex_store.apply_quick_preset_persist();
   } catch (e) {
     if (String(e) === 'Error: GRAPHICS_PRESET_NOT_FOUND') {
@@ -198,19 +231,13 @@ async function run_persist() {
 
 function continuously_monitor_until_closed() {
   stop_close_poll();
-  close_poll_id.value = setInterval(async () => {
-    let still_running: boolean;
-    if (close_launcher_kind.value === 'steam') {
-      still_running = await invoke<boolean>('steam_is_running_by_tasklist');
-    } else {
-      still_running = await invoke<boolean>('ea_desktop_is_running_by_tasklist');
-    }
-    if (!still_running) {
-      stop_close_poll();
-      launcher_close_dialog.value = false;
-      await run_persist();
-    }
-  }, 1500) as unknown as number;
+  const poll = () => {
+    void poll_launcher_closed_once().catch((e) => {
+      console.warn('launcher close poll failed', e);
+    });
+  };
+  poll();
+  close_poll_id.value = setInterval(poll, 1500) as unknown as number;
 }
 
 async function force_close_launcher() {
@@ -218,7 +245,7 @@ async function force_close_launcher() {
   stop_close_poll();
   if (close_launcher_kind.value === 'steam') {
     await invoke('thoroughly_kill_steam');
-    if (await invoke<boolean>('steam_is_running_by_tasklist')) {
+    if (await is_launcher_still_running()) {
       toast.error('toast.cannotCloseSteam');
       is_thoroughly_kill.value = false;
       continuously_monitor_until_closed();
@@ -226,7 +253,7 @@ async function force_close_launcher() {
     }
   } else {
     await invoke('thoroughly_kill_ea_desktop');
-    if (await invoke<boolean>('ea_desktop_is_running_by_tasklist')) {
+    if (await is_launcher_still_running()) {
       toast.error('toast.cannotCloseEaDesktop');
       is_thoroughly_kill.value = false;
       continuously_monitor_until_closed();
@@ -253,6 +280,10 @@ async function on_apply() {
     toast.error('apexQuickPreset.displayLoadFailed');
     return;
   }
+  if (enable_resolution_preset.value && aspect_value.value == null) {
+    toast.warning('apexQuickPreset.selectAspect');
+    return;
+  }
 
   const acc = apex_store.active_apex_account;
   if (acc.kind === 'ea') {
@@ -276,6 +307,10 @@ async function on_apply() {
   stop_close_poll();
   await run_persist();
 }
+
+onUnmounted(() => {
+  stop_close_poll();
+});
 </script>
 
 <template>
@@ -315,9 +350,9 @@ async function on_apply() {
 
           <div class="section-label">{{ t('apexQuickPreset.fpsCap') }}</div>
           <div class="d-flex align-center gap-2 mb-4 flex-wrap fps-row">
-            <ApexNumberInput v-model="fps_cap" :step="1"/>
+            <ApexNumberInput v-model="fps_cap" :step="1" :min="FPS_CAP_MIN" :max="FPS_CAP_MAX"/>
             <span class="text-caption">FPS</span>
-            <v-chip size="x-small" variant="tonal">{{ t('apexQuickPreset.fpsCapMax', { max: FPS_CAP_MAX }) }}</v-chip>
+            <v-chip size="x-small" variant="tonal">{{ t('apexQuickPreset.fpsCapRange', { min: FPS_CAP_MIN, max: FPS_CAP_MAX }) }}</v-chip>
             <span class="text-caption text-medium-emphasis">{{ t('apexQuickPreset.lobbyFpsHint') }}</span>
           </div>
 
@@ -335,38 +370,41 @@ async function on_apply() {
             <v-expand-transition>
               <div v-show="enable_resolution_preset" class="preset-box-body">
                 <div class="section-label">{{ t('apexQuickPreset.aspectPreset') }}</div>
-                <v-btn-toggle
-                  v-model="lock_axis"
-                  mandatory
-                  color="primary"
-                  variant="text"
-                  class="apex-parameter-toggle mb-2"
-                  style="max-height: 25px"
-                  border
-                  divided
-                >
-                  <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
-                  <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
-                </v-btn-toggle>
-                <v-btn-toggle
-                  v-model="aspect_value"
-                  mandatory
-                  color="primary"
-                  variant="text"
-                  class="apex-parameter-toggle aspect-preset-toggle mb-2"
-                  style="max-height: 25px"
-                  border
-                  divided
-                >
-                  <v-btn
-                    v-for="item in sorted_aspect_presets"
-                    :key="item.aspectValue"
-                    :value="item.aspectValue"
-                    size="small"
+                <div>
+                  <v-btn-toggle
+                    v-model="lock_axis"
+                    mandatory
+                    color="primary"
+                    variant="text"
+                    class="apex-parameter-toggle mb-2"
+                    style="max-height: 25px"
+                    border
+                    divided
                   >
-                    {{ t(item.label) }}
-                  </v-btn>
-                </v-btn-toggle>
+                    <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
+                    <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
+                  </v-btn-toggle>
+                </div>
+                <div>
+                  <v-btn-toggle
+                    v-model="aspect_value"
+                    color="primary"
+                    variant="text"
+                    class="apex-parameter-toggle aspect-preset-toggle mb-2"
+                    style="max-height: 25px"
+                    border
+                    divided
+                  >
+                    <v-btn
+                      v-for="item in sorted_aspect_presets"
+                      :key="item.aspectValue"
+                      :value="item.aspectValue"
+                      size="small"
+                    >
+                      {{ t(item.label) }}
+                    </v-btn>
+                  </v-btn-toggle>
+                </div>
 
                 <div v-if="resolution_preview" class="text-caption">
                   {{ t('apexQuickPreset.resolutionPreview') }}:

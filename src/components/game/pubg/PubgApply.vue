@@ -27,14 +27,21 @@ function stop_monitoring() {
 
 function start_monitoring() {
   stop_monitoring();
-  interval_id.value = setInterval(async () => {
-    const is_running = await invoke('steam_is_running_by_tasklist');
-    if (!is_running) {
-      stop_monitoring();
-      set_launch_option();
-      dialog.value = false;
+  const poll = async () => {
+    try {
+      const is_running = await invoke<boolean>('steam_is_running_by_tasklist');
+      if (!is_running) {
+        stop_monitoring();
+        dialog.value = false;
+        void steam_store.check_is_steam_running();
+        set_launch_option();
+      }
+    } catch (e) {
+      console.warn('steam close poll failed', e);
     }
-  }, WAIT_CLOSE_POLL_MS);
+  };
+  void poll();
+  interval_id.value = setInterval(() => { void poll(); }, WAIT_CLOSE_POLL_MS);
 }
 
 const apply_button_class = computed(() => {
@@ -50,7 +57,7 @@ async function force_close_steam() {
   stop_monitoring();
   await invoke('thoroughly_kill_steam');
 
-  if (await invoke('steam_is_running_by_tasklist')) {
+  if (await invoke<boolean>('steam_is_running_by_tasklist')) {
     toast.error('toast.cannotCloseSteam');
     is_thoroughly_kill_steam.value = false;
     start_monitoring();

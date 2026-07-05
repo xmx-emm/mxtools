@@ -4,6 +4,8 @@ import {computed} from 'vue';
 const props = withDefaults(defineProps<{
   modelValue: number | string
   step?: number | string
+  min?: number | string
+  max?: number | string
 }>(), {
   step: 1
 });
@@ -25,6 +27,8 @@ const value_proxy = computed({
     v-model.number="value_proxy"
     type="number"
     :step="step"
+    :min="min"
+    :max="max"
     class="apex_number_input"
     @click.stop=""
     @mousedown.stop=""

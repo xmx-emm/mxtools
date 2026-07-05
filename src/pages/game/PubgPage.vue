@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue';
-import {onBeforeRouteLeave} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {openConfigFileFolder} from '@/utils/open-folder.ts';
@@ -48,93 +47,26 @@ async function open_steam_launch_config_folder() {
   }
 }
 
-const interval_id = ref<number | any>(null);
-const NORMAL_STATUS_POLL_MS = 15000;
-const STABLE_STATUS_POLL_MS = 45000;
-const STABLE_POLLS_BEFORE_SLOWDOWN = 3;
-let poll_paused_by_visibility = false;
-let poll_in_flight = false;
-let stable_poll_count = 0;
-let last_running_state: boolean | null = null;
-
-function current_poll_ms() {
-  return stable_poll_count >= STABLE_POLLS_BEFORE_SLOWDOWN
-    ? STABLE_STATUS_POLL_MS
-    : NORMAL_STATUS_POLL_MS;
-}
-
 function on_visibility_change() {
-  if (document.visibilityState === 'hidden') {
-    poll_paused_by_visibility = true;
-    stop_status_polling();
-    return;
+  if (document.visibilityState === 'visible') {
+    void steam_store.check_is_steam_running();
   }
-  if (poll_paused_by_visibility) {
-    poll_paused_by_visibility = false;
-    void poll_steam_running();
-    start_status_polling();
-  }
-}
-
-function stop_status_polling() {
-  if (!interval_id.value) return;
-  clearInterval(interval_id.value);
-  interval_id.value = null;
-}
-
-async function poll_steam_running() {
-  if (poll_in_flight) return;
-  poll_in_flight = true;
-  try {
-    await steam_store.check_is_steam_running();
-    const running = steam_store.is_steam_running;
-    const prev_stable = stable_poll_count;
-    if (last_running_state === running) {
-      stable_poll_count++;
-    } else {
-      stable_poll_count = 0;
-      last_running_state = running;
-    }
-    const crossed_stable_threshold =
-      (prev_stable < STABLE_POLLS_BEFORE_SLOWDOWN && stable_poll_count >= STABLE_POLLS_BEFORE_SLOWDOWN)
-      || (prev_stable >= STABLE_POLLS_BEFORE_SLOWDOWN && stable_poll_count === 0);
-    if (crossed_stable_threshold && interval_id.value) {
-      start_status_polling();
-    }
-  } finally {
-    poll_in_flight = false;
-  }
-}
-
-function start_status_polling() {
-  stop_status_polling();
-  if (import.meta.env.DEV) return;
-  interval_id.value = setInterval(() => {
-    void poll_steam_running();
-  }, current_poll_ms());
 }
 
 onMounted(async () => {
   await pubg_store.refresh_steam_accounts();
   pubg_store.start_launch();
   await steam_store.check_is_steam_running();
-  start_status_polling();
   window.addEventListener('visibilitychange', on_visibility_change);
   if (import.meta.env.DEV) {
     registerHmrCleanup(() => {
-      stop_status_polling();
       window.removeEventListener('visibilitychange', on_visibility_change);
     });
   }
 });
 
 onUnmounted(() => {
-  stop_status_polling();
   window.removeEventListener('visibilitychange', on_visibility_change);
-});
-
-onBeforeRouteLeave(() => {
-  stop_status_polling();
 });
 </script>
 

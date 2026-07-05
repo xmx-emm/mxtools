@@ -4,7 +4,6 @@ import ApexLauncherUser from '@/components/game/apex/ApexLauncherUser.vue';
 import eaStore from '@/stores/game/ea.ts';
 import steamStore from '@/stores/game/steam.ts';
 import {onMounted, onUnmounted, ref, watch, computed} from 'vue';
-import {onBeforeRouteLeave} from 'vue-router';
 import {useToast} from 'vue-toastification';
 import {openApexVideoConfigFolder, openConfigFileFolder} from '@/utils/open-folder.ts';
 import ApexApply from '@/components/game/apex/launch/ApexApply.vue';
@@ -45,92 +44,20 @@ const launch_refresh_loading = ref(false);
 const video_refresh_loading = ref(false);
 let page_bootstrapped = false;
 
-const interval_id = ref<number | any>(null);
-const NORMAL_STATUS_POLL_MS = import.meta.env.DEV ? 60000 : 15000;
-const STABLE_STATUS_POLL_MS = import.meta.env.DEV ? 120000 : 45000;
-const STABLE_POLLS_BEFORE_SLOWDOWN = 3;
-let poll_paused_by_visibility = false;
-let poll_in_flight = false;
-let stable_poll_count = 0;
-let last_running_state: boolean | null = null;
-let last_user_activity_at = 0;
-const POLL_DEFER_MS = import.meta.env.DEV ? 20000 : 8000;
-
-function mark_user_activity() {
-  last_user_activity_at = Date.now();
-}
-
-function on_user_activity() {
-  mark_user_activity();
-}
-
-function should_defer_poll() {
-  return Date.now() - last_user_activity_at < POLL_DEFER_MS;
+async function refresh_running_for_active_account() {
+  const acc = apex_store.active_apex_account;
+  if (!acc) return;
+  if (acc.kind === 'steam') {
+    await check_is_steam_running();
+  } else {
+    await ea_store.check_is_ea_desktop_running();
+  }
 }
 
 function on_visibility_change() {
-  if (document.visibilityState === 'hidden') {
-    poll_paused_by_visibility = true;
-    stop_status_polling();
-    return;
-  }
-  if (poll_paused_by_visibility && apex_store.active_apex_account) {
-    poll_paused_by_visibility = false;
+  if (document.visibilityState === 'visible' && apex_store.active_apex_account) {
     void refresh_running_for_active_account();
-    start_status_polling();
   }
-}
-
-function current_poll_ms() {
-  return stable_poll_count >= STABLE_POLLS_BEFORE_SLOWDOWN
-    ? STABLE_STATUS_POLL_MS
-    : NORMAL_STATUS_POLL_MS;
-}
-
-function stop_status_polling() {
-  if (!interval_id.value) return;
-  clearInterval(interval_id.value);
-  interval_id.value = null;
-}
-
-async function refresh_running_for_active_account() {
-  const acc = apex_store.active_apex_account;
-  if (!acc || poll_in_flight || should_defer_poll()) return;
-  poll_in_flight = true;
-  try {
-    if (acc.kind === 'steam') {
-      await check_is_steam_running();
-    } else {
-      await ea_store.check_is_ea_desktop_running();
-    }
-    const running = acc.kind === 'steam'
-      ? steam_store.is_steam_running
-      : ea_store.is_ea_desktop_running;
-    const prev_stable = stable_poll_count;
-    if (last_running_state === running) {
-      stable_poll_count++;
-    } else {
-      stable_poll_count = 0;
-      last_running_state = running;
-    }
-    const crossed_stable_threshold =
-      (prev_stable < STABLE_POLLS_BEFORE_SLOWDOWN && stable_poll_count >= STABLE_POLLS_BEFORE_SLOWDOWN)
-      || (prev_stable >= STABLE_POLLS_BEFORE_SLOWDOWN && stable_poll_count === 0);
-    if (crossed_stable_threshold && interval_id.value) {
-      start_status_polling();
-    }
-  } finally {
-    poll_in_flight = false;
-  }
-}
-
-function start_status_polling() {
-  stop_status_polling();
-  if (import.meta.env.DEV) return;
-  if (!apex_store.active_apex_account) return;
-  interval_id.value = setInterval(() => {
-    void refresh_running_for_active_account();
-  }, current_poll_ms());
 }
 
 onMounted(async () => {
@@ -143,20 +70,12 @@ onMounted(async () => {
   } else {
     apex_store.start_launch();
   }
-  if (!import.meta.env.DEV) {
-    await refresh_running_for_active_account();
-  }
-  start_status_polling();
+  await refresh_running_for_active_account();
   window.addEventListener('visibilitychange', on_visibility_change);
-  window.addEventListener('pointerdown', on_user_activity, true);
-  window.addEventListener('keydown', on_user_activity, true);
   page_bootstrapped = true;
   if (import.meta.env.DEV) {
     registerHmrCleanup(() => {
-      stop_status_polling();
       window.removeEventListener('visibilitychange', on_visibility_change);
-      window.removeEventListener('pointerdown', on_user_activity, true);
-      window.removeEventListener('keydown', on_user_activity, true);
     });
   }
 });
@@ -166,8 +85,6 @@ watch(
   async (key, prevKey) => {
     if (!page_bootstrapped || prevKey == null || key === prevKey) return;
     await refresh_running_for_active_account();
-    stop_status_polling();
-    start_status_polling();
     if (apex_store.is_launch_page) {
       apex_store.start_launch();
     } else {
@@ -191,14 +108,7 @@ watch(
 );
 
 onUnmounted(() => {
-  stop_status_polling();
   window.removeEventListener('visibilitychange', on_visibility_change);
-  window.removeEventListener('pointerdown', on_user_activity, true);
-  window.removeEventListener('keydown', on_user_activity, true);
-});
-
-onBeforeRouteLeave(() => {
-  stop_status_polling();
 });
 
 async function reload_apex_launch_options() {
@@ -272,43 +182,49 @@ function open_quick_preset() {
         class="apex-page-toolbar-user"
         @update_user="apex_store.is_launch_page ? apex_store.start_launch() : apex_store.start_video_config()"
       />
-      <v-btn
-        icon
-        size="small"
-        variant="text"
-        class="apex-preset-btn ml-auto"
-        :title="t('apex.pagePresetTip')"
-        @click="open_quick_preset"
-      >
-        <v-icon icon="mdi-lightning-bolt-outline" size="small" />
-      </v-btn>
-      <v-btn-toggle
-        :model-value="apex_store.page_type"
-        @update:model-value="on_page_type_change"
-        class="apex-page-type-toggle game-page-segmented-toggle"
-        mandatory
-        divided
-        density="compact"
-        variant="text"
-        :disabled="is_content_loading"
-      >
-        <v-btn
-          size="small"
-          :value="ApexPageTypeEnum.launch"
-          :title="t('apex.pageLaunch')"
-          prepend-icon="mdi-rocket-launch-outline"
-        >
-          {{ t('apex.pageLaunch') }}
-        </v-btn>
-        <v-btn
-          size="small"
-          :value="ApexPageTypeEnum.video_config"
-          :title="t('apex.pageVideoConfig')"
-          prepend-icon="mdi-tune-variant"
-        >
-          {{ t('apex.pageVideoConfig') }}
-        </v-btn>
-      </v-btn-toggle>
+      <div class="apex-page-toolbar-controls">
+        <div class="apex-toolbar-control-slot">
+          <v-btn
+            size="small"
+            variant="text"
+            density="compact"
+            class="apex-preset-btn"
+            :title="t('apex.pagePresetTip')"
+            @click="open_quick_preset"
+          >
+            <v-icon icon="mdi-lightning-bolt-outline" size="small" />
+          </v-btn>
+        </div>
+        <div class="apex-toolbar-control-slot">
+          <v-btn-toggle
+            :model-value="apex_store.page_type"
+            @update:model-value="on_page_type_change"
+            class="apex-page-type-toggle game-page-segmented-toggle"
+            mandatory
+            divided
+            density="compact"
+            variant="text"
+            :disabled="is_content_loading"
+          >
+            <v-btn
+              size="small"
+              :value="ApexPageTypeEnum.launch"
+              :title="t('apex.pageLaunch')"
+              prepend-icon="mdi-rocket-launch-outline"
+            >
+              {{ t('apex.pageLaunch') }}
+            </v-btn>
+            <v-btn
+              size="small"
+              :value="ApexPageTypeEnum.video_config"
+              :title="t('apex.pageVideoConfig')"
+              prepend-icon="mdi-tune-variant"
+            >
+              {{ t('apex.pageVideoConfig') }}
+            </v-btn>
+          </v-btn-toggle>
+        </div>
+      </div>
     </div>
 
     <div class="game-page-gap"/>
@@ -389,13 +305,42 @@ function open_quick_preset() {
   min-width: 0;
 }
 
-.apex-preset-btn {
+.apex-page-toolbar-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
-  min-width: 30px !important;
-  width: 30px !important;
-  min-height: 30px !important;
-  height: 30px !important;
+  margin-left: auto;
+}
+
+.apex-toolbar-control-slot {
+  display: flex;
+  align-items: center;
+  height: var(--game-page-control-height);
+}
+
+.apex-toolbar-control-slot :deep(.v-btn-toggle),
+.apex-toolbar-control-slot :deep(.v-btn-group) {
+  height: var(--game-page-control-height);
+}
+
+.apex-preset-btn {
+  min-width: var(--game-page-control-height) !important;
+  width: var(--game-page-control-height) !important;
+  max-width: var(--game-page-control-height) !important;
+  min-height: var(--game-page-control-height) !important;
+  height: var(--game-page-control-height) !important;
+  padding-inline: 0 !important;
+  margin: 0 !important;
   color: rgba(var(--v-theme-on-surface), 0.55) !important;
+}
+
+.apex-preset-btn :deep(.v-btn__content) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .apex-preset-btn :deep(.v-icon) {
@@ -407,9 +352,8 @@ function open_quick_preset() {
 }
 
 .apex-page-type-toggle :deep(.v-btn) {
-  padding-inline: 10px !important;
-  font-size: 0.75rem !important;
-  letter-spacing: 0.01em;
+  min-height: var(--game-page-control-height) !important;
+  height: var(--game-page-control-height) !important;
   color: rgba(var(--v-theme-on-surface), 0.55) !important;
   background: transparent !important;
 }

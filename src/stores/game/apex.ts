@@ -35,6 +35,7 @@ import {
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
 import {
   applyQuickPresetLaunchOptions,
+  clampFpsCap,
   applyQuickPresetVideoOptions,
   buildVideoResolutionValues,
   uncheckedQuickPresetVideoKeys,
@@ -446,9 +447,8 @@ const apexStore = defineStore('apex', {
             }
           } else if (option?.identifier === 'input_mouse') {
             if (option?.parameters) {
-              for (const key in Object.keys(option.parameters)) {
-                const value = option.parameters[key];
-                if (typeof value?.parameter === 'string' && start_launch_option.includes(value?.parameter)) {
+              for (const value of option.parameters) {
+                if (typeof value?.parameter === 'string' && start_launch_option.includes(value.parameter)) {
                   selection.push(option);
                   break;
                 }
@@ -477,17 +477,19 @@ const apexStore = defineStore('apex', {
                 selection.push(option);
               }
             } else if (typeof option?.parameter === 'object') {
-              for (const key in Object.keys(option.parameter)) {
-                const value = option.parameter[key];
-                if (start_launch_option.includes(value)) {
+              const paramValues = Array.isArray(option.parameter)
+                ? option.parameter
+                : Object.values(option.parameter);
+              for (const value of paramValues) {
+                if (typeof value === 'string' && start_launch_option.includes(value)) {
                   selection.push(option);
+                  break;
                 }
               }
             }
           } else if (option?.parameters) {//只有 window和miles_language需要过这里
-            for (const key in Object.keys(option.parameters)) {
-              const value = option.parameters[key];
-              if (value?.parameter && typeof value?.parameter === 'string' && start_launch_option.includes(value?.parameter)) {
+            for (const value of option.parameters) {
+              if (value?.parameter && typeof value?.parameter === 'string' && start_launch_option.includes(value.parameter)) {
                 selection.push(option);
                 if (option?.identifier) {
                   settingsPatch[option.identifier] = value?.default_parameter || value?.parameter || option?.default_parameter;
@@ -794,8 +796,9 @@ const apexStore = defineStore('apex', {
 
     /** 将快速预设选项写入内存状态(启动项 + 视频配置)，不落盘 */
     prepare_quick_preset(screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection) {
-      this.fps = selection.fpsCap;
-      this.lobby_max_fps = selection.fpsCap;
+      const fpsCap = clampFpsCap(selection.fpsCap);
+      this.fps = fpsCap;
+      this.lobby_max_fps = fpsCap;
 
       if (selection.enableResolutionPreset) {
         const { width, height } = resolveGameResolution(
@@ -821,6 +824,8 @@ const apexStore = defineStore('apex', {
 
       if (selection.enableSimplifiedReticle) {
         ensure_option_in_selection(this.options_selection, 'reticle_color');
+      } else {
+        remove_option_from_selection(this.options_selection, 'reticle_color');
       }
       this.settings_config['fps'] = '-freq X +fps_max X';
 
@@ -883,6 +888,12 @@ const apexStore = defineStore('apex', {
       try {
         if (!await this.check_miles_language()) {
           toast.error('toast.milesLanguageNotFound');
+          return false;
+        }
+
+        const apexRunning = await invoke<boolean>('apex_is_running').catch(() => false);
+        if (apexRunning) {
+          toast.error('apex.apexRunningVideoConfig');
           return false;
         }
 

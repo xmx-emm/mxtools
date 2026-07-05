@@ -3,7 +3,9 @@ import {
   aspectResolutionTable,
   buildDefaultLaunchOptions,
   buildDefaultVideoOptions,
+  closestAspectPresetValue,
   FPS_CAP_MAX,
+  FPS_CAP_MIN,
   quickPresetLaunchOptionToggles,
   quickPresetVideoConfigToggles,
 } from '@/data/presets/apex_quick_preset.ts';
@@ -19,8 +21,50 @@ export function screenKey(width: number, height: number): string {
   return `${width}x${height}`;
 }
 
+export function clampFpsCap(fps: number): number {
+  const n = Math.round(Number(fps));
+  if (!Number.isFinite(n)) return FPS_CAP_MIN;
+  return Math.min(Math.max(FPS_CAP_MIN, n), FPS_CAP_MAX);
+}
+
 export function defaultFpsCap(maxRefresh: number): number {
-  return Math.min(Math.max(1, Math.round(maxRefresh)), FPS_CAP_MAX);
+  return clampFpsCap(maxRefresh);
+}
+
+/** 屏幕原生比例与预设匹配的容差 */
+export const ASPECT_SCREEN_MATCH_EPS = 0.02;
+
+export function isAspectMatchingScreen(
+  aspectValue: number,
+  screenAspect: number,
+  eps = ASPECT_SCREEN_MATCH_EPS,
+): boolean {
+  return Math.abs(aspectValue - screenAspect) <= eps;
+}
+
+/** 屏幕比例命中预设时才返回对应值,否则 null */
+export function matchScreenAspectPresetValue(
+  screenAspect: number,
+  eps = ASPECT_SCREEN_MATCH_EPS,
+): number | null {
+  const closest = closestAspectPresetValue(screenAspect);
+  if (closest == null) return null;
+  return isAspectMatchingScreen(closest, screenAspect, eps) ? closest : null;
+}
+
+/**
+ * 打开快速预设时初始比例: 已有 letterbox 设置取最近预设;
+ * 否则按屏幕比例匹配,屏幕无对应预设则不选.
+ */
+export function resolveQuickPresetInitialAspectValue(
+  hasLetterboxAspect: boolean,
+  configuredAspect: number,
+  screenAspect: number,
+): number | null {
+  if (hasLetterboxAspect) {
+    return closestAspectPresetValue(configuredAspect);
+  }
+  return matchScreenAspectPresetValue(screenAspect);
 }
 
 export interface ComputedResolution {
@@ -73,9 +117,7 @@ export function buildVideoResolutionValues(width: number, height: number): Recor
 export function formatAspectRatioLabel(aspectValue: number): string {
   const preset = [
     { v: 1, t: '1:1' },
-    { v: 0.5, t: '1:2' },
     { v: 2, t: '2:1' },
-    { v: 0.75, t: '3:4' },
     { v: 1.3333, t: '4:3' },
     { v: 1.25, t: '5:4' },
     { v: 1.5, t: '3:2' },
@@ -153,10 +195,13 @@ export function applyQuickPresetLaunchOptions(
 ): void {
   for (const opt of quickPresetLaunchOptionToggles) {
     const enabled = toggles[opt.key] ?? opt.defaultEnabled;
-    if (!enabled) continue;
+    const idx = findLaunchOptionSelectionIndex(selection, opt);
+    if (!enabled) {
+      if (idx >= 0) selection.splice(idx, 1);
+      continue;
+    }
     const option = findLaunchOptionRef(opt);
     if (!option) continue;
-    const idx = findLaunchOptionSelectionIndex(selection, opt);
     if (idx < 0) {
       selection.push(option);
     }
