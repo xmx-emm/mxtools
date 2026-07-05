@@ -287,9 +287,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     valueType: 'enum',
     tip: ApexVideoModelDetailTip,
     options: [
-      { label: '关', values: { 'setting.r_lod_switch_scale': '0' }, outOfPreset: true },
-      { label: '超低', values: { 'setting.r_lod_switch_scale': '0.1' }, outOfPreset: true },
-      { label: '很低', values: { 'setting.r_lod_switch_scale': '0.3' }, outOfPreset: true },
+      { label: '很低', values: { 'setting.r_lod_switch_scale': '0.2' }, outOfPreset: true },
       { label: 'apexVideoConfig.options.low', values: { 'setting.r_lod_switch_scale': '0.6' } },
       { label: 'apexVideoConfig.options.medium', values: { 'setting.r_lod_switch_scale': '0.8' } },
       { label: 'apexVideoConfig.options.high', values: { 'setting.r_lod_switch_scale': '1' } },
@@ -298,24 +296,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
     fields: [
       { identifier: 'setting.r_lod_switch_scale', valueType: 'float', min: 0, max: 4, step: 0.05 },
-    ],
-  },
-
-  // 淡出距离缩放：控制地图小物件提前消失距离，游戏默认 2；0 / 0.1 / 0.5 / 1 为预设外
-  {
-    identifier: 'group.fadeDistScale',
-    name: 'apexVideoConfig.fadeDistScale.name',
-    description: 'apexVideoConfig.fadeDistScale.description',
-    valueType: 'enum',
-    tip: ApexVideoFadeDistScaleTip,
-    not_in_game_settings: true,
-    options: [
-      { label: '0.5', values: { 'setting.fadeDistScale': '0.5' }, outOfPreset: true },
-      { label: '1', values: { 'setting.fadeDistScale': '1' }, outOfPreset: true },
-      { label: '2', values: { 'setting.fadeDistScale': '2' } },
-    ],
-    fields: [
-      { identifier: 'setting.fadeDistScale', valueType: 'float', min: 0, max: 2, step: 0.05 },
     ],
   },
 
@@ -434,7 +414,24 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
   },
 
-  // 地图详情：0 超低(预设外) / 低 1 / 高 2
+  // 淡出距离缩放：控制地图小物件提前消失距离，游戏默认 2；0 / 0.1 / 0.5 / 1 为预设外
+  {
+    identifier: 'group.fadeDistScale',
+    name: 'apexVideoConfig.fadeDistScale.name',
+    description: 'apexVideoConfig.fadeDistScale.description',
+    valueType: 'enum',
+    tip: ApexVideoFadeDistScaleTip,
+    not_in_game_settings: true,
+    options: [
+      { label: '1', values: { 'setting.fadeDistScale': '1' }, outOfPreset: true },
+      { label: '2', values: { 'setting.fadeDistScale': '2' } },
+    ],
+    fields: [
+      { identifier: 'setting.fadeDistScale', valueType: 'float', min: 0, max: 2, step: 0.05 },
+    ],
+  },
+
+  // 地图详情：0 超低(预设外) / 低 1 / 高 2   实测0 无效?
   {
     identifier: 'group.mapDetailLevel',
     name: 'apexVideoConfig.mapDetailLevel.name',
@@ -442,7 +439,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     valueType: 'enum',
     tip: ApexVideoMapDetailLevelTip,
     options: [
-      { label: 'apexVideoConfig.options.ultraLow0', values: { 'setting.map_detail_level': '0' }, outOfPreset: true }, //实测0 无效?
       { label: 'apexVideoConfig.options.low', values: { 'setting.map_detail_level': '1' } },
       { label: 'apexVideoConfig.options.high', values: { 'setting.map_detail_level': '2' } },
     ],

@@ -44,10 +44,8 @@ export interface ApexQuickPresetVideoToggle {
   key: string;
   /** i18n key */
   label: string;
-  /** 勾选时写入的 videoconfig 键值 */
+  /** 勾选时写入的 videoconfig 键值；未勾选时不修改 */
   onValues: Record<string, string>;
-  /** 取消勾选时写入的 videoconfig 键值 */
-  offValues: Record<string, string>;
   defaultEnabled: boolean;
   /** apex_video_config 中对应项 identifier，用于右键 tip */
   tipIdentifier?: string;
@@ -59,6 +57,8 @@ export interface ApexQuickPresetSelection {
   lockAxis: ResolutionLockAxis;
   /** 是否应用分辨率与比例预设(启动项 + videoconfig 分辨率) */
   enableResolutionPreset: boolean;
+  /** 是否应用画面设置预设 */
+  enableGraphicsPreset: boolean;
   graphicsPresetId: string;
   /** 启用透明准星(+reticle_color) */
   enableSimplifiedReticle: boolean;
