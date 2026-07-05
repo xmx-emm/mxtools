@@ -96,7 +96,7 @@ export const graphicsQualityPresets: ApexGraphicsQualityPreset[] = [
       'setting.stream_memory': '0',
       'setting.mat_picmip': '3',
       'setting.dynamic_streaming_budget': '0',
-      'setting.r_lod_switch_scale': '3',
+      'setting.r_lod_switch_scale': '2',
     },
   },
   {

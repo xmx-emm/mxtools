@@ -481,7 +481,7 @@ export const enUS = {
     },
     graphicsPresets: {
       competitive: 'Competitive',
-      competitiveDesc: 'Ultra model detail and ultra-blurry textures — competitive',
+      competitiveDesc: 'Very high model detail and ultra-blurry textures — competitive',
       lowDesc: 'Low texture and model detail',
       mediumDesc: 'Medium texture and model detail',
       highDesc: 'High texture and model detail',
