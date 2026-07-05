@@ -482,7 +482,7 @@ export const zhCN = {
     },
     graphicsPresets: {
       competitive: '竞技',
-      competitiveDesc: '模型细节超高、纹理超糊，适合竞技',
+      competitiveDesc: '模型细节非常高、纹理超糊，适合竞技',
       lowDesc: '纹理与模型均为低档位',
       mediumDesc: '纹理与模型均为中档位',
       highDesc: '纹理与模型均为高档位',
