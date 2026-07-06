@@ -11,7 +11,7 @@ mxtools/
 ├── src/                       # 前端：Vue 3 + TypeScript + Vuetify
 ├── src-tauri/                 # 后端：Tauri 2 + Rust
 ├── index.html                 # Vite 入口 HTML
-├── vite.config.ts             # Vite 配置(端口 1420、别名 @ / ASSETS 等)
+├── vite.config.ts             # Vite 配置(端口 5173、别名 @ / ASSETS 等)
 ├── package.json               # 前端脚本与 npm 依赖
 ├── tsconfig.json              # TypeScript 配置
 ├── eslint.config.ts           # ESLint 配置
@@ -91,5 +91,5 @@ windows_tool = { path = "../../../rust/windows_tool" }
 ## 相关配置文件速查
 
 - 应用显示名称与窗口标题：`src-tauri/tauri.conf.json` → `app.windows[].title`
-- 开发时 Vite 端口：`vite.config.ts` 与 `tauri.conf.json` 的 `devUrl` 需一致(当前为 `1420`)
+- 开发时 Vite 端口：`vite.config.ts` 与 `tauri.conf.json` 的 `devUrl` 需一致(当前为 `5173`)
 - 版本号：Rust `src-tauri/Cargo.toml`、Tauri `tauri.conf.json`、`package.json`；前端关于页还依赖根目录 `.env` 中的 `VITE_APP_VERSION`(见 `README.md`)

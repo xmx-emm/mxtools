@@ -349,7 +349,7 @@ export const enUS = {
     csmCascadeRes: { name: 'Sun shadow detail', description: 'Sun shadow map resolution' },
     shadowDetail: { name: 'Spot shadow detail', description: 'Spot light shadow toggle + quality combined' },
     particleDetail: { name: 'Effects detail', description: 'No noticeable effect yet' },
-    ragdoll: { name: 'Ragdoll', description: 'Gibs and ragdoll count combined' },
+    ragdoll: { name: 'Ragdoll', description: 'Controls how physically accurate dead body animations are; may stutter on nearby kills—recommended to set low' },
     decals: { name: 'Impact marks', description: 'Bullet holes, thermite burn marks, and other surface decals—recommended off; hurts performance and focus' },
     newShadowSettings: { name: 'New shadow settings', description: 'Purpose not yet known' },
   },
@@ -421,6 +421,9 @@ export const enUS = {
       description: 'Controls indoor point-light shadows (ceiling lights, etc.)—toggle and sharpness.',
       imageAlt: 'Spot shadow detail comparison: left high, right low',
       imageCaption: 'Left: high shadow detail; right: low shadow detail',
+    },
+    ragdoll: {
+      description: 'Controls how physically accurate ragdoll animations are when legends are defeated. High settings can cause brief stutters on kills nearby; set low for competitive play.',
     },
     csm: {
       description: 'Controls sun shadow toggle, coverage range, and shadow map resolution. High settings add complex shadows that distract in combat—recommended to disable sun shadows for competitive play.',
