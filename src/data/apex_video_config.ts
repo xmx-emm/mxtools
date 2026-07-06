@@ -593,6 +593,25 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
       },
     ],
   },
+
+  // 环境光遮蔽：关 0 / 低 1 / 中 2 / 高 3 / 超高 4
+  {
+    identifier: 'group.ssaoQuality',
+    name: 'apexVideoConfig.ssaoQuality.name',
+    description: 'apexVideoConfig.ssaoQuality.description',
+    valueType: 'enum',
+    tip: ApexVideoSsaoQualityTip,
+    options: [
+      { label: 'apexVideoConfig.options.off', values: { 'setting.ssao_quality': '0' } },
+      { label: 'apexVideoConfig.options.low', values: { 'setting.ssao_quality': '1' } },
+      { label: 'apexVideoConfig.options.medium', values: { 'setting.ssao_quality': '2' } },
+      { label: 'apexVideoConfig.options.high', values: { 'setting.ssao_quality': '3' } },
+      { label: 'apexVideoConfig.options.ultra', values: { 'setting.ssao_quality': '4' } },
+    ],
+    fields: [
+      { identifier: 'setting.ssao_quality', valueType: 'integer', min: 0, max: 4, step: 1 },
+    ],
+  },
   {
     identifier: 'setting.volumetric_lighting',
     name: 'apexVideoConfig.volumetricLighting.name',
@@ -616,25 +635,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     hide_in_normal_filter: true,
     tip: ApexVideoNewShadowSettingsTip,
     not_in_game_settings: true,
-  },
-
-  // 环境光遮蔽：关 0 / 低 1 / 中 2 / 高 3 / 超高 4
-  {
-    identifier: 'group.ssaoQuality',
-    name: 'apexVideoConfig.ssaoQuality.name',
-    description: 'apexVideoConfig.ssaoQuality.description',
-    valueType: 'enum',
-    tip: ApexVideoSsaoQualityTip,
-    options: [
-      { label: 'apexVideoConfig.options.off', values: { 'setting.ssao_quality': '0' } },
-      { label: 'apexVideoConfig.options.low', values: { 'setting.ssao_quality': '1' } },
-      { label: 'apexVideoConfig.options.medium', values: { 'setting.ssao_quality': '2' } },
-      { label: 'apexVideoConfig.options.high', values: { 'setting.ssao_quality': '3' } },
-      { label: 'apexVideoConfig.options.ultra', values: { 'setting.ssao_quality': '4' } },
-    ],
-    fields: [
-      { identifier: 'setting.ssao_quality', valueType: 'integer', min: 0, max: 4, step: 1 },
-    ],
   },
 
   'apexVideoConfig.categories.effects',
@@ -696,7 +696,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
   },
 
-  // 布娃娃系统：cl_gib_allow + cl_ragdoll_maxcount 联动
+  // 布娃娃（Ragdolls）：控制死亡尸体物理动画精确程度；游戏内低/中/高对应 cl_gib_allow + cl_ragdoll_maxcount
   {
     identifier: 'group.ragdoll',
     name: 'apexVideoConfig.ragdoll.name',

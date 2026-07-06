@@ -245,13 +245,6 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     onValues: { 'setting.r_createmodeldecals': '0', 'setting.r_decals': '0' },
   },
   {
-    key: 'disable_volumetric',
-    label: 'apexQuickPreset.video.disableVolumetric',
-    tipIdentifier: 'setting.volumetric_lighting',
-    defaultEnabled: true,
-    onValues: { 'setting.volumetric_lighting': '0', 'setting.volumetric_fog': '0' },
-  },
-  {
     key: 'disable_point_lights',
     label: 'apexQuickPreset.video.disablePointLights',
     tipIdentifier: 'group.shadowDetail',
@@ -269,6 +262,13 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     tipIdentifier: 'group.ssaoQuality',
     defaultEnabled: true,
     onValues: { 'setting.ssao_quality': '0' },
+  },
+  {
+    key: 'disable_volumetric',
+    label: 'apexQuickPreset.video.disableVolumetric',
+    tipIdentifier: 'setting.volumetric_lighting',
+    defaultEnabled: true,
+    onValues: { 'setting.volumetric_lighting': '0', 'setting.volumetric_fog': '0' },
   },
 ];
 
