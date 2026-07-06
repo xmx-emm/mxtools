@@ -61,6 +61,13 @@ function parameterTooltipText(pi: SteamLaunchOptionsImpl) {
   );
 }
 
+function launchOptionKey(pi: SteamLaunchOptionsImpl): string {
+  if (pi.name) return pi.name;
+  if (typeof pi.parameter === 'string') return pi.parameter;
+  if (Array.isArray(pi.parameter)) return pi.parameter.join('|');
+  return '';
+}
+
 /**
  * 检查前置条件
  */
@@ -232,7 +239,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                       <!--item.parameters-->
                       <v-btn
                         v-for="pi in item.parameters"
-                        :key="pi.name || pi.parameter"
+                        :key="launchOptionKey(pi)"
                         size="small"
                         v-if="item.identifier && apex_store.settings_config[item.identifier]"
                         :title="(pi?.requirement_description && !checkRequirement(pi)) ? parameterTooltipText(pi) : undefined"
