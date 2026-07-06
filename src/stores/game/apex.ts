@@ -492,7 +492,10 @@ const apexStore = defineStore('apex', {
               if (value?.parameter && typeof value?.parameter === 'string' && start_launch_option.includes(value.parameter)) {
                 selection.push(option);
                 if (option?.identifier) {
-                  settingsPatch[option.identifier] = value?.default_parameter || value?.parameter || option?.default_parameter;
+                  const patchValue = value.default_parameter || value.parameter || option.default_parameter;
+                  if (patchValue) {
+                    settingsPatch[option.identifier] = patchValue;
+                  }
                 }
                 break;
               }

@@ -350,7 +350,7 @@ export const zhCN = {
     csmCascadeRes: { name: '阳光阴影细节', description: '阳光阴影贴图分辨率' },
     shadowDetail: { name: '点光源阴影细节', description: '点光源阴影开关与质量联动' },
     particleDetail: { name: '特效细节', description: '暂时看不出来有什么作用' },
-    ragdoll: { name: '布娃娃系统', description: '碎片效果与布娃娃数量联动' },
+    ragdoll: { name: '布娃娃系统', description: '控制死亡尸体物理动画的精确程度，击杀或附近有人倒地时可能掉帧，建议调低' },
     decals: { name: '冲撞痕迹', description: '子弹弹孔、铝热剂灼烧痕迹等贴画效果，建议关闭，影响性能和注意力' },
     newShadowSettings: { name: '新阴影设置', description: '暂时还不知道有什么作用' },
   },
@@ -422,6 +422,9 @@ export const zhCN = {
       description: '控制室内点光源（顶灯等）的阴影开关与清晰度。',
       imageAlt: '点光源阴影细节对比：左高右低',
       imageCaption: '左：高细节阴影；右：低细节阴影',
+    },
+    ragdoll: {
+      description: '控制倒地/死亡后尸体受物理引擎驱动的动画精确程度。设得过高时，击杀敌人或附近有人倒地可能短暂卡顿；竞技向建议调低。',
     },
     csm: {
       description: '控制阳光投射阴影的开关、影响范围与贴图细节。过高的阴影过于复杂，容易分散注意力，竞技建议关闭阳光阴影。',

@@ -28,7 +28,7 @@
 npm install
 ```
 
-仅前端开发(Vite,端口 `1420`)：
+仅前端开发(Vite,端口 `5173`)：
 
 ```bash
 npm run dev
@@ -48,6 +48,18 @@ npm run "build window installer" #安装版
 ```
 
 PowerShell 下也可写作：`npm run build\ window`(转义空格).
+
+## 故障排查
+
+### `tauri dev` 报 `EACCES: permission denied` 无法监听端口
+
+Windows 上 Hyper-V / WSL / Docker 等可能通过 `winnat` 保留一段 TCP 端口,落在保留段内的端口绑定时会得到 `EACCES`(而非 `EADDRINUSE`).本项目开发端口为 `5173`,若你自行修改端口,请先确认不在系统保留段内：
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+若所选端口落在某段 `开始端口`–`结束端口` 之间,请换用段外的端口,并同步修改 `vite.config.ts` 与 `src-tauri/tauri.conf.json` 的 `devUrl`.
 
 ## 技术栈
 

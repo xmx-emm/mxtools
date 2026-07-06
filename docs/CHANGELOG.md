@@ -5,12 +5,37 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/).
 
 ---
+## [0.0.5] 2026-7-6
+
+### 新增
+
+- **Apex 视频配置**：新增视频设置页面，可读取并应用游戏内 `videoconfig.cfg` 配置（窗口模式、分辨率、垂直同步、抗锯齿、伽马、动态分辨率、模型/纹理/阴影/贴花/CSM、SSAO、体积光、布娃娃等）
+- **Apex 页面切换**：Apex 页面支持「启动项」与「视频配置」两种视图切换
+- **Apex 快速预设**：新增快速预设对话框，可一键应用比例、分辨率、锁帧、启动项及视频配置组合
+- **Apex 宽高比预设**：新增 1:1、2:1、5:4 等更多比例预设
+- **设置页**：新增调试模式开关，控制详细日志输出
+
+### 变更
+
+- **Apex 模块**：重构游戏功能目录结构（`launch` / `video_config` / `preset` 分区），统一比例、分辨率、锁帧等通用预设组件
+- **Apex 快速预设**：支持视频配置独立开关，启动项与视频项双列展示；优化预设对话框布局
+- **Apex 视频配置**：优化 SSAO 质量与布娃娃相关选项；改进伽马预览与 DVS 锁帧滑块交互
+- **导航栏**：优化侧边导航布局与面板宽度拖拽调整
+
+### 修复
+
+- 修复 Apex 启动项解析时无限帧率（`+fps_max unlimited`）识别问题
+- 修正黑边容忍阈值（`mat_letterbox_aspect_threshold`）配置
+
+---
+
 ## [0.0.4]
 
 ### 新增
 
 - **支持PUBG配置**：可设置PUBG启动项
 
+---
 
 ## [0.0.3] 2026-4-21
 
@@ -78,4 +103,6 @@
 ---
 
 [0.0.2]: https://github.com/xmx-emm/mxtools/compare/98804e6198f4c36a8475bde3b10a2829ffc3d532...HEAD
-[0.0.3]: https://github.com/xmx-emm/mxtools/compare/v0.0.2...HEAD
+[0.0.3]: https://github.com/xmx-emm/mxtools/compare/v0.0.2...v0.0.3
+[0.0.4]: https://github.com/xmx-emm/mxtools/compare/v0.0.3...v0.0.4
+[0.0.5]: https://github.com/xmx-emm/mxtools/compare/v0.0.4...v0.0.5

@@ -6,7 +6,10 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <ApexTipCard :title="t('apexVideoConfig.ragdoll.name')">
-    <p class="text-medium-emphasis">{{ t('apexVideoTips.placeholder') }}</p>
+  <ApexTipCard
+    :title="t('apexVideoConfig.ragdoll.name')"
+    :subtitle="t('apexVideoConfig.ragdoll.description')"
+  >
+    <p class="text-medium-emphasis mb-0">{{ t('apexVideoTips.ragdoll.description') }}</p>
   </ApexTipCard>
 </template>
