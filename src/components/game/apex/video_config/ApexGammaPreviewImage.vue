@@ -118,7 +118,7 @@ onUnmounted(() => {
         v-if="!ready"
         class="apex-gamma-preview-loading d-flex align-center justify-center"
       >
-        <v-progress-circular color="grey-lighten-4" indeterminate />
+        <v-progress-circular color="surface-variant" indeterminate />
       </div>
     </div>
   </div>

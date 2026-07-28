@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import ResolutionPreset from '@/components/game/common/ResolutionPreset.vue';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 </script>
 
 <template>

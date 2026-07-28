@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import steamSelectLanguageImg from '@/assets/images/apex/steam_select_language.jpg';
 import ApexImage from '@/components/game/apex/common/tips/ApexImage.vue';
 import {APEX_MILES_LANGUAGE_VIDEO_URL} from '@/data/url_video.ts';
 import ApexTipCard from '@/components/game/apex/common/tips/ApexTipCard.vue';
 import ApexTipVideoBox from '@/components/game/apex/common/tips/ApexTipVideoBox.vue';
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 const { t } = useI18n();
 
 </script>

@@ -13,5 +13,11 @@ export const useDebugStore = defineStore('debug', {
       this.enabled = value ?? false;
     },
   },
-  tauri: {autoStart: true},
+  tauri: {
+    autoStart: true,
+    syncStrategy: 'debounce',
+    syncInterval: 300,
+    saveStrategy: 'debounce',
+    saveInterval: 500,
+  },
 });

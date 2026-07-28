@@ -9,7 +9,7 @@ import {
   isApexVideoConfigImpl,
 } from '@/types/apex.ts';
 import {ApexFilterEnum} from '@/enum.ts';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexVideoConfigFilter from '@/components/game/apex/video_config/ApexVideoConfigFilter.vue';
 import ApexVideoConfigLockFab from '@/components/game/apex/video_config/ApexVideoConfigLockFab.vue';
@@ -19,7 +19,7 @@ import ApexCsmPanel from '@/components/game/apex/video_config/ApexCsmPanel.vue';
 import { APEX_GAMMA_REFERENCE, formatGammaDisplay } from '@/utils/apex_gamma.ts';
 import ApexListItemBadges from '@/components/game/apex/common/ApexListItemBadges.vue';
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 const { t } = useI18n();
 
 const SEARCH_MATCH_LOCALES = ['zh-CN', 'en-US'] as const;
@@ -209,11 +209,18 @@ function refreshSubtitleOverflow() {
   if (subtitle_refresh_raf) return;
   subtitle_refresh_raf = requestAnimationFrame(() => {
     subtitle_refresh_raf = 0;
+    const prev = subtitle_overflow_map.value;
+    let changed = false;
     const next: Record<string, boolean> = {};
     for (const [id, el] of subtitle_elements.entries()) {
-      next[id] = el.scrollWidth > el.clientWidth + 1;
+      const overflow = el.scrollWidth > el.clientWidth + 1;
+      next[id] = overflow;
+      if (prev[id] !== overflow) changed = true;
     }
-    subtitle_overflow_map.value = next;
+    // 仅在溢出状态变化时写回，避免 ResizeObserver 连锁触发整表重渲染
+    if (changed || Object.keys(prev).length !== Object.keys(next).length) {
+      subtitle_overflow_map.value = next;
+    }
   });
 }
 

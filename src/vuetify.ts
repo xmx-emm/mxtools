@@ -1,60 +1,59 @@
 import {h} from 'vue';
 import {createVuetify} from 'vuetify';
 import {aliases, mdi} from 'vuetify/iconsets/mdi-svg';
-import {resolveMdiIcon} from '@/icons/mdi-icons';
-import DateFnsAdapter from '@date-io/date-fns';
-import type {AccentTheme} from '@/themes';
-import {deriveThemeColors, findAccent} from '@/themes';
+import {resolveMdiIcon} from '@/icons/mdi-icons.ts';
+import type {AccentTheme} from '@/themes.ts';
+import {deriveThemeColors, findAccent} from '@/themes.ts';
 
 /** 浅色主题：参考 Edge / Fluent 的柔和灰白，避免纯白刺眼 */
-const appleLight = {
+const mxLight = {
   dark: false,
   colors: {
-    background: '#f3f3f3',
-    surface: '#f8f8f8',
-    'surface-bright': '#fafafa',
-    'surface-variant': '#ececec',
-    'on-surface': '#1f1f1f',
-    'on-surface-variant': '#5a5a5a',
-    outline: 'rgba(0,0,0,0.10)',
-    'outline-variant': 'rgba(0,0,0,0.06)',
-    primary: '#007AFF',
+    background: '#f4f6f8',
+    surface: '#ffffff',
+    'surface-bright': '#ffffff',
+    'surface-variant': '#e9eef2',
+    'on-surface': '#20262d',
+    'on-surface-variant': '#5b6570',
+    outline: 'rgba(31,42,53,0.18)',
+    'outline-variant': 'rgba(31,42,53,0.10)',
+    primary: '#0f6cbd',
     'on-primary': '#ffffff',
-    'primary-container': '#dfe8f4',
-    'on-primary-container': '#0d47a1',
-    secondary: '#8e8e93',
+    'primary-container': '#d8e9f8',
+    'on-primary-container': '#07375f',
+    secondary: '#52606d',
     'on-secondary': '#ffffff',
-    error: '#ff3b30',
+    error: '#c42b1c',
     'on-error': '#ffffff',
-    info: '#007AFF',
-    success: '#34c759',
-    warning: '#ff9500',
+    info: '#0f6cbd',
+    success: '#107c10',
+    warning: '#9d5d00',
   },
 };
 
-/** 暗色主题：参考 Edge / Fluent 分层深灰，避免纯黑发闷、控件贴底 */
-const appleDark = {
+/** 暗色主题：分层拉开，侧栏/卡片/主背景可区分 */
+const mxDark = {
   dark: true,
   colors: {
-    background: '#202020',
-    surface: '#2b2b2b',
-    'surface-bright': '#383838',
-    'surface-variant': '#333333',
-    'on-surface': '#e8e8e8',
-    'on-surface-variant': '#a0a0a0',
-    outline: 'rgba(255,255,255,0.14)',
-    'outline-variant': 'rgba(255,255,255,0.10)',
-    primary: '#0a84ff',
-    'on-primary': '#ffffff',
-    'primary-container': '#2a3044',
-    'on-primary-container': '#90caf9',
-    secondary: '#98989d',
-    'on-secondary': '#ffffff',
-    error: '#ff453a',
-    'on-error': '#ffffff',
-    info: '#0a84ff',
-    success: '#30d158',
-    warning: '#ff9f0a',
+    background: '#17191c',
+    surface: '#202328',
+    'surface-bright': '#292d33',
+    'surface-variant': '#30353c',
+    'on-surface': '#f3f5f7',
+    'on-surface-variant': '#b4bbc3',
+    outline: 'rgba(255,255,255,0.16)',
+    'outline-variant': 'rgba(255,255,255,0.09)',
+    primary: '#4cc2ff',
+    'on-primary': '#071b26',
+    'primary-container': '#123d54',
+    'on-primary-container': '#c9ecff',
+    secondary: '#a9b3bd',
+    'on-secondary': '#182027',
+    error: '#ff99a4',
+    'on-error': '#3b0710',
+    info: '#4cc2ff',
+    success: '#6ccb5f',
+    warning: '#fce100',
   },
 };
 
@@ -62,8 +61,8 @@ const vuetify = createVuetify({
   theme: {
     defaultTheme: 'light',
     themes: {
-      light: appleLight,
-      dark: appleDark,
+      light: mxLight,
+      dark: mxDark,
     },
   },
   icons: {
@@ -87,28 +86,25 @@ const vuetify = createVuetify({
     },
     VCard: {
       elevation: 0,
-      rounded: 'lg',
+      rounded: 'md',
     },
     VBtn: {},
     VTextField: {
       variant: 'outlined',
       density: 'comfortable',
-      rounded: 'lg',
+      rounded: 'md',
       hideDetails: 'auto',
     },
     VSelect: {
       variant: 'outlined',
       density: 'comfortable',
-      rounded: 'lg',
+      rounded: 'md',
       hideDetails: 'auto',
     },
     VChip: {
-      rounded: 'lg',
+      rounded: 'md',
     },
   },
-  date: {
-    adapter: DateFnsAdapter,
-  }
 });
 
 export function applyAccentTheme(accentId: string) {

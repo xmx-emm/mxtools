@@ -1,0 +1,178 @@
+/* Shared search language. Keep this class opt-in so ordinary form fields retain
+ * their component-specific density and validation treatment. */
+:root {
+  --mx-search-height: 36px;
+  --mx-search-radius: var(--app-radius-sm, 6px);
+}
+
+.v-theme--light,
+.v-theme--dark {
+  --mx-search-surface: rgba(var(--v-theme-surface), 0.78);
+  --mx-search-surface-hover: rgba(var(--v-theme-surface), 0.92);
+  --mx-search-border: rgba(var(--v-theme-on-surface), 0.18);
+  --mx-search-border-hover: rgba(var(--v-theme-on-surface), 0.32);
+  --mx-search-border-focus: rgba(var(--v-theme-primary), 0.78);
+  --mx-search-focus-ring: rgba(var(--v-theme-primary), 0.14);
+  --mx-search-placeholder: rgba(var(--v-theme-on-surface), 0.56);
+  --mx-search-icon: rgba(var(--v-theme-on-surface), 0.58);
+}
+
+/* Vuetify text fields used as filters/searches. */
+.mx-search-field {
+  --v-input-control-height: var(--mx-search-height);
+  --v-field-padding-start: 10px;
+  --v-field-padding-end: 8px;
+  --v-field-padding-top: 0px;
+  --v-field-padding-bottom: 0px;
+  --v-field-input-padding-top: 0px;
+  --v-field-input-padding-bottom: 0px;
+}
+
+.mx-search-field .v-field {
+  --v-input-control-height: var(--mx-search-height);
+  --v-field-padding-start: 10px;
+  --v-field-padding-end: 8px;
+  --v-field-padding-top: 0px;
+  --v-field-padding-bottom: 0px;
+  --v-field-input-padding-top: 0px;
+  --v-field-input-padding-bottom: 0px;
+  min-height: var(--mx-search-height);
+  overflow: hidden;
+  border-radius: var(--mx-search-radius);
+  background: var(--mx-search-surface);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  transition:
+    background-color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    box-shadow var(--app-motion-fast, 120ms) var(--app-ease-standard, ease);
+}
+
+/* Vuetify's density modifiers set these variables on the field itself; keep
+ * the opt-in search density stable even when those selectors are more specific. */
+.mx-search-field.v-input--density-compact .v-field {
+  --v-input-control-height: var(--mx-search-height);
+  --v-field-padding-start: 10px;
+  --v-field-padding-end: 8px;
+  --v-field-padding-top: 0px;
+  --v-field-padding-bottom: 0px;
+  --v-field-input-padding-top: 0px;
+  --v-field-input-padding-bottom: 0px;
+}
+
+.mx-search-field .v-field__outline {
+  --v-field-border-opacity: 1;
+  color: var(--mx-search-border);
+}
+
+.mx-search-field .v-field:hover {
+  background: var(--mx-search-surface-hover);
+}
+
+.mx-search-field .v-field:hover .v-field__outline {
+  color: var(--mx-search-border-hover);
+}
+
+.mx-search-field .v-field.v-field--focused {
+  background: var(--mx-search-surface-hover);
+  box-shadow: 0 0 0 3px var(--mx-search-focus-ring), inset 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.mx-search-field .v-field.v-field--focused .v-field__outline {
+  --v-field-border-width: 1px;
+  color: var(--mx-search-border-focus);
+}
+
+.mx-search-field .v-field__input {
+  min-height: var(--mx-search-height);
+  padding-block: 0;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-size: 13px;
+  font-weight: 520;
+  letter-spacing: 0;
+}
+
+.mx-search-field .v-field__input input::placeholder {
+  color: var(--mx-search-placeholder);
+  opacity: 1;
+}
+
+.mx-search-field .v-field__prepend-inner,
+.mx-search-field .v-field__append-inner,
+.mx-search-field .v-field__clearable {
+  align-items: center;
+  padding-top: 0;
+}
+
+.mx-search-field .v-field__prepend-inner > .v-icon,
+.mx-search-field .v-field__append-inner > .v-icon,
+.mx-search-field .v-field__clearable > .v-icon {
+  color: var(--mx-search-icon);
+  font-size: 18px;
+  opacity: 1;
+  transition: color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    transform var(--app-motion-fast, 120ms) var(--app-ease-emphasized, ease);
+}
+
+.mx-search-field .v-field.v-field--focused .v-field__prepend-inner > .v-icon,
+.mx-search-field .v-field.v-field--focused .v-field__append-inner > .v-icon {
+  color: rgb(var(--v-theme-primary));
+  transform: scale(1.04);
+}
+
+/* Native command-palette input uses the same border, surface and focus ring. */
+.mx-search-surface {
+  border: 1px solid var(--mx-search-border);
+  border-radius: var(--mx-search-radius);
+  background: var(--mx-search-surface);
+  transition:
+    border-color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    background-color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    box-shadow var(--app-motion-base, 180ms) var(--app-ease-standard, ease);
+}
+
+.mx-search-surface:focus-within {
+  border-color: var(--mx-search-border-focus);
+  background: var(--mx-search-surface-hover);
+  box-shadow: 0 0 0 3px var(--mx-search-focus-ring), 0 10px 28px rgba(var(--v-theme-primary), 0.08);
+}
+
+.mx-search-surface .mx-search-icon {
+  color: var(--mx-search-icon);
+  transition: color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    transform var(--app-motion-fast, 120ms) var(--app-ease-emphasized, ease);
+}
+
+.mx-search-surface:focus-within .mx-search-icon {
+  color: rgb(var(--v-theme-primary));
+  transform: scale(1.08);
+}
+
+.mx-search-surface > input::placeholder {
+  color: var(--mx-search-placeholder);
+  opacity: 1;
+}
+
+/* Clickable search affordances (title bar and dashboard) share the same states. */
+.mx-search-trigger {
+  border: 1px solid var(--mx-search-border);
+  border-radius: var(--mx-search-radius);
+  background: var(--mx-search-surface);
+}
+
+.mx-search-trigger:is(:hover, :focus-visible) {
+  border-color: var(--mx-search-border-focus);
+  background: var(--mx-search-surface-hover);
+}
+
+.mx-search-trigger:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--mx-search-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-search-field .v-field,
+  .mx-search-field .v-icon,
+  .mx-search-surface,
+  .mx-search-surface .mx-search-icon {
+    transition: none;
+  }
+}

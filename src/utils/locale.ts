@@ -13,3 +13,9 @@ export function resolveLocale(locale: LocaleCode): 'zh-CN' | 'en-US' {
   if (locale === 'system') return getSystemLocale();
   return locale;
 }
+
+/** Keep browser/assistive technology language metadata in sync with i18n. */
+export function applyDocumentLocale(locale: LocaleCode | 'zh-CN' | 'en-US'): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = resolveLocale(locale) === 'zh-CN' ? 'zh-CN' : 'en';
+}

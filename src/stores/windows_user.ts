@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia';
-import {invoke} from '@tauri-apps/api/core';
+import {useToast} from 'vue-toastification';
 import type {WindowsUser} from '@/types/windows.ts';
+import {getWindowsUsers} from '@/ipc/commands.ts';
 
 export const useWindowsUserStore = defineStore('windowsUser', {
   state: () => ({
@@ -11,9 +12,10 @@ export const useWindowsUserStore = defineStore('windowsUser', {
     async loadUsers() {
       this.loading = true;
       try {
-        this.users = await invoke('get_windows_users');
+        this.users = await getWindowsUsers();
       } catch (e) {
         console.error('loadUsers error', e);
+        useToast().error(String(e) || 'rdp.user.empty');
       }
       this.loading = false;
     },

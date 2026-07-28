@@ -2,18 +2,18 @@
 
 #[cfg(windows)]
 mod imp {
-  use std::fs::File;
-  use std::io::{Read, Write};
-  use std::os::windows::io::{FromRawHandle, RawHandle};
-  use std::sync::Mutex;
-  use std::thread;
+    use std::fs::File;
+    use std::io::{Read, Write};
+    use std::os::windows::io::{FromRawHandle, RawHandle};
+    use std::sync::Mutex;
+    use std::thread;
 
-  use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-  use winapi::um::namedpipeapi::CreatePipe;
-  use winapi::um::processenv::{GetStdHandle, SetStdHandle};
-  use winapi::um::winbase::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE};
+    use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+    use winapi::um::namedpipeapi::CreatePipe;
+    use winapi::um::processenv::{GetStdHandle, SetStdHandle};
+    use winapi::um::winbase::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE};
 
-  static TEE_INITIALIZED: Mutex<bool> = Mutex::new(false);
+    static TEE_INITIALIZED: Mutex<bool> = Mutex::new(false);
 
     /// 是否已启用 stdio 重定向(用于避免 log 宏重复写文件)
     pub fn is_active() -> bool {
@@ -75,15 +75,13 @@ mod imp {
             if is_valid_handle(h_stdout) {
                 let mut h_read: winapi::shared::ntdef::HANDLE = std::mem::zeroed();
                 let mut h_write: winapi::shared::ntdef::HANDLE = std::mem::zeroed();
-                if CreatePipe(&mut h_read, &mut h_write, std::ptr::null_mut(), 0) != 0 {
-                    if SetStdHandle(STD_OUTPUT_HANDLE, h_write) != 0 {
-                        let pipe_read = File::from_raw_handle(h_read as RawHandle);
-                        let console_write = File::from_raw_handle(h_stdout as RawHandle);
-                        let gp = get_path.clone();
-                        thread::spawn(move || {
-                            tee_thread(pipe_read, console_write, gp, maybe_truncate)
-                        });
-                    }
+                if CreatePipe(&mut h_read, &mut h_write, std::ptr::null_mut(), 0) != 0
+                    && SetStdHandle(STD_OUTPUT_HANDLE, h_write) != 0
+                {
+                    let pipe_read = File::from_raw_handle(h_read as RawHandle);
+                    let console_write = File::from_raw_handle(h_stdout as RawHandle);
+                    let gp = get_path.clone();
+                    thread::spawn(move || tee_thread(pipe_read, console_write, gp, maybe_truncate));
                 }
             }
 
@@ -92,15 +90,13 @@ mod imp {
             if is_valid_handle(h_stderr) {
                 let mut h_read: winapi::shared::ntdef::HANDLE = std::mem::zeroed();
                 let mut h_write: winapi::shared::ntdef::HANDLE = std::mem::zeroed();
-                if CreatePipe(&mut h_read, &mut h_write, std::ptr::null_mut(), 0) != 0 {
-                    if SetStdHandle(STD_ERROR_HANDLE, h_write) != 0 {
-                        let pipe_read = File::from_raw_handle(h_read as RawHandle);
-                        let console_write = File::from_raw_handle(h_stderr as RawHandle);
-                        let gp = get_path.clone();
-                        thread::spawn(move || {
-                            tee_thread(pipe_read, console_write, gp, maybe_truncate)
-                        });
-                    }
+                if CreatePipe(&mut h_read, &mut h_write, std::ptr::null_mut(), 0) != 0
+                    && SetStdHandle(STD_ERROR_HANDLE, h_write) != 0
+                {
+                    let pipe_read = File::from_raw_handle(h_read as RawHandle);
+                    let console_write = File::from_raw_handle(h_stderr as RawHandle);
+                    let gp = get_path.clone();
+                    thread::spawn(move || tee_thread(pipe_read, console_write, gp, maybe_truncate));
                 }
             }
         }
@@ -111,10 +107,10 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
-  pub fn init<F>(_get_path: std::sync::Arc<F>, _maybe_truncate: fn(&std::path::Path))
-  where
-    F: Fn() -> std::path::PathBuf + Send + Sync + 'static,
-  {
+    pub fn init<F>(_get_path: std::sync::Arc<F>, _maybe_truncate: fn(&std::path::Path))
+    where
+        F: Fn() -> std::path::PathBuf + Send + Sync + 'static,
+    {
         // 非 Windows 平台暂不实现
     }
 }

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 
 defineProps<{
   title?: string
   subtitle?: string
 }>();
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 </script>
 
 <template>
@@ -21,7 +21,7 @@ const apex_store = apexStore();
         @click.stop="apex_store.closeTip()"
       />
     </template>
-    <template v-if="$slots.text" v-slot:text style="padding:0">
+    <template v-if="$slots.text" v-slot:text>
         <slot name="text" />
     </template>
     <div class="mx-6 mb-6 tip-body">

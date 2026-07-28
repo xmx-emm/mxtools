@@ -1,15 +1,11 @@
 [package]
 name = "mxtools"
-version = "0.0.5"
-description = "萌新工具箱"
-authors = ["小萌新"]
+version = "0.0.6"
+description = "Windows-focused Tauri desktop toolbox"
+authors = ["xmx-emm"]
 edition = "2021"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-# The `_lib` suffix may seem redundant, but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "mxtools_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -18,22 +14,53 @@ tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.10", features = ["default", "devtools"] }
+# INTENTIONAL: keep `devtools` in release builds. Field debugging uses
+# `open_devtools` (AppVersion Konami). Do NOT remove as "security hardening"
+# without product owner approval ? see also `lib.rs` / AppVersion.vue.
+tauri = { version = "2.11", features = ["default", "devtools", "tray-icon"] }
 tauri-plugin-opener = "2.5.3"
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-global-shortcut = "2.3.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-pinia = "4.1.1"
+tauri-plugin-autostart = "2"
 
-sysinfo = "0.38.1" #系统信息
+# 体积优化：仅启用 system 特性（CPU/内存/进程）；默认的 component(WMI)/disk/network/user 未使用。
+# 版本钉在 0.37（windows 0.61）：0.38 依赖 windows 0.62，会与 tauri 生态的 0.61 重复编译两套 windows-core
+sysinfo = { version = "0.37.2", default-features = false, features = ["system"] }
 serde_json = "1.0.149"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-tokio = { version = "1.49.0", features = ["time"] } #异步方法调用不提示
-windows_tool = { path = "../../../rust/windows_tool" }
+tokio = { version = "1.49.0", features = ["time", "fs", "io-util", "sync"] }
+windows_tool = { path = "../../../rust/windows_tool", features = ["input_method"] }
+# 仅用 png/jpeg：截图 crop 编码 jpeg、OCR 调试输出 png；bmp/webp 无使用点
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# 体积优化：关闭 Unicode 数据表（正则仅匹配 ASCII 数字，见 game/alter_q_ocr.rs）
+regex = { version = "1", default-features = false, features = ["std", "perf"] }
+base64 = "0.22"
+# RapidOCR-compatible ONNX OCR via ort 2.0.0-rc.9.
+# ppocr-rs enables ort/coreml (macOS-only); use load-dynamic to avoid Windows LNK2019.
+# ORT DLL is downloaded at runtime into AppData (not bundled).
+ppocr-rs = { path = "vendor/ppocr-rs", default-features = false, features = ["example-dynamic"] }
+ort = { version = "=2.0.0-rc.9", default-features = false, features = ["ndarray", "load-dynamic"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+sha2 = "0.10"
+hex = "0.4"
+zeroize = "1.8"
+getrandom = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+flate2 = "1"
+tar = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
-winapi = { version = "0.3", features = ["ntdef", "consoleapi", "handleapi", "namedpipeapi", "processenv", "winbase", "shellapi", "winuser", "wincon", "wingdi"] }
+winapi = { version = "0.3", features = ["ntdef", "consoleapi", "errhandlingapi", "fileapi", "handleapi", "lmaccess", "lmapibuf", "lmcons", "lmshare", "minwinbase", "namedpipeapi", "processenv", "processthreadsapi", "sddl", "shellapi", "synchapi", "winbase", "wincred", "winnetwk", "winuser", "wincon", "wingdi", "winnt"] }
+windows = { version = "0.61", features = [
+  "Media_Ocr",
+  "Graphics_Imaging",
+  "Storage_Streams",
+  "Foundation",
+  "Globalization",
+] }
 
 [profile.release]
 codegen-units = 1
@@ -41,4 +68,3 @@ lto = true
 opt-level = "z"
 strip = true
 panic = "abort"
-

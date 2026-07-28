@@ -1,5 +1,4 @@
 import {defineStore} from 'pinia';
-import {invoke} from '@tauri-apps/api/core';
 import type {EaDesktopUser} from '@/types/ea.ts';
 import {useToast} from 'vue-toastification';
 import {
@@ -7,10 +6,11 @@ import {
   mergeEaUserProfile,
   updateEaProfileCache,
 } from '@/utils/game/ea.ts';
+import {eaDesktopIsRunningByTasklist, getEaDesktopUsers} from '@/ipc/commands.ts';
 
 const toast = useToast();
 
-const eaStore = defineStore('ea', {
+export const useEaStore = defineStore('ea', {
   state: () => ({
     ea_desktop_users: <EaDesktopUser[]>[],
     active_ea_user: <EaDesktopUser | null>null,
@@ -25,7 +25,7 @@ const eaStore = defineStore('ea', {
       if (this.is_refreshing_users) return;
       this.is_refreshing_users = true;
       try {
-        return await invoke<EaDesktopUser[]>('get_ea_desktop_users')
+        return await getEaDesktopUsers()
           .then((freshUsers) => {
           const cache = this.ea_profile_cache;
           for (const fresh of freshUsers) {
@@ -58,12 +58,17 @@ const eaStore = defineStore('ea', {
     /** 查询 EA Desktop 是否在运行(无缓存,每次调用均向后端发起检测) */
     async check_is_ea_desktop_running() {
       try {
-        this.is_ea_desktop_running = await invoke<boolean>('ea_desktop_is_running_by_tasklist');
+        this.is_ea_desktop_running = await eaDesktopIsRunningByTasklist();
       } catch (e) {
         console.warn('check_is_ea_desktop_running failed', e);
       }
     },
   },
-  tauri: { autoStart: true },
+  tauri: {
+    autoStart: true,
+    syncStrategy: 'debounce',
+    syncInterval: 400,
+    saveStrategy: 'debounce',
+    saveInterval: 600,
+  },
 });
-export default eaStore;

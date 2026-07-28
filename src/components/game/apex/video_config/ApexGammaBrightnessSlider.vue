@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onUnmounted } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import {
   APEX_GAMMA_REFERENCE,
   brightnessToGamma,
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 const useParentModel = computed(() => props.modelValue !== undefined);
 
@@ -36,19 +36,14 @@ function syncStore(brightness: number) {
 }
 
 function scheduleStoreSync(brightness: number) {
-  if (!useParentModel.value) {
-    syncStore(brightness);
-    return;
-  }
   if (storeSyncTimer) clearTimeout(storeSyncTimer);
-  storeSyncTimer = setTimeout(() => syncStore(brightness), 100);
+  storeSyncTimer = setTimeout(() => {
+    storeSyncTimer = null;
+    syncStore(brightness);
+  }, 100);
 }
 
 function flushStoreSync(brightness: number) {
-  if (!useParentModel.value) {
-    syncStore(brightness);
-    return;
-  }
   if (storeSyncTimer) {
     clearTimeout(storeSyncTimer);
     storeSyncTimer = null;
@@ -56,20 +51,23 @@ function flushStoreSync(brightness: number) {
   syncStore(brightness);
 }
 
+/** 拖动中用本地值驱动 UI，避免每步写入 Pinia 触发整页视频配置列表重渲染 */
+const localBrightness = ref<number | null>(null);
+
 const brightness = computed({
   get: () => {
+    if (localBrightness.value != null) return localBrightness.value;
     if (useParentModel.value) return props.modelValue!;
     return gammaToBrightness(
       apex_store.get_video_config_number('setting.gamma', APEX_GAMMA_REFERENCE),
     );
   },
   set: (value: number) => {
+    localBrightness.value = value;
     if (useParentModel.value) {
       emit('update:modelValue', value);
-      scheduleStoreSync(value);
-    } else {
-      syncStore(value);
     }
+    scheduleStoreSync(value);
   },
 });
 
@@ -82,7 +80,9 @@ function onSliderInput(value: number) {
 }
 
 function onSliderEnd(value: number) {
+  localBrightness.value = value;
   flushStoreSync(value);
+  localBrightness.value = null;
 }
 
 onUnmounted(() => {

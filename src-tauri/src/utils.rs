@@ -5,9 +5,27 @@ use tokio::time;
 use windows_tool::utils::CommandHiddenWindowExt;
 
 static WAIT_MILLIS: u64 = 200; //等待毫秒数,避免数据刷新问题
+static POLL_INTERVAL_MS: u64 = 100;
+static POLL_ATTEMPTS: u32 = 20; // 最多约 2s
 
 pub async fn await_time() {
     time::sleep(Duration::from_millis(WAIT_MILLIS)).await;
+}
+
+/// 轮询直到 `pred` 为真或达到尝试次数；返回最后一次 `pred` 的结果。
+pub async fn poll_until<F>(mut pred: F) -> bool
+where
+    F: FnMut() -> bool,
+{
+    for i in 0..POLL_ATTEMPTS {
+        if pred() {
+            return true;
+        }
+        if i + 1 < POLL_ATTEMPTS {
+            time::sleep(Duration::from_millis(POLL_INTERVAL_MS)).await;
+        }
+    }
+    pred()
 }
 
 /// 在阻塞线程池执行可能耗时的同步操作，避免卡住 Tauri 主运行时。
@@ -53,15 +71,22 @@ fn force_kill_process_by_pid(pid: String) {
     }
 }
 
-pub fn kill_processes_by_names(target_processes: &[&str], match_mode: ProcessNameMatchMode) -> usize {
+pub fn kill_processes_by_names(
+    target_processes: &[&str],
+    match_mode: ProcessNameMatchMode,
+) -> usize {
     if target_processes.is_empty() {
         return 0;
     }
 
-    let target_lower: Vec<String> = target_processes.iter().map(|name| name.to_lowercase()).collect();
+    let target_lower: Vec<String> = target_processes
+        .iter()
+        .map(|name| name.to_lowercase())
+        .collect();
 
-    let mut system = System::new_all();
-    system.refresh_all();
+    // 仅刷新进程列表，避免 System::new_all + refresh_all 的全量开销
+    let mut system = System::new();
+    system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
     let mut killed_count = 0;
 
@@ -89,6 +114,27 @@ pub fn kill_processes_by_names(target_processes: &[&str], match_mode: ProcessNam
     }
 
     killed_count
+}
+
+/// 强制结束一组进程并等待短暂刷新；返回终止数量。
+pub async fn thoroughly_kill_named(
+    label: &str,
+    target_processes: Vec<&'static str>,
+    match_mode: ProcessNameMatchMode,
+) -> Result<u32, String> {
+    crate::log_info!("正在强制关闭 {} ...", label);
+    let killed_count =
+        tokio::task::spawn_blocking(move || kill_processes_by_names(&target_processes, match_mode))
+            .await
+            .map_err(|e| e.to_string())?;
+
+    if killed_count > 0 {
+        crate::log_info!("已关闭 {} 个 {} 相关进程", killed_count, label);
+    } else {
+        crate::log_info!("未找到运行中的 {} 进程", label);
+    }
+    await_time().await;
+    Ok(killed_count as u32)
 }
 
 /// 输入文件夹路径分类,备份注册表及日志类的目录

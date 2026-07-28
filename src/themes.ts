@@ -18,16 +18,16 @@ export const accentThemes: AccentTheme[] = [
   {
     id: 'blue',
     nameKey: 'settings.accentBlue',
-    previewColors: ['#003068', '#0055B3', '#007AFF', '#339BFF', '#66AFFF', '#CCE4FF'],
+    previewColors: ['#06375F', '#0A4E86', '#0F6CBD', '#2589D8', '#4CC2FF', '#C7EAFF'],
     light: {
-      primary: '#007AFF',
-      gradient: ['#007AFF', '#5856D6'],
-      shadow: 'rgba(0,122,255,0.25)',
+      primary: '#0F6CBD',
+      gradient: ['#0F6CBD', '#0099BC'],
+      shadow: 'rgba(15,108,189,0.25)',
     },
     dark: {
-      primary: '#0a84ff',
-      gradient: ['#0a84ff', '#5e5ce6'],
-      shadow: 'rgba(10,132,255,0.3)',
+      primary: '#4CC2FF',
+      gradient: ['#4CC2FF', '#60CDFF'],
+      shadow: 'rgba(76,194,255,0.28)',
     },
   },
   {
@@ -232,20 +232,58 @@ function darken(hex: string, amount: number): string {
   return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
 }
 
+function relativeLuminance(hex: string): number {
+  const channels = hexToRgb(hex).map((value) => {
+    const channel = value / 255;
+    return channel <= 0.04045
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function contrastRatio(background: string, foreground: string): number {
+  const lighter = Math.max(relativeLuminance(background), relativeLuminance(foreground));
+  const darker = Math.min(relativeLuminance(background), relativeLuminance(foreground));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Keep the accent readable when it is used as text on a theme surface. */
+function ensurePrimaryContrast(primary: string, isDark: boolean): string {
+  const surface = isDark ? '#30353c' : '#ffffff';
+  if (contrastRatio(surface, primary) >= 4.5) return primary;
+
+  for (let step = 1; step <= 20; step += 1) {
+    const amount = step / 20;
+    const candidate = isDark ? lighten(primary, amount) : darken(primary, amount);
+    if (contrastRatio(surface, candidate) >= 4.5) return candidate;
+  }
+  return isDark ? '#ffffff' : '#111820';
+}
+
+function contrastingText(background: string): string {
+  const light = '#ffffff';
+  const dark = '#111820';
+  return contrastRatio(background, light) >= contrastRatio(background, dark) ? light : dark;
+}
+
 export function deriveThemeColors(primary: string, isDark: boolean) {
+  const accessiblePrimary = ensurePrimaryContrast(primary, isDark);
   if (isDark) {
     return {
-      primary,
-      info: primary,
-      'primary-container': darken(primary, 0.65),
-      'on-primary-container': lighten(primary, 0.55),
+      primary: accessiblePrimary,
+      'on-primary': contrastingText(accessiblePrimary),
+      info: accessiblePrimary,
+      'primary-container': darken(accessiblePrimary, 0.65),
+      'on-primary-container': lighten(accessiblePrimary, 0.55),
     };
   }
   return {
-    primary,
-    info: primary,
-    'primary-container': lighten(primary, 0.78),
-    'on-primary-container': darken(primary, 0.45),
+    primary: accessiblePrimary,
+    'on-primary': contrastingText(accessiblePrimary),
+    info: accessiblePrimary,
+    'primary-container': lighten(accessiblePrimary, 0.78),
+    'on-primary-container': darken(accessiblePrimary, 0.45),
   };
 }
 
@@ -258,6 +296,6 @@ export function persistAccentHint(accent: AccentTheme, isDark: boolean) {
       p: mode.primary,
       s: mode.shadow,
     }));
-  } catch (_) { /* noop */
+  } catch { /* localStorage may be unavailable */
   }
 }

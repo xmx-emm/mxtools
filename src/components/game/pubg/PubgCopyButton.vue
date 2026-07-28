@@ -2,10 +2,10 @@
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {POSITION} from 'vue-toastification/src/ts/constants.ts';
-import pubgStore from '@/stores/game/pubg.ts';
+import {usePubgStore} from '@/stores/game/pubg.ts';
 
 const { t } = useI18n();
-const pubg_state = pubgStore();
+const pubg_state = usePubgStore();
 const toast = useToast();
 
 async function copyToClipboard(text: string) {
@@ -17,7 +17,7 @@ async function copyToClipboard(text: string) {
       position: POSITION.TOP_RIGHT,
       hideProgressBar: true,
     });
-  } catch (err) {
+  } catch {
     toast.error('toast.copyError');
   }
 }
@@ -34,4 +34,3 @@ async function copyToClipboard(text: string) {
 
 <style scoped>
 </style>
-

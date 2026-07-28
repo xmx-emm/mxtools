@@ -3,10 +3,10 @@
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {POSITION} from 'vue-toastification/src/ts/constants.ts';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 
 const { t } = useI18n();
-const apex_state = apexStore();
+const apex_state = useApexStore();
 const toast = useToast();
 
 async function copyToClipboard(text: string) {
@@ -18,7 +18,7 @@ async function copyToClipboard(text: string) {
       position: POSITION.TOP_RIGHT,
       hideProgressBar: true,
     });
-  } catch (err) {
+  } catch {
     toast.error('toast.copyError');
   }
 }

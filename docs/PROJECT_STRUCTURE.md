@@ -11,7 +11,7 @@ mxtools/
 ├── src/                       # 前端：Vue 3 + TypeScript + Vuetify
 ├── src-tauri/                 # 后端：Tauri 2 + Rust
 ├── index.html                 # Vite 入口 HTML
-├── vite.config.ts             # Vite 配置(端口 5173、别名 @ / ASSETS 等)
+├── vite.config.ts             # Vite 配置(端口 14200、别名 @ / ASSETS 等)
 ├── package.json               # 前端脚本与 npm 依赖
 ├── tsconfig.json              # TypeScript 配置
 ├── eslint.config.ts           # ESLint 配置
@@ -33,11 +33,11 @@ mxtools/
 | `router.ts` | 路由与「工具」导航结构(`/game`、`/windows`、`/server` 等子路由) |
 | `pages/` | 各功能模块页面(如游戏、Windows、服务器相关) |
 | `views/` | 布局级视图(首页壳、仪表盘、设置、关于、欢迎页、404 等) |
-| `components/` | 可复用 UI 与业务子组件(按领域分子目录,如 `game/`、`window/`、`settings/`) |
+| `components/` | 可复用 UI 与业务子组件(按领域分子目录,如 `game/`、`windows/`、`settings/`) |
 | `stores/` | Pinia store；与 Tauri 多窗口同步相关的 store 通过 `@tauri-store/pinia` 持久化/同步 |
 | `i18n/` | 国际化：`i18n.ts` 与 `zh-CN.ts`、`en-US.ts` 文案 |
 | `utils/` | 通用工具(路由、日志、快捷键、游戏相关辅助等) |
-| `data/` | 静态配置与外链常量(如 `url.ts`、`apex_launch_options_config.ts`) |
+| `data/` | 静态配置与外链常量(如 `url_video.ts`、`url_other.ts`、`apex_launch_options_config.ts`) |
 | `assets/` | 样式、图片等静态资源 |
 | `env.ts` | 前端展示版本号等(读取 `import.meta.env`,如 `VITE_APP_VERSION`) |
 
@@ -81,15 +81,21 @@ mxtools/
 [`src-tauri/Cargo.toml`](../src-tauri/Cargo.toml) 中包含：
 
 ```toml
-windows_tool = { path = "../../../rust/windows_tool" }
+windows_tool = { path = "../../../rust/windows_tool", features = ["input_method"] }
 ```
 
-该路径相对于 **`src-tauri/` 目录** 向上三级,即期望在 **与 `mxtools` 同级的 `rust/windows_tool`** 中存在该 crate(典型布局：`.../tauri/mxtools` 与 `.../tauri/rust/windows_tool`).
+（未写 `default-features = false`，因此 `elevated`、`registry`、`port_forwarding`、`game`、`input_method` 五个默认特性全部启用；显式的 `input_method` 仅为防御性声明。）
+
+该路径相对于 **`src-tauri/` 目录** 向上三级再进入 `rust/windows_tool`：
+
+`src-tauri` → `mxtools` → `tauri` → 上级目录 → `rust/windows_tool`
+
+典型布局：`D:\Development\tauri\mxtools` 与 `D:\Development\rust\windows_tool`（`rust` 与 `tauri` 同级，而非放在 `tauri` 目录内）。
 
 若克隆本仓库后 **未放置** `windows_tool`,`cargo build` / `tauri build` 会因找不到依赖而失败.请按你本机实际布局补齐该目录,或自行调整 `path`(需同时保证相对路径在团队内一致).
 
 ## 相关配置文件速查
 
 - 应用显示名称与窗口标题：`src-tauri/tauri.conf.json` → `app.windows[].title`
-- 开发时 Vite 端口：`vite.config.ts` 与 `tauri.conf.json` 的 `devUrl` 需一致(当前为 `5173`)
+- 开发时 Vite 端口：`vite.config.ts` 与 `tauri.conf.json` 的 `devUrl` 需一致(当前为 `14200`)
 - 版本号：Rust `src-tauri/Cargo.toml`、Tauri `tauri.conf.json`、`package.json`；前端关于页还依赖根目录 `.env` 中的 `VITE_APP_VERSION`(见 `README.md`)

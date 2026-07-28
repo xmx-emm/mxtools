@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import {onMounted} from 'vue';
 import {useI18n} from 'vue-i18n';
-import AddPortForwarding from '@/components/port_forwrarding/AddPortForwarding.vue';
-import ClearPortForwarding from '@/components/port_forwrarding/ClearPortForwarding.vue';
+import AddPortForwarding from '@/components/port_forwarding/AddPortForwarding.vue';
+import ClearPortForwarding from '@/components/port_forwarding/ClearPortForwarding.vue';
 import RequestAdministratorPrivileges from '@/components/utils/RequestAdministratorPrivileges.vue';
 import BackupsPortForwarding from '@/components/backups/BackupsPortForwarding.vue';
 import {usePortForwardingStore} from '@/stores/port_forwarding.ts';
-import ListPortForwarding from '@/components/port_forwrarding/ListPortForwarding.vue';
+import ListPortForwarding from '@/components/port_forwarding/ListPortForwarding.vue';
 
 const { t } = useI18n();
 const state = usePortForwardingStore();
-onMounted(state.update);
+onMounted(() => {
+  void state.update().catch(() => {
+    /* toast 已在 store.update 中处理 */
+  });
+});
 </script>
 
 <template>

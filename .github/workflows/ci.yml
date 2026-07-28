@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Upload bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-report
+          path: dist/bundle-report.json
+          if-no-files-found: warn
+
+  # Cargo path dep expects ../../../rust/windows_tool from src-tauri.
+  rust-backend:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: tauri/mxtools
+      - uses: actions/checkout@v4
+        with:
+          repository: xmx-emm/windows_tool
+          path: rust/windows_tool
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo fmt --check
+        working-directory: tauri/mxtools/src-tauri
+        run: cargo fmt --check
+      - name: cargo clippy
+        working-directory: tauri/mxtools/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        working-directory: tauri/mxtools/src-tauri
+        run: cargo test

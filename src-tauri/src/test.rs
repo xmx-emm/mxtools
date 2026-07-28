@@ -1,14 +1,13 @@
 #[cfg(test)]
 mod tests {
-  use crate::input_method::get_input_methods;
+    use windows_tool::input_method::get_input_methods;
 
-  #[test]
+    #[test]
     #[cfg(windows)]
     fn test_reg_raw() {
         use winreg::enums::HKEY_CURRENT_USER;
         use winreg::RegKey;
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        // 模拟 get_input_methods 的路径遍历
         let assembly_item = hkcu
             .open_subkey("Software\\Microsoft\\CTF\\SortOrder\\AssemblyItem")
             .unwrap();
@@ -30,28 +29,23 @@ mod tests {
     }
 
     #[test]
-    fn test() {
-        let a = get_input_methods();
-        let items = a.expect("get_input_methods failed");
+    fn test_get_input_methods_matches_switcher() {
+        use windows_tool::input_method::InputMethodKind;
+
+        let items = get_input_methods().expect("get_input_methods failed");
         assert!(!items.is_empty(), "should have at least one input method");
-        if items.len() >= 2 {
-            // 第二个应为 IME,id 格式为 TIP:CLSID:Profile,长度应 > 40
-            assert!(
-                items[1].id.len() > 40,
-                "IME id should be full TIP:CLSID:Profile, got len={} id={:?}",
-                items[1].id.len(),
-                items[1].id
-            );
-            assert!(
-                items[1].name == "Microsoft Pinyin"
-                    || items[1].name == "Microsoft Wubi"
-                    || items[1].name.contains("Microsoft"),
-                "IME name should be Microsoft Pinyin/Wubi, got {:?}",
-                items[1].name
-            );
-        }
+        assert!(
+            !items
+                .iter()
+                .any(|i| matches!(i.kind, InputMethodKind::LanguageKeyboard)),
+            "list should not include synthetic language base keyboards, got {:?}",
+            items.iter().map(|i| (&i.id, &i.name)).collect::<Vec<_>>()
+        );
         for (i, it) in items.iter().enumerate() {
-            println!("[{}] id={:?} name={:?}", i, it.id, it.name);
+            println!(
+                "[{}] id={:?} name={:?} kind={:?}",
+                i, it.id, it.name, it.kind
+            );
         }
     }
 }

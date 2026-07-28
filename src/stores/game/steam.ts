@@ -1,11 +1,11 @@
 import {defineStore} from 'pinia';
 import type {SteamUser} from '@/types/steam.ts';
-import {invoke} from '@tauri-apps/api/core';
 import {useToast} from 'vue-toastification';
+import {getSteamUsers, steamIsRunningByTasklist} from '@/ipc/commands.ts';
 
 const toast = useToast();
 
-const steamStore = defineStore('steam', {
+export const useSteamStore = defineStore('steam', {
   state: () => ({
     active_steam_user: <SteamUser | null>null,
     last_steam_user: <SteamUser | null>null,
@@ -21,7 +21,7 @@ const steamStore = defineStore('steam', {
         this.is_refreshing_users = true;
       }
       try {
-        return await invoke<SteamUser[]>('get_steam_users')
+        return await getSteamUsers()
           .then((users) => {
             if ((this.last_steam_user === null || this.active_steam_user === null) && users.length !== 0) {
               this.last_steam_user = this.active_steam_user = users[0];
@@ -42,12 +42,17 @@ const steamStore = defineStore('steam', {
     /** 查询 Steam 是否在运行(无缓存,每次调用均向后端发起检测) */
     async check_is_steam_running() {
       try {
-        this.is_steam_running = await invoke<boolean>('steam_is_running_by_tasklist');
+        this.is_steam_running = await steamIsRunningByTasklist();
       } catch (e) {
         console.warn('check_is_steam_running failed', e);
       }
     },
   },
-  tauri: { autoStart: true },
+  tauri: {
+    autoStart: true,
+    syncStrategy: 'debounce',
+    syncInterval: 400,
+    saveStrategy: 'debounce',
+    saveInterval: 600,
+  },
 });
-export default steamStore

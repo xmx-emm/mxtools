@@ -5,11 +5,31 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/).
 
 ---
+## [0.0.6] 2026-07-28
+
+### 新增
+
+- **Alter Q / OCR**：接入 PP-OCR 识别流程，提供识别结果预览、置信度展示和自动隐藏；支持从最新截图发起识别。
+- **多窗口与托盘**：新增 Alter Q 工作台、悬浮结果窗与托盘入口，支持在工作台、OCR 和设置页面之间直接打开。
+- **Apex 设置**：补充游戏设置管理与 EA 平台相关配置处理。
+
+### 变更
+
+- **Alter Q 悬浮窗**：支持自定义位置、尺寸和不透明度，并改善多显示器与混合 DPI 下的位置保存与恢复。
+- **性能与安全**：裁剪部分依赖特性以减小安装包体积；强化图片处理及相关安全边界。
+
+### 修复
+
+- 修复 Apex 启动项与 EA 语音包路径处理问题。
+- 修复 PUBG 配置加载门禁，以及输入法、国际化和工具页滚动等交互问题。
+
+---
+
 ## [0.0.5] 2026-7-6
 
 ### 新增
 
-- **Apex 视频配置**：新增视频设置页面，可读取并应用游戏内 `videoconfig.cfg` 配置（窗口模式、分辨率、垂直同步、抗锯齿、伽马、动态分辨率、模型/纹理/阴影/贴花/CSM、SSAO、体积光、布娃娃等）
+- **Apex 视频配置**：新增视频设置页面，可读取并应用游戏内 `videoconfig.txt` 配置（窗口模式、分辨率、垂直同步、抗锯齿、伽马、动态分辨率、模型/纹理/阴影/贴花/CSM、SSAO、体积光、布娃娃等）
 - **Apex 页面切换**：Apex 页面支持「启动项」与「视频配置」两种视图切换
 - **Apex 快速预设**：新增快速预设对话框，可一键应用比例、分辨率、锁帧、启动项及视频配置组合
 - **Apex 宽高比预设**：新增 1:1、2:1、5:4 等更多比例预设
@@ -102,7 +122,8 @@
 
 ---
 
-[0.0.2]: https://github.com/xmx-emm/mxtools/compare/98804e6198f4c36a8475bde3b10a2829ffc3d532...HEAD
+[0.0.2]: https://github.com/xmx-emm/mxtools/compare/v0.0.1...v0.0.2
 [0.0.3]: https://github.com/xmx-emm/mxtools/compare/v0.0.2...v0.0.3
 [0.0.4]: https://github.com/xmx-emm/mxtools/compare/v0.0.3...v0.0.4
 [0.0.5]: https://github.com/xmx-emm/mxtools/compare/v0.0.4...v0.0.5
+[0.0.6]: https://github.com/xmx-emm/mxtools/compare/v0.0.5...v0.0.6

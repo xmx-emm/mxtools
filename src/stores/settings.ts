@@ -1,10 +1,18 @@
 import {defineStore} from 'pinia';
-import type {LocaleCode} from '@/utils/locale';
+import type {LocaleCode} from '@/utils/locale.ts';
 import {
   clampNavPrimaryWidth,
   clampNavSecondaryWidth,
   NAV_MIN_WIDTH,
 } from '@/constants/nav_layout.ts';
+import {
+  applyWindowBehavior,
+  loadWindowBehaviorPrefs,
+  migrateAlterQWindowBehaviorIfNeeded,
+  type WindowBehaviorPrefs,
+} from '@/utils/window_behavior.ts';
+
+export const DEFAULT_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Z';
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
@@ -24,7 +32,30 @@ export const useSettingsStore = defineStore('settings', {
     navPrimaryWidth: NAV_MIN_WIDTH,
     /** 二级导航栏宽度(px) */
     navSecondaryWidth: NAV_MIN_WIDTH,
+    /** 切换界面语言的应用内快捷键（仅窗口聚焦时生效） */
+    toggleLocaleShortcut: DEFAULT_TOGGLE_LOCALE_SHORTCUT,
+    /** 是否启用「切换界面语言」快捷键 */
+    toggleLocaleShortcutEnabled: true,
+    /** 开机自启 */
+    autostart: false,
+    /** 关闭窗口时最小化到托盘（否则退出） */
+    closeToTray: false,
+    /** 启动时进入托盘（不显示主窗口） */
+    startInTray: false,
   }),
+  getters: {
+    /** 旧持久化数据可能缺少该字段，回落到默认应用内快捷键 */
+    resolvedToggleLocaleShortcut(state): string {
+      return state.toggleLocaleShortcut || DEFAULT_TOGGLE_LOCALE_SHORTCUT;
+    },
+    windowBehavior(state): WindowBehaviorPrefs {
+      return {
+        autostart: state.autostart,
+        closeToTray: state.closeToTray,
+        startInTray: state.startInTray,
+      };
+    },
+  },
   actions: {
     markApexNewItemSeen(identifier: string) {
       if (identifier && !this.apexNewItemsSeen.includes(identifier)) {
@@ -56,6 +87,57 @@ export const useSettingsStore = defineStore('settings', {
     setNavSecondaryWidth(width: number) {
       this.navSecondaryWidth = clampNavSecondaryWidth(width);
     },
+    setToggleLocaleShortcut(shortcut: string) {
+      this.toggleLocaleShortcut = shortcut || DEFAULT_TOGGLE_LOCALE_SHORTCUT;
+    },
+    setToggleLocaleShortcutEnabled(v: boolean | null) {
+      this.toggleLocaleShortcutEnabled = v ?? false;
+    },
+    setAutostart(v: boolean | null) {
+      this.autostart = v ?? false;
+      void applyWindowBehavior(this.windowBehavior);
+    },
+    setCloseToTray(v: boolean | null) {
+      this.closeToTray = v ?? false;
+      void applyWindowBehavior(this.windowBehavior);
+    },
+    setStartInTray(v: boolean | null) {
+      this.startInTray = v ?? false;
+      void applyWindowBehavior(this.windowBehavior);
+    },
+    /** 从 localStorage / 旧琉雀 Q prefs 对齐，并同步系统托盘与自启 */
+    async syncWindowBehaviorFromStorage() {
+      const early = loadWindowBehaviorPrefs();
+      const migrated = migrateAlterQWindowBehaviorIfNeeded({
+        autostart: this.autostart || early.autostart,
+        closeToTray: this.closeToTray || early.closeToTray,
+        startInTray: this.startInTray || early.startInTray,
+      });
+      this.autostart = migrated.autostart;
+      this.closeToTray = migrated.closeToTray;
+      this.startInTray = migrated.startInTray;
+      await applyWindowBehavior(migrated);
+    },
+    /** 补齐旧版本持久化中缺失的快捷键字段；顺带丢掉已废弃的全局开关字段 */
+    ensureShortcutDefaults() {
+      if (!this.toggleLocaleShortcut) {
+        this.toggleLocaleShortcut = DEFAULT_TOGGLE_LOCALE_SHORTCUT;
+      }
+      if (typeof this.toggleLocaleShortcutEnabled !== 'boolean') {
+        this.toggleLocaleShortcutEnabled = true;
+      }
+      // 旧持久化可能仍带 globalShortcutsEnabled；从 state 上删掉避免继续同步
+      const anyState = this as unknown as Record<string, unknown>;
+      if ('globalShortcutsEnabled' in anyState) {
+        delete anyState.globalShortcutsEnabled;
+      }
+    },
   },
-  tauri: {},
+  tauri: {
+    // 侧栏拖拽会高频改 width；防抖同步，避免每像素一次 IPC 拖慢动画
+    syncStrategy: 'debounce',
+    syncInterval: 300,
+    saveStrategy: 'debounce',
+    saveInterval: 500,
+  },
 });

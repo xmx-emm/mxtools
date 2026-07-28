@@ -1,6 +1,6 @@
 import {PluginOptions} from 'vue-toastification';
 import {POSITION} from 'vue-toastification/src/ts/constants.ts';
-import i18n from '@/i18n/i18n';
+import i18n from '@/i18n/i18n.ts';
 
 const TOAST_CLASS_NAME = 'mx-toast-no-select';
 const TOAST_BODY_CLASS_NAME = 'mx-toast-body-no-select';
@@ -15,6 +15,25 @@ type ToastTextContainer = {
 function translateText(text: string): string {
   if (i18n.global.te(text)) {
     return String(i18n.global.t(text));
+  }
+  // 支持「i18n key + 换行 + 详情」：仅翻译首行 key，保留后续原文
+  const nl = text.indexOf('\n');
+  if (nl > 0) {
+    const head = text.slice(0, nl);
+    const rest = text.slice(nl + 1);
+    if (i18n.global.te(head)) {
+      return `${String(i18n.global.t(head))}\n${rest}`;
+    }
+  }
+  // 支持「i18n key: detail」（后端 Rust 常用）
+  const colon = text.match(/^([A-Za-z0-9_.]+)(?::\s*(.*))?$/s);
+  if (colon) {
+    const head = colon[1];
+    const detail = (colon[2] ?? '').trim();
+    if (i18n.global.te(head)) {
+      const translated = String(i18n.global.t(head));
+      return detail ? `${translated}: ${detail}` : translated;
+    }
   }
   return text;
 }

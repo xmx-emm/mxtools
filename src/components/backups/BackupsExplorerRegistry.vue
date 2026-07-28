@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import {onMounted, ref} from 'vue';
-import {invoke} from '@tauri-apps/api/core';
+import {
+  backupsExplorerRegistry,
+  explorerFolder,
+  explorerRegistryPath,
+} from '@/ipc/commands.ts';
 import {useStateStore} from '@/stores/state.ts';
 import {useToast} from 'vue-toastification';
 import OpenBackupsExplorerRegistryToast from '@/components/toast/OpenBackupsExplorerRegistryToast.vue';
@@ -14,21 +18,19 @@ const isLoading = ref(false);
 
 async function backups() {
   isLoading.value = true;
-  state.explorer_registry_is_backups_ok = await invoke('backups_explorer_registry');
-  await invoke('explorer_registry_path').then((value) => {
+  state.explorer_registry_is_backups_ok = await backupsExplorerRegistry();
+  await explorerRegistryPath().then((value) => {
     if (state.explorer_registry_is_backups_ok) {
       toast.success({
         component: OpenBackupsExplorerRegistryToast,
         props: { registry_file: value },
         listeners: {
           async openFolder() {
-            const folder: string = await invoke('explorer_folder');
-            console.log('open folder', folder);
+            const folder: string = await explorerFolder();
             await openPath(folder);
           }
         }
       });
-    } else {
     }
     isLoading.value = false;
   }).catch((error: Error) => {

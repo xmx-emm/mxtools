@@ -11,13 +11,13 @@ import ApexForcedResolutionPreset from '@/components/game/apex/launch/preset/Ape
 import ApexAspectPreset from '@/components/game/apex/launch/preset/ApexAspectPreset.vue';
 import ApexFpsPreset from '@/components/game/apex/launch/preset/ApexFpsPreset.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
 import ApexLobbyFpsPreset from '@/components/game/apex/launch/preset/ApexLobbyFpsPreset.vue';
 import ApexFilter from '@/components/game/apex/launch/ApexFilter.vue';
 import ApexListItemBadges from '@/components/game/apex/common/ApexListItemBadges.vue';
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 const settings_store = useSettingsStore();
 const { t } = useI18n();
 
@@ -68,6 +68,12 @@ function launchOptionKey(pi: SteamLaunchOptionsImpl): string {
   return '';
 }
 
+function launchOptionValue(pi: SteamLaunchOptionsImpl): string {
+  if (pi.default_parameter) return pi.default_parameter;
+  if (Array.isArray(pi.parameter)) return pi.parameter.join(' ');
+  return pi.parameter ?? '';
+}
+
 /**
  * 检查前置条件
  */
@@ -110,11 +116,10 @@ function check_item(item: SteamLaunchOptionsImpl) {
 }
 
 watch(
-  () => apex_store.options_selection,
+  () => [apex_store.is_enabled_miles_language, apex_store.language] as const,
   () => {
     apex_store.update_download_language_button_color();
   },
-  { deep: true }
 );
 
 type ApexConfigRow = SteamLaunchOptionsImpl | string;
@@ -208,17 +213,23 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
       class="rounded-0 apex-options-list h-100 min-height-0"
       style="overflow-y: auto"
     >
-      <template v-for="item in displayedLaunchOptions">
+      <template
+        v-for="item in displayedLaunchOptions"
+        :key="isSteamLaunchOptionsImpl(item) ? launchOptionKey(item) : item"
+      >
         <template v-if="isSteamLaunchOptionsImpl(item)">
           <div class="apex-list-item-wrap" :title="t('apexLaunchOptions.ui.rightClickTip')">
           <v-list-item :value="item" @click="check_item(item)"
                        @contextmenu.prevent="apex_store.showTip(<SteamLaunchOptionsImpl>item)"
           >
             <!--中间的内容-->
-            <template v-slot:default="{isSelected}"
-                      style="align-content: center;text-align: center;">
+            <template v-slot:default="{isSelected}">
               <v-expand-transition>
-              <div v-if="isSelected" class="d-flex flex-row align-center w-100 selected_item_row launch-option-expand-body">
+              <div
+                v-if="isSelected"
+                class="d-flex flex-row align-center w-100 selected_item_row launch-option-expand-body"
+                style="align-content: center; text-align: center"
+              >
                 <!--多参数-->
                 <template v-if="item?.parameters && item.identifier && !item?.is_combination_parameters">
                   <v-btn-toggle
@@ -235,22 +246,23 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                       <ApexLanguage/>
                       <br/>
                     </template>
-                    <template v-else>
+                    <template
+                      v-else-if="item.identifier && apex_store.settings_config[item.identifier]"
+                    >
                       <!--item.parameters-->
                       <v-btn
                         v-for="pi in item.parameters"
                         :key="launchOptionKey(pi)"
                         size="small"
-                        v-if="item.identifier && apex_store.settings_config[item.identifier]"
                         :title="(pi?.requirement_description && !checkRequirement(pi)) ? parameterTooltipText(pi) : undefined"
                         :color="pi.requirement ? ( checkRequirement(pi) ? 'info':'error') : 'info'"
-                        :value="pi?.default_parameter || pi.parameter"
-                        @click.stop="apex_store.settings_config[item.identifier] = pi?.default_parameter || pi.parameter"
+                        :value="launchOptionValue(pi)"
+                        @click.stop="apex_store.settings_config[item.identifier] = launchOptionValue(pi)"
                       >
                         {{ translateApexLaunchOptionText(pi.name) }}
                       </v-btn>
-                      <template v-else>error apex_store.settings_config not find id</template>
                     </template>
+                    <template v-else>error apex_store.settings_config not find id</template>
                   </v-btn-toggle>
                   <template v-if="item?.identifier === 'miles_language'">
                     <v-spacer/>
@@ -290,10 +302,13 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     <ApexForcedResolutionPreset/>
                   </div>
                 </template>
-                <template v-else-if="item?.identifier == 'fps'"
-                          style="max-height: 25px;">
+                <template v-else-if="item?.identifier == 'fps'">
                   <!--fps-->
-                  <div class="d-flex" style="flex: 1" v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'">
+                  <div
+                    v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'"
+                    class="d-flex"
+                    style="flex: 1; max-height: 25px"
+                  >
                     <ApexNumberInput v-model="apex_store.fps"/>
                     <v-spacer/>
                     <div
@@ -307,10 +322,9 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     </div>
                   </div>
                 </template>
-                <template v-else-if="item?.identifier == 'lobby_max_fps'"
-                          style="max-height: 25px;">
+                <template v-else-if="item?.identifier == 'lobby_max_fps'">
                   <!--大厅Fps-->
-                  <ApexNumberInput v-model="apex_store.lobby_max_fps"/>
+                  <ApexNumberInput v-model="apex_store.lobby_max_fps" style="max-height: 25px"/>
                   <v-spacer/>
                   <div
                     class="preset_tail"

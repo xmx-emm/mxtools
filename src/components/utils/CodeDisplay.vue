@@ -22,7 +22,7 @@ const props = defineProps(['title', 'code']);
       <div class="copy_button" v-if="props.code">
         <v-icon
           class="ma-2"
-          :color="written_to_clipboard ? 'red-lighten-2' : 'orange-darken-2'"
+          :color="written_to_clipboard ? 'error' : 'warning'"
           :icon="written_to_clipboard ? 'mdi-clipboard-check-outline' : 'mdi-clipboard-outline'"
           variant="text"
           size="x-small"

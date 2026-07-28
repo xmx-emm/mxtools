@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>萌新工具箱</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --tip-primary: #007aff;
+        --tip-text: #252a31;
+        --tip-border: rgba(0, 122, 255, 0.24);
+        --tip-surface: rgba(247, 248, 250, 0.96);
+        --tip-shadow: rgba(15, 19, 25, 0.22);
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --tip-text: #eef0f3;
+        --tip-surface: rgba(48, 50, 55, 0.96);
+        --tip-shadow: rgba(0, 0, 0, 0.42);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        padding: 4px;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Microsoft YaHei", sans-serif;
+        user-select: none;
+      }
+
+      .tray-tip {
+        display: inline-flex;
+        min-width: 108px;
+        max-width: 124px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 6px 10px;
+        color: var(--tip-text);
+        border: 1px solid var(--tip-border);
+        border-radius: 6px;
+        background:
+          linear-gradient(135deg, color-mix(in srgb, var(--tip-primary) 9%, transparent), transparent 65%),
+          var(--tip-surface);
+        box-shadow: 0 5px 14px var(--tip-shadow);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        font-size: 11px;
+        font-weight: 560;
+        line-height: 1.25;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+
+      .tray-tip::before {
+        width: 4px;
+        height: 4px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--tip-primary);
+        box-shadow: 0 0 7px color-mix(in srgb, var(--tip-primary) 48%, transparent);
+        content: "";
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tray-tip" role="tooltip">萌新工具箱</div>
+    <script src="/tray-tooltip.js"></script>
+  </body>
+</html>

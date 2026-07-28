@@ -89,7 +89,7 @@ watch(activeIndex, () => {
 
 <template>
   <ApexTipCard :title="t('apexTips.reticleColor.title')" :subtitle="t('apexTips.reticleColor.subtitle')">
-    <template #text class="mb-0">
+    <template #text>
       <v-container>
         <v-row class="text-body-2 text-medium-emphasis">
           {{ t('apexTips.reticleColor.line1') }}<br/>

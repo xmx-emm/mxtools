@@ -1,0 +1,43 @@
+# Rust build artifacts
+/target
+/target_cli
+
+# Modelli ONNX (downloaded separately, vedi `models/README.md` se presente)
+*.onnx
+*.onnx.data
+*.onnx_data
+*.traineddata
+*.pdiparams
+*.pdmodel
+
+# Output esempi / test (immagini, log)
+/output/
+*.debug.png
+*.debug.jpg
+
+# IDE / editor
+/.vscode/
+/.idea/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / API keys
+.env
+.env.*
+
+# Backup
+~*.saved.bak
+*.bak
+
+# Documenti interni (non pubblicare)
+/docs/downgrade-changes.md
+/docs/edge-integration-plan.md
+
+# Fixture di test (non incluse nel repo — fornire via PPOCR_TEST_TIFF)
+/tests/fixtures/

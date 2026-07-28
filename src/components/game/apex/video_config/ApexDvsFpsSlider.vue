@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onUnmounted } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import {
   configToDvsTarget,
   formatDvsTargetDisplay,
@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 const useParentModel = computed(() => props.modelValue !== undefined);
 
@@ -37,19 +37,14 @@ function syncStore(target: number) {
 }
 
 function scheduleStoreSync(target: number) {
-  if (!useParentModel.value) {
-    syncStore(target);
-    return;
-  }
   if (storeSyncTimer) clearTimeout(storeSyncTimer);
-  storeSyncTimer = setTimeout(() => syncStore(target), 100);
+  storeSyncTimer = setTimeout(() => {
+    storeSyncTimer = null;
+    syncStore(target);
+  }, 100);
 }
 
 function flushStoreSync(target: number) {
-  if (!useParentModel.value) {
-    syncStore(target);
-    return;
-  }
   if (storeSyncTimer) {
     clearTimeout(storeSyncTimer);
     storeSyncTimer = null;
@@ -57,18 +52,21 @@ function flushStoreSync(target: number) {
   syncStore(target);
 }
 
+/** 拖动中用本地值驱动 UI，避免每步写入 Pinia 触发整页视频配置列表重渲染 */
+const localTarget = ref<number | null>(null);
+
 const target = computed({
   get: () => {
+    if (localTarget.value != null) return localTarget.value;
     if (useParentModel.value) return props.modelValue!;
     return readTargetFromStore();
   },
   set: (value: number) => {
+    localTarget.value = value;
     if (useParentModel.value) {
       emit('update:modelValue', value);
-      scheduleStoreSync(value);
-    } else {
-      syncStore(value);
     }
+    scheduleStoreSync(value);
   },
 });
 
@@ -81,7 +79,9 @@ function onSliderInput(value: number) {
 }
 
 function onSliderEnd(value: number) {
+  localTarget.value = value;
   flushStoreSync(value);
+  localTarget.value = null;
 }
 
 onUnmounted(() => {

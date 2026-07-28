@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "mxtools",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "identifier": "online.0w0.mxtools",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:14200",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -23,7 +23,16 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "connect-src": "ipc: http://ipc.localhost https://*.bilibili.com https://*.bilivideo.com wss://*.bilibili.com",
+        "font-src": "'self' data:",
+        "img-src": "'self' asset: http://asset.localhost blob: data: https://*.bilibili.com https://*.hdslb.com https://avatars.fastly.steamstatic.com https://*.akamaized.net https://cdn.vuetifyjs.com",
+        "style-src": "'unsafe-inline' 'self'",
+        "media-src": "'self' https://*.bilibili.com https://*.bilivideo.com https://*.hdslb.com blob:",
+        "frame-src": "https://player.bilibili.com https://www.bilibili.com"
+      },
+      "dangerousDisableAssetCspModification": ["style-src"],
       "capabilities": [
         "file_capability"
       ]

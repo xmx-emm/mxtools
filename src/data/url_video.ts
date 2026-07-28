@@ -1,3 +1,9 @@
+/**
+ * Bilibili tip / tutorial embeds.
+ * CSP (src-tauri/tauri.conf.json) intentionally allows player.bilibili.com /
+ * www.bilibili.com iframes and related bilibili / hdslb / bilivideo hosts —
+ * these are the primary third-party web origins the WebView loads.
+ */
 const APEX_START_ANIMATION_VIDEO_URL = 'https://player.bilibili.com/player.html?isOutside=true&aid=115845753734386&bvid=BV1tyiZBNEn8&cid=35215970022&p=1'; // 开屏动
 const APEX_MILES_LANGUAGE_VIDEO_URL = 'https://player.bilibili.com/player.html?isOutside=true&aid=115857447522193&bvid=BV1s5iDBkEX9&cid=35255485812&p=1'; // 多语言
 const APEX_SOFTENED_RED_VIDEO_URL = 'https://player.bilibili.com/player.html?isOutside=true&aid=115863067822031&bvid=BV15hrwBNEZP&cid=35274818700&p=1'; // 红光击

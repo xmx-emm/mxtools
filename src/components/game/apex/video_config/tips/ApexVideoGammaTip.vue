@@ -5,11 +5,11 @@ import ApexTipCard from '@/components/game/apex/common/tips/ApexTipCard.vue';
 import ApexGammaBrightnessSlider from '@/components/game/apex/video_config/ApexGammaBrightnessSlider.vue';
 import ApexGammaPreviewImage from '@/components/game/apex/video_config/ApexGammaPreviewImage.vue';
 import gammaPreviewImg from '@/assets/images/apex/gamma_preview_50.jpg';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import { APEX_GAMMA_REFERENCE, gammaToBrightness } from '@/utils/apex_gamma.ts';
 
 const { t } = useI18n();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 const previewBrightness = ref(
   gammaToBrightness(apex_store.get_video_config_number('setting.gamma', APEX_GAMMA_REFERENCE)),

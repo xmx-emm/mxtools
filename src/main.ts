@@ -2,6 +2,7 @@ import {createApp, type App as VueApp} from 'vue';
 import App from './App.vue';
 // CSS
 import '@/assets/styles/global.css';
+import '@/assets/styles/search.css';
 import '@/assets/styles/styles.css';
 import '@/assets/styles/utils.css';
 // Toast
@@ -18,28 +19,118 @@ import vuetify, {applyAccentTheme} from '@/vuetify.ts';
 import {toastOptions} from '@/toast.ts';
 
 // i18n
-import i18n from '@/i18n/i18n';
-import {useSettingsStore} from '@/stores/settings';
-import {useDebugStore} from '@/stores/debug';
-import {uiStyleStore} from '@/stores/style';
-import {setDebugEnabled} from '@/utils/debug';
-import {resolveLocale} from '@/utils/locale';
-import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts';
+import i18n, {setAppLocale} from '@/i18n/i18n.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
+import {useDebugStore} from '@/stores/debug.ts';
+import {useUiStyleStore} from '@/stores/style.ts';
+import {setDebugEnabled} from '@/utils/debug.ts';
+import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
+import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts.ts';
+import {
+  bootstrapAlterQEventListeners,
+  bootstrapAlterQFromStorage,
+  setAlterQOverlayInteractionMode,
+} from '@/utils/alter_q.ts';
+import {shouldShowMainWindowOnBoot} from '@/utils/window_behavior.ts';
+import {setTrayLocale, syncTrayWithMainWindow} from '@/ipc/commands.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
-import {initFrontendLogger} from '@/utils/logger';
-import {findAccent, persistAccentHint} from '@/themes';
-import {alignWindowHashWithStoredLastRoute} from '@/utils/restore-last-route-hash';
+import {listen, type UnlistenFn} from '@tauri-apps/api/event';
+import {initFrontendLogger} from '@/utils/logger.ts';
+import {findAccent, persistAccentHint} from '@/themes.ts';
+import {alignWindowHashWithStoredLastRoute} from '@/utils/restore-last-route-hash.ts';
 import {runAllHmrCleanups} from '@/utils/hmr.ts';
+import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
+import {installNativeTooltip} from '@/utils/native_tooltip.ts';
+import {openAlterQWindow} from '@/utils/windows.ts';
 
 initFrontendLogger();
 
-getCurrentWindow().show().then(() => {
-});
-const splashStart = Date.now();
-(window as any).__splashStart = splashStart;
+const disposeNativeTooltip = installNativeTooltip('mx-native-tooltip');
 
+const isMainWindow = getCurrentWindow().label === 'main';
 let vueApp: VueApp | null = null;
+let stopAlterQOpenRequest: UnlistenFn | null = null;
+let stopAlterQAdjustRequest: UnlistenFn | null = null;
+let alterQRequestListenersStarting: Promise<void> | null = null;
+let alterQRequestListenersDisposed = false;
+let alterQRequestCleanupRegistered = false;
+
+function reportAlterQWindowOpenFailure(error: unknown) {
+  console.warn('open alter-q window failed', error);
+}
+
+function parseAlterQTrayTarget(value: unknown) {
+  const target = typeof value === 'string'
+    ? value
+    : value && typeof value === 'object'
+      ? (value as {target?: unknown}).target
+      : null;
+  return target === 'ocr' || target === 'settings' || target === 'background' || target === 'overlay'
+    ? target
+    : 'workspace' as const;
+}
+
+async function ensureAlterQRequestListeners() {
+  if (!isMainWindow || alterQRequestListenersDisposed) return;
+  if (!alterQRequestCleanupRegistered) {
+    alterQRequestCleanupRegistered = true;
+    registerHmrCleanup(() => {
+      alterQRequestListenersDisposed = true;
+      stopAlterQOpenRequest?.();
+      stopAlterQOpenRequest = null;
+      stopAlterQAdjustRequest?.();
+      stopAlterQAdjustRequest = null;
+      alterQRequestListenersStarting = null;
+    });
+  }
+  if (!alterQRequestListenersStarting) {
+    alterQRequestListenersStarting = (async () => {
+      if (!stopAlterQOpenRequest) {
+        const unlisten = await listen<unknown>('alter-q-open-request', (event) => {
+          void openAlterQWindow(parseAlterQTrayTarget(event.payload))
+            .catch(reportAlterQWindowOpenFailure);
+        });
+        if (alterQRequestListenersDisposed) unlisten();
+        else stopAlterQOpenRequest = unlisten;
+      }
+      if (!stopAlterQAdjustRequest && !alterQRequestListenersDisposed) {
+        const unlisten = await listen('alter-q-overlay-adjust-request', () => {
+          void (async () => {
+            const hasOverlay = await setAlterQOverlayInteractionMode('adjusting');
+            if (!hasOverlay) await openAlterQWindow('overlay');
+          })().catch(reportAlterQWindowOpenFailure);
+        });
+        if (alterQRequestListenersDisposed) unlisten();
+        else stopAlterQAdjustRequest = unlisten;
+      }
+    })().finally(() => {
+      alterQRequestListenersStarting = null;
+    });
+  }
+  await alterQRequestListenersStarting;
+}
+
+// 正常/调试启动始终显示主窗口；仅开机自启且勾选「启动进托盘」时保持隐藏。
+// 主窗口显示时不显示托盘，隐藏时才显示。
+if (isMainWindow) {
+  void (async () => {
+    try {
+      await ensureAlterQRequestListeners();
+    } catch (e) {
+      console.warn('register alter-q window listeners failed', e);
+    }
+    try {
+      await bootstrapAlterQEventListeners();
+    } catch (e) {
+      console.warn('register alter-q event listeners failed', e);
+    }
+    const show = await shouldShowMainWindowOnBoot();
+    if (show) await getCurrentWindow().show();
+    await syncTrayWithMainWindow();
+  })().catch((e) => console.warn('initialize main window visibility failed', e));
+}
+window.__splashStart = Date.now();
 
 async function bootstrap() {
   if (vueApp) {
@@ -64,12 +155,14 @@ async function bootstrap() {
 
   const settings = useSettingsStore();
   const debugStore = useDebugStore();
-  const style = uiStyleStore();
+  const style = useUiStyleStore();
   await Promise.all([
     startTauriStoreOnce('settings', () => settings.$tauri.start()),
     startTauriStoreOnce('debug', () => debugStore.$tauri.start()),
     startTauriStoreOnce('style', () => style.$tauri.start()),
   ]);
+  settings.ensureShortcutDefaults();
+  await settings.syncWindowBehaviorFromStorage();
   setDebugEnabled(debugStore.enabled);
   debugStore.$subscribe(() => {
     setDebugEnabled(debugStore.enabled);
@@ -84,12 +177,18 @@ async function bootstrap() {
 
   // 同步到 localStorage 供下次启动的 splash 使用
   try {
+    localStorage.setItem('mx-theme-preference', style.theme);
     localStorage.setItem('mx-theme', style.themeStyle);
-  } catch (_) { /* noop */
+  } catch { /* localStorage may be unavailable */
   }
   persistAccentHint(findAccent(style.accent), style.isDark);
 
-  i18n.global.locale.value = resolveLocale(settings.locale);
+  await setAppLocale(resolveLocale(settings.locale));
+  applyDocumentLocale(settings.locale);
+  if (isMainWindow) {
+    void setTrayLocale(resolveLocale(settings.locale))
+      .catch((e) => console.warn('sync tray locale failed', e));
+  }
 
   app.use(i18n);
   app.use(Toast, toastOptions);
@@ -97,27 +196,48 @@ async function bootstrap() {
   app.use(router);
 
   // DevTools 控制台不是 module,不能直接 `import { invoke }`；开发环境挂载到 window 便于调试
-  if (import.meta.env.DEV) {
+  if (isMainWindow && import.meta.env.DEV) {
     const {invoke} = await import('@tauri-apps/api/core');
     (window as unknown as {mxInvoke: typeof invoke}).mxInvoke = invoke;
   }
 
   app.mount('#app');
   vueApp = app;
+  if (isMainWindow) {
+    try {
+      await ensureAlterQRequestListeners();
+    } catch (e) {
+      console.warn('register alter-q window listeners after mount failed', e);
+    }
+  }
+  let localeShortcutSetup: Promise<void> | null = null;
   if (import.meta.env.DEV) {
     const shortcutKey = '__mx_locale_shortcut_setup_v1';
     const g = globalThis as { [shortcutKey]?: boolean };
     if (!g[shortcutKey]) {
       g[shortcutKey] = true;
-      void setupLocaleToggleShortcut();
+      localeShortcutSetup = setupLocaleToggleShortcut();
     }
-  } else {
-    void setupLocaleToggleShortcut();
+  } else if (isMainWindow) {
+    localeShortcutSetup = setupLocaleToggleShortcut();
+  }
+  if (isMainWindow) {
+    try {
+      await localeShortcutSetup;
+    } catch (e) {
+      console.warn('setup locale toggle shortcut failed', e);
+    }
+    try {
+      await bootstrapAlterQFromStorage();
+    } catch (e) {
+      console.warn('bootstrap alter-q failed', e);
+    }
   }
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
+    disposeNativeTooltip();
     runAllHmrCleanups();
     vueApp?.unmount();
     vueApp = null;

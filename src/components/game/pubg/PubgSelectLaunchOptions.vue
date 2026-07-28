@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue';
-import {invoke} from '@tauri-apps/api/core';
+import {getPubgLogsFolderPath} from '@/ipc/commands.ts';
 import {openPath} from '@tauri-apps/plugin-opener';
+import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import PubgLaunchOptionsConfig from '@/data/pubg_launch_options_config.ts';
 import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/types/steam.ts';
-import pubgStore from '@/stores/game/pubg.ts';
+import {usePubgStore} from '@/stores/game/pubg.ts';
 import PubgNumberInput from '@/components/game/pubg/common/PubgNumberInput.vue';
 import ResolutionPreset from '@/components/game/common/ResolutionPreset.vue';
 import FpsPreset from '@/components/game/common/FPSPreset.vue';
 
-const pubg_store = pubgStore();
+const {t} = useI18n();
+const pubg_store = usePubgStore();
 const toast = useToast();
+
+function translatePubgLaunchOptionText(key?: string) {
+  if (!key) return '';
+  if (key.startsWith('pubgLaunchOptions.')) return t(key);
+  return key;
+}
 
 const listWrapRef = ref<HTMLElement | null>(null);
 const lockedListHeight = ref<number | null>(null);
@@ -42,7 +50,9 @@ function graphicsPreviewTokens(item: SteamLaunchOptionsImpl): string {
 
 function getParameterPreview(item: SteamLaunchOptionsImpl): string {
   if (item.identifier === 'skip_intro') {
-    return pubg_store.skip_intro_movies_disabled ? '当前已禁用开场动画' : '当前未禁用开场动画';
+    return pubg_store.skip_intro_movies_disabled
+      ? t('pubgLaunchOptions.ui.skipIntroDisabled')
+      : t('pubgLaunchOptions.ui.skipIntroEnabled');
   }
   if (item.identifier === 'max_mem' || item.parameter === '-maxMem=X') {
     return `-maxMem=${pubg_store.max_mem}`;
@@ -79,7 +89,7 @@ function getParameterPreview(item: SteamLaunchOptionsImpl): string {
     if (typeof item.default_parameter === 'string') return item.default_parameter;
     return item.parameter.join(' ');
   }
-  return item.description || '';
+  return item.description ? translatePubgLaunchOptionText(item.description) : '';
 }
 
 function parameterInfoClass(item: SteamLaunchOptionsImpl): string {
@@ -98,7 +108,7 @@ function windowModeBtnValue(p: SteamLaunchOptionsImpl): string {
 
 async function openPubgLogsFolder() {
   try {
-    const path = await invoke<string>('get_pubg_logs_folder_path');
+    const path = await getPubgLogsFolderPath();
     await openPath(path);
   } catch (e) {
     toast.error(String(e));
@@ -143,7 +153,7 @@ const maxMemDisplayProxy = computed({
         <v-list-item
           :value="raw"
           @click="raw.identifier === 'skip_intro' ? onSkipIntroItemClick($event) : undefined"
-          v-tooltip="{ text: '右键查看说明', location: 'bottom', openDelay: '800' }"
+          v-tooltip="{ text: t('pubgLaunchOptions.ui.rightClickTip'), location: 'bottom', openDelay: '800' }"
           @contextmenu.prevent="pubg_store.showTip(raw)"
         >
           <template #default="{isSelected}">
@@ -166,7 +176,7 @@ const maxMemDisplayProxy = computed({
                     size="small"
                     :value="windowModeBtnValue(p)"
                   >
-                    {{ p.name }}
+                    {{ translatePubgLaunchOptionText(p.name) }}
                   </v-btn>
                 </v-btn-toggle>
               </template>
@@ -188,13 +198,13 @@ const maxMemDisplayProxy = computed({
                     size="small"
                     :value="p.identifier"
                   >
-                    {{ p.name }}
+                    {{ translatePubgLaunchOptionText(p.name) }}
                   </v-btn>
                 </v-btn-toggle>
               </template>
 
               <template v-else-if="raw.identifier === 'max_mem' || raw.parameter === '-maxMem=X'">
-                <span class="input_inline_label">最大内存</span>
+                <span class="input_inline_label">{{ t('pubgLaunchOptions.ui.maxMemLabel') }}</span>
                 <PubgNumberInput
                   v-model="maxMemDisplayProxy"
                   :step="pubg_store.max_mem_display_step"
@@ -218,7 +228,7 @@ const maxMemDisplayProxy = computed({
 
               <template v-else-if="raw.identifier === 'refresh_rate' || raw.parameter === '-refresh X'">
                 <div class="d-flex align-center flex-grow-1" style="min-width: 0">
-                  <span class="input_inline_label">刷新率</span>
+                  <span class="input_inline_label">{{ t('pubgLaunchOptions.ui.refreshLabel') }}</span>
                   <PubgNumberInput v-model="pubg_store.refresh_rate" />
                 </div>
                 <div class="preset_tail">
@@ -233,9 +243,9 @@ const maxMemDisplayProxy = computed({
                 v-else-if="raw.identifier === 'forced_resolution' || raw.parameter === '-res W H'"
               >
                 <div class="d-flex align-center flex-grow-1" style="min-width: 0">
-                  <span class="input_inline_label">宽</span>
+                  <span class="input_inline_label">{{ t('pubgLaunchOptions.ui.widthLabel') }}</span>
                   <PubgNumberInput v-model="pubg_store.res_width" />
-                  <span class="input_inline_label">高</span>
+                  <span class="input_inline_label">{{ t('pubgLaunchOptions.ui.heightLabel') }}</span>
                   <PubgNumberInput v-model="pubg_store.res_height" />
                 </div>
                 <div class="preset_tail">
@@ -254,7 +264,7 @@ const maxMemDisplayProxy = computed({
                     raw.parameter === '+r.ViewDistanceScale=X'
                 "
               >
-                <span class="input_inline_label">视距比例</span>
+                <span class="input_inline_label">{{ t('pubgLaunchOptions.ui.viewDistanceLabel') }}</span>
                 <PubgNumberInput
                   v-model="pubg_store.view_distance_scale"
                   :step="0.1"
@@ -268,7 +278,7 @@ const maxMemDisplayProxy = computed({
 
           <template #title>
             <div class="d-flex flex-row align-center w-100 min-width-0">
-              <p class="pubg-title-text">{{ raw?.name }}</p>
+              <p class="pubg-title-text">{{ translatePubgLaunchOptionText(raw?.name) }}</p>
               <v-spacer />
               <p class="parameter_info text-truncate" :class="parameterInfoClass(raw)">
                 {{ getParameterPreview(raw) }}
@@ -281,20 +291,20 @@ const maxMemDisplayProxy = computed({
               v-if="raw.identifier === 'verbose_log'"
               class="d-flex flex-row align-center w-100 min-width-0 pubg-subtitle-row"
             >
-              <p class="pubg-subtitle-text flex-grow-1 text-truncate">{{ raw?.description }}</p>
+              <p class="pubg-subtitle-text flex-grow-1 text-truncate">{{ translatePubgLaunchOptionText(raw?.description) }}</p>
               <v-btn
                 icon
                 variant="text"
                 size="small"
                 density="compact"
                 class="flex-shrink-0"
-                title="打开日志目录"
+                :title="t('pubgLaunchOptions.ui.openLogsFolder')"
                 @click.stop="openPubgLogsFolder"
               >
                 <v-icon size="20">mdi-folder-outline</v-icon>
               </v-btn>
             </div>
-            <p v-else>{{ raw?.description ? raw.description : '' }}</p>
+            <p v-else>{{ raw?.description ? translatePubgLaunchOptionText(raw.description) : '' }}</p>
           </template>
 
           <template #prepend="{ isSelected, select }">
@@ -314,7 +324,7 @@ const maxMemDisplayProxy = computed({
                   variant="flat"
                   density="compact"
                   icon
-                  :title="pubg_store.skip_intro_movies_disabled ? '恢复开场动画(重命名 Movies_disabled -> Movies)' : '禁用开场动画(重命名 Movies -> Movies_disabled)'"
+                  :title="pubg_store.skip_intro_movies_disabled ? t('pubgLaunchOptions.ui.restoreIntroTip') : t('pubgLaunchOptions.ui.disableIntroTip')"
                   @click.stop="toggleSkipIntroMovies"
                 >
                   <v-icon size="20">
@@ -334,7 +344,7 @@ const maxMemDisplayProxy = computed({
       <template v-else>
         <v-list-subheader class="pubg-category px-4">
           <div class="pubg-category-inner">
-            <span class="pubg-category-text">{{ raw }}</span>
+            <span class="pubg-category-text">{{ t(raw) }}</span>
           </div>
         </v-list-subheader>
       </template>

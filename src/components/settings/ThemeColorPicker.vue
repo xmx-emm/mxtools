@@ -1,30 +1,70 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {uiStyleStore} from '@/stores/style';
-import {accentThemes} from '@/themes';
-import {applyAccentTheme} from '@/vuetify';
+import {useUiStyleStore} from '@/stores/style.ts';
+import {accentThemes} from '@/themes.ts';
 
 const { t } = useI18n();
-const uiStore = uiStyleStore();
+const uiStore = useUiStyleStore();
 
-function selectAccent(id: string) {
-  uiStore.setAccent(id);
-  applyAccentTheme(id);
+function selectAccent(id: string, target: EventTarget | null) {
+  const rect = target instanceof HTMLElement
+    ? target.getBoundingClientRect()
+    : null;
+  void uiStore.setAccent(id, rect
+    ? {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}
+    : undefined);
+}
+
+function onAccentKeydown(event: KeyboardEvent, index: number) {
+  if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  const current = event.currentTarget;
+  if (!(current instanceof HTMLElement)) return;
+  const cards = Array.from(
+    current.parentElement?.querySelectorAll<HTMLButtonElement>('.accent-card') ?? [],
+  );
+  if (!cards.length) return;
+
+  let nextIndex = index;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    nextIndex = (index + 1) % cards.length;
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    nextIndex = (index - 1 + cards.length) % cards.length;
+  } else if (event.key === 'Home') {
+    nextIndex = 0;
+  } else if (event.key === 'End') {
+    nextIndex = cards.length - 1;
+  }
+
+  event.preventDefault();
+  const nextCard = cards[nextIndex];
+  nextCard.focus({preventScroll: true});
+  selectAccent(nextCard.dataset.accentId ?? '', nextCard);
 }
 </script>
 
 <template>
   <div class="accent-picker">
-    <div class="accent-picker-label text-body-2 font-weight-medium mb-3">
+    <div id="accent-picker-label" class="accent-picker-label text-body-2 font-weight-medium mb-3">
       {{ t('settings.accentColor') }}
     </div>
-    <div class="accent-grid">
-      <div
-        v-for="theme in accentThemes"
+    <div
+      class="accent-grid"
+      role="radiogroup"
+      aria-labelledby="accent-picker-label"
+    >
+      <button
+        v-for="(theme, themeIndex) in accentThemes"
         :key="theme.id"
+        type="button"
         class="accent-card"
+        :data-accent-id="theme.id"
         :class="{ 'accent-card--active': uiStore.accent === theme.id }"
-        @click="selectAccent(theme.id)"
+        role="radio"
+        :aria-checked="uiStore.accent === theme.id"
+        :tabindex="uiStore.accent === theme.id ? 0 : -1"
+        :aria-label="t(theme.nameKey)"
+        @click="selectAccent(theme.id, $event.currentTarget)"
+        @keydown="onAccentKeydown($event, themeIndex)"
       >
         <div class="accent-palette">
           <span
@@ -44,7 +84,7 @@ function selectAccent(id: string) {
           >mdi-check-circle
           </v-icon>
         </div>
-      </div>
+      </button>
     </div>
   </div>
 </template>
@@ -57,23 +97,71 @@ function selectAccent(id: string) {
 }
 
 .accent-card {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
   padding: 10px 12px;
-  border-radius: 10px;
+  overflow: hidden;
+  border-radius: 8px;
   border: 1.5px solid rgba(var(--v-border-color), 0.1);
   background: rgba(var(--v-theme-surface-variant), 0.35);
+  color: inherit;
+  font: inherit;
+  text-align: start;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transform: translateY(0);
+  transition:
+    transform var(--app-motion-fast) var(--app-ease-standard),
+    border-color var(--app-motion-base) var(--app-ease-standard),
+    background-color var(--app-motion-base) var(--app-ease-standard),
+    box-shadow var(--app-motion-base) var(--app-ease-standard);
+}
+
+.accent-card::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  content: '';
+  background: rgb(var(--v-theme-primary));
+  opacity: 0;
+  transform: scaleY(0.28);
+  transition:
+    opacity var(--app-motion-fast) ease,
+    transform var(--app-motion-base) var(--app-ease-emphasized);
+}
+
+.accent-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .accent-card:hover {
   border-color: rgba(var(--v-border-color), 0.25);
   background: rgba(var(--v-theme-surface-variant), 0.6);
+  transform: translateY(-1px);
+}
+
+.accent-card:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.accent-card:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
 }
 
 .accent-card--active {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.06);
   box-shadow: 0 0 0 1px rgba(var(--v-theme-primary), 0.15);
+}
+
+.accent-card--active::before {
+  opacity: 1;
+  transform: scaleY(1);
 }
 
 .accent-card--active:hover {
@@ -93,6 +181,22 @@ function selectAccent(id: string) {
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  transform: translateY(0);
+  transition: transform var(--app-motion-base) var(--app-ease-emphasized);
+}
+
+.accent-card:hover .palette-dot {
+  transform: translateY(-1px);
+}
+
+.accent-card:hover .palette-dot:nth-child(2),
+.accent-card:hover .palette-dot:nth-child(5) {
+  transform: translateY(-2px);
+}
+
+.accent-card:hover .palette-dot:nth-child(3),
+.accent-card:hover .palette-dot:nth-child(4) {
+  transform: translateY(-3px);
 }
 
 .accent-card-footer {
@@ -105,10 +209,32 @@ function selectAccent(id: string) {
   font-size: 12px;
   font-weight: 500;
   opacity: 0.72;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .accent-check {
   flex-shrink: 0;
+  animation: accent-check-in var(--app-motion-base) var(--app-ease-emphasized) both;
+}
+
+@keyframes accent-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.68) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accent-card,
+  .accent-card::before,
+  .palette-dot,
+  .accent-check {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 </style>

@@ -9,14 +9,14 @@ import PubgCopyButton from '@/components/game/pubg/PubgCopyButton.vue';
 import PubgSelectLaunchOptions from '@/components/game/pubg/PubgSelectLaunchOptions.vue';
 import PubgStart from '@/components/game/pubg/PubgStart.vue';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
-import steamStore from '@/stores/game/steam.ts';
-import pubgStore from '@/stores/game/pubg.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
+import {usePubgStore} from '@/stores/game/pubg.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 
 const { t } = useI18n();
 const toast = useToast();
-const steam_store = steamStore();
-const pubg_store = pubgStore();
+const steam_store = useSteamStore();
+const pubg_store = usePubgStore();
 
 const is_content_loading = computed(() =>
   pubg_store.is_accounts_loading || pubg_store.is_start_loading,

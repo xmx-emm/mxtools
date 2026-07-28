@@ -14,4 +14,5 @@ export enum ApexFilterEnum {
 export enum ApexPageTypeEnum {
   launch = 'launch',
   video_config = 'video_config',
+  game_settings = 'game_settings',
 }

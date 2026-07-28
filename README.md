@@ -18,7 +18,7 @@
 
 ### 运行权限
 
-`src-tauri/manifest.xml` 中配置了 **以管理员身份运行**.涉及注册表、系统用户、RDP、端口转发等操作时通常需要提升权限；请仅在信任的来源下构建与运行本程序.
+默认以普通权限启动；注册表、系统用户、RDP、端口转发、五笔系统码表等敏感功能需要管理员时，可在对应页面点击「请求提升权限」重启（按需提权，整次会话通常只需确认一次 UAC）。请仅在信任的来源下构建与运行本程序.
 
 ## 快速开始
 
@@ -28,7 +28,7 @@
 npm install
 ```
 
-仅前端开发(Vite,端口 `5173`)：
+仅前端开发(Vite,端口 `14200`)：
 
 ```bash
 npm run dev
@@ -43,17 +43,17 @@ npm run "tauri dev"
 打包 Windows 安装包/可执行文件：
 
 ```bash
-npm run "build window portable" #便携版
-npm run "build window installer" #安装版
+npm run "build window"          # 默认打包(NSIS 安装包)
+npm run "build window release"  # NSIS 安装包并重命名产物
 ```
 
-PowerShell 下也可写作：`npm run build\ window`(转义空格).
+PowerShell 下也可写作：`npm run "build window"`（脚本名含空格时请加引号）。
 
 ## 故障排查
 
 ### `tauri dev` 报 `EACCES: permission denied` 无法监听端口
 
-Windows 上 Hyper-V / WSL / Docker 等可能通过 `winnat` 保留一段 TCP 端口,落在保留段内的端口绑定时会得到 `EACCES`(而非 `EADDRINUSE`).本项目开发端口为 `5173`,若你自行修改端口,请先确认不在系统保留段内：
+Windows 上 Hyper-V / WSL / Docker 等可能通过 `winnat` 保留一段 TCP 端口,落在保留段内的端口绑定时会得到 `EACCES`(而非 `EADDRINUSE`).本项目开发端口为 `14200`,若你自行修改端口,请先确认不在系统保留段内：
 
 ```powershell
 netsh interface ipv4 show excludedportrange protocol=tcp

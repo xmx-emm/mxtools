@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import {computed, onUnmounted, ref, watch} from 'vue';
+import {computed, ref, watch} from 'vue';
 import {useI18n} from 'vue-i18n';
-import {invoke} from '@tauri-apps/api/core';
+import {getPrimaryDisplayInfo} from '@/ipc/commands.ts';
 import {useToast} from 'vue-toastification';
-import apexStore from '@/stores/game/apex.ts';
-import steamStore from '@/stores/game/steam.ts';
-import eaStore from '@/stores/game/ea.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
+import {useEaStore} from '@/stores/game/ea.ts';
 import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
@@ -39,12 +39,13 @@ import {
   initVideoOptionsForDialog,
   resolveQuickPresetInitialAspectValue,
 } from '@/utils/game/apex_quick_preset.ts';
+import {useCloseLauncherThenApply} from '@/composables/useCloseLauncherThenApply.ts';
 
 const { t } = useI18n();
 const toast = useToast();
-const apex_store = apexStore();
-const steam_store = steamStore();
-const ea_store = eaStore();
+const apex_store = useApexStore();
+const steam_store = useSteamStore();
+const ea_store = useEaStore();
 
 const display_loading = ref(false);
 const display_error = ref<string | null>(null);
@@ -59,11 +60,6 @@ const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competi
 const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
 const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
-
-const launcher_close_dialog = ref(false);
-const close_launcher_kind = ref<'steam' | 'ea'>('steam');
-const is_thoroughly_kill = ref(false);
-const close_poll_id = ref<number | null>(null);
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
 
@@ -89,59 +85,16 @@ const resolution_preview = computed(() => {
   });
 });
 
-const close_dialog_title = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteam') : t('apex.closeEaDesktop'),
-);
-
-const close_dialog_text = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteamTip') : t('apex.closeEaDesktopTip'),
-);
-
-const close_dialog_icon = computed(() =>
-  close_launcher_kind.value === 'steam' ? 'mdi-steam' : 'mdi-alpha-e-circle',
-);
-
-const close_steam_apply_user = computed(() => {
-  const acc = apex_store.active_apex_account;
-  return acc?.kind === 'steam' ? acc.user : null;
-});
-
-function stop_close_poll() {
-  if (close_poll_id.value == null) return;
-  clearInterval(close_poll_id.value);
-  close_poll_id.value = null;
-}
-
-async function is_launcher_still_running(): Promise<boolean> {
-  if (close_launcher_kind.value === 'steam') {
-    return invoke<boolean>('steam_is_running_by_tasklist');
-  }
-  return invoke<boolean>('ea_desktop_is_running_by_tasklist');
-}
-
-async function poll_launcher_closed_once() {
-  const still_running = await is_launcher_still_running();
-  if (!still_running) {
-    stop_close_poll();
-    launcher_close_dialog.value = false;
-    if (close_launcher_kind.value === 'steam') {
-      void steam_store.check_is_steam_running();
-    } else {
-      void ea_store.check_is_ea_desktop_running();
-    }
-    await run_persist();
-  }
-}
-
 async function load_display_info() {
   display_loading.value = true;
   display_error.value = null;
   try {
-    const info = await invoke<PrimaryDisplayInfo>('get_primary_display_info');
+    const info = await getPrimaryDisplayInfo();
     local_display.value = info;
     apex_store.set_quick_preset_display(info);
     fps_cap.value = defaultFpsCap(info.maxRefreshRate);
-    if (apex_store.original_launch_options === '') {
+    const key = apex_store.launcher_selection_key;
+    if (!key || apex_store.launch_loaded_for_key !== key) {
       await apex_store.start_load_apex_launch_options_data();
     }
     if (Object.keys(apex_store.video_config_values).length === 0) {
@@ -167,19 +120,6 @@ async function load_display_info() {
     display_loading.value = false;
   }
 }
-
-watch(
-  () => apex_store.quick_preset_dialog,
-  (open) => {
-    if (open) {
-      void load_display_info();
-    } else {
-      stop_close_poll();
-      launcher_close_dialog.value = false;
-    }
-  },
-  { immediate: true },
-);
 
 function on_close() {
   apex_store.close_quick_preset_dialog();
@@ -224,93 +164,90 @@ async function run_persist() {
     if (String(e) === 'Error: GRAPHICS_PRESET_NOT_FOUND') {
       toast.error('apexQuickPreset.graphicsNotFound');
     } else {
-      toast.error('apexQuickPreset.applyError');
+      const detail = (e instanceof Error ? e.message : String(e ?? '')).trim();
+      toast.error(
+        detail ? `apexQuickPreset.applyError\n${detail}` : 'apexQuickPreset.applyError',
+        {timeout: 8000},
+      );
     }
   }
 }
 
-function continuously_monitor_until_closed() {
-  stop_close_poll();
-  const poll = () => {
-    void poll_launcher_closed_once().catch((e) => {
-      console.warn('launcher close poll failed', e);
-    });
-  };
-  poll();
-  close_poll_id.value = setInterval(poll, 1500) as unknown as number;
-}
-
-async function force_close_launcher() {
-  is_thoroughly_kill.value = true;
-  stop_close_poll();
-  if (close_launcher_kind.value === 'steam') {
-    await invoke('thoroughly_kill_steam');
-    if (await is_launcher_still_running()) {
-      toast.error('toast.cannotCloseSteam');
-      is_thoroughly_kill.value = false;
-      continuously_monitor_until_closed();
-      return;
+const {
+  dialog,
+  close_launcher_kind,
+  is_thoroughly_kill,
+  is_apply_running,
+  apply_check,
+  force_close_launcher,
+  cancel,
+} = useCloseLauncherThenApply({
+  apply: run_persist,
+  beforeApply: async () => {
+    if (!apex_store.active_apex_account) {
+      toast.warning('apex.noLauncherAccount');
+      return false;
     }
-  } else {
-    await invoke('thoroughly_kill_ea_desktop');
-    if (await is_launcher_still_running()) {
-      toast.error('toast.cannotCloseEaDesktop');
-      is_thoroughly_kill.value = false;
-      continuously_monitor_until_closed();
-      return;
+    if (!local_display.value) {
+      toast.error('apexQuickPreset.displayLoadFailed');
+      return false;
     }
-  }
-  is_thoroughly_kill.value = false;
-  launcher_close_dialog.value = false;
-  await run_persist();
-}
-
-function cancel_launcher_close() {
-  launcher_close_dialog.value = false;
-  is_thoroughly_kill.value = false;
-  stop_close_poll();
-}
-
-async function on_apply() {
-  if (!apex_store.active_apex_account) {
-    toast.warning('apex.noLauncherAccount');
-    return;
-  }
-  if (!local_display.value) {
-    toast.error('apexQuickPreset.displayLoadFailed');
-    return;
-  }
-  if (enable_resolution_preset.value && aspect_value.value == null) {
-    toast.warning('apexQuickPreset.selectAspect');
-    return;
-  }
-
-  const acc = apex_store.active_apex_account;
-  if (acc.kind === 'ea') {
-    await ea_store.check_is_ea_desktop_running();
-    if (ea_store.is_ea_desktop_running) {
-      close_launcher_kind.value = 'ea';
-      launcher_close_dialog.value = true;
-      continuously_monitor_until_closed();
-      return;
+    if (enable_resolution_preset.value && aspect_value.value == null) {
+      toast.warning('apexQuickPreset.selectAspect');
+      return false;
     }
-  } else {
+    if (!await apex_store.check_miles_language()) {
+      toast.error('toast.milesLanguageNotFound');
+      apex_store.close_quick_preset_dialog();
+      if (apex_store.active_apex_account?.kind === 'ea') {
+        apex_store.download_miles_language_manual_dialog_ea = true;
+      } else {
+        apex_store.download_miles_language_semi_automatic_dialog = true;
+      }
+      return false;
+    }
+    return true;
+  },
+  resolveCloseKind: async () => {
+    const acc = apex_store.active_apex_account;
+    if (!acc) return null;
+    if (acc.kind === 'ea') {
+      await ea_store.check_is_ea_desktop_running();
+      return ea_store.is_ea_desktop_running ? 'ea' : null;
+    }
     await steam_store.check_is_steam_running();
-    if (steam_store.is_steam_running) {
-      close_launcher_kind.value = 'steam';
-      launcher_close_dialog.value = true;
-      continuously_monitor_until_closed();
-      return;
-    }
-  }
-
-  stop_close_poll();
-  await run_persist();
-}
-
-onUnmounted(() => {
-  stop_close_poll();
+    return steam_store.is_steam_running ? 'steam' : null;
+  },
 });
+
+const close_dialog_title = computed(() =>
+  close_launcher_kind.value === 'steam' ? t('apex.closeSteam') : t('apex.closeEaDesktop'),
+);
+
+const close_dialog_text = computed(() =>
+  close_launcher_kind.value === 'steam' ? t('apex.closeSteamTip') : t('apex.closeEaDesktopTip'),
+);
+
+const close_dialog_icon = computed(() =>
+  close_launcher_kind.value === 'steam' ? 'mdi-steam' : 'mdi-alpha-e-circle',
+);
+
+const close_steam_apply_user = computed(() => {
+  const acc = apex_store.active_apex_account;
+  return acc?.kind === 'steam' ? acc.user : null;
+});
+
+watch(
+  () => apex_store.quick_preset_dialog,
+  (open) => {
+    if (open) {
+      void load_display_info();
+    } else {
+      cancel();
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -522,9 +459,9 @@ onUnmounted(() => {
         <v-btn variant="text" @click="on_close">{{ t('common.cancel') }}</v-btn>
         <v-btn
           color="primary"
-          :loading="apex_store.quick_preset_applying"
+          :loading="apex_store.quick_preset_applying || is_apply_running"
           :disabled="display_loading || !local_display"
-          @click="on_apply"
+          @click="apply_check"
         >
           {{ t('apex.apply') }}
         </v-btn>
@@ -532,7 +469,7 @@ onUnmounted(() => {
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="launcher_close_dialog" max-width="400" persistent>
+  <v-dialog v-model="dialog" max-width="400" persistent>
     <v-card
       :prepend-icon="close_dialog_icon"
       :title="close_dialog_title"
@@ -549,7 +486,7 @@ onUnmounted(() => {
           {{ t('apex.forceClose') }}
         </v-btn>
         <v-spacer/>
-        <v-btn @click="cancel_launcher_close">{{ t('common.cancel') }}</v-btn>
+        <v-btn @click="cancel">{{ t('common.cancel') }}</v-btn>
       </template>
       <template #append>
         <v-progress-circular indeterminate size="16" color="red" width="2"/>

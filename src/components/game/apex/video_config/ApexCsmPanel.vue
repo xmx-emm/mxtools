@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import type { ApexVideoConfigEnumOption, ApexVideoConfigImpl } from '@/types/apex.ts';
 
 const props = defineProps<{
@@ -9,7 +9,7 @@ const props = defineProps<{
 }>();
 
 const { t } = useI18n();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 function translateText(key?: string) {
   if (!key) return '';

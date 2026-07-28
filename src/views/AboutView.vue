@@ -42,16 +42,16 @@ const closeWindow = async () => {
 };
 
 const techStack = [
-  { name: 'Tauri', color: 'blue-darken-2', icon: 'mdi-rocket-launch' },
-  { name: 'Vue 3', color: 'green-darken-1', icon: 'mdi-vuejs' },
-  { name: 'Vuetify', color: 'blue-lighten-1', icon: 'mdi-vuetify' },
-  { name: 'TypeScript', color: 'blue-darken-1', icon: 'mdi-language-typescript' }
+  { name: 'Tauri', color: 'primary', icon: 'mdi-rocket-launch' },
+  { name: 'Vue 3', color: 'success', icon: 'mdi-vuejs' },
+  { name: 'Vuetify', color: 'info', icon: 'mdi-vuetify' },
+  { name: 'TypeScript', color: 'primary', icon: 'mdi-language-typescript' }
 ];
 </script>
 
 <template>
   <v-app>
-    <v-main class="bg-grey-lighten-4">
+    <v-main class="bg-surface-variant">
       <v-container
         :initial="{ opacity: 0, y: 50 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
@@ -77,7 +77,7 @@ const techStack = [
             </v-avatar>
 
             <h2 class="text-h5 font-weight-bold mb-1">{{ t('about.appName') }}</h2>
-            <p v-if="versionLine" class="text-body-2 text-grey-darken-1 mb-1">{{ versionLine }}</p>
+            <p v-if="versionLine" class="text-body-2 text-on-surface-variant mb-1">{{ versionLine }}</p>
             <v-chip
               v-if="distributionLabel"
               class="mb-4"
@@ -111,10 +111,11 @@ const techStack = [
 
           <v-divider></v-divider>
 
-          <v-card-actions class="bg-grey-lighten-5 pa-4">
+          <v-card-actions class="bg-surface pa-4">
             <v-btn
               v-for="(url,text) in urls"
-              color="pink-lighten-1"
+              :key="text"
+              color="primary"
               variant="tonal"
               @click="openUrl(url)"
             >
@@ -124,7 +125,7 @@ const techStack = [
             <v-spacer></v-spacer>
 
             <v-btn
-              color="grey-darken-3"
+              color="on-surface"
               variant="text"
               @click="closeWindow"
             >
@@ -133,7 +134,7 @@ const techStack = [
           </v-card-actions>
         </v-card>
 
-        <p class="mt-6 text-caption text-grey">
+        <p class="mt-6 text-caption text-on-surface-variant">
           {{ t('about.copyright') }}
         </p>
       </v-container>

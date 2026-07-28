@@ -3,31 +3,37 @@
  * Steam：半自动下载语音包(Steam 控制台 + Depot)
  */
 import {openUrl} from '@tauri-apps/plugin-opener';
-import {invoke} from '@tauri-apps/api/core';
-import {ref} from 'vue';
+import {
+  applyApexMilesLanguage,
+  openApexAudioFolderPath,
+  openApexDepotDownloadFolderPath,
+} from '@/ipc/commands.ts';
+import {computed, ref} from 'vue';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
+import {useI18n} from 'vue-i18n';
 import CodeDisplay from '@/components/utils/CodeDisplay.vue';
 import steamConsoleImg from '@/assets/game/steam_console.png';
 import {useToast} from 'vue-toastification';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 
-const apex_store = apexStore();
+const {t} = useI18n();
+const apex_store = useApexStore();
 const written_to_clipboard = ref(false);
 const is_apply_language = ref(false);
 const toast = useToast();
 
 const stepper_ref = ref();
 
-const stepper = [
-  '打开控制台',
-  '下载Depot',
-  '应用语音包',
-  '注意事项',
-];
+const stepper = computed(() => [
+  t('apex.milesDownload.stepConsole'),
+  t('apex.milesDownload.stepDepot'),
+  t('apex.milesDownload.stepApply'),
+  t('apex.milesDownload.stepNotes'),
+]);
 
 function apply_miles_language() {
   is_apply_language.value = true;
-  invoke('apply_apex_miles_language', {
+  applyApexMilesLanguage({
     depot: Number(apex_store.language_depot),
     platform: 'steam',
     eaUserId: null,
@@ -54,7 +60,7 @@ function open_console() {
 }
 
 function open_audio_folder() {
-  invoke('open_apex_audio_folder_path', {
+  openApexAudioFolderPath({
     platform: 'steam',
     eaUserId: null,
   }).catch((e) => {
@@ -63,7 +69,7 @@ function open_audio_folder() {
 }
 
 function open_depot_download_folder() {
-  invoke('open_apex_depot_download_folder_path', {
+  openApexDepotDownloadFolderPath({
     depot: Number(apex_store.language_depot),
     platform: 'steam',
     eaUserId: null,
@@ -76,10 +82,14 @@ function open_depot_download_folder() {
 <template>
   <v-dialog class="not_select" v-model="apex_store.download_miles_language_semi_automatic_dialog">
     <template v-slot:default="{  }">
-      <v-card title="应用语音包步骤(Steam)">
+      <v-card :title="t('apex.milesDownload.semiAutoTitle')">
         <v-stepper :items="stepper" ref="stepper_ref">
           <template v-slot:item.1>
-            <v-card flat subtitle="通过Steam控制台下载所需的Apex语音包" title="打开Steam控制台">
+            <v-card
+              flat
+              :subtitle="t('apex.milesDownload.openConsoleSubtitle')"
+              :title="t('apex.milesDownload.openConsoleTitle')"
+            >
               <v-row class="d-flex flex-row align-center" style="flex:1;width: 100%;padding: 30px"
                      align-content="space-between">
                 <v-img
@@ -96,16 +106,15 @@ function open_depot_download_folder() {
                 </svg>
               </v-row>
               <div style="padding: 10px">
-
                 <v-btn block @click="open_console"
                        prepend-icon="mdi-console" variant="tonal"
-                >打开控制台
+                >{{ t('apex.milesDownload.openConsoleBtn') }}
                 </v-btn>
               </div>
             </v-card>
           </template>
           <template v-slot:item.2>
-            <v-card title="下载Depot" flat>
+            <v-card :title="t('apex.milesDownload.downloadDepotTitle')" flat>
               <v-col>
                 <div class="d-flex align-center">
                   <v-icon
@@ -113,26 +122,25 @@ function open_depot_download_folder() {
                     size="30px"
                     @click="openUrl('steam://nav/console')"
                   />
-                  输入代码
+                  {{ t('apex.milesDownload.enterCode') }}
                   <p class="link" @click="copy_code"> {{ apex_store.download_language_depot_command }}</p>
                   <div v-if="written_to_clipboard">
                     <v-icon icon="mdi-check" color="green"></v-icon>
-                    已复制
+                    {{ t('apex.milesDownload.copied') }}
                   </div>
-                  <div v-else> 点击复制</div>
+                  <div v-else> {{ t('apex.milesDownload.clickToCopy') }}</div>
                 </div>
                 <v-divider></v-divider>
                 <v-layout>
                   <CodeDisplay
-                    title="等待下载完成"
+                    :title="t('apex.milesDownload.waitDownloadTitle')"
                     :code="apex_store.download_language_depot_command"
                   >
-                    // 出现下列代码状态为下载中...<br/>
+                    {{ t('apex.milesDownload.waitDownloadHintDownloading') }}<br/>
                     Downloading depot {{ apex_store.language_depot }} (2 files, xxxx MB) ...<br/>
-                    // 语言文件大小约为~4GB,10MB/s下载时间大约为5分钟<br/>
-                    // 出现下列代码状态为下载完成,点击下一步应用配音...<br/>
-                    Depot download complete :
-                    "Steam目录\steamapps\content\app_1172470\depot_{{ apex_store.language_depot }}"<br/>
+                    {{ t('apex.milesDownload.waitDownloadHintSize') }}<br/>
+                    {{ t('apex.milesDownload.waitDownloadHintDone') }}<br/>
+                    {{ t('apex.milesDownload.waitDownloadPathHint', { depot: apex_store.language_depot }) }}<br/>
                     (manifest xxxxxxxxxxxxxxxxxxx)
                   </CodeDisplay>
                 </v-layout>
@@ -140,26 +148,27 @@ function open_depot_download_folder() {
             </v-card>
           </template>
           <template v-slot:item.3>
-            <v-card title="应用语音包" flat>
-              <div class="d-flex flex-row">将下载的
-                <div @click="open_depot_download_folder" class="link">语音包</div>
-                复制到
-                <div @click="open_audio_folder" class="link">Apex目录</div>
-                下
+            <v-card :title="t('apex.milesDownload.applyTitle')" flat>
+              <div class="d-flex flex-row flex-wrap">
+                {{ t('apex.milesDownload.applyCopyPrefix') }}
+                <div @click="open_depot_download_folder" class="link">{{ t('apex.milesDownload.applyVoicePackLink') }}</div>
+                {{ t('apex.milesDownload.applyCopyMiddle') }}
+                <div @click="open_audio_folder" class="link">{{ t('apex.milesDownload.applyApexDirLink') }}</div>
+                {{ t('apex.milesDownload.applyCopySuffix') }}
               </div>
-              <div>再输入指定语音包的启动参数即可</div>
+              <div>{{ t('apex.milesDownload.applyThenSetLaunch') }}</div>
               <v-btn
                 @click="apply_miles_language"
                 :loading="is_apply_language"
                 variant="tonal"
-              >点我应用
+              >{{ t('apex.milesDownload.applyBtn') }}
               </v-btn>
             </v-card>
           </template>
           <template v-slot:item.4>
-            <v-card title="注意!" flat class="error_color warning-red-text-edge-animate">
-              <div>每次Apex大版本更新或修改语音包时需要重新下载并应用语音包</div>
-              <div>不然将会导致无法启动Apex!!!!!</div>
+            <v-card :title="t('apex.milesDownload.noteTitle')" flat class="error_color warning-red-text-edge-animate">
+              <div>{{ t('apex.milesDownload.noteLine1') }}</div>
+              <div>{{ t('apex.milesDownload.noteLine2') }}</div>
             </v-card>
           </template>
         </v-stepper>

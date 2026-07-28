@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import pubgStore from '@/stores/game/pubg.ts';
+import {usePubgStore} from '@/stores/game/pubg.ts';
 
 defineProps<{
   title?: string
   subtitle?: string
 }>();
 
-const pubg_store = pubgStore();
+const pubg_store = usePubgStore();
 </script>
 
 <template>
@@ -21,7 +21,7 @@ const pubg_store = pubgStore();
         @click.stop="pubg_store.closeTip()"
       />
     </template>
-    <template v-if="$slots.text" #text style="padding: 0">
+    <template v-if="$slots.text" #text>
       <slot name="text" />
     </template>
     <div class="mx-6 mb-6">

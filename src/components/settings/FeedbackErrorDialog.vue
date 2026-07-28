@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import {ref} from 'vue';
-import {invoke} from '@tauri-apps/api/core';
+import {getLogFolderPath, getLogsForFeedback, getSystemInfo} from '@/ipc/commands.ts';
 import {openPath, openUrl} from '@tauri-apps/plugin-opener';
 import {useToast} from 'vue-toastification';
-import {version} from '@/env';
+import {version} from '@/env.ts';
 import {GITHUB_ISSUE_URL} from '@/data/url_other.ts';
 
 const { t } = useI18n();
@@ -17,46 +17,47 @@ const loading = ref(false);
 async function buildIssueBody(): Promise<string> {
   loading.value = true;
   try {
-    const [systemInfo, logs] = await Promise.all([
-      invoke<[string, string][]>('system_info'),
-      invoke<{ backend: string; frontend: string }>('get_logs_for_feedback'),
+    const [sysRows, logs] = await Promise.all([
+      getSystemInfo(),
+      getLogsForFeedback(),
     ]);
 
-    const systemSection = (systemInfo || [])
+    const systemSection = (sysRows || [])
       .map(([k, v]) => `- **${k}**: ${v}`)
       .join('\n');
 
+    const empty = t('settings.feedbackBodyEmpty');
     const body = [
-      '## 环境信息',
+      t('settings.feedbackBodyEnv'),
       '',
-      `- **软件版本**: ${version.value || 'unknown'}`,
+      t('settings.feedbackBodyAppVersion', { version: version.value || 'unknown' }),
       '',
-      '### 系统信息',
+      t('settings.feedbackBodySystem'),
       systemSection,
       '',
-      '## 问题描述',
+      t('settings.feedbackBodyDescription'),
       '',
-      description.value || '(未填写)',
+      description.value || t('settings.feedbackBodyDescriptionEmpty'),
       '',
-      '## 日志',
+      t('settings.feedbackBodyLogs'),
       '',
-      '> 请将 Documents/mxtools/ 下的 **backend.log** 和 **frontend.log** 拖入本 Issue 编辑区以上传完整日志',
+      t('settings.feedbackBodyLogsHint'),
       '',
-      '### 后端日志(摘要)',
+      t('settings.feedbackBodyBackendLogs'),
       '```',
-      logs?.backend || '(无)',
+      logs?.backend || empty,
       '```',
       '',
-      '### 前端日志(摘要)',
+      t('settings.feedbackBodyFrontendLogs'),
       '```',
-      logs?.frontend || '(无)',
+      logs?.frontend || empty,
       '```',
     ].join('\n');
 
     // URL 长度限制约 2KB,超长时截断日志部分
     const maxLen = 6000;
     if (body.length > maxLen) {
-      return body.slice(0, maxLen) + '\n\n...(日志已截断,请将 Documents/mxtools/ 下的日志文件拖入本 Issue)';
+      return body.slice(0, maxLen) + t('settings.feedbackBodyTruncated');
     }
     return body;
   } finally {
@@ -67,15 +68,16 @@ async function buildIssueBody(): Promise<string> {
 async function openGitHubIssue() {
   try {
     const body = await buildIssueBody();
+    const summary = description.value?.slice(0, 50) || t('settings.feedbackIssueTitleFallback');
     const params = new URLSearchParams({
-      title: `[反馈] ${description.value?.slice(0, 50) || '问题反馈'}`,
+      title: t('settings.feedbackIssueTitle', { summary }),
       body,
     });
     const url = `${GITHUB_ISSUE_URL}?${params.toString()}`;
     await openUrl(url);
     // 打开日志文件夹,方便用户将 backend.log、frontend.log 拖入 Issue
     try {
-      const logFolder = await invoke<string>('get_log_folder_path');
+      const logFolder = await getLogFolderPath();
       await openPath(logFolder);
     } catch {
       // 忽略打开文件夹失败

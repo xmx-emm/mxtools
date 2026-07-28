@@ -1,117 +1,87 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {invoke} from '@tauri-apps/api/core';
+import {computed, ref} from 'vue';
 import {useToast} from 'vue-toastification';
-import {computed, onUnmounted, ref, shallowRef} from 'vue';
-import steamStore from '@/stores/game/steam.ts';
-import pubgStore from '@/stores/game/pubg.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
+import {usePubgStore} from '@/stores/game/pubg.ts';
 import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import {
+  formatApplyLaunchOptionError,
+  useApplyButtonClass,
+  useCloseLauncherThenApply,
+} from '@/composables/useCloseLauncherThenApply.ts';
+import {setPubgLaunchOption} from '@/ipc/commands.ts';
 
 const {t} = useI18n();
 const toast = useToast();
+const steam_store = useSteamStore();
+const pubg_store = usePubgStore();
+const is_setting_launch_option = ref(false);
 
-const steam_store = steamStore();
-const pubg_store = pubgStore();
-
-const dialog = shallowRef(false);
-const is_thoroughly_kill_steam = ref(false);
-const interval_id = ref<number | any>(null);
-const is_apply_running = ref(false);
-const WAIT_CLOSE_POLL_MS = 1500;
-
-function stop_monitoring() {
-  if (!interval_id.value) return;
-  clearInterval(interval_id.value);
-  interval_id.value = null;
-}
-
-function start_monitoring() {
-  stop_monitoring();
-  const poll = async () => {
-    try {
-      const is_running = await invoke<boolean>('steam_is_running_by_tasklist');
-      if (!is_running) {
-        stop_monitoring();
-        dialog.value = false;
-        void steam_store.check_is_steam_running();
-        set_launch_option();
-      }
-    } catch (e) {
-      console.warn('steam close poll failed', e);
+async function set_launch_option() {
+  if (is_setting_launch_option.value) return;
+  is_setting_launch_option.value = true;
+  try {
+    const user = steam_store.active_steam_user;
+    if (!user) {
+      toast.error('apex.noLauncherAccount');
+      return;
     }
-  };
-  void poll();
-  interval_id.value = setInterval(() => { void poll(); }, WAIT_CLOSE_POLL_MS);
+    const id = Number(user.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      toast.error(
+        formatApplyLaunchOptionError(new Error(t('pubg.invalidSteamUserId', {id: user.id}))),
+        {timeout: 8000},
+      );
+      return;
+    }
+    try {
+      await setPubgLaunchOption({
+        id,
+        launchOption: pubg_store.launch_options,
+      });
+      toast.success('toast.applyLaunchOptionSuccess');
+      pubg_store.original_launch_options = pubg_store.launch_options;
+      pubg_store.launch_loaded_for_user_id = user.id;
+      dialog.value = false;
+    } catch (err) {
+      console.warn('set_pubg_launch_option failed', err);
+      toast.error(formatApplyLaunchOptionError(err), {timeout: 8000});
+      dialog.value = false;
+    }
+  } finally {
+    is_setting_launch_option.value = false;
+  }
 }
 
-const apply_button_class = computed(() => {
-  if (pubg_store.is_start_loading || !pubg_store.is_launch_options_modified) return '';
-  if (steam_store.is_steam_running) {
-    return 'warning-red-text-edge-animate';
-  }
-  return 'success-green-text-edge-animate';
+const {
+  dialog,
+  is_thoroughly_kill,
+  is_apply_running,
+  apply_check,
+  force_close_launcher,
+  cancel,
+} = useCloseLauncherThenApply({
+  apply: set_launch_option,
+  beforeApply: async () => {
+    if (!steam_store.active_steam_user) {
+      toast.error('apex.noLauncherAccount');
+      return false;
+    }
+    return true;
+  },
 });
 
-async function force_close_steam() {
-  is_thoroughly_kill_steam.value = true;
-  stop_monitoring();
-  await invoke('thoroughly_kill_steam');
-
-  if (await invoke<boolean>('steam_is_running_by_tasklist')) {
-    toast.error('toast.cannotCloseSteam');
-    is_thoroughly_kill_steam.value = false;
-    start_monitoring();
-  } else {
-    is_thoroughly_kill_steam.value = false;
-    dialog.value = false;
-    stop_monitoring();
-    set_launch_option();
-  }
-}
-
-function set_launch_option() {
-  invoke<void>('set_pubg_launch_option', {
-    id: Number(steam_store.active_steam_user?.id),
-    launchOption: pubg_store.launch_options,
-  }).then(() => {
-    toast.success('toast.applyLaunchOptionSuccess');
-    pubg_store.original_launch_options = pubg_store.launch_options;
-    dialog.value = false;
-    is_apply_running.value = false;
-  }).catch((err) => {
-    console.log(err);
-    toast.error('toast.applyLaunchOptionError');
-    dialog.value = false;
-    is_apply_running.value = false;
-  });
-}
-
-function cancel() {
-  dialog.value = false;
-  is_thoroughly_kill_steam.value = false;
-  stop_monitoring();
-  is_apply_running.value = false;
-}
-
-function continuously_monitor_the_operational_status() {
-  start_monitoring();
-}
-
-async function apply_check() {
-  is_apply_running.value = true;
-  await steam_store.check_is_steam_running();
-
-  if (steam_store.is_steam_running) {
-    dialog.value = true;
-    continuously_monitor_the_operational_status();
-  } else {
-    stop_monitoring();
-    set_launch_option();
-  }
-}
-
-onUnmounted(() => {
-  stop_monitoring();
+const apply_button_class = useApplyButtonClass({
+  busy: computed(
+    () =>
+      pubg_store.is_start_loading ||
+      is_setting_launch_option.value ||
+      is_apply_running.value ||
+      !steam_store.active_steam_user,
+  ),
+  modified: computed(() => !!steam_store.active_steam_user && pubg_store.is_launch_options_modified),
+  needsWarning: computed(() => steam_store.is_steam_running),
 });
 </script>
 
@@ -144,9 +114,9 @@ onUnmounted(() => {
         </v-card-text>
         <template v-slot:actions>
           <v-btn
-            @click="force_close_steam"
+            @click="force_close_launcher"
             color="red"
-            :loading="is_thoroughly_kill_steam"
+            :loading="is_thoroughly_kill"
           >
             {{ t('apex.forceClose') }}
           </v-btn>
@@ -175,4 +145,3 @@ onUnmounted(() => {
 
 <style scoped>
 </style>
-

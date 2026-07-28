@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useRoute, useRouter} from 'vue-router';
 import {toolCategoryContainingPath, tools} from '../router.ts';
-import profilePhoto from '@/assets/images/avatar.jpg';
+import appIconUrl from '../../src-tauri/icons/128x128.png';
 import {includesRoute} from '../utils/router.ts';
 import {computed, onMounted} from 'vue';
 import AppVersion from '@/components/utils/AppVersion.vue';
@@ -63,6 +63,7 @@ onMounted(() => {
   <div class="nav-layout">
     <aside
       class="nav-panel nav-panel--primary"
+      :aria-label="$t('nav.toolCenter')"
       :class="{ 'nav-panel--collapsed': primaryCollapsed }"
       :style="{ width: `${primaryWidth}px` }"
     >
@@ -77,11 +78,18 @@ onMounted(() => {
             <template #activator="{ props: tipProps }">
               <v-list-item
                 v-bind="tipProps"
-                :prepend-avatar="profilePhoto"
+                :title="$t('about.appName')"
+                :subtitle="$t('nav.toolCenter')"
                 @click="router.push('/')"
                 rounded="lg"
-                class="mb-1 nav-avatar-item"
-              />
+                class="mb-1 nav-brand-item"
+              >
+                <template #prepend>
+                  <span class="nav-brand-mark">
+                    <img :src="appIconUrl" alt="" draggable="false"/>
+                  </span>
+                </template>
+              </v-list-item>
             </template>
           </v-tooltip>
           <v-divider class="my-2"/>
@@ -144,11 +152,14 @@ onMounted(() => {
       v-model="primaryWidth"
       :min="NAV_MIN_WIDTH"
       :max="NAV_PRIMARY_MAX"
+      :label="$t('nav.resizePanel')"
     />
 
     <template v-if="showSecondary && activeTool">
       <aside
+        :key="activeTool.path"
         class="nav-panel nav-panel--secondary"
+        :aria-label="$t(activeTool.nameKey)"
         :class="{ 'nav-panel--collapsed': secondaryCollapsed }"
         :style="{ width: `${secondaryWidth}px` }"
       >
@@ -166,12 +177,17 @@ onMounted(() => {
                   class="nav-back-slot flex-shrink-0"
                   :class="{ 'nav-back-slot--hidden': onToolCategoryRoot }"
                 >
-                  <v-icon
-                    icon="mdi-chevron-left"
-                    size="small"
-                    class="cursor-pointer nav-back-icon"
+                  <button
+                    type="button"
+                    class="nav-back-button"
+                    :aria-label="$t('nav.backToCategory')"
+                    :title="$t('nav.backToCategory')"
+                    :tabindex="onToolCategoryRoot ? -1 : 0"
+                    :aria-hidden="onToolCategoryRoot ? 'true' : undefined"
                     @click="router.push(activeTool.path)"
-                  />
+                  >
+                    <v-icon icon="mdi-chevron-left" size="small" class="nav-back-icon" aria-hidden="true" />
+                  </button>
                 </div>
                 <v-tooltip
                   :text="$t(activeTool.nameKey)"
@@ -180,14 +196,19 @@ onMounted(() => {
                   open-delay="300"
                 >
                   <template #activator="{ props: tipProps }">
-                    <span
+                    <button
+                      type="button"
                       v-bind="tipProps"
                       class="cursor-pointer nav-subheader__title text-truncate"
                       :class="{ 'nav-subheader__title--hidden': !onToolCategoryRoot && secondaryCollapsed }"
+                      :aria-label="$t(activeTool.nameKey)"
+                      :title="$t(activeTool.nameKey)"
+                      :tabindex="!onToolCategoryRoot && secondaryCollapsed ? -1 : 0"
+                      :aria-hidden="!onToolCategoryRoot && secondaryCollapsed ? 'true' : undefined"
                       @click="router.push(activeTool.path)"
                     >
                       {{ $t(activeTool.nameKey) }}
-                    </span>
+                    </button>
                   </template>
                 </v-tooltip>
               </div>
@@ -203,7 +224,7 @@ onMounted(() => {
               <template #activator="{ props: tipProps }">
                 <v-list-item
                   v-bind="tipProps"
-                  :title="secondaryCollapsed ? undefined : $t(item.nameKey)"
+                  :title="$t(item.nameKey)"
                   :value="item.path"
                   :prepend-icon="item?.iconComponent ? undefined : item.icon"
                   @click="router.push(item?.path ?? '/')"
@@ -228,6 +249,7 @@ onMounted(() => {
         v-model="secondaryWidth"
         :min="NAV_MIN_WIDTH"
         :max="NAV_SECONDARY_MAX"
+        :label="$t('nav.resizePanel')"
       />
     </template>
   </div>
@@ -250,12 +272,22 @@ onMounted(() => {
   align-self: stretch;
   height: 100%;
   min-height: 0;
-  background: rgb(var(--v-theme-surface));
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.025), transparent 180px),
+    rgb(var(--v-theme-surface));
   overflow: hidden;
+  border-right: 1px solid var(--app-border);
+  box-shadow: inset -1px 0 rgba(var(--v-theme-on-surface), 0.025);
 }
 
 .nav-panel--secondary {
-  background: rgb(var(--v-theme-background));
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.035), transparent 32%),
+    rgba(var(--v-theme-background), 0.94);
+}
+
+.nav-panel--secondary > .nav-panel__scroll {
+  animation: nav-secondary-in var(--app-motion-base) var(--app-ease-emphasized) both;
 }
 
 .nav-list {
@@ -303,12 +335,66 @@ onMounted(() => {
 }
 
 .nav-tool-item {
-  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+  min-height: 42px;
+  transition:
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    color var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.nav-brand-item {
+  min-height: 54px;
+  padding-inline: 6px 8px;
+}
+
+.nav-brand-item :deep(.v-list-item__prepend) {
+  align-self: center;
+}
+
+.nav-brand-item :deep(.v-list-item-title) {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.nav-brand-item :deep(.v-list-item-subtitle) {
+  margin-top: 1px;
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.nav-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-primary), 0.055));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition:
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard),
+    transform var(--app-motion-fast) var(--app-ease-emphasized);
+}
+
+.nav-brand-mark img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  user-select: none;
+}
+
+.nav-tool-item:hover:not(.nav-tool-item-active) {
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .nav-tool-item :deep(.v-list-item__content) {
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -320,8 +406,56 @@ onMounted(() => {
 }
 
 .nav-tool-item-active {
-  background: rgba(var(--v-theme-primary), 0.1) !important;
+  background:
+    linear-gradient(90deg, rgba(var(--v-theme-primary), 0.14), rgba(var(--v-theme-primary), 0.055)) !important;
   color: rgb(var(--v-theme-primary));
+  box-shadow: inset 0 1px 0 rgba(var(--v-theme-primary), 0.08), inset 0 -1px 0 rgba(var(--v-theme-primary), 0.05);
+}
+
+.nav-tool-item-active :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+.nav-tool-item-active::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 2px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.32);
+  transform-origin: center;
+  animation: nav-active-rail-in var(--app-motion-base) var(--app-ease-emphasized) both;
+}
+
+.nav-tool-item :deep(.v-icon) {
+  transition:
+    color var(--app-motion-fast) var(--app-ease-standard),
+    filter var(--app-motion-fast) var(--app-ease-standard),
+    transform var(--app-motion-fast) var(--app-ease-emphasized);
+}
+
+.nav-tool-item-active :deep(.v-icon) {
+  filter: drop-shadow(0 0 4px rgba(var(--v-theme-primary), 0.24));
+  transform: scale(1.04);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-tool-item:hover:not(.nav-tool-item-active) :deep(.v-icon) {
+    transform: translateX(2px) scale(1.04);
+  }
+
+  .nav-panel--collapsed .nav-tool-item:hover:not(.nav-tool-item-active) :deep(.v-icon) {
+    transform: scale(1.05);
+  }
+
+  .nav-brand-item:hover .nav-brand-mark {
+    border-color: rgba(var(--v-theme-primary), 0.42);
+    box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+  }
 }
 
 .nav-child-item :deep(.v-list-item__prepend > .v-icon) {
@@ -338,11 +472,11 @@ onMounted(() => {
 
 .nav-panel--collapsed .nav-version {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.15;
   padding: 2px 2px 4px;
   word-break: break-all;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* 折叠态: flex 居中,避免 Vuetify 三列网格把图标挤到左侧 */
@@ -407,12 +541,13 @@ onMounted(() => {
   font-size: 24px;
 }
 
-.nav-panel--collapsed :deep(.v-list-item__prepend > .v-avatar) {
-  width: 40px !important;
-  height: 40px !important;
+.nav-panel--collapsed .nav-brand-mark {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
 }
 
-.nav-panel--collapsed .nav-avatar-item :deep(.v-list-item__overlay) {
+.nav-panel--collapsed .nav-brand-item :deep(.v-list-item__overlay) {
   border-radius: 8px;
 }
 
@@ -433,7 +568,8 @@ onMounted(() => {
 }
 
 .nav-subheader {
-  opacity: 0.7;
+  opacity: 0.78;
+  letter-spacing: 0.06em;
 }
 
 .nav-subheader__row {
@@ -448,14 +584,14 @@ onMounted(() => {
 }
 
 .nav-back-slot {
-  width: 20px;
+  width: 24px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   transition:
-    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    width var(--app-motion-base) var(--app-ease-standard),
+    opacity var(--app-motion-base) var(--app-ease-standard);
 }
 
 .nav-back-slot--hidden {
@@ -467,8 +603,36 @@ onMounted(() => {
 .nav-back-icon {
   flex-shrink: 0;
   transition:
-    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-emphasized);
+}
+
+.nav-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    transform var(--app-motion-fast) var(--app-ease-emphasized);
+}
+
+.nav-back-button:hover {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.nav-back-button:active {
+  transform: scale(0.92);
 }
 
 .nav-back-slot--hidden .nav-back-icon {
@@ -479,19 +643,27 @@ onMounted(() => {
 .nav-subheader__title {
   flex: 1 1 auto;
   min-width: 0;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
   max-width: 11rem;
   transition:
-    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    flex 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    max-width var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-emphasized);
 }
 
 .nav-subheader__title--hidden {
   opacity: 0;
   max-width: 0 !important;
   flex: 0 0 0;
+  transform: translateX(-4px);
   pointer-events: none;
 }
 
@@ -508,6 +680,23 @@ onMounted(() => {
   font-size: 11px;
   opacity: 0.45;
   padding: 4px 0 2px;
-  color: var(--grey-darken-3);
+  color: rgb(var(--v-theme-on-surface));
+}
+
+@keyframes nav-active-rail-in {
+  from { opacity: 0; transform: scaleY(0.35); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+@keyframes nav-secondary-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-panel--secondary > .nav-panel__scroll,
+  .nav-tool-item-active::before {
+    animation: none !important;
+  }
 }
 </style>

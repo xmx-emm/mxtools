@@ -1,0 +1,202 @@
+.place-card {
+  height: 100%;
+  background: rgb(var(--v-theme-surface));
+}
+.place-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 18px !important;
+}
+.place-header-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 11px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+.place-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  line-height: 1.3;
+}
+.place-header-kicker {
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.place-body {
+  min-height: 0;
+  padding: 18px !important;
+  overflow: auto;
+}
+.place-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+.place-intro p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.place-monitor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+}
+.place-monitor-select {
+  flex: 0 1 360px;
+  min-width: 220px;
+}
+.place-monitor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.place-aspect-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 10px;
+  color: rgb(var(--v-theme-warning));
+  border: 1px solid rgba(var(--v-theme-warning), 0.35);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-warning), 0.08);
+  font-size: 12px;
+}
+.place-actions {
+  min-height: 58px;
+  padding: 8px 14px !important;
+}
+.place-thumbs-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.place-thumb {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+.place-thumb--active {
+  border-color: rgb(var(--v-theme-primary));
+}
+.place-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.place-stage {
+  position: relative;
+  width: 100%;
+  height: min(58vh, 560px);
+  overflow: hidden;
+  background: #111;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 12px;
+  touch-action: none;
+  user-select: none;
+}
+.place-stage-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+.place-img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  object-fit: cover;
+  pointer-events: none;
+}
+.place-roi {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid rgba(80, 160, 255, 0.95);
+  background: rgba(37, 99, 235, 0.18);
+  cursor: move;
+  z-index: 2;
+}
+.place-roi-label {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.place-roi .h {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  box-sizing: border-box;
+  z-index: 3;
+}
+.place-roi .h::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: #fff;
+  border: 1px solid rgba(80, 140, 255, 0.95);
+  border-radius: 2px;
+}
+.place-roi .h.nw { left: -9px; top: -9px; cursor: nwse-resize; }
+.place-roi .h.ne { right: -9px; top: -9px; cursor: nesw-resize; }
+.place-roi .h.sw { left: -9px; bottom: -9px; cursor: nesw-resize; }
+.place-roi .h.se { right: -9px; bottom: -9px; cursor: nwse-resize; }
+.place-roi .h.n { left: calc(50% - 9px); top: -9px; cursor: ns-resize; }
+.place-roi .h.s { left: calc(50% - 9px); bottom: -9px; cursor: ns-resize; }
+.place-roi .h.w { left: -9px; top: calc(50% - 9px); cursor: ew-resize; }
+.place-roi .h.e { right: -9px; top: calc(50% - 9px); cursor: ew-resize; }
+
+@media (max-width: 720px) {
+  .place-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .place-monitor-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .place-monitor-select {
+    flex-basis: auto;
+    min-width: 0;
+    width: 100%;
+  }
+}

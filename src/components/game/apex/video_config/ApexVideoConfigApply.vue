@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import {computed, onUnmounted, ref, shallowRef} from 'vue';
+import {computed, ref, shallowRef} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
-import {invoke} from '@tauri-apps/api/core';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
+import {apexIsRunning, thoroughlyKillApex} from '@/ipc/commands.ts';
+import {useProcessPollUntilExit} from '@/composables/useProcessPollUntilExit.ts';
 
 const {t} = useI18n();
 const toast = useToast();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 const dialog = shallowRef(false);
 const is_thoroughly_kill = ref(false);
-const interval_id = ref<number | any>(null);
 const is_apply_running = ref(false);
 const is_applying_video_config = ref(false);
 const WAIT_CLOSE_POLL_MS = 1500;
@@ -19,12 +19,6 @@ const apply_button_class = computed(() => {
   if (apex_store.is_video_config_loading || !apex_store.is_video_config_modified) return '';
   return 'warning-red-text-edge-animate';
 });
-
-function stop_monitoring() {
-  if (!interval_id.value) return;
-  clearInterval(interval_id.value);
-  interval_id.value = null;
-}
 
 async function apply_video_config() {
   if (is_applying_video_config.value) return;
@@ -38,14 +32,20 @@ async function apply_video_config() {
   }
 }
 
+const {start: start_monitoring, stop: stop_monitoring} = useProcessPollUntilExit({
+  isRunning: apexIsRunning,
+  pollMs: WAIT_CLOSE_POLL_MS,
+  onExit: apply_video_config,
+});
+
 async function force_close_apex() {
   is_thoroughly_kill.value = true;
   stop_monitoring();
-  await invoke('thoroughly_kill_apex');
-  if (await invoke<boolean>('apex_is_running')) {
+  await thoroughlyKillApex();
+  if (await apexIsRunning()) {
     toast.error('toast.cannotCloseApex');
     is_thoroughly_kill.value = false;
-    continuously_monitor_until_closed();
+    start_monitoring();
     return;
   }
   is_thoroughly_kill.value = false;
@@ -60,17 +60,6 @@ function cancel() {
   is_apply_running.value = false;
 }
 
-function continuously_monitor_until_closed() {
-  stop_monitoring();
-  interval_id.value = setInterval(async () => {
-    const still_running = await invoke<boolean>('apex_is_running');
-    if (!still_running) {
-      stop_monitoring();
-      await apply_video_config();
-    }
-  }, WAIT_CLOSE_POLL_MS);
-}
-
 async function apply_check() {
   if (apex_store.is_video_config_loading) return;
   if (!apex_store.is_video_config_modified) {
@@ -79,10 +68,10 @@ async function apply_check() {
   }
   is_apply_running.value = true;
   try {
-    const running = await invoke<boolean>('apex_is_running');
+    const running = await apexIsRunning();
     if (running) {
       dialog.value = true;
-      continuously_monitor_until_closed();
+      start_monitoring();
     } else {
       stop_monitoring();
       await apply_video_config();
@@ -91,10 +80,6 @@ async function apply_check() {
     is_apply_running.value = false;
   }
 }
-
-onUnmounted(() => {
-  stop_monitoring();
-});
 </script>
 
 <template>

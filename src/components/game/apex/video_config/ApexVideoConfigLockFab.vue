@@ -2,12 +2,12 @@
 import {computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import ApexVideoConfigFabTooltip from '@/components/game/apex/video_config/ApexVideoConfigFabTooltip.vue';
 
 const {t} = useI18n();
 const toast = useToast();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 const FAB_SIZE = 32;
 const GAP = 4;
@@ -153,7 +153,7 @@ const lockColor = computed(() => {
   if (apex_store.is_videoconfig_readonly) {
     return 'success';
   }
-  return apex_store.has_out_of_preset_selection ? 'warning' : 'grey-darken-1';
+  return apex_store.has_out_of_preset_selection ? 'warning' : 'on-surface-variant';
 });
 
 const lockIcon = computed(() =>
@@ -171,7 +171,7 @@ const individualIcon = computed(() =>
 );
 
 const individualColor = computed(() =>
-  apex_store.video_individual_input ? 'primary' : 'grey-darken-1',
+  apex_store.video_individual_input ? 'primary' : 'on-surface-variant',
 );
 
 onMounted(() => {

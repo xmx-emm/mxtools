@@ -1,32 +1,37 @@
 //! Tauri 封装；实现位于 `windows_tool::game::ea`.
 
-use crate::log_info;
-use crate::utils::{await_time, blocking_cmd, kill_processes_by_names, ProcessNameMatchMode};
+use crate::ipc_error::{IpcError, IpcResult};
+use crate::utils::{blocking_cmd, thoroughly_kill_named, ProcessNameMatchMode};
 use windows_tool::game::ea::{self, EaDesktopUser};
 
 #[tauri::command]
-pub async fn get_ea_desktop_users() -> Result<Vec<EaDesktopUser>, String> {
-    blocking_cmd(ea::get_ea_desktop_users).await
+pub async fn get_ea_desktop_users() -> IpcResult<Vec<EaDesktopUser>> {
+    blocking_cmd(ea::get_ea_desktop_users)
+        .await
+        .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }
 
 #[tauri::command]
-pub async fn get_apex_launch_option_ea(ea_user_id: String) -> Result<String, String> {
-    blocking_cmd(move || ea::get_apex_launch_option_ea(&ea_user_id)).await
+pub async fn get_apex_launch_option_ea(ea_user_id: String) -> IpcResult<String> {
+    blocking_cmd(move || ea::get_apex_launch_option_ea(&ea_user_id))
+        .await
+        .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }
 
 #[tauri::command]
-pub async fn set_apex_launch_option_ea(
-    ea_user_id: String,
-    launch_option: String,
-) -> Result<(), String> {
-    blocking_cmd(move || ea::set_apex_launch_option_ea(&ea_user_id, &launch_option)).await
+pub async fn set_apex_launch_option_ea(ea_user_id: String, launch_option: String) -> IpcResult<()> {
+    blocking_cmd(move || ea::set_apex_launch_option_ea(&ea_user_id, &launch_option))
+        .await
+        .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }
 
 #[tauri::command]
-pub async fn ea_desktop_is_running_by_tasklist() -> Result<bool, String> {
+pub async fn ea_desktop_is_running_by_tasklist() -> IpcResult<bool> {
     #[cfg(target_os = "windows")]
     {
-        blocking_cmd(ea::ea_desktop_is_running_by_tasklist).await
+        blocking_cmd(ea::ea_desktop_is_running_by_tasklist)
+            .await
+            .map_err(|error| IpcError::operation_failed("ea_desktop", error))
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -36,9 +41,7 @@ pub async fn ea_desktop_is_running_by_tasklist() -> Result<bool, String> {
 
 /// 强制结束 EA Desktop 及相关进程,便于写入 `user_*.ini` 启动项.
 #[tauri::command]
-pub async fn thoroughly_kill_ea_desktop() -> Result<(), ()> {
-    log_info!("正在关闭 EA Desktop 及相关进程...");
-
+pub async fn thoroughly_kill_ea_desktop() -> IpcResult<u32> {
     let target_processes = if cfg!(target_os = "windows") {
         vec![
             "eadesktop.exe",
@@ -50,18 +53,7 @@ pub async fn thoroughly_kill_ea_desktop() -> Result<(), ()> {
     } else {
         vec![]
     };
-
-    let killed_count = tokio::task::spawn_blocking(move || {
-        kill_processes_by_names(&target_processes, ProcessNameMatchMode::Exact)
-    })
-    .await
-    .unwrap_or(0);
-
-    if killed_count > 0 {
-        log_info!("已关闭 {} 个 EA 相关进程", killed_count);
-    } else {
-        log_info!("未找到运行中的 EA 相关进程");
-    }
-    await_time().await;
-    Ok(())
+    thoroughly_kill_named("EA Desktop", target_processes, ProcessNameMatchMode::Exact)
+        .await
+        .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }

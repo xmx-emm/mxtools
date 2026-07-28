@@ -1,19 +1,226 @@
-/* Apple-style tech minimalist base */
+/* MX Tools visual system: quiet Windows utility surfaces with focused motion. */
 :root {
-  --apple-radius-sm: 8px;
-  --apple-radius-md: 12px;
-  --apple-radius-lg: 16px;
-  --apple-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --apple-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --apple-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --game-page-control-height: 30px;
-  --game-page-section-gap: 4px;
+  --app-radius-sm: 6px;
+  --app-radius-md: 8px;
+  --app-radius-lg: 8px;
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 20px;
+  --app-space-6: 24px;
+  --app-motion-fast: 120ms;
+  --app-motion-base: 180ms;
+  --app-motion-slow: 320ms;
+  --app-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --app-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --mx-theme-transition-duration: 0ms;
+  --app-transition: var(--app-motion-base) var(--app-ease-standard);
+  --app-shadow-sm: 0 1px 2px rgba(9, 13, 18, 0.05), 0 4px 14px rgba(9, 13, 18, 0.035);
+  --app-shadow-md: 0 12px 36px rgba(9, 13, 18, 0.12), 0 2px 8px rgba(9, 13, 18, 0.06);
+  --game-page-control-height: 34px;
+  --game-page-section-gap: 8px;
+  --app-page-max-width: 1080px;
+  --app-page-padding-x: clamp(20px, 3vw, 36px);
+  --app-page-padding-y: 24px;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 .v-application {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.v-theme--light {
+  color-scheme: light;
+  --app-layer: rgba(255, 255, 255, 0.8);
+  --app-layer-raised: rgba(255, 255, 255, 0.96);
+  --app-layer-muted: rgba(226, 232, 238, 0.66);
+  --app-layer-strong: #ffffff;
+  --app-border: rgba(31, 42, 53, 0.12);
+  --app-border-strong: rgba(31, 42, 53, 0.2);
+  --app-hover: rgba(31, 42, 53, 0.055);
+  --app-shadow-sm: 0 1px 2px rgba(19, 29, 39, 0.05), 0 6px 20px rgba(19, 29, 39, 0.035);
+  --app-shadow-md: 0 16px 42px rgba(19, 29, 39, 0.13), 0 2px 8px rgba(19, 29, 39, 0.06);
+}
+
+.v-theme--dark {
+  color-scheme: dark;
+  --app-layer: rgba(32, 35, 40, 0.86);
+  --app-layer-raised: rgba(41, 45, 51, 0.96);
+  --app-layer-muted: rgba(51, 56, 64, 0.7);
+  --app-layer-strong: #292d33;
+  --app-border: rgba(255, 255, 255, 0.105);
+  --app-border-strong: rgba(255, 255, 255, 0.18);
+  --app-hover: rgba(255, 255, 255, 0.065);
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22), 0 8px 24px rgba(0, 0, 0, 0.14);
+  --app-shadow-md: 0 18px 48px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Stable application page shell: one fixed header and one scroll owner. */
+.app-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.045), transparent 180px),
+    rgb(var(--v-theme-background));
+}
+
+.app-page__header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  min-height: 84px;
+  gap: 20px;
+  padding: 18px var(--app-page-padding-x) 16px;
+  border-bottom: 1px solid var(--app-border);
+  background: rgba(var(--v-theme-background), 0.86);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.app-page__header::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(var(--v-theme-primary), 0.72), rgba(var(--v-theme-primary), 0.08) 34%, transparent 70%);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: app-accent-line-in var(--app-motion-slow) var(--app-ease-emphasized) 80ms forwards;
+}
+
+.app-page__heading {
+  min-width: 0;
+}
+
+.app-page__eyebrow {
+  margin-bottom: 5px;
+  color: rgb(var(--v-theme-primary));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-page__title {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.96);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.app-page__subtitle {
+  max-width: 720px;
+  margin: 5px 0 0;
+  color: rgba(var(--v-theme-on-surface), 0.64);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.app-page__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.app-page__content {
+  width: min(100%, var(--app-page-max-width));
+  margin: 0 auto;
+  padding: var(--app-page-padding-y) var(--app-page-padding-x) 34px;
+  box-sizing: border-box;
+}
+
+.app-section {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-layer-raised);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.app-section + .app-section {
+  margin-top: 14px;
+}
+
+.app-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 18px 14px;
+}
+
+.app-section__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.app-section__subtitle {
+  margin: 4px 0 0;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@keyframes app-accent-line-in {
+  to { transform: scaleX(1); }
+}
+
+@keyframes app-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-reveal {
+  animation: app-content-enter var(--app-motion-slow) var(--app-ease-emphasized) both;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --app-page-padding-x: 16px;
+    --app-page-padding-y: 16px;
+  }
+
+  .app-page__header {
+    min-height: 76px;
+    padding-block: 16px 14px;
+  }
+
+  .app-page__title {
+    font-size: 19px;
+  }
 }
 
 /*隐藏主框的滚动条*/
@@ -45,7 +252,256 @@ html::-webkit-scrollbar {
 
 .v-btn {
   text-transform: none !important;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+}
+
+/*
+ * Switches use a deliberately quiet surface by default in Vuetify. That
+ * makes the off state disappear on our layered dark surfaces, especially for
+ * compact/inset switches. Keep the geometry supplied by Vuetify (and by the
+ * few feature-specific compact variants), but give every state a stable
+ * visual signal: a bordered off track, an opaque on track, and a separated
+ * thumb. The track keeps Vuetify's color classes so warning/error/success
+ * switches retain their semantic color.
+ */
+.v-switch {
+  --mx-switch-off-track: rgba(var(--v-theme-on-surface), 0.16);
+  --mx-switch-off-track-border: rgba(var(--v-theme-on-surface), 0.38);
+  --mx-switch-thumb-border: rgba(var(--v-theme-on-surface), 0.34);
+  --mx-switch-focus-ring: rgba(var(--v-theme-primary), 0.42);
+  flex: 0 1 auto;
+}
+
+.v-switch .v-switch__track {
+  position: relative;
+  box-sizing: border-box;
+  opacity: 1;
+  border: 1px solid var(--mx-switch-off-track-border);
+  background-color: var(--mx-switch-off-track);
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.06);
+  transition:
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard),
+    opacity var(--app-motion-fast) var(--app-ease-standard);
+}
+
+/* A dirty control receives its background from Vuetify's color prop. */
+.v-switch .v-selection-control--dirty .v-switch__track {
+  border-color: currentColor;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.08),
+    0 0 0 1px rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* VSwitch has no color class when `color` is omitted. Keep the on state
+ * visible for future/legacy usages without replacing explicit semantic
+ * colors (the latter always carry a `bg-*` class or inline color style). */
+.v-switch .v-selection-control--dirty .v-switch__track:not([class*='bg-']) {
+  background-color: rgb(var(--v-theme-primary));
+}
+
+.v-switch .v-switch__thumb {
+  box-sizing: border-box;
+  border: 1px solid var(--mx-switch-thumb-border);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(var(--v-theme-on-surface), 0.08);
+  transition:
+    transform var(--app-motion-fast) var(--app-ease-emphasized),
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.v-switch .v-selection-control:not(.v-selection-control--dirty) .v-switch__thumb {
+  background-color: rgb(var(--v-theme-surface-bright)) !important;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+/* Inset thumbs do not receive Vuetify's color class, so make their edge
+ * legible in both themes while leaving the accent color on the track. */
+.v-switch.v-switch--inset .v-switch__thumb {
+  border-color: rgba(var(--v-theme-on-surface), 0.42);
+}
+
+.v-switch .v-selection-control__input:hover .v-switch__thumb,
+.v-switch .v-selection-control__input:focus-visible .v-switch__thumb {
+  border-color: currentColor;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 0 0 3px var(--mx-switch-focus-ring);
+}
+
+.v-switch .v-selection-control--focus-visible .v-switch__track {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
+}
+
+.v-switch .v-selection-control--disabled {
+  cursor: not-allowed;
+}
+
+.v-switch .v-selection-control--disabled .v-switch__track {
+  opacity: 0.58;
+  border-color: rgba(var(--v-theme-on-surface), 0.24);
+  background-color: rgba(var(--v-theme-on-surface), 0.12) !important;
+  box-shadow: none;
+}
+
+.v-switch .v-selection-control--disabled .v-switch__thumb {
+  opacity: 0.72;
+  border-color: rgba(var(--v-theme-on-surface), 0.24);
+  box-shadow: none;
+}
+
+.v-switch .v-selection-control--disabled.v-selection-control--dirty .v-switch__track {
+  background-color: rgba(var(--v-theme-primary), 0.44) !important;
+}
+
+@media (forced-colors: active) {
+  .v-switch .v-switch__track,
+  .v-switch .v-switch__thumb {
+    border: 1px solid ButtonText;
+    box-shadow: none;
+  }
+
+  .v-switch .v-selection-control--focus-visible .v-switch__track {
+    outline-color: Highlight;
+  }
+}
+
+/* Styled replacement for native title hovers used by toolbar buttons and compact controls. */
+.mx-native-tooltip {
+  position: fixed;
+  z-index: 10050;
+  box-sizing: border-box;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 5px 8px;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  border: 1px solid rgba(var(--v-theme-primary), 0.24);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 62%),
+    rgba(var(--v-theme-surface-bright), 0.96);
+  box-shadow:
+    0 7px 20px rgba(15, 19, 25, 0.2),
+    0 1px 4px rgba(var(--v-theme-primary), 0.08);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-2px) scale(0.985);
+  transition:
+    opacity 120ms ease,
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 150ms;
+  pointer-events: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.45;
+  letter-spacing: 0.005em;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+}
+
+.mx-native-tooltip[data-placement='top'] {
+  transform: translateY(2px) scale(0.985);
+}
+
+.mx-native-tooltip[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+:where(button, [href], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Theme changes reveal from the control that initiated them when the WebView supports it. */
+::view-transition-group(root),
+::view-transition-image-pair(root) {
+  animation: none;
+}
+
+::view-transition-image-pair(root) {
+  isolation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  clip-path: circle(
+    0 at var(--mx-theme-transition-x, 50%) var(--mx-theme-transition-y, 50%)
+  );
+  animation: mx-theme-reveal var(--mx-theme-transition-duration, 0ms)
+    var(--app-ease-emphasized) both;
+}
+
+html[data-mx-theme-transition-fallback] .v-application {
+  animation: mx-theme-fallback-in var(--app-motion-slow) var(--app-ease-emphasized) both;
+}
+
+@keyframes mx-theme-reveal {
+  from {
+    clip-path: circle(
+      0 at var(--mx-theme-transition-x, 50%) var(--mx-theme-transition-y, 50%)
+    );
+    filter: saturate(0.78) brightness(0.96);
+  }
+  to {
+    clip-path: circle(
+      var(--mx-theme-transition-radius, 150vmax)
+      at var(--mx-theme-transition-x, 50%) var(--mx-theme-transition-y, 50%)
+    );
+    filter: saturate(1) brightness(1);
+  }
+}
+
+@keyframes mx-theme-fallback-in {
+  from {
+    filter: saturate(0.78) brightness(0.94);
+  }
+  to {
+    filter: saturate(1) brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  html[data-mx-theme-transition-fallback] .v-application {
+    animation: none !important;
+  }
+
+  ::view-transition-new(root) {
+    clip-path: none !important;
+    filter: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 全局菜单尺寸微缩,统一用于 VMenu 弹层 */
@@ -54,12 +510,12 @@ html::-webkit-scrollbar {
 }
 
 .compact-menu .v-list-item {
-  min-height: 24px;
-  padding-inline: 8px;
+  min-height: 32px;
+  padding-inline: 10px;
 }
 
 .compact-menu .v-list-item-title {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
@@ -69,8 +525,8 @@ html::-webkit-scrollbar {
 }
 
 .compact-menu.preset-compact-menu .v-list-item {
-  min-height: 12px;
-  padding-inline: 4px;
+  min-height: 26px;
+  padding-inline: 6px;
 }
 
 .compact-menu.preset-compact-menu .v-list-item-title {
@@ -99,9 +555,10 @@ html::-webkit-scrollbar {
 
 /* 统一页面内容区布局：边距、滚动、高度 */
 .page-content {
-  padding: 10px;
+  padding: 12px;
   overflow: auto;
   height: 100%;
+  min-height: 0;
   box-sizing: border-box;
 }
 
@@ -115,6 +572,56 @@ html::-webkit-scrollbar {
 
 .page-content--wide {
   max-width: 720px;
+}
+
+/*
+ * 工具分类嵌套路由容器。
+ * 父级 page-host：与其它页 page-content 一样保留 10px 四周距离（含底部）。
+ * 内层 __scroll：只负责滚动，不再吃掉父级留白。
+ */
+.page-host {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-host__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.page-host__scroll > .page-content {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+/* 游戏页等需要子页自己撑满并内部控制滚动 */
+.page-host--fill {
+  overflow: hidden;
+  padding: 0;
+}
+
+.page-host--fill > .page-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 12px;
+}
+
+/* RDP / window tool cards — align with CommonFolders */
+.rdp-card {
+  border: 1px solid rgba(var(--v-border-color), 0.08);
+  border-radius: var(--app-radius-md);
 }
 
 /* 游戏工具页（Apex / PUBG）共用布局 */
@@ -228,9 +735,6 @@ html::-webkit-scrollbar {
   line-height: 1;
 }
 
-.v-card-text {
-  padding: 0 0 0 0;
-}
 /*!* 设置滚动条轨道的颜色和圆角 *!*/
 /*::-webkit-scrollbar-track {*/
 /*  background-color: #f1f1f1;*/

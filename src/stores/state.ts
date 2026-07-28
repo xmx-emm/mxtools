@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia';
-import {invoke} from '@tauri-apps/api/core';
+import {checkBackupsExplorerRegistry, isElevated} from '@/ipc/commands.ts';
 
 export const useStateStore = defineStore('state', {
     state: () => ({
@@ -9,11 +9,11 @@ export const useStateStore = defineStore('state', {
     getters: {},
     actions: {
       async updateState() {
-        this.is_elevated = await invoke('is_elevated');
+        this.is_elevated = await isElevated();
         await this.updateExplorerBackups();
       },
       async updateExplorerBackups() {
-        this.explorer_registry_is_backups_ok = await invoke('check_backups_explorer_registry');
+        this.explorer_registry_is_backups_ok = await checkBackupsExplorerRegistry();
       }
     }
   }

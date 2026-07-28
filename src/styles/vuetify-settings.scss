@@ -1,0 +1,5 @@
+// Keep Vuetify's layout and typography utilities, but omit the generated
+// material color palette. Theme colors are supplied by src/vuetify.ts.
+@use 'vuetify/settings' with (
+  $color-pack: false
+);

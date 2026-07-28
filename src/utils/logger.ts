@@ -2,8 +2,8 @@
  * 前端日志：写入 Documents/mxtools/frontend.log
  * log/info/debug/warn 受调试开关控制；error 始终输出。
  */
-import {invoke} from '@tauri-apps/api/core';
-import {isDebugEnabled} from '@/utils/debug';
+import {writeFrontendLog} from '@/ipc/commands.ts';
+import {isDebugEnabled} from '@/utils/debug.ts';
 
 const LOG_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const;
 const GATED_LEVELS = new Set(['log', 'info', 'warn', 'debug']);
@@ -26,7 +26,7 @@ function formatArgs(args: unknown[]): string {
 
 function sendToBackend(level: string, message: string) {
   if (!BACKEND_LEVELS.has(level)) return;
-  invoke('write_frontend_log', { level, message }).catch(() => {
+  writeFrontendLog({ level, message }).catch(() => {
     // 静默失败,避免递归
   });
 }

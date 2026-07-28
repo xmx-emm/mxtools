@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import {routeFullPath} from '../utils/router.ts';
-import {useRoute} from 'vue-router';
+import {useRoute, useRouter} from 'vue-router';
 import {computed, onMounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
-import {invoke} from '@tauri-apps/api/core';
+import {getSystemInfo} from '@/ipc/commands.ts';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {useToast} from 'vue-toastification';
 
 const { t } = useI18n();
 const toast = useToast();
 const route = useRoute();
+const router = useRouter();
 const systemInfo = ref<[string, string][]>([]);
 const isLoading = ref(false);
 
@@ -33,32 +34,47 @@ async function copySysInfo() {
   try {
     await writeText(copySysInfoText());
     toast.success(t('toast.copiedToClipboard'));
-  } catch (e) {
+  } catch {
     toast.error(t('toast.copyError'));
   }
 }
 
 onMounted(async () => {
   isLoading.value = true;
-  systemInfo.value = await invoke('system_info');
-  isLoading.value = false;
+  try {
+    systemInfo.value = await getSystemInfo();
+  } catch (e) {
+    toast.error(String(e ?? 'Failed to load system info'));
+    systemInfo.value = [];
+  } finally {
+    isLoading.value = false;
+  }
 });
 </script>
 
 <template>
   <div v-if="isWindows" class="page-content">
-    <div class="d-flex align-center mb-3 gap-2">
-      <h2 class="text-h6 font-weight-medium" style="letter-spacing: -0.02em;">{{ t('windows.title') }}</h2>
-      <v-spacer/>
-      <v-btn
-        v-if="!isLoading && showData.length"
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-content-copy"
-        @click="copySysInfo"
-      >
-        {{ t('windows.copySysInfo') }}
-      </v-btn>
+    <div class="windows-toolbar mb-3">
+      <h2 class="text-h6 font-weight-medium">{{ t('windows.title') }}</h2>
+      <div class="windows-toolbar__actions">
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-speedometer"
+          @click="router.push('/game_optimizer')"
+        >
+          {{ t('windows.gameOptimizer') }}
+        </v-btn>
+        <v-btn
+          v-if="!isLoading && showData.length"
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-content-copy"
+          @click="copySysInfo"
+        >
+          {{ t('windows.copySysInfo') }}
+        </v-btn>
+      </div>
     </div>
     <v-card variant="flat" class="windows-card">
       <div v-if="isLoading" class="pa-4">
@@ -79,10 +95,33 @@ onMounted(async () => {
       />
     </v-card>
   </div>
-  <router-view v-else/>
+  <div v-else class="page-host">
+    <div class="page-host__scroll">
+      <router-view/>
+    </div>
+  </div>
 </template>
 
 <style scoped>
+.windows-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.windows-toolbar h2 {
+  letter-spacing: 0;
+}
+
+.windows-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .windows-card {
   border: 1px solid rgba(var(--v-border-color), 0.08);
   border-radius: 12px;

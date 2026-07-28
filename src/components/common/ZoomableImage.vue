@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, useAttrs, watch } from 'vue';
 import { useTheme } from 'vuetify';
-import { useSettingsStore } from '@/stores/settings';
+import { useSettingsStore } from '@/stores/settings.ts';
 defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
@@ -22,7 +22,8 @@ const props = withDefaults(
 const attrs = useAttrs();
 
 const passthroughAttrs = computed(() => {
-  const { class: _cls, ...rest } = attrs as Record<string, unknown>;
+  const rest = {...attrs} as Record<string, unknown>;
+  delete rest.class;
   return rest;
 });
 
@@ -218,7 +219,7 @@ onUnmounted(() => {
       <template v-else #placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
-            color="grey-lighten-4"
+            color="surface-variant"
             indeterminate
           />
         </div>
@@ -278,7 +279,7 @@ onUnmounted(() => {
           hide-details
           density="compact"
           :color="actionIconColor"
-          :track-color="isDarkTheme ? 'grey-lighten-1' : 'grey-darken-2'"
+          :track-color="isDarkTheme ? 'outline' : 'on-surface'"
         />
         <v-btn icon="mdi-plus" variant="text" size="small" :color="actionIconColor" @click="zoomStep(0.15)" />
         <v-btn

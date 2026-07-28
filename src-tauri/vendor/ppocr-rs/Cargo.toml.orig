@@ -1,0 +1,93 @@
+[package]
+name        = "ppocr-rs"
+version     = "0.7.3"
+edition     = "2021"
+description = "PP-OCRv6 + PP-DocLayoutV3 + SLANet_plus + RT-DETR-L + PP-LCNet in puro Rust su ort 2.0.0-rc.9. Fork di meibel-ai/paddle-ocr-rs (Apache-2.0) con layout, table structure, cell detection e orientamento documento."
+license     = "Apache-2.0"
+authors     = ["Dario Finardi <df@dariofinardi.it>"]
+repository  = "https://github.com/dariofinardi/PaddleOCR-OCR-rs"
+keywords    = ["ocr", "paddleocr", "onnx", "document", "layout"]
+categories  = ["computer-vision", "science"]
+exclude     = ["docs/", "tools/", "tests/", "ocr_test/", ".env", ".env.*"]
+
+# Crediti upstream:
+#   - meibel-ai/paddle-ocr-rs (branch ort-rc11) — Apache-2.0
+#   - mg-chao/paddle-ocr-rs (upstream originale) — Apache-2.0
+# Codice del db_net/crnn_net/cls_net/ocr_utils/scale_param porta avanti la
+# Apache-2.0 e l'attribuzione nei header dei file vendorati.
+
+[dependencies]
+# ─── ONNX Runtime — pinned 2.0.0-rc.9 ───────────────────────────────────────
+# meibel-ai/paddle-ocr-rs è su rc.11; il nostro downport implica una piccola
+# modifica al return type di `try_extract_tensor` (vedi src/compat.rs).
+# QNN escluso: bench su Snapdragon X Elite mostra che PP-OCRv6 non
+# beneficia di Hexagon NPU (postprocessing CPU-bound + shape dinamiche).
+ort        = { version = "=2.0.0-rc.9", default-features = false, features = ["ndarray", "directml", "coreml", "cuda", "xnnpack"] }
+ort-sys    = "=2.0.0-rc.9"
+
+# ─── Numerica & immagini ───
+# ndarray 0.16 — ort rc.9 si appoggia a questa versione (rc.11 era su 0.17).
+# Verificato con `cargo tree -i ndarray`. Mismatch → "multiple ndarray versions"
+# e i tensor non implementano IntoValueTensor.
+ndarray    = "0.16"
+image      = "0.25"
+imageproc  = "0.25"
+
+# ─── Polygon offset (Vatti unclip) — pure Rust + cc per Clipper C++ ───
+# Come paddle-ocr-rs upstream, niente system OpenCV.
+geo-types     = "0.7"
+geo-clipper   = "0.9"
+clipper-sys   = "0.8"
+
+# ─── Errori ───
+thiserror  = "2"
+
+# ─── Helper ───
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ─── Download modelli (feature-gated) ───
+# ureq 2.x: HTTP sync senza tokio. TLS via rustls (no OpenSSL).
+# Usato solo da `model_hub` per scaricare ONNX da HuggingFace.
+ureq = { version = "2", features = ["tls"], optional = true }
+
+[build-dependencies]
+cc = "1"
+
+[features]
+default = []
+# Abilita ort/download-binaries — solo per test crate-side che linkano il
+# binario di test (cargo test --lib --features test-binaries). Edge non
+# usa questa feature: ha già il proprio onnxruntime.dll bundleato.
+test-binaries = ["ort/download-binaries"]
+# Abilita ort/load-dynamic per gli example che usano dlopen al runtime
+# invece del link statico. Necessario su ARM64 Windows dove pyke.io
+# fornisce solo binari x64 al pinned rc.9 — load-dynamic carica la
+# `onnxruntime.dll` di Edge (ARM64-native, bundled in
+# Pseudo-Edge/src-tauri/target/debug/binaries/). Set ORT_DYLIB_PATH
+# alla DLL prima del run.
+example-dynamic = ["ort/load-dynamic"]
+# Abilita download automatico dei modelli ONNX da HuggingFace.
+# Aggiunge dipendenza `ureq` (HTTP sync, ~200 kB). Non incluso di default
+# per tenere il grafo di dipendenze minimale quando i modelli sono già
+# disponibili localmente (es. deployment Edge).
+fetch-models = ["dep:ureq"]
+
+[[bin]]
+name = "ppocr-cli"
+path = "src/bin/ppocr_cli.rs"
+required-features = []
+
+[dev-dependencies]
+# Per esempi e test
+anyhow = "1"
+# Multi-page TIFF decoder per gli example che usano fixture TIFF reali.
+# `image` crate (TiffDecoder) espone solo single-frame; `tiff` direct
+# permette di iterare su tutte le pagine via `Decoder::next_image()`.
+tiff = "0.10"
+
+# ─── Profilo ottimizzato ───
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

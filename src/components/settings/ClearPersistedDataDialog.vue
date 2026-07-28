@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {useSettingsStore} from '@/stores/settings';
-import {useDebugStore} from '@/stores/debug';
-import {uiStyleStore} from '@/stores/style.ts';
-import {setDebugEnabled} from '@/utils/debug';
-import steamStore from '@/stores/game/steam.ts';
-import eaStore from '@/stores/game/ea.ts';
-import apexStore from '@/stores/game/apex.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
+import {useDebugStore} from '@/stores/debug.ts';
+import {useUiStyleStore} from '@/stores/style.ts';
+import {setDebugEnabled} from '@/utils/debug.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
+import {useEaStore} from '@/stores/game/ea.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import {ref} from 'vue';
 import {useToast} from 'vue-toastification';
-import {resolveLocale} from '@/utils/locale';
-import {applyAccentTheme} from '@/vuetify';
-import {DEFAULT_ACCENT} from '@/themes';
+import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
+import {applyAccentTheme} from '@/vuetify.ts';
+import {DEFAULT_ACCENT} from '@/themes.ts';
+import {applyLocaleToggleShortcut} from '@/utils/global-shortcuts.ts';
+import {
+  applyWindowBehavior,
+  defaultWindowBehaviorPrefs,
+  saveWindowBehaviorPrefs,
+} from '@/utils/window_behavior.ts';
 
 const emit = defineEmits<{ cleared: [] }>();
 
@@ -19,10 +25,10 @@ const { t, locale: i18nLocale } = useI18n();
 const toast = useToast();
 const settingsStore = useSettingsStore();
 const debugStore = useDebugStore();
-const uiStore = uiStyleStore();
-const steam_store = steamStore();
-const ea_store = eaStore();
-const apex_store = apexStore();
+const uiStore = useUiStyleStore();
+const steam_store = useSteamStore();
+const ea_store = useEaStore();
+const apex_store = useApexStore();
 
 const clearConfirmDialog = ref(false);
 
@@ -34,8 +40,19 @@ async function clearPersistedData() {
   steam_store.$reset();
   ea_store.$reset();
   apex_store.$reset();
+  try {
+    localStorage.removeItem('mx-theme');
+    localStorage.removeItem('mx-theme-preference');
+    localStorage.removeItem('mx-accent');
+  } catch { /* localStorage may be unavailable */
+  }
   applyAccentTheme(DEFAULT_ACCENT);
   i18nLocale.value = resolveLocale(settingsStore.locale);
+  applyDocumentLocale(settingsStore.locale);
+  await applyLocaleToggleShortcut();
+  const cleared = defaultWindowBehaviorPrefs();
+  saveWindowBehaviorPrefs(cleared);
+  await applyWindowBehavior(cleared);
   clearConfirmDialog.value = false;
   toast.success(t('settings.clearSuccess'));
   emit('cleared');

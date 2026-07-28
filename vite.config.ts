@@ -11,6 +11,9 @@ export default defineConfig(async () => ({
     plugins: [vue(),
         vuetify({
             autoImport: true,
+            styles: {
+                configFile: 'src/styles/vuetify-settings.scss',
+            },
         }), // Enabled by default
     ],
 
@@ -25,14 +28,15 @@ export default defineConfig(async () => ({
                 scss: {api: 'modern-compiler'},
             },
         },
-        port: 5173,
+        // 避开常见 5173 占用(其它 Tauri 项目)与 Hyper-V 低段保留端口
+        port: 14200,
         strictPort: true,
         host: host || false,
         hmr: host
             ? {
                 protocol: 'ws',
                 host,
-                port: 5174,
+                port: 14201,
             }
             : undefined,
         watch: {
@@ -46,7 +50,12 @@ export default defineConfig(async () => ({
             'ASSETS': path.join(path.resolve(__dirname, 'src'), "assets"), // 设置 @ 指向 src
         },
     },
+    test: {
+        environment: 'node',
+        include: ['src/**/*.{test,spec}.ts', 'scripts/**/*.{test,spec}.ts'],
+    },
     build: {
+        manifest: true,
         rollupOptions: {
             onwarn(warning, warn) {
                 if (
@@ -57,13 +66,6 @@ export default defineConfig(async () => ({
                     return;
                 }
                 warn(warning);
-            },
-            output: {
-                manualChunks(id) {
-                    if (!id.includes('node_modules')) return;
-                    if (id.includes('vuetify')) return 'vuetify';
-                    return 'vendor';
-                },
             },
         },
         chunkSizeWarningLimit: 1000, // 调整警告限制为 1000 kB

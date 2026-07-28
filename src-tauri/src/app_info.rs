@@ -40,9 +40,10 @@ fn detect_distribution() -> AppDistribution {
 }
 
 fn exe_stem() -> Option<String> {
-    std::env::current_exe()
-        .ok()
-        .and_then(|path| path.file_stem().map(|name| name.to_string_lossy().into_owned()))
+    std::env::current_exe().ok().and_then(|path| {
+        path.file_stem()
+            .map(|name| name.to_string_lossy().into_owned())
+    })
 }
 
 fn is_portable_exe_name() -> bool {
@@ -130,7 +131,8 @@ fn is_installed_app() -> bool {
 
     for hive in [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE] {
         let root = RegKey::predef(hive);
-        let Ok(uninstall) = root.open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall")
+        let Ok(uninstall) =
+            root.open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall")
         else {
             continue;
         };

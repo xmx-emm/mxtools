@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
 import ApexLauncherUser from '@/components/game/apex/ApexLauncherUser.vue';
-import eaStore from '@/stores/game/ea.ts';
-import steamStore from '@/stores/game/steam.ts';
+import {useEaStore} from '@/stores/game/ea.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
 import {onMounted, onUnmounted, ref, watch, computed} from 'vue';
 import {useToast} from 'vue-toastification';
-import {openApexVideoConfigFolder, openConfigFileFolder} from '@/utils/open-folder.ts';
+import {openApexVideoConfigFolder, openConfigFileFolder, openFolderDetached, parentDirOfFile} from '@/utils/open-folder.ts';
 import ApexApply from '@/components/game/apex/launch/ApexApply.vue';
 import ApexStart from '@/components/game/apex/launch/ApexStart.vue';
 import ApexApexCopyButton from '@/components/game/apex/launch/ApexCopyButton.vue';
@@ -17,31 +17,46 @@ import ApexSemiAutomaticDownloadLanguage
   from '@/components/game/apex/launch/language/steam/ApexSemiAutomaticDownloadLanguage.vue';
 import ApexVideoConfig from '@/components/game/apex/video_config/ApexVideoConfig.vue';
 import ApexVideoConfigApply from '@/components/game/apex/video_config/ApexVideoConfigApply.vue';
+import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.vue';
+import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSettingsApply.vue';
 import ApexQuickPresetDialog from '@/components/game/apex/preset/ApexQuickPresetDialog.vue';
+import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
+import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
+import {openAlterQWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import {ApexPageTypeEnum} from '@/enum.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
+import {open} from '@tauri-apps/plugin-dialog';
+import {explorerFolder, readUtf8File} from '@/ipc/commands.ts';
+import {
+  ApexConfigSnapshotParseError,
+  parseApexConfigSnapshot,
+} from '@/utils/game/apex_config_snapshot.ts';
 
 const { t } = useI18n();
 const toast = useToast();
-const steam_store = steamStore();
+const steam_store = useSteamStore();
 const { check_is_steam_running, refresh_users } = steam_store;
-const ea_store = eaStore();
-const apex_store = apexStore();
+const ea_store = useEaStore();
+const apex_store = useApexStore();
 
 const is_content_loading = computed(() =>
   apex_store.is_accounts_loading
   || (apex_store.is_launch_page
     ? apex_store.is_start_loading
-    : apex_store.is_video_config_loading),
+    : apex_store.is_video_config_page
+      ? apex_store.is_video_config_loading
+      : apex_store.is_game_settings_loading),
 );
 
 const visited_launch_tab = ref(true);
 const visited_video_tab = ref(false);
+const visited_game_settings_tab = ref(false);
 const launch_refresh_loading = ref(false);
 const video_refresh_loading = ref(false);
+const game_settings_refresh_loading = ref(false);
 let page_bootstrapped = false;
 
 async function refresh_running_for_active_account() {
@@ -61,14 +76,22 @@ function on_visibility_change() {
 }
 
 onMounted(async () => {
+  // 上次进入若中断，loading 标志可能残留，导致遮罩一直转
+  apex_store.is_accounts_loading = false;
+  apex_store.is_start_loading = false;
+  apex_store.is_video_config_loading = false;
+
   await startTauriStoreOnce('apex', () => apex_store.$tauri.start());
   await refresh_users();
   await apex_store.refresh_apex_accounts();
   if (apex_store.is_video_config_page) {
     visited_video_tab.value = true;
-    apex_store.start_video_config();
+    await apex_store.load_apex_video_config();
+  } else if (apex_store.is_game_settings_page) {
+    visited_game_settings_tab.value = true;
+    await apex_store.load_apex_game_settings();
   } else {
-    apex_store.start_launch();
+    await apex_store.load_launch_data();
   }
   await refresh_running_for_active_account();
   window.addEventListener('visibilitychange', on_visibility_change);
@@ -87,8 +110,10 @@ watch(
     await refresh_running_for_active_account();
     if (apex_store.is_launch_page) {
       apex_store.start_launch();
-    } else {
+    } else if (apex_store.is_video_config_page) {
       apex_store.start_video_config(true);
+    } else {
+      apex_store.start_game_settings(true);
     }
   },
 );
@@ -100,6 +125,9 @@ watch(
     if (page === ApexPageTypeEnum.video_config) {
       visited_video_tab.value = true;
       apex_store.start_video_config();
+    } else if (page === ApexPageTypeEnum.game_settings) {
+      visited_game_settings_tab.value = true;
+      apex_store.start_game_settings();
     } else {
       visited_launch_tab.value = true;
       apex_store.start_launch();
@@ -131,6 +159,16 @@ async function reload_apex_video_config() {
   }
 }
 
+async function reload_apex_game_settings() {
+  if (game_settings_refresh_loading.value) return;
+  game_settings_refresh_loading.value = true;
+  try {
+    await apex_store.load_apex_game_settings();
+  } finally {
+    game_settings_refresh_loading.value = false;
+  }
+}
+
 async function open_launch_config_folder() {
   const acc = apex_store.active_apex_account;
   if (!acc) {
@@ -156,6 +194,16 @@ async function open_video_config_folder() {
   }
 }
 
+async function open_game_settings_folder() {
+  const path = apex_store.game_settings_report?.settings.path;
+  if (!path) return;
+  try {
+    await openFolderDetached(parentDirOfFile(path));
+  } catch (e) {
+    toast.error(String(e));
+  }
+}
+
 function on_page_type_change(value: ApexPageTypeEnum | null) {
   if (value != null) {
     apex_store.set_page_type(value);
@@ -164,6 +212,44 @@ function on_page_type_change(value: ApexPageTypeEnum | null) {
 
 function open_quick_preset() {
   apex_store.open_quick_preset_dialog();
+}
+
+function open_alter_q() {
+  void openAlterQWindow().catch((error) => toast.error(String(error)));
+}
+
+function open_config_export() {
+  apex_store.open_config_export_dialog();
+}
+
+async function open_config_import() {
+  try {
+    let defaultPath: string | undefined;
+    try {
+      const folder = await explorerFolder();
+      if (folder) defaultPath = folder;
+    } catch {
+      // ignore
+    }
+    const filepath = await open({
+      title: t('apex.configSnapshot.importTitle'),
+      multiple: false,
+      defaultPath,
+      filters: [{name: 'JSON', extensions: ['json']}],
+    });
+    if (!filepath || typeof filepath !== 'string') return;
+    const text = await readUtf8File({path: filepath});
+    const snapshot = parseApexConfigSnapshot(text);
+    apex_store.set_config_import_snapshot(snapshot);
+    apex_store.open_config_import_dialog();
+  } catch (e) {
+    console.warn('open apex config import failed', e);
+    const key =
+      e instanceof ApexConfigSnapshotParseError
+        ? e.message
+        : (e instanceof Error ? e.message : String(e ?? '')).trim();
+    toast.error(key || 'toast.importApexConfigSnapshotError', {timeout: 8000});
+  }
 }
 </script>
 <template>
@@ -180,7 +266,7 @@ function open_quick_preset() {
     <div class="apex-page-toolbar game-page-toolbar">
       <ApexLauncherUser
         class="apex-page-toolbar-user"
-        @update_user="apex_store.is_launch_page ? apex_store.start_launch() : apex_store.start_video_config()"
+        @update_user="apex_store.is_launch_page ? apex_store.start_launch() : apex_store.is_video_config_page ? apex_store.start_video_config() : apex_store.start_game_settings()"
       />
       <div class="apex-page-toolbar-controls">
         <div class="apex-toolbar-control-slot">
@@ -193,6 +279,44 @@ function open_quick_preset() {
             @click="open_quick_preset"
           >
             <v-icon icon="mdi-lightning-bolt-outline" size="small" />
+          </v-btn>
+        </div>
+        <div class="apex-toolbar-control-slot">
+          <v-btn
+            size="small"
+            variant="text"
+            density="compact"
+            class="apex-preset-btn apex-alter-q-btn"
+            :title="t('apex.alterQ.toolbarTip')"
+            :aria-label="t('apex.alterQ.toolbarTip')"
+            @click="open_alter_q"
+          >
+            <v-icon icon="mdi-angle-acute" size="small" />
+            <span class="apex-alter-q-btn-label">{{ t('apex.alterQ.toolbarLabel') }}</span>
+          </v-btn>
+        </div>
+        <div class="apex-toolbar-control-slot">
+          <v-btn
+            size="small"
+            variant="text"
+            density="compact"
+            class="apex-preset-btn"
+            :title="t('apex.configSnapshot.exportTip')"
+            @click="open_config_export"
+          >
+            <v-icon icon="mdi-application-export" size="small" />
+          </v-btn>
+        </div>
+        <div class="apex-toolbar-control-slot">
+          <v-btn
+            size="small"
+            variant="text"
+            density="compact"
+            class="apex-preset-btn"
+            :title="t('apex.configSnapshot.importTip')"
+            @click="open_config_import"
+          >
+            <v-icon icon="mdi-application-import" size="small" />
           </v-btn>
         </div>
         <div class="apex-toolbar-control-slot">
@@ -222,6 +346,14 @@ function open_quick_preset() {
             >
               {{ t('apex.pageVideoConfig') }}
             </v-btn>
+            <v-btn
+              size="small"
+              :value="ApexPageTypeEnum.game_settings"
+              :title="t('apex.pageGameSettings')"
+              prepend-icon="mdi-gamepad-variant-outline"
+            >
+              {{ t('apex.pageGameSettings') }}
+            </v-btn>
           </v-btn-toggle>
         </div>
       </div>
@@ -234,7 +366,10 @@ function open_quick_preset() {
         v-if="apex_store.is_launch_page"
         style="flex:1;min-height:0;"/>
       <ApexVideoConfig
-        v-else-if="visited_video_tab"
+        v-else-if="apex_store.is_video_config_page && visited_video_tab"
+        style="flex:1;min-height:0;"/>
+      <ApexGameSettings
+        v-else-if="visited_game_settings_tab"
         style="flex:1;min-height:0;"/>
     </div>
 
@@ -257,7 +392,7 @@ function open_quick_preset() {
           <ApexApply/>
         </v-btn-group>
       </template>
-      <template v-else>
+      <template v-else-if="apex_store.is_video_config_page">
         <v-btn-group density="compact" divided>
           <GameRefreshIconButton
             :loading="video_refresh_loading"
@@ -270,6 +405,21 @@ function open_quick_preset() {
         <v-btn-group density="compact" divided>
           <ApexStart/>
           <ApexVideoConfigApply/>
+        </v-btn-group>
+      </template>
+      <template v-else>
+        <v-btn-group density="compact" divided>
+          <GameRefreshIconButton
+            :loading="game_settings_refresh_loading"
+            :title="`${t('apex.gameSettings.reload')} · ${t('common.rightClickOpenConfigFolder')}`"
+            @click="reload_apex_game_settings"
+            @contextmenu="open_game_settings_folder"
+          />
+        </v-btn-group>
+        <v-spacer></v-spacer>
+        <v-btn-group density="compact" divided>
+          <ApexStart/>
+          <ApexGameSettingsApply/>
         </v-btn-group>
       </template>
     </div>
@@ -288,6 +438,8 @@ function open_quick_preset() {
     <ApexEaManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog_ea"/>
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
     <ApexQuickPresetDialog v-if="apex_store.quick_preset_dialog"/>
+    <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
+    <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
   </v-col>
 </template>
 <style scoped>
@@ -347,6 +499,29 @@ function open_quick_preset() {
   font-size: 16px;
 }
 
+.apex-preset-btn.apex-alter-q-btn {
+  width: auto !important;
+  max-width: none !important;
+  padding-inline: 9px !important;
+}
+
+.apex-alter-q-btn :deep(.v-btn__content) {
+  gap: 5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .apex-preset-btn.apex-alter-q-btn {
+    width: var(--game-page-control-height) !important;
+    min-width: var(--game-page-control-height) !important;
+    padding-inline: 0 !important;
+  }
+
+  .apex-alter-q-btn-label {
+    display: none;
+  }
+}
+
 .apex-page-type-toggle {
   flex-shrink: 0;
 }
@@ -365,6 +540,16 @@ function open_quick_preset() {
 
 .apex-page-type-toggle :deep(.v-btn--active > .v-btn__overlay) {
   opacity: 0 !important;
+}
+
+.apex-page-type-toggle :deep(.v-btn:hover:not(.v-btn--active)) {
+  color: rgba(var(--v-theme-on-surface), 0.92) !important;
+  background: rgba(var(--v-theme-on-surface), 0.06) !important;
+}
+
+.apex-page-type-toggle :deep(.v-btn:focus-visible) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 1px;
 }
 
 .apex-page-type-toggle :deep(.v-btn--active .v-icon) {

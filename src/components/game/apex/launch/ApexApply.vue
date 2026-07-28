@@ -1,67 +1,95 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {computed, onUnmounted, ref, shallowRef} from 'vue';
-import eaStore from '@/stores/game/ea.ts';
-import steamStore from '@/stores/game/steam.ts';
-import {invoke} from '@tauri-apps/api/core';
+import {computed, ref} from 'vue';
 import {useToast} from 'vue-toastification';
-import apexStore from '@/stores/game/apex.ts';
+import {useEaStore} from '@/stores/game/ea.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import {
+  formatApplyLaunchOptionError,
+  useApplyButtonClass,
+  useCloseLauncherThenApply,
+} from '@/composables/useCloseLauncherThenApply.ts';
 
 const { t } = useI18n();
-const steam_store = steamStore();
-const ea_store = eaStore();
-const apex_store = apexStore();
-
+const steam_store = useSteamStore();
+const ea_store = useEaStore();
+const apex_store = useApexStore();
 const toast = useToast();
 
-const dialog = shallowRef(false);
-/** 关闭 Steam 或 EA Desktop 的提示框类型 */
-const close_launcher_kind = shallowRef<'steam' | 'ea'>('steam');
-const is_thoroughly_kill = ref(false);
-const interval_id = ref<number | any>(null);
-const is_apply_running = ref(false);
 const is_setting_launch_option = ref(false);
-const WAIT_CLOSE_POLL_MS = 1500;
 
-function stop_monitoring() {
-  if (!interval_id.value) return;
-  clearInterval(interval_id.value);
-  interval_id.value = null;
-}
-
-async function is_launcher_still_running(): Promise<boolean> {
-  if (close_launcher_kind.value === 'steam') {
-    return invoke<boolean>('steam_is_running_by_tasklist');
-  }
-  return invoke<boolean>('ea_desktop_is_running_by_tasklist');
-}
-
-async function poll_launcher_closed_once() {
-  const still_running = await is_launcher_still_running();
-  if (!still_running) {
-    stop_monitoring();
+async function set_launch_option() {
+  if (is_setting_launch_option.value) return;
+  is_setting_launch_option.value = true;
+  try {
+    await apex_store.persist_launch_options();
+    toast.success('toast.applyLaunchOptionSuccess');
     dialog.value = false;
-    if (close_launcher_kind.value === 'steam') {
-      void steam_store.check_is_steam_running();
+  } catch (err) {
+    console.warn('set_launch_option failed', err);
+    const detail = (err instanceof Error ? err.message : String(err ?? '')).trim();
+    if (detail === 'NO_LAUNCHER_ACCOUNT') {
+      toast.error('apex.noLauncherAccount');
     } else {
-      void ea_store.check_is_ea_desktop_running();
+      toast.error(formatApplyLaunchOptionError(err), {timeout: 8000});
     }
-    set_launch_option();
+    dialog.value = false;
+  } finally {
+    is_setting_launch_option.value = false;
   }
 }
 
-const apply_button_class = computed(() => {
-  if (!apex_store.active_apex_account) return '';
-  if (apex_store.is_start_loading || !apex_store.is_launch_options_modified) return '';
-  const isSteam = apex_store.active_apex_account.kind === 'steam';
-  if (isSteam && (steam_store.is_steam_running || !apex_store.is_miles_language_ready)) {
-    return 'warning-red-text-edge-animate';
-  }
-  if (!isSteam && (ea_store.is_ea_desktop_running || !apex_store.is_miles_language_ready)) {
-    return 'warning-red-text-edge-animate';
-  }
-  return 'success-green-text-edge-animate';
+const {
+  dialog,
+  close_launcher_kind,
+  is_thoroughly_kill,
+  is_apply_running,
+  apply_check,
+  force_close_launcher,
+  cancel,
+} = useCloseLauncherThenApply({
+  apply: set_launch_option,
+  beforeApply: async () => {
+    if (!apex_store.active_apex_account) {
+      toast.error('apex.noLauncherAccount');
+      return false;
+    }
+    if (!await apex_store.check_miles_language()) {
+      toast.error('toast.milesLanguageNotFound');
+      if (apex_store.active_apex_account?.kind === 'ea') {
+        apex_store.download_miles_language_manual_dialog_ea = true;
+      } else {
+        apex_store.download_miles_language_semi_automatic_dialog = true;
+      }
+      return false;
+    }
+    return true;
+  },
+  resolveCloseKind: async () => {
+    const acc = apex_store.active_apex_account;
+    if (!acc) return null;
+    if (acc.kind === 'ea') {
+      await ea_store.check_is_ea_desktop_running();
+      return ea_store.is_ea_desktop_running ? 'ea' : null;
+    }
+    await steam_store.check_is_steam_running();
+    return steam_store.is_steam_running ? 'steam' : null;
+  },
+});
+
+const apply_button_class = useApplyButtonClass({
+  busy: computed(() => apex_store.is_start_loading || is_setting_launch_option.value || !apex_store.active_apex_account),
+  modified: computed(() => !!apex_store.active_apex_account && apex_store.is_launch_options_modified),
+  needsWarning: computed(() => {
+    const acc = apex_store.active_apex_account;
+    if (!acc) return false;
+    if (acc.kind === 'steam') {
+      return steam_store.is_steam_running || !apex_store.is_miles_language_ready;
+    }
+    return ea_store.is_ea_desktop_running || !apex_store.is_miles_language_ready;
+  }),
 });
 
 const close_dialog_title = computed(() =>
@@ -79,132 +107,6 @@ const close_dialog_icon = computed(() =>
 const close_steam_apply_user = computed(() => {
   const acc = apex_store.active_apex_account;
   return acc?.kind === 'steam' ? acc.user : null;
-});
-
-async function force_close_launcher() {
-  is_thoroughly_kill.value = true;
-  stop_monitoring();
-  if (close_launcher_kind.value === 'steam') {
-    await invoke('thoroughly_kill_steam');
-    if (await is_launcher_still_running()) {
-      toast.error('toast.cannotCloseSteam');
-      is_thoroughly_kill.value = false;
-      continuously_monitor_until_closed();
-      return;
-    }
-  } else {
-    await invoke('thoroughly_kill_ea_desktop');
-    if (await is_launcher_still_running()) {
-      toast.error('toast.cannotCloseEaDesktop');
-      is_thoroughly_kill.value = false;
-      continuously_monitor_until_closed();
-      return;
-    }
-  }
-  is_thoroughly_kill.value = false;
-  dialog.value = false;
-  set_launch_option();
-}
-
-function set_launch_option() {
-  if (is_setting_launch_option.value) {
-    return;
-  }
-  is_setting_launch_option.value = true;
-  const acc = apex_store.active_apex_account;
-  if (!acc) {
-    is_setting_launch_option.value = false;
-    is_apply_running.value = false;
-    return;
-  }
-  console.log("set_launch_option",acc,apex_store.launch_options,acc.user.id)
-  const done = () => {
-    toast.success('toast.applyLaunchOptionSuccess');
-    console.log('set_launch_option', apex_store.launch_options);
-    apex_store.original_launch_options = apex_store.launch_options;
-    dialog.value = false;
-    is_setting_launch_option.value = false;
-    is_apply_running.value = false;
-  };
-  const fail = (err: unknown) => {
-    console.log(err);
-    toast.error('toast.applyLaunchOptionError');
-    dialog.value = false;
-    is_setting_launch_option.value = false;
-    is_apply_running.value = false;
-  };
-  if (acc.kind === 'steam') {
-    invoke<void>('set_apex_launch_option', {
-      id: Number(acc.user.id),
-      launchOption: apex_store.launch_options,
-    }).then(done).catch(fail);
-  } else {
-    invoke<void>('set_apex_launch_option_ea', {
-      eaUserId: acc.user.id,
-      launchOption: apex_store.launch_options,
-    }).then(done).catch(fail);
-  }
-}
-
-function cancel() {
-  dialog.value = false;
-  is_thoroughly_kill.value = false;
-  stop_monitoring();
-  is_apply_running.value = false;
-}
-
-function continuously_monitor_until_closed() {
-  stop_monitoring();
-  const poll = () => {
-    void poll_launcher_closed_once().catch((e) => {
-      console.warn('launcher close poll failed', e);
-    });
-  };
-  poll();
-  interval_id.value = setInterval(poll, WAIT_CLOSE_POLL_MS);
-}
-
-async function apply_check() {
-  is_apply_running.value = true;
-  if (!apex_store.active_apex_account) {
-    toast.error('apex.noLauncherAccount');
-    is_apply_running.value = false;
-    return;
-  }
-  if (!await apex_store.check_miles_language()) {
-    toast.error('toast.milesLanguageNotFound');
-    if (apex_store.active_apex_account?.kind === 'ea') {
-      apex_store.download_miles_language_manual_dialog_ea = true;
-    } else {
-      apex_store.download_miles_language_semi_automatic_dialog = true;
-    }
-    is_apply_running.value = false;
-    return;
-  }
-  if (apex_store.active_apex_account.kind === 'ea') {
-    await ea_store.check_is_ea_desktop_running();
-    if (ea_store.is_ea_desktop_running) {
-      close_launcher_kind.value = 'ea';
-      dialog.value = true;
-      continuously_monitor_until_closed();
-    } else {
-      set_launch_option();
-    }
-    return;
-  }
-  await steam_store.check_is_steam_running();
-  if (steam_store.is_steam_running) {
-    close_launcher_kind.value = 'steam';
-    dialog.value = true;
-    continuously_monitor_until_closed();
-  } else {
-    stop_monitoring();
-    set_launch_option();
-  }
-}
-
-onUnmounted(() => {
-  stop_monitoring();
 });
 </script>
 

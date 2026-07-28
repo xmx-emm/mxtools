@@ -4,11 +4,11 @@ import {ApexCommonMilesLanguages, ApexUncommonMilesLanguages} from '@/data/apex_
 import {computed, ref} from 'vue';
 import {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {useI18n} from 'vue-i18n';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 
 const { t } = useI18n();
 
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 function change_language(language: string) {
   apex_store.settings_config.miles_language = language;

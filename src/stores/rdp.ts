@@ -1,7 +1,12 @@
 import {defineStore} from 'pinia';
-import {invoke} from '@tauri-apps/api/core';
 import type {RdpConnection} from '@/types/rdp.ts';
 import {useWindowsUserStore} from '@/stores/windows_user.ts';
+import {
+  getRdpEnabled,
+  getRdpPort,
+  loadRdpConnections,
+  saveRdpConnections,
+} from '@/ipc/commands.ts';
 
 export const useRdpStore = defineStore('rdp', {
   state: () => ({
@@ -13,31 +18,27 @@ export const useRdpStore = defineStore('rdp', {
   actions: {
     async loadRdpStatus() {
       try {
-        this.rdpEnabled = await invoke('get_rdp_enabled');
+        this.rdpEnabled = await getRdpEnabled();
       } catch (e) {
         console.error('loadRdpStatus error', e);
       }
     },
     async loadRdpPort() {
       try {
-        this.rdpPort = await invoke('get_rdp_port');
+        this.rdpPort = await getRdpPort();
       } catch (e) {
         console.error('loadRdpPort error', e);
       }
     },
     async loadConnections() {
       try {
-        this.connections = await invoke('load_rdp_connections');
+        this.connections = await loadRdpConnections();
       } catch (e) {
         console.error('loadConnections error', e);
       }
     },
     async saveConnections() {
-      try {
-        await invoke('save_rdp_connections', { connections: this.connections });
-      } catch (e) {
-        console.error('saveConnections error', e);
-      }
+      await saveRdpConnections({connections: this.connections});
     },
     async loadAll() {
       this.loading = true;

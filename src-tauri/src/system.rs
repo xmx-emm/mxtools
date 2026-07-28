@@ -1,7 +1,12 @@
+use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::{blocking_cmd, blocking_value};
 use serde::Serialize;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 use windows_tool::utils::unit_conversion::{ByteConversionStandard, ByteToGB};
+
+fn system_error(error: String) -> IpcError {
+    IpcError::operation_failed("system", error)
+}
 
 /// 主显示器信息(Apex 快速预设用)
 #[derive(Debug, Clone, Serialize)]
@@ -22,21 +27,15 @@ fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
 
     let mut current: DEVMODEW = unsafe { zeroed() };
     current.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
-    let ok = unsafe {
-        EnumDisplaySettingsW(
-            std::ptr::null(),
-            ENUM_CURRENT_SETTINGS,
-            &mut current,
-        )
-    };
+    let ok = unsafe { EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &mut current) };
     if ok == 0 {
-        return Err("无法读取主显示器当前分辨率".to_string());
+        return Err("system.errors.displayReadFailed".to_string());
     }
 
     let width = current.dmPelsWidth;
     let height = current.dmPelsHeight;
     if width == 0 || height == 0 {
-        return Err("主显示器分辨率无效".to_string());
+        return Err("system.errors.displayInvalid".to_string());
     }
 
     let mut max_refresh: DWORD = current.dmDisplayFrequency;
@@ -70,13 +69,15 @@ fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
 
 #[cfg(not(windows))]
 fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
-    Err("仅支持 Windows".to_string())
+    Err("system.errors.windowsOnly".to_string())
 }
 
 /// 获取主显示器分辨率、比例与最高刷新率
 #[tauri::command]
-pub async fn get_primary_display_info() -> Result<PrimaryDisplayInfo, String> {
-    blocking_cmd(get_primary_display_info_inner).await
+pub async fn get_primary_display_info() -> IpcResult<PrimaryDisplayInfo> {
+    blocking_cmd(get_primary_display_info_inner)
+        .await
+        .map_err(system_error)
 }
 
 #[cfg(windows)]
@@ -88,7 +89,7 @@ fn get_cpu_model_from_registry() -> String {
         .open_subkey(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
         .ok()
         .and_then(|k| k.get_value::<String, _>("ProcessorNameString").ok())
-        .unwrap_or_else(|| String::new())
+        .unwrap_or_default()
 }
 
 #[cfg(not(windows))]
@@ -133,7 +134,13 @@ fn get_gpu_list() -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn system_info() -> Vec<(String, String)> {
+pub async fn system_info() -> IpcResult<Vec<(String, String)>> {
+    blocking_value(system_info_inner)
+        .await
+        .map_err(system_error)
+}
+
+fn system_info_inner() -> Vec<(String, String)> {
     let mut res: Vec<(String, String)> = Vec::new();
     let mut sys = System::new_with_specifics(
         RefreshKind::nothing()
@@ -206,7 +213,7 @@ pub fn system_info() -> Vec<(String, String)> {
 
 /// 系统物理内存总量(MB,`-maxMem` 常用单位)
 #[tauri::command]
-pub async fn system_total_memory_mb() -> Result<u64, String> {
+pub async fn system_total_memory_mb() -> IpcResult<u64> {
     blocking_value(|| {
         let mut sys = System::new_with_specifics(
             RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
@@ -215,4 +222,86 @@ pub async fn system_total_memory_mb() -> Result<u64, String> {
         sys.total_memory() / 1024 / 1024
     })
     .await
+    .map_err(system_error)
+}
+
+const MAX_UTF8_FILE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// 拒绝系统敏感目录与路径穿越；允许用户目录及对话框所选的普通盘符路径。
+fn assert_user_data_path(path: &str) -> Result<std::path::PathBuf, String> {
+    let raw = path.trim();
+    if raw.is_empty() {
+        return Err("system.errors.invalidPath".to_string());
+    }
+    if raw.contains('\0') || raw.chars().any(|c| c.is_control()) {
+        return Err("system.errors.invalidPath".to_string());
+    }
+    let p = std::path::PathBuf::from(raw);
+    if !p.is_absolute() {
+        return Err("system.errors.pathMustBeAbsolute".to_string());
+    }
+    if p.components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err("system.errors.invalidPath".to_string());
+    }
+
+    let lower = raw.replace('/', "\\").to_ascii_lowercase();
+    let blocked_prefixes = [
+        r"c:\windows\",
+        r"c:\windows",
+        r"c:\program files\",
+        r"c:\program files (x86)\",
+        r"c:\programdata\",
+        r"\\.\",
+    ];
+    // 精确匹配根目录或带子路径
+    for b in blocked_prefixes {
+        if lower == b.trim_end_matches('\\') || lower.starts_with(b) {
+            // Steam 等安装在 Program Files 下时，仅禁止写入系统目录；
+            // 读写 utf8 配置快照不应落在这些路径。
+            return Err("system.errors.pathNotAllowed".to_string());
+        }
+    }
+    Ok(p)
+}
+
+/// 读取 UTF-8 文本文件（配置快照导入等）
+#[tauri::command]
+pub async fn read_utf8_file(path: String) -> IpcResult<String> {
+    blocking_cmd(move || {
+        let path = assert_user_data_path(&path)?;
+        let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+        if !meta.is_file() {
+            return Err("system.errors.notAFile".to_string());
+        }
+        if meta.len() > MAX_UTF8_FILE_BYTES {
+            return Err("system.errors.fileTooLarge".to_string());
+        }
+        std::fs::read_to_string(&path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(system_error)
+}
+
+/// 写入 UTF-8 文本文件（配置快照导出等）
+#[tauri::command]
+pub async fn write_utf8_file(path: String, content: String) -> IpcResult<()> {
+    if content.len() as u64 > MAX_UTF8_FILE_BYTES {
+        return Err(IpcError::new(
+            "system.file_too_large",
+            "File exceeds the maximum allowed size",
+        ));
+    }
+    blocking_cmd(move || {
+        let path = assert_user_data_path(&path)?;
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+        }
+        std::fs::write(&path, content.as_bytes()).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(system_error)
 }

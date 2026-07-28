@@ -17,7 +17,7 @@ const { t } = useI18n();
     <p class="text-medium-emphasis mb-4">{{ t('apexVideoTips.matVsyncMode.description') }}</p>
     <v-btn
       class="mt-4"
-      color="pink-lighten-1"
+      color="error"
       variant="tonal"
       prepend-icon="mdi-play"
       @click="openUrl(APEX_VSYNC_VIDEO_PAGE_URL)"

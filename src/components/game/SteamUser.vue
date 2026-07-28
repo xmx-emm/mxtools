@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 import {useI18n} from 'vue-i18n';
-import steamStore from '@/stores/game/steam.ts';
+import {useSteamStore} from '@/stores/game/steam.ts';
 import {steamAvatarUrl} from '@/utils/game/steam.ts';
 
 withDefaults(
@@ -10,7 +10,7 @@ withDefaults(
 );
 
 const emits = defineEmits(['update_user']);
-const gameStore = steamStore();
+const gameStore = useSteamStore();
 const { t } = useI18n();
 
 const activeAvatarSrc = computed(() => steamAvatarUrl(gameStore.active_steam_user?.avatar));
@@ -19,24 +19,27 @@ const activeAvatarSrc = computed(() => steamAvatarUrl(gameStore.active_steam_use
 <template>
   <v-menu class="not_select">
     <v-list>
-      <v-list-item v-for="user in gameStore.steam_users"
-                   v-if="gameStore.steam_users.length > 0"
-                   :title="user.name"
-                   :subtitle="user.id"
-                   @click="gameStore.set_active_steam_user(user);emits('update_user')"
-      >
-        <template v-slot:prepend>
-          <v-avatar :title="user.config_path">
-            <v-img
-              v-if="steamAvatarUrl(user.avatar)"
-              :src="steamAvatarUrl(user.avatar)"
-              cover
-              alt=""
-            />
-            <v-icon v-else icon="mdi-steam" />
-          </v-avatar>
-        </template>
-      </v-list-item>
+      <template v-if="gameStore.steam_users.length > 0">
+        <v-list-item
+          v-for="user in gameStore.steam_users"
+          :key="user.id"
+          :title="user.name"
+          :subtitle="user.id"
+          @click="gameStore.set_active_steam_user(user); emits('update_user')"
+        >
+          <template #prepend>
+            <v-avatar :title="user.config_path">
+              <v-img
+                v-if="steamAvatarUrl(user.avatar)"
+                :src="steamAvatarUrl(user.avatar)"
+                cover
+                alt=""
+              />
+              <v-icon v-else icon="mdi-steam" />
+            </v-avatar>
+          </template>
+        </v-list-item>
+      </template>
       <v-list-item v-else>
         {{ t('steam.emptyUserList') }}
       </v-list-item>

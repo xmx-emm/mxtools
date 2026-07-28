@@ -1,14 +1,16 @@
 <script setup lang="ts">
 // Apex(Steam)手动下载语音包指示器
-import apexStore from '@/stores/game/apex.ts';
+import {useI18n} from 'vue-i18n';
+import {useApexStore} from '@/stores/game/apex.ts';
 import steamDownloadImg from '@/assets/images/apex/steam_download.jpg';
 import steamSelectLanguageImg from '@/assets/images/apex/steam_select_language.jpg';
 import ApexImage from '@/components/game/apex/common/tips/ApexImage.vue';
 import {ApexMilesLanguagesDepot} from '@/data/apex_launch_options_config.ts';
-import {invoke} from '@tauri-apps/api/core';
+import {openApexAudioFolderPath} from '@/ipc/commands.ts';
 import {useToast} from 'vue-toastification';
 
-const apex_store = apexStore();
+const {t} = useI18n();
+const apex_store = useApexStore();
 const toast = useToast();
 
 function normalizeMilesLanguage(language: string): string {
@@ -28,7 +30,7 @@ const items = Object.entries(ApexMilesLanguagesDepot).map(([language, depot]) =>
 }));
 
 function open_audio_folder() {
-  invoke('open_apex_audio_folder_path', {
+  openApexAudioFolderPath({
     platform: 'steam',
     eaUserId: null,
   }).catch((e) => {
@@ -44,30 +46,30 @@ function open_audio_download_dialog() {
 
 <template>
   <v-dialog class="not_select" v-model="apex_store.download_miles_language_manual_dialog">
-    <v-card title="手动下载语音包(Steam)">
+    <v-card :title="t('apex.milesDownload.manualSteamTitle')">
       <div class="mx-6" style="height: max-content;overflow-y:scroll;">
-        <p class="error_color">tips: 建议使用半自动下载方式,更方便耗时更短</p><br/>
-        1.打开Apex属性,将语言设置为想要的语音包<br/>
+        <p class="error_color">{{ t('apex.milesDownload.manualSteamTip') }}</p><br/>
+        {{ t('apex.milesDownload.manualSteamStep1') }}<br/>
         <ApexImage :src="steamSelectLanguageImg" class="apex_image_heigh"/>
         <br/>
-        2.等待语音包下载完成<br/>
+        {{ t('apex.milesDownload.manualSteamStep2') }}<br/>
         <ApexImage :src="steamDownloadImg" class="apex_image_heigh"/>
         <br/>
         <br/>
-        3.语音包下载完成后,打开语言包目录并复制一份下载的语音包
-        <v-btn @click="open_audio_folder">打开音频目录</v-btn>
+        {{ t('apex.milesDownload.manualSteamStep3') }}
+        <v-btn @click="open_audio_folder">{{ t('apex.milesDownload.openAudioFolder') }}</v-btn>
         <v-data-table :items="items" hide-default-footer/>
 
         <br/>
         <br/>
-        4.恢复界面语言,并等待语音包下载完成<br/>
+        {{ t('apex.milesDownload.manualSteamStep4') }}<br/>
         <br/>
-        5.应用语音包并修改启动项<br/>
+        {{ t('apex.milesDownload.manualSteamStep5') }}<br/>
       </div>
       <template v-slot:actions>
-        <v-btn @click="open_audio_folder">打开音频目录</v-btn>
+        <v-btn @click="open_audio_folder">{{ t('apex.milesDownload.openAudioFolder') }}</v-btn>
         <v-spacer/>
-        <v-btn @click="open_audio_download_dialog">半自动下载</v-btn>
+        <v-btn @click="open_audio_download_dialog">{{ t('apex.milesDownload.semiAutoDownload') }}</v-btn>
       </template>
     </v-card>
   </v-dialog>

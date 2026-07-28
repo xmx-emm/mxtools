@@ -3,13 +3,13 @@ import {computed} from 'vue';
 import {convertFileSrc} from '@tauri-apps/api/core';
 import {useI18n} from 'vue-i18n';
 import EAIcon from '@/components/icons/EAIcon.vue';
-import apexStore from '@/stores/game/apex.ts';
+import {useApexStore} from '@/stores/game/apex.ts';
 import type {ApexLauncherAccount} from '@/types/apex.ts';
 import {steamAvatarUrl} from '@/utils/game/steam.ts';
 
 const emits = defineEmits<{ (e: 'update_user'): void }>();
 const { t } = useI18n();
-const apex_store = apexStore();
+const apex_store = useApexStore();
 
 function accountKey(acc: ApexLauncherAccount): string {
   return `${acc.kind}:${acc.user.id}`;

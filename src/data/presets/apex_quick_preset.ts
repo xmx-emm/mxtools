@@ -15,6 +15,9 @@ export const FPS_CAP_MAX = 279;
 /** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
 export const ASPECT_LETTERBOX_THRESHOLD = 8;
 
+/** 最小宽高比下限默认值（放宽以避免强制黑边；goal 仍用所选比例） */
+export const ASPECT_LETTERBOX_MIN_DEFAULT = 0.1;
+
 /** 比例预设(与启动项 letterbox aspect 一致; 仅宽≥高的横屏比例) */
 export const aspectPresets: ApexAspectPreset[] = [
   { label: 'apexQuickPreset.aspect.1_1', aspectValue: 1 },
@@ -96,7 +99,7 @@ export const graphicsQualityPresets: ApexGraphicsQualityPreset[] = [
       'setting.stream_memory': '0',
       'setting.mat_picmip': '3',
       'setting.dynamic_streaming_budget': '0',
-      'setting.r_lod_switch_scale': '2',
+      'setting.r_lod_switch_scale': '0.6',
     },
   },
   {

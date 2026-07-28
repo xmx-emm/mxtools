@@ -8,8 +8,10 @@
     <script>
         (function(){
             var t = '';
-            try { t = localStorage.getItem('mx-theme') || ''; } catch(e){}
-            var isDark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+            try {
+                t = localStorage.getItem('mx-theme-preference') || localStorage.getItem('mx-theme') || '';
+            } catch(e){}
+            var isDark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme:dark)').matches);
             if (isDark) {
                 document.documentElement.classList.add('dark');
             }
@@ -24,22 +26,22 @@
                 s.setProperty('--splash-g1', accent.g1);
                 s.setProperty('--splash-g2', accent.g2);
                 s.setProperty('--splash-primary', accent.p || accent.g1);
-                s.setProperty('--splash-shadow', accent.s || 'rgba(0,122,255,0.25)');
+                s.setProperty('--splash-shadow', accent.s || 'rgba(15,108,189,0.25)');
             }
         })();
     </script>
     <style>
         :root {
-            --splash-g1: #007AFF;
-            --splash-g2: #5856D6;
-            --splash-primary: #007AFF;
-            --splash-shadow: rgba(0, 122, 255, 0.25);
+            --splash-g1: #0f6cbd;
+            --splash-g2: #0099bc;
+            --splash-primary: #0f6cbd;
+            --splash-shadow: rgba(15, 108, 189, 0.25);
         }
         html.dark {
-            --splash-g1: #0a84ff;
-            --splash-g2: #5e5ce6;
-            --splash-primary: #0a84ff;
-            --splash-shadow: rgba(10, 132, 255, 0.3);
+            --splash-g1: #4cc2ff;
+            --splash-g2: #60cdff;
+            --splash-primary: #4cc2ff;
+            --splash-shadow: rgba(76, 194, 255, 0.28);
         }
 
         html, body {
@@ -48,9 +50,9 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background: #f3f3f3;
+            background: #f4f6f8;
         }
-        html.dark, html.dark body { background: #202020; }
+        html.dark, html.dark body { background: #1a1a1a; }
 
         #splash {
             position: fixed;
@@ -60,9 +62,9 @@
             align-items: center;
             justify-content: center;
             gap: 20px;
-            background: #f3f3f3;
-            color: #1f1f1f;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f4f6f8;
+            color: #20262d;
+            font-family: 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             z-index: 99999;
             transition: opacity .3s ease;
@@ -79,7 +81,7 @@
             justify-content: center;
             width: 56px;
             height: 56px;
-            border-radius: 16px;
+            border-radius: 8px;
             background: linear-gradient(135deg, var(--splash-g1) 0%, var(--splash-g2) 100%);
             box-shadow: 0 8px 24px var(--splash-shadow);
             animation: splash-pop .5s cubic-bezier(.34, 1.56, .64, 1) both;
@@ -94,7 +96,7 @@
         #splash-title {
             font-size: 16px;
             font-weight: 600;
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
             opacity: 0;
             animation: splash-fade-in .4s ease .2s forwards;
         }
@@ -132,8 +134,22 @@
         }
 
         html.dark #splash {
-            background: #202020;
-            color: #e8e8e8;
+            background: #17191c;
+            color: #f3f5f7;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #splash-logo,
+            #splash-title,
+            #splash-bar-track,
+            #splash-bar {
+                animation: none;
+            }
+
+            #splash-title,
+            #splash-bar-track {
+                opacity: .75;
+            }
         }
     </style>
 </head>

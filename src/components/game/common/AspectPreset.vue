@@ -20,15 +20,12 @@ const { t } = useI18n();
 const sorted = computed(() => sortedAspectPresets());
 
 const selected_title = computed(() => {
-  if (props.min !== props.goal) {
-    return t('apexQuickPreset.aspectPreset');
-  }
-  const preset = findAspectPresetByValue(props.min);
+  const preset = findAspectPresetByValue(props.goal);
   return preset ? t(preset.label) : t('apexQuickPreset.aspectPreset');
 });
 
 function is_active(value: number) {
-  return props.min === value && props.goal === value;
+  return Math.abs(props.goal - value) < 0.001;
 }
 </script>
 

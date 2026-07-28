@@ -13,9 +13,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use chrono::{Local, NaiveDate};
 use windows_tool::utils::filesystem::get_documents_path;
 
-use crate::utils::{
-    MAX_LOG_FILE_SIZE, MAX_LOG_RETENTION_DAYS, OUTPUT_FOLDER_CATEGORIZE,
-};
+use crate::utils::{MAX_LOG_FILE_SIZE, MAX_LOG_RETENTION_DAYS, OUTPUT_FOLDER_CATEGORIZE};
 
 fn log_dir() -> Option<PathBuf> {
     let docs = get_documents_path().map(PathBuf::from).or_else(|| {
@@ -151,8 +149,8 @@ fn new_log_state(base_dir: &Path) -> std::io::Result<LogFileState> {
 fn with_rotated_state<T, F: FnOnce(&mut LogFileState) -> T>(f: F) -> Option<T> {
     let arc = LOG_STATE.get()?;
     let mut g = arc.lock().ok()?;
-    let _ = rotate_if_needed(&mut *g);
-    Some(f(&mut *g))
+    let _ = rotate_if_needed(&mut g);
+    Some(f(&mut g))
 }
 
 /// 未调用 `init_log_path` 时的兜底路径(仍使用按日目录)
@@ -194,7 +192,7 @@ pub fn init_log_path() {
         let a = arc.clone();
         Arc::new(move || {
             let mut g = a.lock().unwrap();
-            let _ = rotate_if_needed(&mut *g);
+            let _ = rotate_if_needed(&mut g);
             g.backend_path.clone()
         })
     };
@@ -279,14 +277,9 @@ macro_rules! log_debug {
 }
 
 fn now_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let dur = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    let ms = dur.subsec_millis();
-    let (h, m, s) = ((secs / 3600) % 24, (secs / 60) % 60, secs % 60);
-    format!("{:02}:{:02}:{:02}.{:03}", h, m, s, ms)
+    chrono::Local::now()
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string()
 }
 
 /// 前端调用：写入日志到按日目录下的 frontend.log
@@ -306,11 +299,7 @@ pub async fn write_frontend_log(level: String, message: String) {
             let _ = std::fs::create_dir_all(parent);
         }
         maybe_truncate_log(&log_path);
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)
-        {
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) {
             let _ = file.write_all(line.as_bytes());
             let _ = file.flush();
         }
@@ -320,13 +309,23 @@ pub async fn write_frontend_log(level: String, message: String) {
 
 /// 读取日志内容用于反馈
 #[tauri::command]
-pub fn get_logs_for_feedback() -> Result<serde_json::Value, String> {
+pub fn get_logs_for_feedback() -> crate::ipc_error::IpcResult<serde_json::Value> {
     let backend_path = with_rotated_state(|s| s.backend_path.clone())
         .or_else(fallback_backend_path)
-        .ok_or_else(|| "无法获取日志目录".to_string())?;
+        .ok_or_else(|| {
+            crate::ipc_error::IpcError::new(
+                "logger.log_directory_unavailable",
+                "log directory unavailable",
+            )
+        })?;
     let frontend_path = with_rotated_state(|s| s.frontend_path.clone())
         .or_else(fallback_frontend_path)
-        .ok_or_else(|| "无法获取日志目录".to_string())?;
+        .ok_or_else(|| {
+            crate::ipc_error::IpcError::new(
+                "logger.log_directory_unavailable",
+                "log directory unavailable",
+            )
+        })?;
 
     fn read_last_lines(path: &std::path::Path, max_lines: usize) -> String {
         std::fs::read_to_string(path)
@@ -339,15 +338,20 @@ pub fn get_logs_for_feedback() -> Result<serde_json::Value, String> {
     }
 
     Ok(serde_json::json!({
-        "backend": read_last_lines(&backend_path, 5),
-        "frontend": read_last_lines(&frontend_path, 5)
+        "backend": read_last_lines(&backend_path, 200),
+        "frontend": read_last_lines(&frontend_path, 200)
     }))
 }
 
 /// 获取日志根目录(`…/mxtools/logs`,其下为各日期的子文件夹)
 #[tauri::command]
-pub fn get_log_folder_path() -> Result<String, String> {
+pub fn get_log_folder_path() -> crate::ipc_error::IpcResult<String> {
     logs_root()
         .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "无法获取日志目录".to_string())
+        .ok_or_else(|| {
+            crate::ipc_error::IpcError::new(
+                "logger.log_directory_unavailable",
+                "log directory unavailable",
+            )
+        })
 }
