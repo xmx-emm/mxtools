@@ -4,7 +4,7 @@ import {useI18n} from 'vue-i18n';
 import {
   eventToAccelerator,
   formatAcceleratorDisplay,
-  isValidAlterQAccelerator,
+  isValidApexQAccelerator,
   isValidAppAccelerator,
   isValidGlobalAccelerator,
 } from '@/utils/shortcut-keys.ts';
@@ -14,8 +14,8 @@ const props = withDefaults(
   defineProps<{
     modelValue: string;
     disabled?: boolean;
-    /** global：必须带修饰键；app：也需至少含一个修饰键；alterQ：允许单独 F1–F12 */
-    scope?: 'app' | 'global' | 'alterQ';
+    /** global：必须带修饰键；app：也需至少含一个修饰键；apexQ：允许单独 F1–F12 */
+    scope?: 'app' | 'global' | 'apexQ';
   }>(),
   { scope: 'app' },
 );
@@ -64,7 +64,7 @@ function onBlur() {
 
 function isValidForScope(accel: string): boolean {
   if (props.scope === 'global') return isValidGlobalAccelerator(accel);
-  if (props.scope === 'alterQ') return isValidAlterQAccelerator(accel);
+  if (props.scope === 'apexQ') return isValidApexQAccelerator(accel);
   return isValidAppAccelerator(accel);
 }
 
@@ -136,7 +136,7 @@ onBeforeUnmount(stopRecording);
 <style scoped>
 .shortcut-pill {
   min-width: 148px;
-  height: 36px;
+  height: var(--app-control-height-field);
   padding: 0 18px;
   border: none;
   border-radius: 999px;

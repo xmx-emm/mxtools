@@ -181,8 +181,8 @@ async function exportRdp(conn: RdpConnection) {
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="addConnection">{{ t('common.confirm') }}</v-btn>
+          <v-btn variant="text" @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" @click="addConnection">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -205,8 +205,8 @@ async function exportRdp(conn: RdpConnection) {
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn @click="showEditDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="saveEdit">{{ t('common.save') }}</v-btn>
+          <v-btn variant="text" @click="showEditDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" @click="saveEdit">{{ t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

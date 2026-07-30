@@ -10,6 +10,7 @@ import type {
 import type {PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
 import type {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import type {Component} from 'vue';
+import type {ApexConfigHistoryEntry, ApexConfigScope} from '@/types/apex_history.ts';
 
 export function createApexState() {
   return {
@@ -36,6 +37,23 @@ export function createApexState() {
     is_start_loading: false,//从steam加载中
     is_video_config_loading: false,
     is_accounts_loading: false,
+    accounts_loaded: false,
+    accounts_load_status: <'idle' | 'loading' | 'ready' | 'error'>'idle',
+    accounts_loaded_key: <string | null>null,
+    accounts_request_generation: 0,
+    accounts_load_error: <string | null>null,
+    launch_load_status: <'idle' | 'loading' | 'ready' | 'error'>'idle',
+    launch_loading_for_key: <string | null>null,
+    launch_request_generation: 0,
+    launch_load_error: <string | null>null,
+    video_config_load_status: <'idle' | 'loading' | 'ready' | 'error'>'idle',
+    video_config_loaded_key: <string | null>null,
+    video_config_request_generation: 0,
+    video_config_load_error: <string | null>null,
+    game_settings_load_status: <'idle' | 'loading' | 'ready' | 'error'>'idle',
+    game_settings_loaded_key: <string | null>null,
+    game_settings_request_generation: 0,
+    game_settings_load_error: <string | null>null,
     is_video_config_saving: false,
     is_game_settings_loading: false,
     is_game_settings_saving: false,
@@ -81,6 +99,7 @@ export function createApexState() {
 
     //提示视图,用来放显示的页面,直接在最上层显示
     tip_view: <Component | null | undefined>null,
+    tip_props: <Record<string, unknown>>{},
     tip_dialog: false,
 
     /** 用于刷新列表后恢复选中项；合并账户见 getter apex_accounts / active_apex_account */
@@ -90,12 +109,20 @@ export function createApexState() {
     quick_preset_display: <PrimaryDisplayInfo | null>null,
     quick_preset_applying: false,
 
-    alter_q_dialog: false,
+    apex_q_dialog: false,
 
     config_export_dialog: false,
     config_import_dialog: false,
     config_import_snapshot: <ApexConfigSnapshot | null>null,
     is_config_snapshot_applying: false,
+
+    config_history_dialog: false,
+    reset_defaults_dialog: false,
+    config_history: <ApexConfigHistoryEntry[]>[],
+    is_config_history_loading: false,
+    is_config_history_restoring: false,
+    is_resetting_defaults: false,
+    reset_pending_scopes: <ApexConfigScope[]>[],
 
     /** 当前账户下启动项是否已从磁盘加载(切换子页时避免重复 IPC) */
     launch_loaded_for_key: <string | null>null,

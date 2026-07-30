@@ -143,13 +143,14 @@ const close_steam_apply_user = computed(() => {
         <template v-slot:actions>
           <v-btn
             @click="force_close_launcher"
-            color="red"
+            color="error"
+            variant="flat"
             :loading="is_thoroughly_kill"
           >
             {{ t('apex.forceClose') }}
           </v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="cancel">
+          <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">
             {{ t('common.cancel') }}
           </v-btn>
         </template>

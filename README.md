@@ -5,6 +5,33 @@
 - 项目结构说明：[docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
 - 更新日志：[CHANGELOG.md](docs/CHANGELOG.md)
 
+## 使用许可
+
+本仓库中由作者享有相应权利的原创内容采用项目自有的
+[MxTools 非商业许可证 1.0](LICENSE) 许可：
+
+- 允许非商业使用、复制、镜像分发、修改，以及公开发布非商业修改版。
+- 分发时必须同时提供许可证全文，并保留 [NOTICE](NOTICE) 中所有以 `Required Notice:` 开头的声明；修改版还需清楚标注修改和“非官方修改版”。
+- 出售软件、收费分发、纳入付费产品或服务，以及其他预期商业用途，需要事先取得作者的书面许可。可通过 [GitHub](https://github.com/xmx-emm)、[Bilibili](https://space.bilibili.com/231639322) 或 [QQ 频道](https://pd.qq.com/s/9cqf5hfm) 联系。
+- 赞助是自愿支持，不会自动购买功能、技术支持或商业授权。
+
+这是项目自定义的“源码可用”非商业许可证，不是 OSI 认可的开源许可证。第三方代码、模型、图片、文档及商标不由本许可证重新授权，具体范围和当前已知风险见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 赞助
+
+如果 MxTools 对你有帮助，可以自愿赞助开发和维护。请按需要选择支付宝或微信；赞助不影响软件的免费非商业使用，也不代表取得商业授权。
+
+<table>
+  <tr>
+    <th>支付宝</th>
+    <th>微信赞赏码</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="src/assets/images/sponsor/alipay.png" alt="支付宝赞助码" height="360"></td>
+    <td align="center"><img src="src/assets/images/sponsor/wechat.png" alt="微信赞赏码" height="360"></td>
+  </tr>
+</table>
+
 ## 环境准备(Windows)
 
 - [Node.js](https://nodejs.org/)(建议 LTS 22.19.0)

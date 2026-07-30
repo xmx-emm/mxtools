@@ -18,7 +18,10 @@
   --app-transition: var(--app-motion-base) var(--app-ease-standard);
   --app-shadow-sm: 0 1px 2px rgba(9, 13, 18, 0.05), 0 4px 14px rgba(9, 13, 18, 0.035);
   --app-shadow-md: 0 12px 36px rgba(9, 13, 18, 0.12), 0 2px 8px rgba(9, 13, 18, 0.06);
-  --game-page-control-height: 34px;
+  --app-control-height-compact: 28px;
+  --app-control-height-action: 32px;
+  --app-control-height-field: 40px;
+  --game-page-control-height: var(--app-control-height-compact);
   --game-page-section-gap: 8px;
   --app-page-max-width: 1080px;
   --app-page-padding-x: clamp(20px, 3vw, 36px);
@@ -164,6 +167,23 @@ body,
 
 .app-section + .app-section {
   margin-top: 14px;
+}
+
+.mx-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 15px;
+  padding: 0 5px;
+  border: 1px solid rgba(var(--v-theme-warning), 0.28);
+  border-radius: 999px;
+  background: rgba(var(--v-theme-warning), 0.1);
+  color: rgb(var(--v-theme-warning));
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .app-section__header {
@@ -401,7 +421,7 @@ html::-webkit-scrollbar {
   font-size: 12px;
   font-weight: 550;
   line-height: 1.45;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   overflow-wrap: anywhere;
   text-align: left;
   white-space: normal;
@@ -494,7 +514,9 @@ html[data-mx-theme-transition-fallback] .v-application {
     filter: none !important;
   }
 
-  *,
+  /* Toastification closes a toast when its progress-bar animation ends. Keep
+     that semantic timer at the configured timeout while reducing visual motion. */
+  *:not(.Vue-Toastification__progress-bar),
   *::before,
   *::after {
     scroll-behavior: auto !important;
@@ -656,26 +678,129 @@ html[data-mx-theme-transition-fallback] .v-application {
 
 .game-page-segmented-toggle {
   flex-shrink: 0;
-  height: var(--game-page-control-height);
+  min-height: var(--game-page-control-height) !important;
+  height: var(--game-page-control-height) !important;
+  max-height: var(--game-page-control-height) !important;
+  overflow: hidden;
+  scrollbar-width: none;
 }
 
-.game-page-segmented-toggle .v-btn {
+.game-page-segmented-toggle::-webkit-scrollbar,
+.apex-parameter-toggle.v-btn-group::-webkit-scrollbar {
+  display: none;
+}
+
+.apex-parameter-toggle.v-btn-group {
+  min-height: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  max-height: var(--app-control-height-compact) !important;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.game-page-segmented-toggle .v-btn,
+.apex-parameter-toggle.v-btn-group .v-btn {
   min-height: var(--game-page-control-height) !important;
   height: var(--game-page-control-height) !important;
   padding-inline: 10px !important;
   font-size: 0.75rem !important;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
-.game-page-segmented-toggle .v-btn .v-btn__content {
+.game-page-segmented-toggle .v-btn .v-btn__content,
+.apex-parameter-toggle.v-btn-group .v-btn .v-btn__content {
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   height: 100%;
+}
+
+/* Shared compact controls used by dense desktop toolbars and editable rows. */
+.mx-compact-field {
+  --v-input-control-height: var(--app-control-height-compact);
+}
+
+.mx-compact-field .v-field,
+.mx-compact-field.v-input--density-compact .v-field {
+  --v-input-control-height: var(--app-control-height-compact);
+  --v-field-padding-top: 0;
+  --v-field-padding-bottom: 0;
+  --v-field-input-padding-top: 0;
+  --v-field-input-padding-bottom: 0;
+  min-height: var(--app-control-height-compact);
+  border-radius: var(--app-radius-sm);
+}
+
+.mx-compact-field .v-field__input {
+  min-height: var(--app-control-height-compact);
+  padding-block: 0;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.mx-compact-field .v-field__prepend-inner,
+.mx-compact-field .v-field__append-inner,
+.mx-compact-field .v-field__clearable {
+  align-items: center;
+  padding-top: 0;
+}
+
+.mx-standard-field {
+  --v-input-control-height: var(--app-control-height-field);
+}
+
+.mx-standard-field .v-field,
+.mx-standard-field.v-input--density-default .v-field {
+  min-height: var(--app-control-height-field);
+  border-radius: var(--app-radius-sm);
+}
+
+.mx-standard-field .v-field__input {
+  min-height: var(--app-control-height-field);
+  letter-spacing: 0;
+}
+
+/* Dialog commands use one stable action density across the application. */
+.v-dialog .v-card-actions .v-btn {
+  min-height: var(--app-control-height-action) !important;
+  height: var(--app-control-height-action) !important;
+  letter-spacing: 0;
+}
+
+.v-dialog .v-card-actions .v-btn--icon {
+  min-width: var(--app-control-height-action) !important;
+  width: var(--app-control-height-action) !important;
+  padding-inline: 0 !important;
+}
+
+.mx-compact-switch.v-switch {
+  --v-input-control-height: var(--app-control-height-compact);
+  flex: 0 0 auto;
+}
+
+.mx-compact-switch.v-switch .v-selection-control {
+  min-height: var(--app-control-height-compact);
+}
+
+.mx-compact-switch.v-switch--inset .v-switch__track {
+  height: 18px;
+  min-width: 32px;
+  padding: 0 2px;
+}
+
+.mx-compact-switch.v-switch--inset .v-switch__thumb {
+  width: 14px;
+  height: 14px;
+  transform: scale(calc(10 / 14));
+}
+
+.mx-compact-switch.v-switch--inset .v-selection-control--dirty .v-switch__thumb,
+.mx-compact-switch.v-switch--inset .v-switch__thumb--filled {
+  transform: none;
 }
 
 .game-page-actions {
@@ -705,7 +830,7 @@ html[data-mx-theme-transition-fallback] .v-application {
   height: var(--game-page-control-height) !important;
   font-size: 0.75rem !important;
   padding-inline: 10px !important;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;

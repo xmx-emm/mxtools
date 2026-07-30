@@ -35,6 +35,8 @@ export interface ApexGameSettingsApplyRequest {
   settingsUpdates: Record<string, string>;
   profileUpdates: Record<string, string>;
   bindingUpdates: ApexBindingUpdate[];
+  historySource?: import('./apex_history.ts').ApexHistorySource;
+  transactionId?: string;
 }
 
 export interface ApexGameSettingsRestoreRequest {
@@ -50,14 +52,25 @@ export type ApexGameSettingsSection =
   | 'bindings'
   | 'controller'
   | 'audio'
+  | 'hud'
+  | 'accessibility'
+  | 'privacy'
+  // Kept for persisted state written before the in-game sections were split.
   | 'interface'
   | 'unknown';
 
-export type ApexGameSettingControl = 'toggle' | 'number' | 'enum';
+export type ApexGameSettingControl = 'toggle' | 'number' | 'enum' | 'rgb';
 
 export interface ApexGameSettingOption {
   value: string;
   labelKey: string;
+  descriptionKey?: string;
+}
+
+export interface ApexGameSettingDependency {
+  file: ApexGameSettingsFile;
+  key: string;
+  value: string;
 }
 
 export interface ApexGameSettingDefinition {
@@ -72,6 +85,9 @@ export interface ApexGameSettingDefinition {
   max?: number;
   step?: number;
   options?: ApexGameSettingOption[];
+  disabledWhen?: ApexGameSettingDependency;
+  readKey?: string;
+  writeKeys?: string[];
 }
 
 export interface ApexBindingSnapshot {

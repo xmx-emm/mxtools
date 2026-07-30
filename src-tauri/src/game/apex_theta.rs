@@ -1,4 +1,4 @@
-//! Apex 琉雀 Q 抛射角经验公式（移植自 NYTN02/APEX_thetacalculation `calculate.cpp`）。
+//! APEX Q 抛射角经验公式（移植自 NYTN02/APEX_thetacalculation `calculate.cpp`）。
 
 use serde::Serialize;
 use std::f64::consts::PI;

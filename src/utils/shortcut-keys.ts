@@ -121,8 +121,8 @@ export function isValidGlobalAccelerator(accelerator: string): boolean {
   return isValidAccelerator(accelerator, true);
 }
 
-/** 琉雀计算器热键：允许单独 F1–F12（对接 Steam 截图），或带修饰键的组合。 */
-export function isValidAlterQAccelerator(accelerator: string): boolean {
+/** APEX Q 计算器热键：允许单独 F1–F12（对接 Steam 截图），或带修饰键的组合。 */
+export function isValidApexQAccelerator(accelerator: string): boolean {
   if (!accelerator) return false;
   if (/^F([1-9]|1[0-2])$/i.test(accelerator)) return true;
   return isValidAccelerator(accelerator, true);

@@ -1,0 +1,1143 @@
+.apex-q-window-card {
+  height: 100%;
+  border-radius: 0 !important;
+}
+
+.apex-q-card {
+  --aq-border: rgba(var(--v-border-color), 0.11);
+  --aq-muted: rgba(var(--v-theme-on-surface), 0.58);
+  --aq-subtle: rgba(var(--v-theme-on-surface), 0.035);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: none;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.93);
+  background: rgb(var(--v-theme-surface));
+}
+
+.apex-q-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.apex-q-card .v-btn {
+  border-radius: 9px;
+  font-weight: 580;
+  letter-spacing: 0;
+}
+
+.apex-q-card .v-field {
+  border-radius: 10px;
+}
+
+.apex-q-workspace {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.apex-q-sidebar,
+.apex-q-setup-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px 12px 14px;
+  border-right: 1px solid var(--aq-border);
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.045), transparent 34%),
+    rgba(var(--v-theme-on-surface), 0.018);
+}
+
+.apex-q-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 2px 6px 18px;
+}
+
+.apex-q-sidebar-brand > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.apex-q-sidebar-brand strong {
+  color: rgba(var(--v-theme-on-surface), 0.95);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.apex-q-sidebar-brand span:not(.apex-q-sidebar-mark) {
+  margin-top: 2px;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apex-q-sidebar-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 11px;
+  color: #fff;
+  background: linear-gradient(145deg, rgb(var(--v-theme-primary)), #6457e8);
+  box-shadow: 0 7px 18px rgba(var(--v-theme-primary), 0.22);
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.apex-q-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.apex-q-tab {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.apex-q-tab:hover {
+  color: rgba(var(--v-theme-on-surface), 0.88);
+  background: rgba(var(--v-theme-on-surface), 0.045);
+}
+
+.apex-q-tab > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apex-q-tab--active {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.1);
+  font-weight: 650;
+}
+
+.apex-q-tab--active:hover {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.13);
+}
+
+.apex-q-sidebar-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: auto;
+  padding: 11px 10px;
+  border: 1px solid var(--aq-border);
+  border-radius: 11px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+
+.apex-q-sidebar-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.32);
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.apex-q-sidebar-status--ready .apex-q-sidebar-status-dot {
+  background: rgb(var(--v-theme-success));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-success), 0.12);
+}
+
+.apex-q-sidebar-status > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.apex-q-sidebar-status strong {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.apex-q-sidebar-status span:not(.apex-q-sidebar-status-dot) {
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.apex-q-guide-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.apex-q-guide-link:hover {
+  color: rgba(var(--v-theme-on-surface), 0.82);
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.apex-q-workspace-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 92% -12%, rgba(var(--v-theme-primary), 0.07), transparent 32%),
+    rgb(var(--v-theme-surface));
+}
+
+.apex-q-page-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 102px;
+  flex: 0 0 102px;
+  gap: 24px;
+  padding: 17px 26px;
+  border-bottom: 1px solid var(--aq-border);
+  overflow: hidden;
+  background: rgba(var(--v-theme-surface), 0.94);
+  backdrop-filter: blur(14px);
+}
+
+.apex-q-page-header > div {
+  min-width: 0;
+}
+
+.apex-q-page-eyebrow,
+.apex-q-setup-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: rgb(var(--v-theme-primary));
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.apex-q-page-header h1,
+.apex-q-setup-header h1 {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.96);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.apex-q-page-header p,
+.apex-q-setup-header > p {
+  max-width: 620px;
+  margin: 5px 0 0;
+  color: var(--aq-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.apex-q-enable-switch {
+  flex: 0 0 auto;
+}
+
+.apex-q-enable-switch .v-label {
+  max-width: 150px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.apex-q-page-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.apex-q-page-content {
+  width: min(100%, 820px);
+  margin: 0 auto;
+  padding: 20px 24px 30px;
+}
+
+.apex-q-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.apex-q-preferences-block {
+  margin-top: 14px;
+}
+
+.apex-q-preferences-block--first {
+  margin-top: 0;
+}
+
+.apex-q-section,
+.apex-q-result {
+  padding: 17px;
+  border: 1px solid var(--aq-border);
+  border-radius: 16px;
+  background: rgba(var(--v-theme-surface), 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
+}
+
+.apex-q-result {
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.105), transparent 54%),
+    rgba(var(--v-theme-surface), 0.94);
+}
+
+.apex-q-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.apex-q-section-heading > div:first-child {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 10px;
+}
+
+.apex-q-section-heading h2 {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.93);
+  font-size: 13px;
+  font-weight: 660;
+  line-height: 1.35;
+}
+
+.apex-q-section-heading p {
+  margin: 3px 0 0;
+  color: var(--aq-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.apex-q-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 9px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.09);
+}
+
+.apex-q-result-heading {
+  align-items: center;
+}
+
+.apex-q-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.apex-q-result-main {
+  min-width: 0;
+  padding: 14px 16px 15px;
+  border: 1px solid rgba(var(--v-border-color), 0.09);
+  border-radius: 13px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+
+.apex-q-result-main--preferred {
+  border-color: rgba(var(--v-theme-primary), 0.26);
+  background: rgba(var(--v-theme-primary), 0.075);
+}
+
+.apex-q-result-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 10px;
+  font-weight: 580;
+}
+
+.apex-q-result-label span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.11);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.apex-q-angle {
+  margin-top: 5px;
+  color: rgba(var(--v-theme-on-surface), 0.96);
+  font-size: clamp(28px, 4vw, 40px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.apex-q-result-main--preferred .apex-q-angle {
+  color: rgb(var(--v-theme-primary));
+}
+
+.apex-q-calc-grid,
+.apex-q-overlay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.apex-q-calc-grid > .apex-q-section,
+.apex-q-overlay-grid > .apex-q-section {
+  min-width: 0;
+}
+
+.apex-q-manual-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.apex-q-capture-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.apex-q-capture-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.apex-q-inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.apex-q-section-heading--actions {
+  align-items: center;
+}
+
+.apex-q-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 130px;
+  padding: 24px;
+  border: 1px dashed rgba(var(--v-border-color), 0.16);
+  border-radius: 13px;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  text-align: center;
+}
+
+.apex-q-empty-state > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  background: rgba(var(--v-theme-on-surface), 0.045);
+}
+
+.apex-q-empty-state p {
+  max-width: 480px;
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.apex-q-empty-state--error {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.apex-q-empty-state--error .v-alert {
+  width: 100%;
+  text-align: left;
+}
+
+.apex-q-ocr-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.apex-q-ocr-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  border-radius: 13px;
+  background: rgba(var(--v-theme-on-surface), 0.024);
+}
+
+.apex-q-ocr-value {
+  margin-bottom: 8px;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.apex-q-ocr-meta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.09);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.apex-q-ang-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.apex-q-ocr-crop {
+  display: block;
+  width: 100%;
+  max-height: 140px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: #000;
+  object-fit: contain;
+}
+
+.apex-q-ocr-raw {
+  max-height: 150px;
+  margin: 0;
+  padding: 9px;
+  overflow: auto;
+  border-radius: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  background: rgba(var(--v-theme-on-surface), 0.035);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.apex-q-ocr-path {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apex-q-roi-advanced {
+  border: 1px solid rgba(var(--v-border-color), 0.09);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.apex-q-roi-value-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.apex-q-roi-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(58px, 1fr));
+  gap: 7px;
+}
+
+.apex-q-segmented {
+  height: 34px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border: 1px solid var(--aq-border);
+  border-radius: 10px;
+  background: rgba(var(--v-theme-on-surface), 0.035);
+}
+
+.apex-q-segmented .v-btn {
+  height: 26px !important;
+  border-radius: 7px !important;
+}
+
+.apex-q-source-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.apex-q-source-fields > :only-child {
+  grid-column: 1 / -1;
+}
+
+.apex-q-trigger-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(260px, 1.3fr);
+  align-items: end;
+  gap: 24px;
+}
+
+.apex-q-trigger-grid label {
+  display: block;
+  margin-bottom: 6px;
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 10px;
+  font-weight: 580;
+}
+
+.apex-q-delay-control {
+  padding-bottom: 2px;
+}
+
+.apex-q-context-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  background: rgba(var(--v-theme-info), 0.075);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.apex-q-context-note .v-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-info));
+}
+
+.apex-q-settings-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.apex-q-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 74px;
+  gap: 24px;
+  padding: 13px 17px;
+}
+
+.apex-q-setting-row + .apex-q-setting-row {
+  border-top: 1px solid var(--aq-border);
+}
+
+.apex-q-setting-row > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.apex-q-setting-row strong {
+  font-size: 12px;
+  font-weight: 630;
+}
+
+.apex-q-setting-row span {
+  max-width: 560px;
+  color: var(--aq-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.apex-q-overlay-lock-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border: 1px solid rgba(var(--v-border-color), 0.09);
+  border-radius: 11px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+
+.apex-q-overlay-lock-control > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.apex-q-overlay-lock-control strong {
+  color: rgba(var(--v-theme-on-surface), 0.88);
+  font-size: 11px;
+  font-weight: 640;
+}
+
+.apex-q-overlay-lock-control span {
+  color: var(--aq-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.apex-q-setting-row .v-switch {
+  flex: 0 0 auto;
+}
+
+.apex-q-overlay-preview-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.apex-q-overlay-preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 154px;
+  margin-top: auto;
+  padding: 18px;
+  border: 1px solid rgba(var(--v-border-color), 0.09);
+  border-radius: 12px;
+  background:
+    linear-gradient(45deg, rgba(var(--v-theme-on-surface), 0.025) 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(-45deg, rgba(var(--v-theme-on-surface), 0.025) 25%, transparent 25%) 0 7px / 14px 14px,
+    rgba(var(--v-theme-on-surface), 0.018);
+}
+
+.apex-q-overlay-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 235px);
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9px;
+  color: #f5f5f5;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.apex-q-overlay-preview-meta {
+  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 8px;
+}
+
+.apex-q-overlay-preview > div:not(.apex-q-overlay-preview-meta) {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.apex-q-overlay-preview span {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 8px;
+}
+
+.apex-q-overlay-preview strong {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 720;
+}
+
+.apex-q-range-control + .apex-q-range-control {
+  margin-top: 16px;
+}
+
+.apex-q-range-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 11px;
+  font-weight: 590;
+}
+
+.apex-q-range-control .v-slider {
+  margin: 0 2px;
+}
+
+.apex-q-range-control p {
+  margin: 2px 0 0;
+  color: var(--aq-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.apex-q-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 3px 2px 0;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  font-size: 9px;
+}
+
+.apex-q-footer a {
+  color: rgba(var(--v-theme-on-surface), 0.52);
+  text-decoration: none;
+}
+
+.apex-q-footer a:hover {
+  color: rgb(var(--v-theme-primary));
+}
+
+.apex-q-footer-sep {
+  opacity: 0.45;
+}
+
+/* Setup */
+.apex-q-setup-shell {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.apex-q-setup-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 96% -8%, rgba(var(--v-theme-primary), 0.08), transparent 32%),
+    rgb(var(--v-theme-surface));
+}
+
+.apex-q-setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.apex-q-setup-steps li {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  gap: 9px;
+  padding: 0 8px;
+  border-radius: 9px;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  font-size: 10px;
+  font-weight: 540;
+}
+
+.apex-q-setup-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  border: 1px solid rgba(var(--v-border-color), 0.16);
+  border-radius: 7px;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.apex-q-setup-step--active {
+  color: rgb(var(--v-theme-primary)) !important;
+  background: rgba(var(--v-theme-primary), 0.095);
+  font-weight: 650 !important;
+}
+
+.apex-q-setup-step--active .apex-q-setup-step-index {
+  border-color: rgba(var(--v-theme-primary), 0.38);
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.apex-q-setup-step--done {
+  color: rgba(var(--v-theme-on-surface), 0.6) !important;
+}
+
+.apex-q-setup-step--done .apex-q-setup-step-index {
+  border-color: rgba(var(--v-theme-success), 0.2);
+  color: rgb(var(--v-theme-success));
+  background: rgba(var(--v-theme-success), 0.08);
+}
+
+.apex-q-setup-header {
+  flex: 0 0 auto;
+  padding: 24px 32px 18px;
+  border-bottom: 1px solid var(--aq-border);
+}
+
+.apex-q-setup-kicker {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.apex-q-setup-kicker span:last-child {
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.apex-q-setup-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 22px 32px 30px;
+  overflow: auto;
+}
+
+.apex-q-step {
+  width: min(100%, 780px);
+  margin: 0 auto;
+}
+
+.apex-q-setup-feature-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.apex-q-setup-feature-list span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid var(--aq-border);
+  border-radius: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  background: rgba(var(--v-theme-on-surface), 0.025);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.apex-q-setup-feature-list .v-icon {
+  color: rgb(var(--v-theme-primary));
+}
+
+.apex-q-actions {
+  flex: 0 0 auto;
+  min-height: 58px;
+  padding: 10px 22px 10px 230px !important;
+  border-top: 1px solid var(--aq-border);
+  background: rgba(var(--v-theme-surface), 0.98);
+}
+
+.apex-q-guide-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: aq-guide;
+}
+
+.apex-q-guide-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--aq-border);
+  border-radius: 11px;
+  background: rgba(var(--v-theme-on-surface), 0.022);
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 11px;
+  counter-increment: aq-guide;
+}
+
+.apex-q-guide-list li::before {
+  content: counter(aq-guide);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 7px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.1);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.apex-q-guide-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 12px;
+}
+
+.apex-q-bg-options {
+  padding: 13px 14px;
+  border: 1px solid var(--aq-border);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+
+@media (max-width: 800px) {
+  .apex-q-workspace {
+    grid-template-columns: 164px minmax(0, 1fr);
+  }
+
+  .apex-q-setup-shell {
+    grid-template-columns: 184px minmax(0, 1fr);
+  }
+
+  .apex-q-page-header {
+    padding-inline: 20px;
+  }
+
+  .apex-q-page-content {
+    padding-inline: 18px;
+  }
+
+  .apex-q-calc-grid,
+  .apex-q-overlay-grid,
+  .apex-q-source-fields,
+  .apex-q-trigger-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .apex-q-actions {
+    padding-left: 204px !important;
+  }
+
+  .apex-q-setup-header,
+  .apex-q-setup-content {
+    padding-inline: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .apex-q-workspace {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .apex-q-sidebar {
+    padding-inline: 6px;
+  }
+
+  .apex-q-tab {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .apex-q-tab > span,
+  .apex-q-sidebar-status > div {
+    display: none;
+  }
+
+  .apex-q-enable-switch .v-label {
+    display: none;
+  }
+
+  .apex-q-sidebar-status {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .apex-q-guide-link {
+    justify-content: center;
+    padding-inline: 0;
+    font-size: 0;
+  }
+
+  .apex-q-guide-link .v-icon {
+    font-size: 16px;
+  }
+
+  .apex-q-page-header {
+    min-height: 84px;
+    flex-basis: 84px;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .apex-q-page-header p {
+    display: none;
+  }
+
+  .apex-q-page-header h1 {
+    font-size: 18px;
+  }
+
+  .apex-q-page-content {
+    padding-inline: 12px;
+  }
+
+  .apex-q-sidebar-brand span:not(.apex-q-sidebar-mark),
+  .apex-q-sidebar-status span:not(.apex-q-sidebar-status-dot) {
+    display: none;
+  }
+
+  .apex-q-result-grid,
+  .apex-q-ocr-grid,
+  .apex-q-roi-value-groups,
+  .apex-q-setup-feature-list {
+    grid-template-columns: 1fr;
+  }
+
+  .apex-q-roi-values {
+    grid-template-columns: repeat(2, minmax(64px, 1fr));
+  }
+}

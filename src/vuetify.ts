@@ -3,7 +3,9 @@ import {createVuetify} from 'vuetify';
 import {aliases, mdi} from 'vuetify/iconsets/mdi-svg';
 import {resolveMdiIcon} from '@/icons/mdi-icons.ts';
 import type {AccentTheme} from '@/themes.ts';
-import {deriveThemeColors, findAccent} from '@/themes.ts';
+import {DEFAULT_ACCENT, deriveThemeColors, findAccent} from '@/themes.ts';
+
+const defaultAccent = findAccent(DEFAULT_ACCENT);
 
 /** 浅色主题：参考 Edge / Fluent 的柔和灰白，避免纯白刺眼 */
 const mxLight = {
@@ -17,15 +19,11 @@ const mxLight = {
     'on-surface-variant': '#5b6570',
     outline: 'rgba(31,42,53,0.18)',
     'outline-variant': 'rgba(31,42,53,0.10)',
-    primary: '#0f6cbd',
-    'on-primary': '#ffffff',
-    'primary-container': '#d8e9f8',
-    'on-primary-container': '#07375f',
+    ...deriveThemeColors(defaultAccent.light.primary, false),
     secondary: '#52606d',
     'on-secondary': '#ffffff',
     error: '#c42b1c',
     'on-error': '#ffffff',
-    info: '#0f6cbd',
     success: '#107c10',
     warning: '#9d5d00',
   },
@@ -43,15 +41,11 @@ const mxDark = {
     'on-surface-variant': '#b4bbc3',
     outline: 'rgba(255,255,255,0.16)',
     'outline-variant': 'rgba(255,255,255,0.09)',
-    primary: '#4cc2ff',
-    'on-primary': '#071b26',
-    'primary-container': '#123d54',
-    'on-primary-container': '#c9ecff',
+    ...deriveThemeColors(defaultAccent.dark.primary, true),
     secondary: '#a9b3bd',
     'on-secondary': '#182027',
     error: '#ff99a4',
     'on-error': '#3b0710',
-    info: '#4cc2ff',
     success: '#6ccb5f',
     warning: '#fce100',
   },

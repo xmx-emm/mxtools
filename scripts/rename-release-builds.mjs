@@ -10,10 +10,12 @@ const releaseDir = path.join(root, 'src-tauri/target/release');
 const nsisDir = path.join(releaseDir, 'bundle/nsis');
 const versionDir = path.join(releaseDir, version);
 
-const portableSrc = path.join(releaseDir, `${productName}.exe`);
+const portableSrc = path.join(nsisDir, `${productName}_${version}_x64-portable.exe`);
 const installerSrc = path.join(nsisDir, `${productName}_${version}_x64-setup.exe`);
 const portableDest = path.join(versionDir, `萌新工具箱 ${version} 便携版.exe`);
 const installerDest = path.join(versionDir, `萌新工具箱 ${version} 安装版.exe`);
+const storeInstallerDest = path.join(versionDir, `萌新工具箱 ${version} 微软商店版.exe`);
+const storeOnly = process.argv.includes('--store-only');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -106,9 +108,13 @@ async function copyArtifact(src, dest, label) {
 }
 
 try {
-  await prepareVersionDir(versionDir);
-  await copyArtifact(portableSrc, portableDest, '便携版');
-  await copyArtifact(installerSrc, installerDest, '安装版');
+  if (storeOnly) {
+    await copyArtifact(installerSrc, storeInstallerDest, '微软商店版');
+  } else {
+    await prepareVersionDir(versionDir);
+    await copyArtifact(portableSrc, portableDest, '便携版');
+    await copyArtifact(installerSrc, installerDest, '安装版');
+  }
 } catch (error) {
   if (isBusyError(error)) {
     printBusyHint(error.busyPath || error.path);

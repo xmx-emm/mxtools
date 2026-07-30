@@ -11,6 +11,7 @@ import {
 export const useRdpStore = defineStore('rdp', {
   state: () => ({
     loading: false,
+    initialized: false,
     rdpEnabled: false,
     rdpPort: 3389 as number,
     connections: <RdpConnection[]>[],
@@ -41,15 +42,20 @@ export const useRdpStore = defineStore('rdp', {
       await saveRdpConnections({connections: this.connections});
     },
     async loadAll() {
+      if (this.loading) return;
       this.loading = true;
-      const userStore = useWindowsUserStore();
-      await Promise.all([
-        userStore.loadUsers(),
-        this.loadRdpStatus(),
-        this.loadRdpPort(),
-        this.loadConnections(),
-      ]);
-      this.loading = false;
+      try {
+        const userStore = useWindowsUserStore();
+        await Promise.all([
+          userStore.loadUsers(),
+          this.loadRdpStatus(),
+          this.loadRdpPort(),
+          this.loadConnections(),
+        ]);
+      } finally {
+        this.loading = false;
+        this.initialized = true;
+      }
     },
   },
 });

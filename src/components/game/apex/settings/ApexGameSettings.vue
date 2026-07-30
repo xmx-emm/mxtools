@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue';
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import ApexGameSettingsData, {
@@ -14,17 +14,63 @@ import type {
 } from '@/types/apex_game_settings.ts';
 import {findApexBindingConflict} from '@/utils/game/apex_game_settings.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
+import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexBindingSelect from './ApexBindingSelect.vue';
+import ApexGameSettingTip from './ApexGameSettingTip.vue';
+import ApexRgbIntegerInput from './ApexRgbIntegerInput.vue';
 
 const apex_store = useApexStore();
-const {t, te} = useI18n();
+const {locale, t, te} = useI18n();
 const toast = useToast();
-const restoreDialog = ref(false);
-const restoreSettings = ref(false);
-const restoreProfile = ref(false);
+const sectionsScroll = ref<HTMLElement | null>(null);
+const canScrollSectionsLeft = ref(false);
+const canScrollSectionsRight = ref(false);
+let sectionsResizeObserver: ResizeObserver | null = null;
+
+function updateSectionScrollHints() {
+  const scroller = sectionsScroll.value;
+  if (!scroller) return;
+  const maxScrollLeft = Math.max(scroller.scrollWidth - scroller.clientWidth, 0);
+  canScrollSectionsLeft.value = scroller.scrollLeft > 1;
+  canScrollSectionsRight.value = scroller.scrollLeft < maxScrollLeft - 1;
+}
+
+function scrollSections(direction: -1 | 1) {
+  const scroller = sectionsScroll.value;
+  if (!scroller) return;
+  scroller.scrollBy({
+    left: direction * Math.max(scroller.clientWidth * 0.72, 120),
+    behavior: 'smooth',
+  });
+}
+
+onMounted(() => {
+  if (typeof ResizeObserver !== 'undefined') {
+    sectionsResizeObserver = new ResizeObserver(updateSectionScrollHints);
+    if (sectionsScroll.value) {
+      sectionsResizeObserver.observe(sectionsScroll.value);
+      const track = sectionsScroll.value.firstElementChild;
+      if (track) sectionsResizeObserver.observe(track);
+    }
+  }
+  window.addEventListener('resize', updateSectionScrollHints);
+  void nextTick(updateSectionScrollHints);
+});
+
+onBeforeUnmount(() => {
+  sectionsResizeObserver?.disconnect();
+  sectionsResizeObserver = null;
+  window.removeEventListener('resize', updateSectionScrollHints);
+});
+
+watch(locale, () => {
+  void nextTick(updateSectionScrollHints);
+});
 
 const section = computed({
-  get: () => apex_store.game_settings_section,
+  get: () => apex_store.game_settings_section === 'interface'
+    ? 'hud'
+    : apex_store.game_settings_section,
   set: value => { apex_store.game_settings_section = value as ApexGameSettingsSection; },
 });
 const search = computed({
@@ -32,19 +78,47 @@ const search = computed({
   set: value => { apex_store.game_settings_filter_search = String(value ?? ''); },
 });
 const query = computed(() => search.value.trim().toLowerCase());
-const report = computed(() => apex_store.game_settings_report);
-
 function valueFor(field: ApexGameSettingDefinition): string {
-  return apex_store.game_settings_values[field.file][field.key] ?? '';
+  return apex_store.game_settings_values[field.file][field.readKey ?? field.key] ?? '';
 }
 
 function setValue(field: ApexGameSettingDefinition, value: string) {
-  apex_store.set_game_setting_value(field.file, field.key, value);
+  if (isDisabled(field)) return;
+  for (const key of field.writeKeys ?? [field.key]) {
+    apex_store.set_game_setting_value(field.file, key, value);
+  }
+}
+
+function storageKeyLabel(field: ApexGameSettingDefinition): string {
+  if (field.writeKeys?.length) {
+    return `${field.writeKeys[0]}…${field.writeKeys[field.writeKeys.length - 1]}`;
+  }
+  return field.readKey ?? field.key;
+}
+
+function isDisabled(field: ApexGameSettingDefinition): boolean {
+  const dependency = field.disabledWhen;
+  return !!dependency
+    && apex_store.game_settings_values[dependency.file][dependency.key] === dependency.value;
+}
+
+function showSettingTip(field: ApexGameSettingDefinition) {
+  apex_store.showTip({
+    tip: ApexGameSettingTip,
+    tipProps: {fieldId: field.id},
+  });
 }
 
 function matchesField(field: ApexGameSettingDefinition): boolean {
   if (!query.value) return true;
-  return [t(field.labelKey), t(field.descriptionKey), field.key, valueFor(field)]
+  return [
+    t(field.labelKey),
+    t(field.descriptionKey),
+    field.key,
+    field.readKey,
+    ...(field.writeKeys ?? []),
+    valueFor(field),
+  ]
     .join(' ')
     .toLowerCase()
     .includes(query.value);
@@ -52,11 +126,14 @@ function matchesField(field: ApexGameSettingDefinition): boolean {
 
 const visibleFields = computed(() => ApexGameSettingsData.filter(field => (
   field.section === section.value
-  && field.key in apex_store.game_settings_values[field.file]
+  && (field.readKey ?? field.key) in apex_store.game_settings_values[field.file]
   && matchesField(field)
 )));
 
-const knownKeys = new Set(ApexGameSettingsData.map(field => `${field.file}:${field.key}`));
+const knownKeys = new Set([
+  ...ApexGameSettingsData.map(field => `${field.file}:${field.key}`),
+  'profile:toggle_on_jump_to_deactivate_changed',
+]);
 const unknownEntries = computed(() => {
   const entries: {file: ApexGameSettingsFile; key: string; value: string}[] = [];
   for (const file of ['settings', 'profile'] as const) {
@@ -83,12 +160,6 @@ const visibleBindings = computed(() => apex_store.game_settings_bindings.filter(
     .includes(query.value);
 }));
 
-function blockedInputs(binding: ApexBinding): string[] {
-  return apex_store.game_settings_bindings
-    .filter(item => item.id !== binding.id)
-    .map(item => item.input);
-}
-
 function updateBinding(binding: ApexBinding, input: string) {
   const conflict = findApexBindingConflict(apex_store.game_settings_bindings, binding.id, input);
   if (conflict) {
@@ -105,35 +176,60 @@ function enumItems(field: ApexGameSettingDefinition) {
   }));
 }
 
-function openRestore() {
-  restoreSettings.value = !!report.value?.settings.backupAvailable;
-  restoreProfile.value = !!report.value?.profile.backupAvailable;
-  restoreDialog.value = true;
-}
-
-async function confirmRestore() {
-  if (!restoreSettings.value && !restoreProfile.value) return;
-  if (await apex_store.restore_apex_game_settings(restoreSettings.value, restoreProfile.value)) {
-    restoreDialog.value = false;
-  }
-}
 </script>
 
 <template>
   <div class="game-settings d-flex flex-column h-100 min-height-0">
     <div class="settings-toolbar">
-      <v-tabs
-        v-model="section"
-        density="compact"
-        show-arrows
-        inset
-        color="primary"
-        class="settings-tabs"
-      >
-        <v-tab v-for="item in apexGameSettingsSections" :key="item" :value="item">
-          {{ t(`apexGameSettings.sections.${item}`) }}
-        </v-tab>
-      </v-tabs>
+      <div class="settings-sections-shell">
+        <button
+          type="button"
+          class="settings-scroll-hint settings-scroll-hint--left"
+          :class="{'settings-scroll-hint--visible': canScrollSectionsLeft}"
+          :disabled="!canScrollSectionsLeft"
+          :aria-hidden="!canScrollSectionsLeft"
+          :aria-label="t('apexGameSettings.scrollSectionsLeft')"
+          :tabindex="canScrollSectionsLeft ? 0 : -1"
+          @click="scrollSections(-1)"
+        >
+          <v-icon icon="mdi-chevron-left" size="18"/>
+        </button>
+        <div
+          ref="sectionsScroll"
+          class="settings-sections-scroll"
+          @scroll.passive="updateSectionScrollHints"
+        >
+          <v-btn-toggle
+            v-model="section"
+            mandatory
+            density="compact"
+            color="primary"
+            variant="text"
+            class="settings-sections game-page-segmented-toggle"
+          >
+            <v-btn
+              v-for="item in apexGameSettingsSections"
+              :key="item"
+              :value="item"
+              size="x-small"
+            >
+              {{ t(`apexGameSettings.sections.${item}`) }}
+            </v-btn>
+          </v-btn-toggle>
+        </div>
+        <button
+          type="button"
+          class="settings-scroll-hint settings-scroll-hint--right"
+          :class="{'settings-scroll-hint--visible': canScrollSectionsRight}"
+          :disabled="!canScrollSectionsRight"
+          :aria-hidden="!canScrollSectionsRight"
+          :aria-label="t('apexGameSettings.scrollSectionsRight')"
+          :tabindex="canScrollSectionsRight ? 0 : -1"
+          @click="scrollSections(1)"
+        >
+          <v-icon icon="mdi-chevron-right" size="18"/>
+        </button>
+      </div>
       <v-text-field
         v-model="search"
         density="compact"
@@ -145,24 +241,22 @@ async function confirmRestore() {
         :aria-label="t('apexGameSettings.search')"
         class="mx-search-field settings-search"
       />
-      <v-btn
-        icon="mdi-restore"
-        size="small"
-        variant="text"
-        :disabled="!report?.settings.backupAvailable && !report?.profile.backupAvailable"
-        :aria-label="t('apexGameSettings.restore')"
-        :title="t('apexGameSettings.restore')"
-        @click="openRestore"
-      />
     </div>
 
     <v-list class="settings-list flex-grow-1 min-height-0" lines="two">
       <template v-if="section !== 'bindings' && section !== 'unknown'">
-        <v-list-item v-for="field in visibleFields" :key="field.id" class="setting-row">
+        <v-list-item
+          v-for="field in visibleFields"
+          :key="field.id"
+          class="setting-row"
+          :class="{'setting-row--disabled': isDisabled(field)}"
+          :title="t('apexLaunchOptions.ui.rightClickTip')"
+          @contextmenu.prevent="showSettingTip(field)"
+        >
           <template #title>
             <div class="setting-title-row">
               <span>{{ t(field.labelKey) }}</span>
-              <code>{{ field.key }}</code>
+              <code>{{ storageKeyLabel(field) }}</code>
             </div>
           </template>
           <template #subtitle>{{ t(field.descriptionKey) }}</template>
@@ -174,35 +268,50 @@ async function confirmRestore() {
               color="primary"
               hide-details
               inset
+              class="mx-compact-switch"
+              :disabled="isDisabled(field)"
               :aria-label="t(field.labelKey)"
               @update:model-value="setValue(field, $event ? '1' : '0')"
             />
-            <v-select
-              v-else-if="field.control === 'enum'"
+            <div v-else-if="field.control === 'enum'" class="setting-enum-scroll">
+              <v-btn-toggle
+                :model-value="valueFor(field)"
+                mandatory
+                density="compact"
+                color="primary"
+                variant="text"
+                border
+                divided
+                class="setting-enum-toggle game-page-segmented-toggle"
+                :disabled="isDisabled(field)"
+                :aria-label="t(field.labelKey)"
+                @update:model-value="setValue(field, String($event))"
+              >
+                <v-btn
+                  v-for="option in enumItems(field)"
+                  :key="option.value"
+                  :value="option.value"
+                  size="small"
+                >
+                  {{ option.title }}
+                </v-btn>
+              </v-btn-toggle>
+            </div>
+            <ApexRgbIntegerInput
+              v-else-if="field.control === 'rgb'"
               :model-value="valueFor(field)"
-              :items="enumItems(field)"
-              item-title="title"
-              item-value="value"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="setting-control setting-select"
-              :aria-label="t(field.labelKey)"
-              @update:model-value="setValue(field, String($event))"
+              :label="t(field.labelKey)"
+              @update:model-value="setValue(field, $event)"
             />
-            <v-text-field
+            <ApexNumberInput
               v-else
               :model-value="valueFor(field)"
-              type="number"
               :min="field.min"
               :max="field.max"
               :step="field.step"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="setting-control setting-number"
               :aria-label="t(field.labelKey)"
-              @update:model-value="setValue(field, String($event ?? ''))"
+              :disabled="isDisabled(field)"
+              @update:model-value="setValue(field, String($event))"
             />
           </template>
         </v-list-item>
@@ -226,7 +335,6 @@ async function confirmRestore() {
             <ApexBindingSelect
               v-if="binding.editable"
               :model-value="binding.input"
-              :blocked-inputs="blockedInputs(binding)"
               @update:model-value="updateBinding(binding, $event)"
             />
             <code v-else class="binding-readonly">{{ binding.input }}</code>
@@ -254,75 +362,119 @@ async function confirmRestore() {
         {{ t('apexGameSettings.empty') }}
       </div>
     </v-list>
-
-    <v-dialog v-model="restoreDialog" max-width="420">
-      <v-card :title="t('apexGameSettings.restore')">
-        <v-card-text>
-          <v-checkbox
-            v-model="restoreSettings"
-            :disabled="!report?.settings.backupAvailable"
-            density="compact"
-            hide-details
-            label="settings.cfg"
-          />
-          <v-checkbox
-            v-model="restoreProfile"
-            :disabled="!report?.profile.backupAvailable"
-            density="compact"
-            hide-details
-            label="profile.cfg"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer/>
-          <v-btn variant="text" @click="restoreDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn
-            color="warning"
-            :loading="apex_store.is_game_settings_restoring"
-            :disabled="!restoreSettings && !restoreProfile"
-            @click="confirmRestore"
-          >
-            {{ t('apexGameSettings.restoreAction') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
 <style scoped>
 .min-height-0 { min-height: 0; }
 .settings-toolbar { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 4px 8px; }
-.settings-tabs {
+.settings-sections-shell {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  --v-tabs-slider-background: rgb(var(--v-theme-primary-container));
+  height: var(--app-control-height-compact);
 }
-.settings-tabs :deep(.v-tab) {
+.settings-sections-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.settings-scroll-hint {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  width: 36px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  color: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-emphasized),
+    visibility var(--app-motion-base) step-end;
+}
+.settings-scroll-hint--visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition:
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-emphasized),
+    visibility 0ms step-start;
+}
+.settings-scroll-hint--left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 2px;
+  background: linear-gradient(90deg, rgb(var(--v-theme-background)) 0 34%, rgba(var(--v-theme-background), 0.82) 62%, transparent 100%);
+  transform: translateX(-4px);
+}
+.settings-scroll-hint--right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 2px;
+  background: linear-gradient(270deg, rgb(var(--v-theme-background)) 0 34%, rgba(var(--v-theme-background), 0.82) 62%, transparent 100%);
+  transform: translateX(4px);
+}
+.settings-scroll-hint--visible { transform: translateX(0); }
+.settings-scroll-hint:hover :deep(.v-icon) { transform: scale(1.12); }
+.settings-scroll-hint:active :deep(.v-icon) { transform: scale(0.9); }
+.settings-scroll-hint :deep(.v-icon) {
+  filter: drop-shadow(0 1px 2px rgba(var(--v-theme-background), 0.9));
+  transition: transform var(--app-motion-fast) var(--app-ease-emphasized);
+}
+.settings-sections {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  height: var(--app-control-height-compact);
+  min-height: var(--app-control-height-compact);
+}
+.settings-sections :deep(.v-btn) {
+  flex: 1 0 auto;
   min-width: auto;
   padding-inline: 12px;
   color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 12px;
-  letter-spacing: 0;
   transition: color var(--app-motion-fast) var(--app-ease-standard), transform var(--app-motion-fast) var(--app-ease-emphasized);
 }
-.settings-tabs :deep(.v-tab--selected) { color: rgb(var(--v-theme-on-primary-container)) !important; }
-.settings-tabs :deep(.v-tab:hover:not(.v-tab--selected)) { color: rgba(var(--v-theme-on-surface), 0.9); }
-.settings-tabs :deep(.v-tab:active) { transform: scale(0.98); }
+.settings-sections :deep(.v-btn__content) {
+  width: 100%;
+}
+.settings-sections :deep(.v-btn--active) {
+  color: rgb(var(--v-theme-primary)) !important;
+}
+.settings-sections :deep(.v-btn:hover:not(.v-btn--active)) { color: rgba(var(--v-theme-on-surface), 0.9); }
+.settings-sections :deep(.v-btn:active) { transform: scale(0.98); }
 .settings-search { flex: 0 1 240px; min-width: 150px; }
 .settings-list { overflow-y: auto; padding: 0; }
 .setting-row { border-bottom: 1px solid rgba(var(--v-border-color), 0.1); }
+.setting-row--disabled :deep(.v-list-item__content) { opacity: 0.46; }
 .setting-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
 .setting-title-row code { color: rgba(var(--v-theme-on-surface), 0.45); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-.setting-control { width: 150px; min-width: 120px; }
-.setting-number { max-width: 130px; }
+.settings-sections-scroll::-webkit-scrollbar,
+.setting-enum-scroll::-webkit-scrollbar { display: none; }
+.setting-enum-scroll { max-width: min(52vw, 460px); overflow-x: auto; scrollbar-width: none; }
+.setting-enum-toggle { width: max-content; max-width: none; }
+.setting-enum-toggle :deep(.v-btn) { flex: 0 0 auto; white-space: nowrap; }
 .binding-readonly, .unknown-value { display: block; max-width: 220px; overflow: hidden; color: rgba(var(--v-theme-on-surface), 0.68); text-overflow: ellipsis; white-space: nowrap; }
 .empty-state { display: grid; min-height: 160px; place-items: center; font-size: 13px; }
 @media (max-width: 760px) {
   .settings-toolbar { flex-wrap: wrap; }
-  .settings-tabs { flex-basis: 100%; order: 2; }
+  .settings-sections-shell { flex-basis: 100%; order: 2; }
   .settings-search { flex: 1 1 180px; }
   .setting-title-row code { display: none; }
-  .setting-control { width: 120px; }
+  .setting-enum-scroll { max-width: 46vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-scroll-hint,
+  .settings-scroll-hint :deep(.v-icon) { transition: none; }
 }
 </style>

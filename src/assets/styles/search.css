@@ -1,7 +1,7 @@
 /* Shared search language. Keep this class opt-in so ordinary form fields retain
  * their component-specific density and validation treatment. */
 :root {
-  --mx-search-height: 36px;
+  --mx-search-height: var(--app-control-height-compact, 28px);
   --mx-search-radius: var(--app-radius-sm, 6px);
 }
 
@@ -153,9 +153,16 @@
 
 /* Clickable search affordances (title bar and dashboard) share the same states. */
 .mx-search-trigger {
+  min-height: var(--mx-search-height);
   border: 1px solid var(--mx-search-border);
   border-radius: var(--mx-search-radius);
   background: var(--mx-search-surface);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  transition:
+    color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    border-color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    background-color var(--app-motion-fast, 120ms) var(--app-ease-standard, ease),
+    box-shadow var(--app-motion-base, 180ms) var(--app-ease-standard, ease);
 }
 
 .mx-search-trigger:is(:hover, :focus-visible) {

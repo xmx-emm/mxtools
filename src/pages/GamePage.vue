@@ -6,18 +6,20 @@ import {useRoute} from 'vue-router';
 import ToolCategoryHome from '@/components/navigation/ToolCategoryHome.vue';
 import ApexLegendsIcon from '@/components/icons/ApexLegendsIcon.vue';
 import PUBGIcon from '@/components/icons/PUBGIcon.vue';
+import {useSettingsStore} from '@/stores/settings.ts';
 
 const { t } = useI18n();
 const route = useRoute();
+const settingsStore = useSettingsStore();
 const isGame = computed(() => routeFullPath(route) === '/tools/game');
 
-const gameItems = computed(() => [
+const gameItems = computed(() => ([
   {
     path: '/game_optimizer',
     title: t('game.optimizerTitle'),
     description: t('game.optimizerDescription'),
     action: t('game.openTool'),
-    badge: t('game.newTool'),
+    badge: t('common.beta'),
     icon: 'mdi-speedometer',
     features: [
       t('game.optimizerFeatureScan'),
@@ -32,7 +34,11 @@ const gameItems = computed(() => [
     action: t('game.openTool'),
     badge: t('game.fullSupport'),
     iconComponent: ApexLegendsIcon,
-    features: [t('game.featureLaunch'), t('game.featureVideo'), t('game.featureAlterQ')],
+    features: [
+      t('game.featureLaunch'),
+      t('game.featureVideo'),
+      ...(settingsStore.betaFeaturesEnabled ? [t('game.featureApexQ')] : []),
+    ],
   },
   {
     path: '/pubg',
@@ -43,7 +49,7 @@ const gameItems = computed(() => [
     iconComponent: PUBGIcon,
     features: [t('game.featureLaunch'), t('game.featurePerformance'), t('game.featurePreset')],
   },
-]);
+]).filter(item => item.path !== '/game_optimizer' || settingsStore.betaFeaturesEnabled));
 
 const gameGuides = computed(() => [
   {title: t('game.guideAccount'), description: t('game.guideAccountDesc'), icon: 'mdi-account-check'},
@@ -58,7 +64,7 @@ const gameGuides = computed(() => [
     :eyebrow="t('game.eyebrow')"
     :title="t('game.home')"
     :subtitle="t('game.subtitle')"
-    :summary="t('game.summary')"
+    :summary="t('game.summary', {count: gameItems.length})"
     summary-icon="mdi-gamepad-variant-outline"
     :section-title="t('game.sectionTitle')"
     :section-subtitle="t('game.sectionSubtitle')"

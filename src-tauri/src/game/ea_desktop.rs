@@ -1,8 +1,24 @@
 //! Tauri 封装；实现位于 `windows_tool::game::ea`.
 
+use crate::game::apex_history::{
+    discard_scope_locked_for_app, lock_history, prune_history_locked, record_launch_before_locked,
+    ApexConfigScope, ApexHistorySource, ApexLauncherRef,
+};
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::{blocking_cmd, thoroughly_kill_named, ProcessNameMatchMode};
 use windows_tool::game::ea::{self, EaDesktopUser};
+
+pub(crate) fn read_ea_launch_options(ea_user_id: &str) -> Result<String, String> {
+    ea::get_apex_launch_option_ea(ea_user_id)
+}
+
+pub(crate) fn write_ea_launch_options(ea_user_id: &str, value: &str) -> Result<(), String> {
+    ea::set_apex_launch_option_ea(ea_user_id, value)
+}
+
+pub(crate) fn ea_desktop_is_running_sync() -> Result<bool, String> {
+    ea::ea_desktop_is_running_by_tasklist()
+}
 
 #[tauri::command]
 pub async fn get_ea_desktop_users() -> IpcResult<Vec<EaDesktopUser>> {
@@ -13,23 +29,55 @@ pub async fn get_ea_desktop_users() -> IpcResult<Vec<EaDesktopUser>> {
 
 #[tauri::command]
 pub async fn get_apex_launch_option_ea(ea_user_id: String) -> IpcResult<String> {
-    blocking_cmd(move || ea::get_apex_launch_option_ea(&ea_user_id))
+    blocking_cmd(move || read_ea_launch_options(&ea_user_id))
         .await
         .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }
 
 #[tauri::command]
-pub async fn set_apex_launch_option_ea(ea_user_id: String, launch_option: String) -> IpcResult<()> {
-    blocking_cmd(move || ea::set_apex_launch_option_ea(&ea_user_id, &launch_option))
-        .await
-        .map_err(|error| IpcError::operation_failed("ea_desktop", error))
+pub async fn set_apex_launch_option_ea(
+    app: tauri::AppHandle,
+    ea_user_id: String,
+    launch_option: String,
+    history_source: Option<ApexHistorySource>,
+    transaction_id: Option<String>,
+) -> IpcResult<()> {
+    blocking_cmd(move || {
+        let _guard = lock_history()?;
+        let current = read_ea_launch_options(&ea_user_id)?;
+        if current == launch_option {
+            return Ok(());
+        }
+        if ea_desktop_is_running_sync()? {
+            return Err("apex.history.errors.launcherRunning".to_string());
+        }
+        let entry = record_launch_before_locked(
+            &app,
+            history_source.unwrap_or_default(),
+            transaction_id.as_deref(),
+            ApexLauncherRef {
+                kind: "ea".to_string(),
+                id: ea_user_id.clone(),
+                name: String::new(),
+            },
+            current,
+        )?;
+        if let Err(error) = write_ea_launch_options(&ea_user_id, &launch_option) {
+            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Launch);
+            return Err(error);
+        }
+        let _ = prune_history_locked(&app);
+        Ok(())
+    })
+    .await
+    .map_err(|error| IpcError::operation_failed("ea_desktop", error))
 }
 
 #[tauri::command]
 pub async fn ea_desktop_is_running_by_tasklist() -> IpcResult<bool> {
     #[cfg(target_os = "windows")]
     {
-        blocking_cmd(ea::ea_desktop_is_running_by_tasklist)
+        blocking_cmd(ea_desktop_is_running_sync)
             .await
             .map_err(|error| IpcError::operation_failed("ea_desktop", error))
     }

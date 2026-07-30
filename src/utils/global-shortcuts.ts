@@ -3,7 +3,7 @@ import {
   DEFAULT_TOGGLE_LOCALE_SHORTCUT,
   useSettingsStore,
 } from '@/stores/settings.ts';
-import {loadAlterQPrefs} from '@/types/alter_q.ts';
+import {loadApexQPrefs} from '@/types/apex_q.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {
   isRegistered as isShortcutRegistered,
@@ -44,13 +44,13 @@ function onAppKeyDown(e: KeyboardEvent) {
   const settings = useSettingsStore();
   if (!settings.toggleLocaleShortcutEnabled) return;
   const shortcut = settings.resolvedToggleLocaleShortcut;
-  const alterQPrefs = loadAlterQPrefs();
-  const alterQShortcut = alterQPrefs.enabled && alterQPrefs.setupDone
-    ? alterQPrefs.hotkey
+  const apexQPrefs = loadApexQPrefs();
+  const apexQShortcut = apexQPrefs.enabled && apexQPrefs.setupDone
+    ? apexQPrefs.hotkey
     : '';
   // A shared accelerator must belong to OCR; otherwise one keypress would
   // also toggle the app language in the focused WebView.
-  if (normalizeShortcut(shortcut) && normalizeShortcut(shortcut) === normalizeShortcut(alterQShortcut)) {
+  if (normalizeShortcut(shortcut) && normalizeShortcut(shortcut) === normalizeShortcut(apexQShortcut)) {
     return;
   }
   if (!matchesAccelerator(e, shortcut)) return;
@@ -66,21 +66,21 @@ function onAppKeyDown(e: KeyboardEvent) {
  */
 async function unregisterLegacyGlobalLocaleShortcut() {
   const settings = useSettingsStore();
-  const alterQPrefs = loadAlterQPrefs();
+  const apexQPrefs = loadApexQPrefs();
   const candidates = new Set([
     settings.resolvedToggleLocaleShortcut,
     DEFAULT_TOGGLE_LOCALE_SHORTCUT,
     settings.toggleLocaleShortcut,
-    alterQPrefs.hotkey,
+    apexQPrefs.hotkey,
   ].filter(Boolean) as string[]);
-  const protectedAlterQShortcut = alterQPrefs.enabled === true
-    && alterQPrefs.setupDone === true
-    && typeof alterQPrefs.hotkey === 'string'
-    ? alterQPrefs.hotkey.trim().toLowerCase()
+  const protectedApexQShortcut = apexQPrefs.enabled === true
+    && apexQPrefs.setupDone === true
+    && typeof apexQPrefs.hotkey === 'string'
+    ? apexQPrefs.hotkey.trim().toLowerCase()
     : '';
 
   for (const shortcut of candidates) {
-    if (protectedAlterQShortcut && shortcut.trim().toLowerCase() === protectedAlterQShortcut) {
+    if (protectedApexQShortcut && shortcut.trim().toLowerCase() === protectedApexQShortcut) {
       continue;
     }
     try {

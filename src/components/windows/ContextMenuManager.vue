@@ -91,6 +91,7 @@ onMounted(load);
   <v-card variant="flat" class="context-menu-card mt-4">
     <v-card-title class="text-subtitle-1 font-weight-medium pb-1">
       {{ t('explorer.contextMenu.managerTitle') }}
+      <span class="mx-beta-badge ml-2" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
     </v-card-title>
     <v-card-subtitle class="text-caption" style="opacity: 0.8;">
       {{ t('explorer.contextMenu.managerSubtitle') }}

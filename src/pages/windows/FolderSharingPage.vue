@@ -23,7 +23,10 @@ const activeComponent = computed(() => components[tab.value]);
   <main class="folder-sharing page-content">
     <header class="page-toolbar">
       <div>
-        <h1>{{ t('folderSharing.title') }}</h1>
+        <h1>
+          {{ t('folderSharing.title') }}
+          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
+        </h1>
         <p>{{ t('folderSharing.subtitle') }}</p>
       </div>
     </header>
@@ -46,7 +49,7 @@ const activeComponent = computed(() => components[tab.value]);
 <style scoped>
 .folder-sharing { width: 100%; max-width: 1180px; margin: 0 auto; color: rgba(var(--v-theme-on-surface), 0.9); letter-spacing: 0; }
 .page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-.page-toolbar h1 { margin: 0; font-size: 1.18rem; font-weight: 660; letter-spacing: 0; }
+.page-toolbar h1 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 1.18rem; font-weight: 660; letter-spacing: 0; }
 .page-toolbar p { margin: 3px 0 0; color: rgba(var(--v-theme-on-surface), 0.56); font-size: 0.75rem; }
 .sharing-tabs { min-height: 40px; margin-bottom: 12px; border-bottom: 1px solid rgba(var(--v-border-color), 0.13); }
 .sharing-tabs :deep(.v-tab) { min-width: 128px; font-size: 0.74rem; }

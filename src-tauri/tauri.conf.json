@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:14200",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build:tauri",
     "frontendDist": "../dist"
   },
   "app": {

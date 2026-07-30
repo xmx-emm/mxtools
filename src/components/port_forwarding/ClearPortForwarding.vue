@@ -46,8 +46,8 @@ async function reset() {
       <v-card-text>{{ t('portForwarding.removeAllConfirm') }}</v-card-text>
       <v-card-actions>
         <v-spacer/>
-        <v-btn variant="plain" @click="isClearDialog = false">{{ t('common.cancel') }}</v-btn>
-        <v-btn color="error" :loading="portForwardingStore.loading" @click="reset">
+        <v-btn variant="text" :disabled="portForwardingStore.loading" @click="isClearDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn color="error" variant="flat" :loading="portForwardingStore.loading" @click="reset">
           {{ t('common.confirm') }}
         </v-btn>
       </v-card-actions>

@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import {onUnmounted, ref} from 'vue';
-import {
-  NAV_COLLAPSE_SNAP_THRESHOLD,
-  NAV_MIN_WIDTH,
-  snapNavPanelWidth,
-} from '@/constants/nav_layout.ts';
+import {nextTick, onUnmounted, ref} from 'vue';
+import {snapNavPanelWidth} from '@/constants/nav_layout.ts';
 import {createRafScheduler} from '@/utils/raf.ts';
 
 const props = defineProps<{
@@ -16,31 +12,26 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [width: number];
+  'dragging-change': [dragging: boolean];
 }>();
 
 const isDragging = ref(false);
 const isHovered = ref(false);
-const KEYBOARD_STEP = 16;
 
 function clamp(width: number): number {
   return Math.min(props.max, Math.max(props.min, width));
 }
 
-/** 拖动中低于吸附阈值时立即收成图标宽度,避免中间态出现横向滚动条 */
 function applyDragWidth(raw: number): number {
-  const clamped = clamp(raw);
-  if (clamped < NAV_COLLAPSE_SNAP_THRESHOLD) {
-    return NAV_MIN_WIDTH;
-  }
-  return clamped;
+  return clamp(raw);
 }
 
 function onKeyDown(event: KeyboardEvent) {
   let next: number | null = null;
   if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-    next = props.modelValue - KEYBOARD_STEP;
+    next = props.min;
   } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-    next = props.modelValue + KEYBOARD_STEP;
+    next = props.max;
   } else if (event.key === 'Home') {
     next = props.min;
   } else if (event.key === 'End') {
@@ -49,7 +40,8 @@ function onKeyDown(event: KeyboardEvent) {
   if (next == null) return;
 
   event.preventDefault();
-  emit('update:modelValue', snapNavPanelWidth(next, props.max));
+  const snappedWidth = snapNavPanelWidth(next, props.max);
+  emit('update:modelValue', snappedWidth);
 }
 
 let pendingWidth: number | null = null;
@@ -66,6 +58,7 @@ function onPointerDown(e: PointerEvent) {
   if (e.button !== 0) return;
   e.preventDefault();
   isDragging.value = true;
+  emit('dragging-change', true);
   const startX = e.clientX;
   const startWidth = props.modelValue;
 
@@ -77,15 +70,25 @@ function onPointerDown(e: PointerEvent) {
     widthScheduler.schedule();
   }
 
-  function finish(ev: PointerEvent) {
-    isDragging.value = false;
-    target.releasePointerCapture(ev.pointerId);
+  async function finish(ev: PointerEvent) {
+    const releasedWidth = applyDragWidth(startWidth + (ev.clientX - startX));
+    const snappedWidth = snapNavPanelWidth(releasedWidth, props.max);
+    if (target.hasPointerCapture(ev.pointerId)) target.releasePointerCapture(ev.pointerId);
     target.removeEventListener('pointermove', onPointerMove);
     target.removeEventListener('pointerup', finish);
     target.removeEventListener('pointercancel', finish);
     widthScheduler.cancel();
     pendingWidth = null;
-    emit('update:modelValue', snapNavPanelWidth(startWidth + (ev.clientX - startX), props.max));
+    if (releasedWidth !== props.modelValue) emit('update:modelValue', releasedWidth);
+    isDragging.value = false;
+    emit('dragging-change', false);
+
+    // Commit the final drag frame with transitions disabled, then enable the
+    // transition before applying the snapped width. This prevents both style
+    // changes from being batched into a single flashing layout update.
+    await nextTick();
+    void target.getBoundingClientRect();
+    emit('update:modelValue', snappedWidth);
   }
   target.addEventListener('pointermove', onPointerMove);
   target.addEventListener('pointerup', finish);

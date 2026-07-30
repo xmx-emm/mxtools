@@ -5,8 +5,8 @@
   "windows": [
     "main",
     "about-window",
-    "alter-q-window",
-    "alter-q-overlay-window"
+    "apex-q-window",
+    "apex-q-overlay-window"
   ],
   "permissions": [
     {

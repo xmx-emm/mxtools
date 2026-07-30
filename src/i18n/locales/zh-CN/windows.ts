@@ -357,6 +357,7 @@ export const windowsMessages = {
   },
   rdp: {
     requestAdmin: '管理远程桌面和用户需要管理员权限',
+    loading: '正在刷新远程桌面信息…',
     status: {
       title: '远程桌面状态',
       subtitle: '查看和切换当前电脑的远程桌面服务',
@@ -454,12 +455,13 @@ export const windowsMessages = {
     },
   },
   explorer: {
-    requestAdmin: '切换常用文件夹显示，或管理系统级右键菜单项，需要修改注册表',
+    requestAdmin: '修改资源管理器设置需要操作注册表',
     commonFolders: '常用文件夹',
     commonFoldersSubtitle: '控制资源管理器侧边栏中常用文件夹的显示与隐藏',
     backupWarning: '建议先备份注册表再修改',
     backupRegistry: '备份资源管理器注册表',
     backups: '备份',
+    backupSuccess: '资源管理器注册表已备份',
     backupError: '备份资源管理器时出错',
     folders: {
       '3D_OBJECTS': '3D 对象',

@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build && npm run bundle:check",
+    "build:tauri": "npm run build && node scripts/prepare-tauri-dist.mjs",
     "bundle:check": "node scripts/bundle-budget.mjs --check",
     "bundle:report": "node scripts/bundle-budget.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri dev": "tauri dev",
     "build window": "tauri build",
-    "build window release": "tauri build --bundles nsis && node scripts/rename-release-builds.mjs",
+    "build window release": "node scripts/build-windows-release.mjs",
+    "release:size:check": "node scripts/release-size-budget.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"

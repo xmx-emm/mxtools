@@ -1,7 +1,11 @@
 import {describe, expect, it} from 'vitest';
 import ApexGameSettingsData from '@/data/apex_game_settings.ts';
+import {mdiPathByName} from '@/icons/mdi-icons.ts';
 import type {ApexBinding} from '@/types/apex_game_settings.ts';
 import {
+  apexBindingFromKeyboardCode,
+  apexBindingFromMouseButton,
+  apexBindingFromWheelDelta,
   findApexBindingConflict,
   validateApexGameSettingsCatalog,
 } from '@/utils/game/apex_game_settings.ts';
@@ -25,6 +29,50 @@ describe('Apex game settings catalog', () => {
     const keys = ApexGameSettingsData.map(field => `${field.file}:${field.key}`);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  it('includes only screenshot mappings whose stored values are confirmed', () => {
+    expect(ApexGameSettingsData.find(field => field.id === 'tutorialSystem')).toMatchObject({
+      file: 'profile', key: 'player_setting_tutorialization', section: 'gameplay',
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'arsenalMapIcons')).toMatchObject({
+      file: 'profile', key: 'player_setting_arsenals_maphudidentifiers', section: 'hud',
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'shareUsageData')).toMatchObject({
+      file: 'profile', key: 'pin_opt_in', section: 'privacy',
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'reticleColor')).toMatchObject({
+      file: 'profile', key: 'reticle_color', section: 'gameplay', control: 'rgb',
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'jetpackGlideControl')?.options).toEqual([
+      expect.objectContaining({value: '0'}), expect.objectContaining({value: '1'}),
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'healthAmmoVoice')?.options).toEqual([
+      expect.objectContaining({value: '0'}), expect.objectContaining({value: '1'}),
+      expect.objectContaining({value: '2'}),
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'autoMuteCommunications')?.options).toEqual([
+      expect.objectContaining({value: '1'}), expect.objectContaining({value: '0'}),
+      expect.objectContaining({value: '-1'}),
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'mouseAdsMultiplier')).toMatchObject({
+      key: 'mouse_ads_multiplier',
+      readKey: 'mouse_zoomed_sensitivity_scalar_0',
+      writeKeys: Array.from({length: 8}, (_, index) => `mouse_zoomed_sensitivity_scalar_${index}`),
+      disabledWhen: {file: 'settings', key: 'mouse_use_per_scope_sensitivity_scalars', value: '1'},
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'mouseScope0')).toMatchObject({
+      disabledWhen: {file: 'settings', key: 'mouse_use_per_scope_sensitivity_scalars', value: '0'},
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerButtonLayout')?.options?.map(option => option.value)).toEqual([
+      '4', '5', '6', '0', '1', '2', '3',
+    ]);
+
+    const keys = ApexGameSettingsData.map(field => field.key);
+    expect(keys).not.toContain('hud_setting_showMeter');
+    expect(keys).not.toContain('hud_setting_pingAlpha');
+    expect(keys).not.toContain('mantle_boost_input_setting');
+    expect(keys).not.toContain('mantle_boost_ui_setting');
+  });
 });
 
 describe('Apex binding conflict checks', () => {
@@ -36,5 +84,28 @@ describe('Apex binding conflict checks', () => {
 
   it('allows a binding to keep its current key', () => {
     expect(findApexBindingConflict(bindings, 'one', 'W')).toBeUndefined();
+  });
+});
+
+describe('Apex binding input capture', () => {
+  it('maps keyboard codes to the config key names Apex accepts', () => {
+    expect(apexBindingFromKeyboardCode('KeyW')).toBe('w');
+    expect(apexBindingFromKeyboardCode('ShiftRight')).toBe('RSHIFT');
+    expect(apexBindingFromKeyboardCode('Numpad7')).toBe('KP_HOME');
+  });
+
+  it('maps mouse buttons and wheel direction', () => {
+    expect(apexBindingFromMouseButton(0)).toBe('MOUSE1');
+    expect(apexBindingFromMouseButton(2)).toBe('MOUSE2');
+    expect(apexBindingFromMouseButton(3)).toBe('MOUSE4');
+    expect(apexBindingFromWheelDelta(-1)).toBe('MWHEELUP');
+    expect(apexBindingFromWheelDelta(1)).toBe('MWHEELDOWN');
+  });
+});
+
+describe('Apex action icons', () => {
+  it('keeps the game-settings bottom actions resolvable', () => {
+    expect(mdiPathByName['mdi-history']).toBeTruthy();
+    expect(mdiPathByName['mdi-restore-alert']).toBeTruthy();
   });
 });

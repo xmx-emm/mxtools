@@ -5,6 +5,7 @@ import {
   buildVideoConfigPreviewItems,
   collectSelectedVideoUpdates,
   parseApexConfigSnapshot,
+  splitApexGameSettingsSnapshot,
   stringifyApexConfigSnapshot,
   truncateLaunchOptionsPreview,
 } from '@/utils/game/apex_config_snapshot.ts';
@@ -27,22 +28,53 @@ describe('buildApexConfigSnapshot', () => {
     const snap = buildApexConfigSnapshot({
       selection: {launchOptions: false, videoConfig: false, gameSettings: true, bindings: true},
       gameSettings: {
-        settings: {'mouse_sensitivity': '1.2'},
-        profile: {'cl_fovScale': '1.7'},
+        settings: {'gfx_nvnUseLowLatency': '1'},
+        profile: {'CrossPlay_user_optin': '1'},
         bindings: [{
           input: 'MOUSE1', command: '+attack', context: 0, heldCommand: null, occurrence: 0,
         }],
       },
     });
     expect(snap.gameSettings).toEqual({
-      settings: {'mouse_sensitivity': '1.2'},
-      profile: {'cl_fovScale': '1.7'},
+      settings: {'gfx_nvnUseLowLatency': '1'},
+      profile: {'CrossPlay_user_optin': '1'},
       bindings: [{
         input: 'MOUSE1', command: '+attack', context: 0, heldCommand: null, occurrence: 0,
       }],
     });
     expect(snap.launchOptions).toBeUndefined();
     expect(snap.videoConfig).toBeUndefined();
+  });
+
+  it('exports aiming and controller settings as distinct selections', () => {
+    const values = {
+      settings: {
+        mouse_sensitivity: '1.2',
+        gfx_nvnUseLowLatency: '1',
+      },
+      profile: {
+        cl_fovScale: '1.7',
+        gamepad_aim_speed: '4',
+        gamepad_aim_speed_ads_3: '5',
+      },
+    };
+    const aiming = buildApexConfigSnapshot({
+      selection: {launchOptions: false, videoConfig: false, aiming: true},
+      gameSettings: values,
+    });
+    const controller = buildApexConfigSnapshot({
+      selection: {launchOptions: false, videoConfig: false, controller: true},
+      gameSettings: values,
+    });
+
+    expect(aiming.gameSettings).toEqual({
+      settings: {mouse_sensitivity: '1.2'},
+      profile: {cl_fovScale: '1.7'},
+    });
+    expect(controller.gameSettings).toEqual({
+      settings: {},
+      profile: {gamepad_aim_speed: '4', gamepad_aim_speed_ads_3: '5'},
+    });
   });
 
   it('throws when nothing selected', () => {
@@ -78,13 +110,24 @@ describe('parseApexConfigSnapshot', () => {
     ).toThrow('apex.configSnapshot.errors.unknownKind');
   });
 
+  it('rejects version 2 snapshots', () => {
+    expect(() =>
+      parseApexConfigSnapshot(JSON.stringify({
+        version: 2,
+        kind: 'apex-config-snapshot',
+        exportedAt: '2026-07-14T00:00:00.000Z',
+        launchOptions: {raw: ''},
+      })),
+    ).toThrow('apex.configSnapshot.errors.unsupportedVersion');
+  });
+
   it('rejects invalid json', () => {
     expect(() => parseApexConfigSnapshot('{')).toThrow(
       'apex.configSnapshot.errors.invalidJson',
     );
   });
 
-  it('accepts version 1 snapshots without game settings', () => {
+  it('accepts snapshots without game settings', () => {
     const parsed = parseApexConfigSnapshot(JSON.stringify({
       version: 1,
       kind: 'apex-config-snapshot',
@@ -98,7 +141,7 @@ describe('parseApexConfigSnapshot', () => {
 
   it('rejects malformed game settings and binding blocks', () => {
     const base = {
-      version: 2,
+      version: 1,
       kind: 'apex-config-snapshot',
       exportedAt: '2026-07-14T00:00:00.000Z',
       launchOptions: {raw: ''},
@@ -117,7 +160,7 @@ describe('parseApexConfigSnapshot', () => {
 
   it('rejects non-integer binding identity fields', () => {
     expect(() => parseApexConfigSnapshot(JSON.stringify({
-      version: 2,
+      version: 1,
       kind: 'apex-config-snapshot',
       exportedAt: '2026-07-14T00:00:00.000Z',
       gameSettings: {
@@ -126,6 +169,28 @@ describe('parseApexConfigSnapshot', () => {
         bindings: [{input: 'w', command: '+forward', context: 0.5, occurrence: 0}],
       },
     }))).toThrow('apex.configSnapshot.errors.invalidBindings');
+  });
+});
+
+describe('splitApexGameSettingsSnapshot', () => {
+  it('classifies legacy snapshot values for separate import controls', () => {
+    const groups = splitApexGameSettingsSnapshot({
+      settings: {mouse_sensitivity: '1.2', custom_unknown: 'x'},
+      profile: {
+        gamepad_aim_speed: '4',
+        gamepad_ads_advanced_sensitivity_scalar_3: '1.25',
+        CrossPlay_user_optin: '1',
+      },
+    });
+    expect(groups.aiming.settings).toEqual({mouse_sensitivity: '1.2'});
+    expect(groups.controller.profile).toEqual({
+      gamepad_aim_speed: '4',
+      gamepad_ads_advanced_sensitivity_scalar_3: '1.25',
+    });
+    expect(groups.gameSettings).toEqual({
+      settings: {custom_unknown: 'x'},
+      profile: {CrossPlay_user_optin: '1'},
+    });
   });
 });
 

@@ -6,6 +6,7 @@ import {apexVideoActions} from './actions_video.ts';
 import {apexSettingsActions} from './actions_settings.ts';
 import {apexPresetActions} from './actions_preset.ts';
 import {apexSnapshotActions} from './actions_snapshot.ts';
+import {apexHistoryActions} from './actions_history.ts';
 import {apexMilesActions} from './actions_miles.ts';
 import {apexGetters} from './getters.ts';
 export type {
@@ -27,6 +28,7 @@ export const useApexStore = defineStore('apex', {
     ...apexSettingsActions,
     ...apexPresetActions,
     ...apexSnapshotActions,
+    ...apexHistoryActions,
   },
   getters: apexGetters,
   tauri: {
@@ -42,6 +44,7 @@ export const useApexStore = defineStore('apex', {
       'video_individual_input',
       'game_settings_section',
       'game_settings_filter_search',
+      'reset_pending_scopes',
     ],
     // 搜索框逐字输入会改 filter_*；防抖同步，避免拖慢列表过滤动画
     syncStrategy: 'debounce',

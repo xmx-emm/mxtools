@@ -83,11 +83,11 @@ function cancel() {
     <v-card prepend-icon="mdi-gamepad-variant" :title="t('apex.closeApex')">
       <v-card-text>{{ t('apex.gameSettings.closeApexTip') }}</v-card-text>
       <v-card-actions>
-        <v-btn color="error" :loading="killing" @click="forceClose">
+        <v-btn color="error" variant="flat" :loading="killing" @click="forceClose">
           {{ t('apex.forceClose') }}
         </v-btn>
         <v-spacer/>
-        <v-btn :disabled="killing" @click="cancel">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="text" :disabled="killing" @click="cancel">{{ t('common.cancel') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

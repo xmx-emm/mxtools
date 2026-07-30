@@ -314,7 +314,7 @@ watch(
                     color="primary"
                     variant="text"
                     class="apex-parameter-toggle mb-2"
-                    style="max-height: 25px"
+                    :style="{maxHeight: 'var(--app-control-height-compact)'}"
                     border
                     divided
                   >
@@ -328,7 +328,7 @@ watch(
                     color="primary"
                     variant="text"
                     class="apex-parameter-toggle aspect-preset-toggle mb-2"
-                    style="max-height: 25px"
+                    :style="{maxHeight: 'var(--app-control-height-compact)'}"
                     border
                     divided
                   >
@@ -373,7 +373,7 @@ watch(
                   color="primary"
                   variant="text"
                   class="apex-parameter-toggle graphics-preset-toggle mb-2"
-                  style="max-height: 25px"
+                  :style="{maxHeight: 'var(--app-control-height-compact)'}"
                   border
                   divided
                 >
@@ -482,11 +482,11 @@ watch(
         />
       </v-card-text>
       <template #actions>
-        <v-btn color="red" :loading="is_thoroughly_kill" @click="force_close_launcher">
+        <v-btn color="error" variant="flat" :loading="is_thoroughly_kill" @click="force_close_launcher">
           {{ t('apex.forceClose') }}
         </v-btn>
         <v-spacer/>
-        <v-btn @click="cancel">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">{{ t('common.cancel') }}</v-btn>
       </template>
       <template #append>
         <v-progress-circular indeterminate size="16" color="red" width="2"/>
@@ -548,7 +548,7 @@ watch(
   flex: 1 1 0;
   padding-inline: 6px;
   font-size: 0.75rem;
-  height: 25px;
+  height: var(--app-control-height-compact);
 }
 
 .graphics-preset-toggle :deep(.v-btn-group) {
@@ -559,7 +559,7 @@ watch(
   flex: 1 1 auto;
   padding-inline: 8px;
   font-size: 0.75rem;
-  height: 25px;
+  height: var(--app-control-height-compact);
 }
 
 .fps-row {

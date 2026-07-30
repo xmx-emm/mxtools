@@ -112,25 +112,14 @@ async function renameUser() {
 
 <template>
   <v-card variant="flat" class="rdp-card mb-4">
-    <v-card-title class="d-flex align-center text-subtitle-1 font-weight-medium pb-1">
-      <span class="flex-grow-1">{{ t('rdp.user.title') }}</span>
-      <v-btn
-        size="small"
-        variant="tonal"
-        rounded="lg"
-        prepend-icon="mdi-refresh"
-        :loading="store.loading"
-        @click="store.loadUsers()"
-      >
-        {{ t('common.refresh') }}
-      </v-btn>
+    <v-card-title class="text-subtitle-1 font-weight-medium pb-1">
+      {{ t('rdp.user.title') }}
     </v-card-title>
     <v-card-subtitle class="text-caption" style="opacity: 0.8;">
       {{ t('rdp.user.subtitle') }}
     </v-card-subtitle>
     <v-card-text>
-      <v-progress-linear v-if="store.loading" indeterminate color="primary" class="mb-3"/>
-      <v-list v-else-if="store.users.length > 0" density="compact">
+      <v-list v-if="store.users.length > 0" density="compact">
         <v-list-item
           v-for="user in store.users"
           :key="user.name"
@@ -172,8 +161,8 @@ async function renameUser() {
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="actionLoading" @click="addUser">{{ t('common.confirm') }}</v-btn>
+          <v-btn variant="text" :disabled="actionLoading" @click="showAddDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" :loading="actionLoading" @click="addUser">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -188,8 +177,8 @@ async function renameUser() {
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn @click="showModifyDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="actionLoading" @click="modifyPassword_">{{ t('common.confirm') }}</v-btn>
+          <v-btn variant="text" :disabled="actionLoading" @click="showModifyDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" :loading="actionLoading" @click="modifyPassword_">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -202,8 +191,8 @@ async function renameUser() {
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn @click="showRenameDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="actionLoading" @click="renameUser">{{ t('common.confirm') }}</v-btn>
+          <v-btn variant="text" :disabled="actionLoading" @click="showRenameDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" :loading="actionLoading" @click="renameUser">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

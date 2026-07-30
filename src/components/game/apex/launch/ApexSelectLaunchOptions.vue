@@ -238,7 +238,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     color="primary"
                     variant="text"
                     class="apex-parameter-toggle"
-                    style="max-height: 25px"
+                    :style="{maxHeight: 'var(--app-control-height-compact)'}"
                     border
                     divided>
                     <template v-if="item?.identifier === 'miles_language'">
@@ -255,14 +255,13 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                         :key="launchOptionKey(pi)"
                         size="small"
                         :title="(pi?.requirement_description && !checkRequirement(pi)) ? parameterTooltipText(pi) : undefined"
-                        :color="pi.requirement ? ( checkRequirement(pi) ? 'info':'error') : 'info'"
                         :value="launchOptionValue(pi)"
                         @click.stop="apex_store.settings_config[item.identifier] = launchOptionValue(pi)"
                       >
                         {{ translateApexLaunchOptionText(pi.name) }}
                       </v-btn>
                     </template>
-                    <template v-else>error apex_store.settings_config not find id</template>
+                    <template v-else>{{ t('apex.launchOptionUnavailable') }}</template>
                   </v-btn-toggle>
                   <template v-if="item?.identifier === 'miles_language'">
                     <v-spacer/>
@@ -283,7 +282,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                 <template v-if="item?.identifier=== 'forced_resolution'">
                   <!--强制分辨率-->
                   <div
-                    style="max-height: 25px;  font-size: 11px;color: rgba(135,135,135,0.82)"
+                    style="max-height: var(--app-control-height-compact); font-size: 11px; color: rgba(135,135,135,0.82)"
                     class="d-flex flex-row align-center">
                     <span class="input_inline_label">{{ t('apexLaunchOptions.ui.widthLabel') }}</span>
                     <ApexNumberInput v-model="apex_store.width"/>
@@ -307,7 +306,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                   <div
                     v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'"
                     class="d-flex"
-                    style="flex: 1; max-height: 25px"
+                    style="flex: 1; max-height: var(--app-control-height-compact)"
                   >
                     <ApexNumberInput v-model="apex_store.fps"/>
                     <v-spacer/>
@@ -324,7 +323,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                 </template>
                 <template v-else-if="item?.identifier == 'lobby_max_fps'">
                   <!--大厅Fps-->
-                  <ApexNumberInput v-model="apex_store.lobby_max_fps" style="max-height: 25px"/>
+                  <ApexNumberInput v-model="apex_store.lobby_max_fps"/>
                   <v-spacer/>
                   <div
                     class="preset_tail"
@@ -531,7 +530,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
 .apex-category-text {
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   color: rgba(var(--v-theme-on-surface), 0.75);
   white-space: nowrap;
 }

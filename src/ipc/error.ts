@@ -15,7 +15,7 @@ function toSnakeCase(value: string): string {
 }
 
 function commandDomain(command: string): string {
-  if (command.startsWith('alter_q_')) return 'alter_q';
+  if (command.startsWith('apex_q_')) return 'apex_q';
   if (command.includes('folder_sharing') || command.includes('share') || command.startsWith('close_smb')) {
     return 'folder_sharing';
   }
@@ -114,12 +114,12 @@ export const IPC_ERROR_I18N_KEYS: Readonly<Record<string, string>> = {
   'apex.running': 'apex.gameSettings.errors.apexRunning',
   'apex.no_changes': 'apex.gameSettings.errors.noChanges',
   'apex.no_restore_selection': 'apex.gameSettings.errors.noRestoreSelection',
-  'alter_q.screenshot_folder_not_found': 'ipc.errors.screenshotFolderNotFound',
-  'alter_q.screenshot_not_found': 'ipc.errors.screenshotNotFound',
-  'alter_q.invalid_distance': 'ipc.errors.invalidDistance',
-  'alter_q.invalid_alpha': 'ipc.errors.invalidAlpha',
-  'alter_q.ocr_download_failed': 'ipc.errors.ocrDownloadFailed',
-  'alter_q.ocr_delete_failed': 'ipc.errors.ocrDeleteFailed',
+  'apex_q.screenshot_folder_not_found': 'ipc.errors.screenshotFolderNotFound',
+  'apex_q.screenshot_not_found': 'ipc.errors.screenshotNotFound',
+  'apex_q.invalid_distance': 'ipc.errors.invalidDistance',
+  'apex_q.invalid_alpha': 'ipc.errors.invalidAlpha',
+  'apex_q.ocr_download_failed': 'ipc.errors.ocrDownloadFailed',
+  'apex_q.ocr_delete_failed': 'ipc.errors.ocrDeleteFailed',
 };
 
 export function ipcErrorKey(error: unknown): string | null {

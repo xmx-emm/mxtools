@@ -1,8 +1,9 @@
-pub mod alter_q;
-pub mod alter_q_ocr;
-pub mod alter_q_ocr_download;
-pub mod alter_q_rapid_ocr;
 pub mod apex;
+pub mod apex_history;
+pub mod apex_q;
+pub mod apex_q_ocr;
+pub mod apex_q_ocr_download;
+pub mod apex_q_rapid_ocr;
 pub mod apex_settings;
 pub mod apex_theta;
 pub mod ea_desktop;

@@ -54,7 +54,8 @@ const value_proxy = computed({
 .pubg_number_input {
   min-width: 72px;
   max-width: 72px;
-  min-height: 24px;
+  min-height: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
   padding: 0 4px;
   font-size: 12px;
   text-align: center;

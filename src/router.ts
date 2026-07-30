@@ -6,14 +6,14 @@ import {useSettingsStore} from '@/stores/settings.ts';
 import {setAppLocale} from '@/i18n/i18n.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
-import {openAboutWindow, openAlterQWindow} from '@/utils/windows.ts';
+import {openAboutWindow, openApexQWindow} from '@/utils/windows.ts';
 import {consumeRestoreHashAlignedForRouter} from '@/utils/restore-last-route-hash.ts';
 import PUBGIcon from '@/components/icons/PUBGIcon.vue';
 
 const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
-const AlterQOverlayView = () => import('./views/AlterQOverlayView.vue');
-const AlterQWindowView = () => import('./views/AlterQWindowView.vue');
+const ApexQOverlayView = () => import('./views/ApexQOverlayView.vue');
+const ApexQWindowView = () => import('./views/ApexQWindowView.vue');
 const SettingsView = () => import('./views/SettingsView.vue');
 const GamePage = () => import('./pages/GamePage.vue');
 const WindowsPage = () => import('./pages/WindowsPage.vue');
@@ -33,8 +33,8 @@ const PubgPage = () => import('./pages/game/PubgPage.vue');
 /** 不参与「恢复上次页面」的路径名列表(不含 query/hash；与 `to.fullPath` 去掉参数字段后比较) */
 export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = [
   '/about',
-  '/alter-q-overlay',
-  '/alter-q',
+  '/apex-q-overlay',
+  '/apex-q',
 ];
 
 /** 侧栏「工具」子项元数据：路由、文案 key、图标等，供导航与 `router.ts` 内工具表共用 */
@@ -45,6 +45,7 @@ export interface ToolChild {
   component: Component;
   icon?: string;
   iconComponent?: Component;
+  beta?: boolean;
 }
 
 const game_tools: ToolChild[] = [
@@ -54,6 +55,7 @@ const game_tools: ToolChild[] = [
     nameKey: 'nav.gameOptimizer',
     component: GameOptimizerPage,
     icon: 'mdi-speedometer',
+    beta: true,
   },
   {
     path: '/apex',
@@ -71,10 +73,10 @@ const game_tools: ToolChild[] = [
   }
 ];
 const windows_tools: ToolChild[] = [
-  { path: '/folder_sharing', name: 'Folder Sharing', nameKey: 'nav.folderSharing', component: FolderSharingPage, icon: 'mdi-lan-connect' },
+  { path: '/folder_sharing', name: 'Folder Sharing', nameKey: 'nav.folderSharing', component: FolderSharingPage, icon: 'mdi-lan-connect', beta: true },
   { path: '/explorer', name: 'Explorer', nameKey: 'nav.explorer', component: ExplorerPage, icon: 'mdi-folder-outline' },
-  { path: '/remote_desktop', name: 'RemoteDesktop', nameKey: 'nav.remoteDesktop', component: RemoteDesktopPage, icon: 'mdi-remote-desktop' },
-  { path: '/input_method', name: 'Input Method', nameKey: 'nav.inputMethod', component: InputMethodPage, icon: 'mdi-keyboard-variant' },
+  { path: '/remote_desktop', name: 'RemoteDesktop', nameKey: 'nav.remoteDesktop', component: RemoteDesktopPage, icon: 'mdi-remote-desktop', beta: true },
+  { path: '/input_method', name: 'Input Method', nameKey: 'nav.inputMethod', component: InputMethodPage, icon: 'mdi-keyboard-variant', beta: true },
 ];
 export const server_tools: ToolChild[] = [
   {
@@ -125,8 +127,8 @@ const routes = [
   { path: '/tools', component: HomeView, redirect: '/game', children: tools, name: 'Tools' },
 
   { path: '/about', component: AboutView },
-  { path: '/alter-q', component: AlterQWindowView },
-  { path: '/alter-q-overlay', component: AlterQOverlayView },
+  { path: '/apex-q', component: ApexQWindowView },
+  { path: '/apex-q-overlay', component: ApexQOverlayView },
 
   // 404
   { path: '/404', name: '404', component: Error404View, hidden: true, meta: { title: '404' } },
@@ -272,6 +274,24 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const toPathOnly = to.path.split(/[?#]/)[0] ?? '';
+  const betaToolCategory = tools.find(category => category.children.some(child => (
+    child.beta
+    && (toPathOnly === child.path || toPathOnly.startsWith(`${child.path}/`))
+  )));
+  if (betaToolCategory && !settings.betaFeaturesEnabled) {
+    const rememberedPath = settings.lastToolCategoryChild[betaToolCategory.path]
+      ?.split(/[?#]/)[0];
+    if (rememberedPath === toPathOnly) {
+      const nextCategoryChildren = {...settings.lastToolCategoryChild};
+      delete nextCategoryChildren[betaToolCategory.path];
+      settings.lastToolCategoryChild = nextCategoryChildren;
+    }
+    if ((settings.lastRoute.split(/[?#]/)[0] ?? '') === toPathOnly) {
+      settings.setLastRoute(betaToolCategory.path);
+    }
+    next({path: betaToolCategory.path, replace: true});
+    return;
+  }
   // 主窗口不渲染 /about，改为打开独立关于窗口并取消本次导航
   if (toPathOnly === '/about') {
     const win = getCurrentWindow();
@@ -282,18 +302,22 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 主窗口不渲染琉雀 Q 设置页，改为独立窗口
-  if (toPathOnly === '/alter-q') {
+  // 主窗口不渲染 APEX Q 设置页，改为独立窗口
+  if (toPathOnly === '/apex-q') {
     const win = getCurrentWindow();
     if (win.label === 'main') {
-      void openAlterQWindow().catch((error) => console.warn('open alter-q route failed', error));
+      if (!settings.betaFeaturesEnabled) {
+        next(false);
+        return;
+      }
+      void openApexQWindow().catch((error) => console.warn('open apex-q route failed', error));
       next(false);
       return;
     }
   }
 
-  // 悬浮结果窗 / 琉雀 Q 独立窗：不走主窗口恢复路由逻辑
-  if (toPathOnly === '/alter-q-overlay' || toPathOnly === '/alter-q') {
+  // 悬浮结果窗 / APEX Q 独立窗：不走主窗口恢复路由逻辑
+  if (toPathOnly === '/apex-q-overlay' || toPathOnly === '/apex-q') {
     next();
     return;
   }

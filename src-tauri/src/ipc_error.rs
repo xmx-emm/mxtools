@@ -153,8 +153,8 @@ mod tests {
             "apex.miles_language_not_found"
         );
         assert_eq!(
-            IpcError::from_message("alter_q", "filesystem failure").code,
-            "alter_q.operation_failed"
+            IpcError::from_message("apex_q", "filesystem failure").code,
+            "apex_q.operation_failed"
         );
     }
 

@@ -33,19 +33,23 @@ use crate::folder_sharing::{
     list_mapped_drives, list_remote_shares, list_share_accounts, open_shared_folder,
     preview_local_share, remove_local_share, repair_folder_sharing, scan_folder_sharing_health,
 };
-use crate::game::alter_q::{
-    alter_q_compute_theta, alter_q_default_rois, alter_q_from_latest_screenshot,
-    alter_q_latest_screenshot, alter_q_list_recent_screenshots, alter_q_list_steam_screenshot_dirs,
-    alter_q_normalize_path, alter_q_ocr_available, alter_q_ocr_delete, alter_q_ocr_download,
-    alter_q_ocr_status, alter_q_open_ocr_settings, alter_q_screenshot_preview,
-    alter_q_suggested_screenshot_dir, alter_q_test_ocr,
-};
 use crate::game::apex::{
     apex_is_running, apply_apex_miles_language, check_apex_miles_language, get_apex_config_file,
     get_apex_languages_depots, get_apex_launch_option, get_apex_video_config,
     get_apex_videoconfig_folder_path, get_apex_videoconfig_readonly, open_apex_audio_folder_path,
     open_apex_depot_download_folder_path, set_apex_launch_option, set_apex_video_config,
     set_apex_videoconfig_readonly, thoroughly_kill_apex,
+};
+use crate::game::apex_history::{
+    list_apex_config_history, mutate_apex_config, reset_apex_to_game_defaults,
+    restore_apex_config_history,
+};
+use crate::game::apex_q::{
+    apex_q_compute_theta, apex_q_default_rois, apex_q_from_latest_screenshot,
+    apex_q_latest_screenshot, apex_q_list_recent_screenshots, apex_q_list_steam_screenshot_dirs,
+    apex_q_normalize_path, apex_q_ocr_available, apex_q_ocr_delete, apex_q_ocr_download,
+    apex_q_ocr_status, apex_q_open_ocr_settings, apex_q_screenshot_preview,
+    apex_q_suggested_screenshot_dir, apex_q_test_ocr,
 };
 use crate::game::apex_settings::{
     apply_apex_game_settings, get_apex_game_settings, restore_apex_game_settings,
@@ -87,8 +91,8 @@ use crate::system::{
     get_primary_display_info, read_utf8_file, system_info, system_total_memory_mb, write_utf8_file,
 };
 use crate::tray::{
-    alter_q_set_close_to_tray, handle_close_requested, set_tray_locale, setup_tray,
-    sync_tray_with_main_window,
+    apex_q_set_close_to_tray, handle_close_requested, set_tray_beta_features, set_tray_locale,
+    setup_tray, sync_tray_with_main_window,
 };
 use crate::user::{
     add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
@@ -124,9 +128,9 @@ fn init_ort_dylib_path(app: &tauri::AppHandle) {
     if std::env::var_os("ORT_DYLIB_PATH").is_some() {
         return;
     }
-    if let Ok(dll) = crate::game::alter_q_rapid_ocr::ort_dll_path() {
+    if let Ok(dll) = crate::game::apex_q_rapid_ocr::ort_dll_path() {
         if dll.is_file() {
-            crate::game::alter_q_rapid_ocr::set_ort_dylib_env(&dll);
+            crate::game::apex_q_rapid_ocr::set_ort_dylib_env(&dll);
             return;
         }
     }
@@ -134,7 +138,7 @@ fn init_ort_dylib_path(app: &tauri::AppHandle) {
     if let Ok(resource_dir) = app.path().resource_dir() {
         let bundled = resource_dir.join("onnxruntime.dll");
         if bundled.is_file() {
-            crate::game::alter_q_rapid_ocr::set_ort_dylib_env(&bundled);
+            crate::game::apex_q_rapid_ocr::set_ort_dylib_env(&bundled);
         }
     }
 }
@@ -290,22 +294,23 @@ pub fn run() {
             open_apex_depot_download_folder_path,
             apex_is_running,
             thoroughly_kill_apex,
-            alter_q_ocr_available,
-            alter_q_ocr_status,
-            alter_q_ocr_download,
-            alter_q_ocr_delete,
-            alter_q_normalize_path,
-            alter_q_list_steam_screenshot_dirs,
-            alter_q_suggested_screenshot_dir,
-            alter_q_latest_screenshot,
-            alter_q_list_recent_screenshots,
-            alter_q_screenshot_preview,
-            alter_q_test_ocr,
-            alter_q_compute_theta,
-            alter_q_default_rois,
-            alter_q_from_latest_screenshot,
-            alter_q_open_ocr_settings,
-            alter_q_set_close_to_tray,
+            apex_q_ocr_available,
+            apex_q_ocr_status,
+            apex_q_ocr_download,
+            apex_q_ocr_delete,
+            apex_q_normalize_path,
+            apex_q_list_steam_screenshot_dirs,
+            apex_q_suggested_screenshot_dir,
+            apex_q_latest_screenshot,
+            apex_q_list_recent_screenshots,
+            apex_q_screenshot_preview,
+            apex_q_test_ocr,
+            apex_q_compute_theta,
+            apex_q_default_rois,
+            apex_q_from_latest_screenshot,
+            apex_q_open_ocr_settings,
+            apex_q_set_close_to_tray,
+            set_tray_beta_features,
             set_tray_locale,
             sync_tray_with_main_window,
             get_apex_video_config,
@@ -317,6 +322,10 @@ pub fn run() {
             get_apex_game_settings,
             apply_apex_game_settings,
             restore_apex_game_settings,
+            list_apex_config_history,
+            restore_apex_config_history,
+            reset_apex_to_game_defaults,
+            mutate_apex_config,
             get_ea_desktop_users,
             get_apex_launch_option_ea,
             set_apex_launch_option_ea,

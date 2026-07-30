@@ -18,7 +18,12 @@ import {
   removeOptionFromSelection,
 } from '@/utils/game/apex_store_helpers.ts';
 import type {ApexStoreThis} from './types.ts';
-import {apexIsRunning} from '@/ipc/commands.ts';
+import {
+  createApexHistoryTransactionId,
+  toApexLauncherRef,
+} from '@/utils/game/apex_history.ts';
+import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
+import {apexIsRunning, mutateApexConfig} from '@/ipc/commands.ts';
 
 const ensure_option_in_selection = ensureOptionInSelection;
 const remove_option_from_selection = removeOptionFromSelection;
@@ -32,14 +37,14 @@ export const apexPresetActions = {
     this.quick_preset_dialog = false;
   },
 
-  open_alter_q_dialog(this: ApexStoreThis) {
+  open_apex_q_dialog(this: ApexStoreThis) {
     void import('@/utils/windows.ts')
-      .then(({openAlterQWindow}) => openAlterQWindow())
-      .catch((error) => console.warn('open alter-q preset failed', error));
+      .then(({openApexQWindow}) => openApexQWindow())
+      .catch((error) => console.warn('open apex-q preset failed', error));
   },
 
-  close_alter_q_dialog(this: ApexStoreThis) {
-    this.alter_q_dialog = false;
+  close_apex_q_dialog(this: ApexStoreThis) {
+    this.apex_q_dialog = false;
   },
 
   set_quick_preset_display(this: ApexStoreThis, info: PrimaryDisplayInfo | null) {
@@ -122,6 +127,7 @@ export const apexPresetActions = {
   /** 快速预设落盘(调用前须 ensure_configs_loaded + prepare_quick_preset) */
   async apply_quick_preset_persist(this: ApexStoreThis): Promise<boolean> {
     const toast = useToast();
+    const transactionId = createApexHistoryTransactionId();
     this.quick_preset_applying = true;
     try {
       if (!await this.check_miles_language()) {
@@ -135,15 +141,36 @@ export const apexPresetActions = {
         return false;
       }
 
-      await this.persist_launch_options();
-      const videoOk = await this.apply_apex_video_config({ silent: true });
-      if (videoOk) {
-        toast.success('apexQuickPreset.applySuccess');
-        this.close_quick_preset_dialog();
+      const account = this.active_apex_account;
+      if (!account) throw new Error('NO_LAUNCHER_ACCOUNT');
+      const result = await mutateApexConfig({request: {
+        source: 'quickPreset',
+        transactionId,
+        launcher: toApexLauncherRef(account),
+        launchOptions: this.launch_options,
+        videoUpdates: this.build_video_config_updates(),
+      }});
+      this.original_launch_options = result.launchOptions ?? this.launch_options;
+      this.launch_loaded_for_key = this.launcher_selection_key;
+      this.launch_load_status = 'ready';
+      if (result.videoConfig) {
+        const values = normalizeVideoConfigMap(result.videoConfig);
+        this.video_config_values = {...values};
+        this.original_video_config = {...values};
+        this.video_config_loaded = true;
+        this.video_config_loaded_key = 'machine';
+        this.video_config_load_status = 'ready';
       } else {
-        toast.error('apexQuickPreset.applyError');
+        this.original_video_config = {...this.video_config_values};
       }
-      return videoOk;
+      if (this.has_out_of_preset_selection) {
+        await this.set_videoconfig_readonly(true);
+      } else {
+        await this.load_videoconfig_readonly();
+      }
+      toast.success('apexQuickPreset.applySuccess');
+      this.close_quick_preset_dialog();
+      return true;
     } catch (err) {
       console.warn('apply_quick_preset_persist failed', err);
       const detail = (err instanceof Error ? err.message : String(err ?? '')).trim();

@@ -13,6 +13,7 @@ import {useI18n} from 'vue-i18n';
 import {useRoute, useRouter} from 'vue-router';
 import {tools} from '@/router.ts';
 import {useCommandPalette} from '@/composables/useCommandPalette.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
 
 type CommandKind = 'home' | 'settings' | 'category' | 'tool';
 
@@ -24,6 +25,7 @@ interface CommandItem {
   kind: CommandKind;
   icon?: string;
   iconComponent?: Component;
+  beta?: boolean;
   searchText: string;
   order: number;
 }
@@ -37,6 +39,7 @@ interface CommandGroup {
 const router = useRouter();
 const route = useRoute();
 const {t} = useI18n();
+const settingsStore = useSettingsStore();
 const {
   isOpen,
   recentPaths,
@@ -108,6 +111,7 @@ const commandItems = computed<CommandItem[]>(() => {
     });
 
     for (const child of category.children) {
+      if (child.beta && !settingsStore.betaFeaturesEnabled) continue;
       addItem({
         path: child.path,
         label: t(child.nameKey),
@@ -115,6 +119,7 @@ const commandItems = computed<CommandItem[]>(() => {
         kind: 'tool',
         icon: child.icon,
         iconComponent: child.iconComponent,
+        beta: child.beta,
         aliases: [child.name, child.nameKey, category.name, categoryLabel],
       });
     }
@@ -439,6 +444,13 @@ defineExpose({open, close, toggle});
                 <span class="command-palette__item-copy">
                   <span class="command-palette__item-label">{{ item.label }}</span>
                   <span class="command-palette__item-meta">{{ item.meta }}</span>
+                </span>
+                <span
+                  v-if="item.beta"
+                  class="mx-beta-badge command-palette__item-beta"
+                  :title="$t('settings.betaFeaturesHint')"
+                >
+                  {{ t('common.beta') }}
                 </span>
                 <v-icon
                   v-if="route.path === item.path"
@@ -800,6 +812,10 @@ defineExpose({open, close, toggle});
   color: rgba(var(--v-theme-on-surface), 0.91);
   font-size: 13px;
   font-weight: 620;
+}
+
+.command-palette__item-beta {
+  flex: 0 0 auto;
 }
 
 .command-palette__item-meta {

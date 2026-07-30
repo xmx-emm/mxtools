@@ -14,6 +14,7 @@ interface DashboardTool {
   icon?: string;
   iconComponent?: Component;
   descriptionKey?: string;
+  beta?: boolean;
 }
 
 interface ResumeTool extends DashboardTool {
@@ -37,15 +38,18 @@ const {open: openCommandPalette} = useCommandPalette();
 
 const toolGroups = computed(() => tools.map((category) => ({
   ...category,
-  children: category.children.map<DashboardTool>((child) => ({
-    path: child.path,
-    nameKey: child.nameKey,
-    categoryPath: category.path,
-    categoryNameKey: category.nameKey,
-    icon: child.icon,
-    iconComponent: child.iconComponent,
-    descriptionKey: TOOL_DESCRIPTION_KEYS[child.path],
-  })),
+  children: category.children
+    .filter(child => !child.beta || settings.betaFeaturesEnabled)
+    .map<DashboardTool>((child) => ({
+      path: child.path,
+      nameKey: child.nameKey,
+      categoryPath: category.path,
+      categoryNameKey: category.nameKey,
+      icon: child.icon,
+      iconComponent: child.iconComponent,
+      descriptionKey: TOOL_DESCRIPTION_KEYS[child.path],
+      beta: child.beta,
+    })),
 })));
 
 const allTools = computed(() => toolGroups.value.flatMap((group) => group.children));
@@ -221,6 +225,11 @@ const primaryResumeTool = computed<ResumeTool>(() => (
                     <strong>{{ t(item.nameKey) }}</strong>
                     <small v-if="item.descriptionKey">{{ t(item.descriptionKey) }}</small>
                   </span>
+                  <span
+                    v-if="item.beta"
+                    class="mx-beta-badge tool-row__beta"
+                    :title="t('settings.betaFeaturesHint')"
+                  >{{ t('common.beta') }}</span>
                   <v-icon class="tool-row__arrow" icon="mdi-chevron-right" size="17" aria-hidden="true"/>
                 </RouterLink>
               </div>
@@ -921,6 +930,10 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+}
+
+.tool-row__beta {
+  flex: 0 0 auto;
 }
 
 .tool-row__copy strong {

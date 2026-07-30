@@ -16,6 +16,8 @@ import {
   videoConfigValueEquals,
 } from '@/utils/game/apex_store_helpers.ts';
 import type {ApexStoreThis, ApexVideoWindowMode} from './types.ts';
+import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
+import {createApexHistoryTransactionId} from '@/utils/game/apex_history.ts';
 import {
   apexIsRunning,
   getApexConfigFile,
@@ -32,8 +34,15 @@ const video_config_display_key = videoConfigDisplayKey;
 const normalize_video_config_map = normalizeVideoConfigMap;
 
 export const apexVideoActions = {
-  async load_apex_video_config(this: ApexStoreThis) {
+  async load_apex_video_config(
+    this: ApexStoreThis,
+    options?: {silent?: boolean; force?: boolean},
+  ) {
+    if (this.is_video_config_loading && !options?.force) return;
+    const generation = ++this.video_config_request_generation;
     this.is_video_config_loading = true;
+    this.video_config_load_status = 'loading';
+    this.video_config_load_error = null;
     try {
       let raw_map: Record<string, string> = {};
       try {
@@ -42,21 +51,33 @@ export const apexVideoActions = {
         // 兼容旧版后端：仅提供通用配置读取命令。
         raw_map = await getApexConfigFile({ kind: 'videoconfig' });
       }
+      if (generation !== this.video_config_request_generation) return;
       const map = normalize_video_config_map(raw_map);
       this.video_config_values = {...map};
       this.original_video_config = {...map};
       this.video_config_loaded = true;
+      this.video_config_loaded_key = 'machine';
+      this.video_config_load_status = 'ready';
+      this.reset_pending_scopes = this.reset_pending_scopes.filter(scope => scope !== 'video');
       await this.load_videoconfig_readonly();
     } catch (err) {
+      if (generation !== this.video_config_request_generation) return;
       console.warn('load_apex_video_config failed', err);
-      const toast = useToast();
-      toast.warning('apex.videoConfigLoadFailed');
+      this.video_config_load_error = String(err);
+      this.video_config_load_status = 'error';
+      if (!options?.silent) {
+        const toast = useToast();
+        toast.warning('apex.videoConfigLoadFailed');
+      }
     } finally {
-      this.is_video_config_loading = false;
+      if (generation === this.video_config_request_generation) {
+        this.is_video_config_loading = false;
+      }
     }
   },
 
   start_video_config(this: ApexStoreThis, force = false) {
+    if (!force && this.reset_pending_scopes.includes('video')) return;
     if (!force && this.video_config_loaded && Object.keys(this.video_config_values).length > 0) {
       return;
     }
@@ -197,7 +218,10 @@ export const apexVideoActions = {
     return updates;
   },
 
-  async apply_apex_video_config(this: ApexStoreThis, options?: { silent?: boolean }): Promise<boolean> {
+  async apply_apex_video_config(
+    this: ApexStoreThis,
+    options?: {silent?: boolean} & ApexConfigMutationMeta,
+  ): Promise<boolean> {
     const toast = useToast();
     const running = await apexIsRunning().catch(() => false);
     if (running) {
@@ -207,7 +231,11 @@ export const apexVideoActions = {
     this.is_video_config_saving = true;
     try {
       const updates = this.build_video_config_updates();
-      await setApexVideoConfig({updates});
+      await setApexVideoConfig({
+        updates,
+        historySource: options?.historySource ?? 'apply',
+        transactionId: options?.transactionId ?? createApexHistoryTransactionId(),
+      });
       this.original_video_config = {...this.video_config_values};
       // 选用了 Apex 预设之外的档位时，强制只读，防止启动游戏被还原。
       if (this.has_out_of_preset_selection) {

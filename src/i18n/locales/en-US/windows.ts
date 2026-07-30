@@ -268,6 +268,7 @@ export const windowsMessages = {
   },
   rdp: {
     requestAdmin: 'Managing remote desktop and users requires administrator privileges',
+    loading: 'Refreshing Remote Desktop information…',
     status: {
       title: 'Remote Desktop Status',
       subtitle: 'View and toggle the Remote Desktop service on this computer',
@@ -365,12 +366,13 @@ export const windowsMessages = {
     },
   },
   explorer: {
-    requestAdmin: 'Changing common folders or system context-menu items requires modifying the registry',
+    requestAdmin: 'Changing these Explorer settings requires modifying the registry',
     commonFolders: 'Common folders',
     commonFoldersSubtitle: 'Show or hide common folders in Explorer sidebar',
     backupWarning: 'Back up the registry before making changes.',
     backupRegistry: 'Backup explorer registry',
     backups: 'Backups',
+    backupSuccess: 'Explorer registry backup created',
     backupError: 'Backup explorer error',
     folders: {
       '3D_OBJECTS': '3D Objects',

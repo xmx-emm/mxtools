@@ -1,4 +1,5 @@
 import ApexVideoConfig from '@/data/apex_video_config.ts';
+import ApexGameSettingsData from '@/data/apex_game_settings.ts';
 import {
   collectVideoConfigIdentifiers,
   isApexVideoConfigImpl,
@@ -20,6 +21,72 @@ export class ApexConfigSnapshotParseError extends Error {
     super(message);
     this.name = 'ApexConfigSnapshotParseError';
   }
+}
+
+export type ApexConfigSnapshotSettingsGroup = 'gameSettings' | 'aiming' | 'controller';
+
+export type ApexConfigSnapshotSettingsGroups = Record<
+  ApexConfigSnapshotSettingsGroup,
+  Pick<ApexGameSettingsSnapshot, 'settings' | 'profile'>
+>;
+
+const gameSettingGroupByKey = new Map(
+  ApexGameSettingsData.map(field => [
+    `${field.file}:${field.key}`,
+    field.section === 'aiming' || field.section === 'controller'
+      ? field.section
+      : 'gameSettings',
+  ] as const),
+);
+
+function settingsGroupForKey(
+  file: 'settings' | 'profile',
+  key: string,
+): ApexConfigSnapshotSettingsGroup {
+  const catalogGroup = gameSettingGroupByKey.get(`${file}:${key}`);
+  if (catalogGroup) return catalogGroup;
+  if (file === 'profile'
+    && (key.startsWith('gamepad_') || key.startsWith('joy_')
+      || key === 'gameCursor_Velocity')) {
+    return 'controller';
+  }
+  return 'gameSettings';
+}
+
+function emptySettingsGroup(): Pick<ApexGameSettingsSnapshot, 'settings' | 'profile'> {
+  return {settings: {}, profile: {}};
+}
+
+/** Split known aiming and controller values from the remaining game settings. */
+export function splitApexGameSettingsSnapshot(
+  snapshot: ApexGameSettingsSnapshot,
+): ApexConfigSnapshotSettingsGroups {
+  const groups: ApexConfigSnapshotSettingsGroups = {
+    gameSettings: emptySettingsGroup(),
+    aiming: emptySettingsGroup(),
+    controller: emptySettingsGroup(),
+  };
+
+  for (const file of ['settings', 'profile'] as const) {
+    for (const [key, value] of Object.entries(snapshot[file])) {
+      const group = settingsGroupForKey(file, key);
+      groups[group][file][key] = value;
+    }
+  }
+  return groups;
+}
+
+export function collectApexGameSettingsGroups(
+  snapshot: ApexGameSettingsSnapshot,
+  selectedGroups: ApexConfigSnapshotSettingsGroup[],
+): Pick<ApexGameSettingsSnapshot, 'settings' | 'profile'> {
+  const groups = splitApexGameSettingsSnapshot(snapshot);
+  const result = emptySettingsGroup();
+  for (const group of selectedGroups) {
+    Object.assign(result.settings, groups[group].settings);
+    Object.assign(result.profile, groups[group].profile);
+  }
+  return result;
 }
 
 function isPlainStringRecord(value: unknown): value is Record<string, string> {
@@ -63,7 +130,8 @@ export function buildApexConfigSnapshot(input: {
 }): ApexConfigSnapshot {
   const {selection} = input;
   if (!selection.launchOptions && !selection.videoConfig
-    && !selection.gameSettings && !selection.bindings) {
+    && !selection.gameSettings && !selection.aiming
+    && !selection.controller && !selection.bindings) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.nothingSelected');
   }
 
@@ -79,10 +147,18 @@ export function buildApexConfigSnapshot(input: {
   if (selection.videoConfig) {
     snapshot.videoConfig = {...(input.videoConfig ?? {})};
   }
-  if (selection.gameSettings || selection.bindings) {
+  if (selection.gameSettings || selection.aiming || selection.controller || selection.bindings) {
+    const selectedGroups: ApexConfigSnapshotSettingsGroup[] = [];
+    if (selection.gameSettings) selectedGroups.push('gameSettings');
+    if (selection.aiming) selectedGroups.push('aiming');
+    if (selection.controller) selectedGroups.push('controller');
+    const selectedSettings = collectApexGameSettingsGroups(
+      input.gameSettings ?? {settings: {}, profile: {}},
+      selectedGroups,
+    );
     snapshot.gameSettings = {
-      settings: selection.gameSettings ? {...(input.gameSettings?.settings ?? {})} : {},
-      profile: selection.gameSettings ? {...(input.gameSettings?.profile ?? {})} : {},
+      settings: selectedSettings.settings,
+      profile: selectedSettings.profile,
       ...(selection.bindings
         ? {bindings: (input.gameSettings?.bindings ?? []).map(binding => ({...binding}))}
         : {}),
@@ -110,18 +186,15 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
   if (obj.kind !== APEX_CONFIG_SNAPSHOT_KIND) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.unknownKind');
   }
-  if (obj.version !== 1 && obj.version !== APEX_CONFIG_SNAPSHOT_VERSION) {
+  if (obj.version !== APEX_CONFIG_SNAPSHOT_VERSION) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.unsupportedVersion');
   }
   if (typeof obj.exportedAt !== 'string') {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidShape');
   }
 
-  const version: 1 | typeof APEX_CONFIG_SNAPSHOT_VERSION = obj.version === 1
-    ? 1
-    : APEX_CONFIG_SNAPSHOT_VERSION;
   const snapshot: ApexConfigSnapshot = {
-    version,
+    version: APEX_CONFIG_SNAPSHOT_VERSION,
     kind: APEX_CONFIG_SNAPSHOT_KIND,
     exportedAt: obj.exportedAt,
   };

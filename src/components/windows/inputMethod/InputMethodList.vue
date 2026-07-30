@@ -245,7 +245,10 @@ async function disableSimplifiedTraditionalHotkey() {
 }
 .input-method-kind { color: rgba(var(--v-theme-on-surface), 0.45); font-size: 9px; }
 .input-method-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 2px; }
-.input-method-actions :deep(.v-btn--icon) { width: 30px; height: 30px; }
+.input-method-actions :deep(.v-btn--icon) {
+  width: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
+}
 .input-method-empty {
   display: flex;
   align-items: center;

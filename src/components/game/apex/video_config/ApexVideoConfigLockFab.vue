@@ -18,6 +18,7 @@ const STORAGE_KEY = 'apex_video_fab_pos';
 
 const root = ref<HTMLElement | null>(null);
 const pos = reactive({x: 0, y: 0});
+const positioned = ref(false);
 const snapping = ref(false);
 const dragging = ref(false);
 
@@ -177,6 +178,7 @@ const individualColor = computed(() =>
 onMounted(() => {
   loadPersisted();
   applyPersisted();
+  positioned.value = true;
   void apex_store.load_videoconfig_readonly();
   window.addEventListener('resize', onResize);
 });
@@ -190,7 +192,7 @@ onBeforeUnmount(() => {
   <div
     ref="root"
     class="apex-lock-fab"
-    :class="{ 'is-snapping': snapping, 'is-dragging': dragging }"
+    :class="{ 'is-positioned': positioned, 'is-snapping': snapping, 'is-dragging': dragging }"
     :style="{ left: pos.x + 'px', top: pos.y + 'px', width: GROUP_W + 'px' }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
@@ -246,6 +248,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  visibility: hidden;
+}
+
+.apex-lock-fab.is-positioned {
+  visibility: visible;
 }
 
 .apex-lock-fab.is-dragging {

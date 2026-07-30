@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, useAttrs, watch } from 'vue';
 import { useTheme } from 'vuetify';
+import { useI18n } from 'vue-i18n';
 import { useSettingsStore } from '@/stores/settings.ts';
 defineOptions({ inheritAttrs: false });
 
@@ -20,6 +21,7 @@ const props = withDefaults(
 );
 
 const attrs = useAttrs();
+const {t} = useI18n();
 
 const passthroughAttrs = computed(() => {
   const rest = {...attrs} as Record<string, unknown>;
@@ -202,7 +204,7 @@ onUnmounted(() => {
     :class="{ 'zoomable-image-trigger--clickable': props.previewable }"
     :tabindex="props.previewable ? 0 : undefined"
     :role="props.previewable ? 'button' : undefined"
-    :aria-label="props.previewable ? (props.alt || '查看大图') : props.alt"
+    :aria-label="props.previewable ? (props.alt || t('common.viewFullImage')) : props.alt"
     @click.capture="onTriggerClickCapture"
     @keydown="onThumbKeydown"
   >
@@ -260,7 +262,7 @@ onUnmounted(() => {
         :class="{ 'zoomable-image-right-click-hint--dark': isDarkTheme, 'zoomable-image-right-click-hint--light': !isDarkTheme }"
         @click.stop="dismissRightClickHint"
       >
-        右键关闭图片窗口
+        {{ t('common.rightClickCloseImage') }}
       </div>
 
       <div
@@ -269,7 +271,15 @@ onUnmounted(() => {
         @click.stop
       >
         <span class="text-caption">{{ zoomPercent }}%</span>
-        <v-btn icon="mdi-minus" variant="text" size="small" :color="actionIconColor" @click="zoomStep(-0.15)" />
+        <v-btn
+          icon="mdi-minus"
+          variant="text"
+          size="small"
+          :color="actionIconColor"
+          :title="t('common.zoomOut')"
+          :aria-label="t('common.zoomOut')"
+          @click="zoomStep(-0.15)"
+        />
         <v-slider
           v-model="zoomPercent"
           class="mx-2 zoomable-image-zoom-slider"
@@ -281,16 +291,33 @@ onUnmounted(() => {
           :color="actionIconColor"
           :track-color="isDarkTheme ? 'outline' : 'on-surface'"
         />
-        <v-btn icon="mdi-plus" variant="text" size="small" :color="actionIconColor" @click="zoomStep(0.15)" />
+        <v-btn
+          icon="mdi-plus"
+          variant="text"
+          size="small"
+          :color="actionIconColor"
+          :title="t('common.zoomIn')"
+          :aria-label="t('common.zoomIn')"
+          @click="zoomStep(0.15)"
+        />
         <v-btn
           icon="mdi-fit-to-page-outline"
           variant="text"
           size="small"
-          title="重置视图"
+          :title="t('common.resetView')"
+          :aria-label="t('common.resetView')"
           :color="actionIconColor"
           @click="resetView"
         />
-        <v-btn icon="mdi-close" variant="text" size="small" :color="actionIconColor" @click="closePreview" />
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          :color="actionIconColor"
+          :title="t('common.close')"
+          :aria-label="t('common.close')"
+          @click="closePreview"
+        />
       </div>
     </div>
   </v-dialog>

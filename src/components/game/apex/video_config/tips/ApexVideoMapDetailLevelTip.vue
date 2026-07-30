@@ -100,7 +100,7 @@ watch(activeIndex, () => {
           density="compact"
           variant="tonal"
           color="surface-variant"
-          style="height: 25px;"
+          style="height: var(--app-control-height-compact);"
           divided
         >
           <v-btn
@@ -175,7 +175,7 @@ watch(activeIndex, () => {
   flex: 0 0 auto;
   padding-inline: 8px !important;
   font-size: 0.6875rem !important;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .preview-type-toggle :deep(.v-btn__content) {

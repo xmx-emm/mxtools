@@ -223,9 +223,12 @@ function close() {
               <template #activator="{props: activatorProps}">
                 <v-btn
                   v-bind="activatorProps"
+                  class="folder-picker-button"
                   icon="mdi-folder-open-outline"
+                  size="small"
                   variant="tonal"
                   :disabled="isEditing"
+                  :aria-label="t('folderSharing.editor.chooseFolder')"
                   @click="chooseFolder"
                 />
               </template>
@@ -384,6 +387,20 @@ function close() {
 .editor-body { min-height: 390px; max-height: min(64vh, 620px); overflow-y: auto; }
 .form-section, .preview-section { display: flex; flex-direction: column; gap: 14px; }
 .path-field { display: grid; grid-template-columns: minmax(0, 1fr) 40px; align-items: start; gap: 8px; }
+.folder-picker-button {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  aspect-ratio: 1;
+  align-self: start;
+}
+.folder-picker-button :deep(.v-icon) {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
 .fixed-admin, .account-row { display: flex; align-items: center; min-height: 54px; gap: 10px; padding: 7px 10px; border-bottom: 1px solid rgba(var(--v-border-color), 0.11); }
 .fixed-admin { border: 1px solid rgba(var(--v-theme-primary), 0.18); border-radius: 6px; background: rgba(var(--v-theme-primary), 0.04); }
 .fixed-admin > div, .account-copy { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }

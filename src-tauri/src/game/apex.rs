@@ -17,6 +17,11 @@
 }
 */
 
+use crate::game::apex_history::{
+    discard_scope_locked_for_app, lock_history, prune_history_locked, record_launch_before_locked,
+    record_video_before_locked, ApexConfigScope, ApexHistorySource, ApexLauncherRef,
+};
+use crate::game::steam::steam_is_running_sync;
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::log_info;
 use crate::utils::{blocking_cmd, blocking_value, thoroughly_kill_named, ProcessNameMatchMode};
@@ -34,9 +39,34 @@ use windows_tool::game::apex::{
 };
 use windows_tool::utils::filesystem::copy_dir_all;
 
+pub(crate) fn read_steam_launch_options(id: usize) -> Result<String, String> {
+    get_apex_launch_options_by_steam_user_id(id)
+}
+
+pub(crate) fn write_steam_launch_options(id: usize, value: &str) -> Result<(), String> {
+    set_apex_launch_options_by_steam_user_id(id, value)
+}
+
+pub(crate) fn apex_video_config_path() -> Result<PathBuf, String> {
+    get_apex_videoconfig_path()
+}
+
+pub(crate) fn read_video_config_sync() -> Result<HashMap<String, String>, String> {
+    let (_, values) = read_apex_videoconfig()?;
+    Ok(values)
+}
+
+pub(crate) fn patch_video_config_sync(updates: &HashMap<String, String>) -> Result<(), String> {
+    patch_apex_videoconfig(updates).map(|_| ())
+}
+
+pub(crate) fn apex_is_running_sync() -> Result<bool, String> {
+    apex_is_running_by_tasklist()
+}
+
 #[tauri::command]
 pub async fn get_apex_launch_option(id: usize) -> IpcResult<String> {
-    blocking_cmd(move || get_apex_launch_options_by_steam_user_id(id))
+    blocking_cmd(move || read_steam_launch_options(id))
         .await
         .map_err(apex_error)
 }
@@ -59,10 +89,42 @@ id: xxxxxxxx
 launch_option: schinese tchinese
  */
 #[tauri::command]
-pub async fn set_apex_launch_option(id: usize, launch_option: String) -> IpcResult<()> {
-    blocking_cmd(move || set_apex_launch_options_by_steam_user_id(id, &launch_option))
-        .await
-        .map_err(apex_error)
+pub async fn set_apex_launch_option(
+    app: tauri::AppHandle,
+    id: usize,
+    launch_option: String,
+    history_source: Option<ApexHistorySource>,
+    transaction_id: Option<String>,
+) -> IpcResult<()> {
+    blocking_cmd(move || {
+        let _guard = lock_history()?;
+        let current = read_steam_launch_options(id)?;
+        if current == launch_option {
+            return Ok(());
+        }
+        if steam_is_running_sync()? {
+            return Err("apex.history.errors.launcherRunning".to_string());
+        }
+        let entry = record_launch_before_locked(
+            &app,
+            history_source.unwrap_or_default(),
+            transaction_id.as_deref(),
+            ApexLauncherRef {
+                kind: "steam".to_string(),
+                id: id.to_string(),
+                name: String::new(),
+            },
+            current,
+        )?;
+        if let Err(error) = write_steam_launch_options(id, &launch_option) {
+            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Launch);
+            return Err(error);
+        }
+        let _ = prune_history_locked(&app);
+        Ok(())
+    })
+    .await
+    .map_err(apex_error)
 }
 
 // 应用apex语音包
@@ -220,23 +282,43 @@ pub async fn get_apex_videoconfig_folder_path() -> IpcResult<String> {
 /// 读取 `videoconfig.txt` 中 `setting.*` 键值。
 #[tauri::command]
 pub async fn get_apex_video_config() -> IpcResult<HashMap<String, String>> {
-    blocking_cmd(|| {
-        let (_, map) = read_apex_videoconfig()?;
-        Ok(map)
-    })
-    .await
-    .map_err(apex_error)
+    blocking_cmd(read_video_config_sync)
+        .await
+        .map_err(apex_error)
 }
 
 /// 写入 `videoconfig.txt`；Apex 正在运行时会拒绝写入。
 /// 文件只读时会自动 解锁→写入→重新锁定。
 #[tauri::command]
-pub async fn set_apex_video_config(updates: HashMap<String, String>) -> IpcResult<()> {
+pub async fn set_apex_video_config(
+    app: tauri::AppHandle,
+    updates: HashMap<String, String>,
+    history_source: Option<ApexHistorySource>,
+    transaction_id: Option<String>,
+) -> IpcResult<()> {
     blocking_cmd(move || {
+        let _guard = lock_history()?;
+        let (_, current) = read_apex_videoconfig()?;
+        let changed = updates
+            .iter()
+            .any(|(key, value)| current.get(key) != Some(value));
+        if !changed {
+            return Ok(());
+        }
         if apex_is_running_by_tasklist()? {
             return Err("apex.apexRunningVideoConfig".to_string());
         }
-        patch_apex_videoconfig(&updates).map(|_| ())
+        let entry = record_video_before_locked(
+            &app,
+            history_source.unwrap_or_default(),
+            transaction_id.as_deref(),
+        )?;
+        if let Err(error) = patch_video_config_sync(&updates) {
+            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Video);
+            return Err(error);
+        }
+        let _ = prune_history_locked(&app);
+        Ok(())
     })
     .await
     .map_err(apex_error)

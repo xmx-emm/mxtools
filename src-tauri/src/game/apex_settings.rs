@@ -1,3 +1,7 @@
+use crate::game::apex_history::{
+    discard_scope_locked_for_app, lock_history, prune_history_locked,
+    record_game_settings_before_locked, ApexConfigScope, ApexHistorySource,
+};
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::blocking_cmd;
 use serde::{Deserialize, Serialize};
@@ -25,6 +29,13 @@ enum ConfigFile {
     Profile,
 }
 
+pub(crate) fn apex_game_settings_paths() -> Result<(PathBuf, PathBuf), String> {
+    Ok((
+        get_apex_config_path(ApexConfigFileKind::Settings)?,
+        get_apex_config_path(ApexConfigFileKind::Profile)?,
+    ))
+}
+
 impl ConfigFile {
     fn kind(self) -> ApexConfigFileKind {
         match self {
@@ -40,6 +51,7 @@ enum ValueRule {
     Integer(i64, i64),
     Number(f64, f64),
     Enum(&'static [&'static str]),
+    RgbOrDefault,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -90,6 +102,10 @@ pub struct ApexGameSettingsApplyRequest {
     pub profile_updates: HashMap<String, String>,
     #[serde(default)]
     pub binding_updates: Vec<ApexBindingUpdate>,
+    #[serde(default)]
+    pub history_source: ApexHistorySource,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -126,6 +142,8 @@ struct BindingGroup {
 const BOOL: &[&str] = &["0", "1"];
 const ZERO_TO_TWO: &[&str] = &["0", "1", "2"];
 const ZERO_TO_THREE: &[&str] = &["0", "1", "2", "3"];
+const ZERO_TO_SIX: &[&str] = &["0", "1", "2", "3", "4", "5", "6"];
+const COMMS_FILTER: &[&str] = &["-1", "0", "1"];
 const MINUS_ONE_TO_EIGHT: &[&str] = &["-1", "0", "1", "2", "3", "4", "5", "6", "7", "8"];
 const AUDIO_CHANNELS: &[&str] = &["0", "2", "4", "6", "8"];
 
@@ -204,8 +222,10 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "hud_setting_showWeaponFlyouts"
             | "hudchat_play_text_to_speech"
             | "joy_inverty"
+            | "laserSightColorCustomized"
             | "m_invert_pitch"
             | "party_color_enabled"
+            | "pin_opt_in"
             | "player_setting_autosprint"
             | "player_setting_damage_closes_deathbox_menu"
             | "player_setting_holdtosprint"
@@ -214,6 +234,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "sound_musicReduced"
             | "sound_without_focus"
             | "speechtotext_enabled"
+            | "toggle_on_jump_to_deactivate"
             | "voice_enabled"
             | "weapon_setting_autocycle_on_empty" => Some(Bool),
             "cc_text_size"
@@ -224,15 +245,19 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "hud_setting_streamerMode"
             | "hudchat_visibility"
             | "joy_rumble"
+            | "player_setting_arsenals_maphudidentifiers"
             | "player_setting_lowammo_setting"
-            | "player_setting_gamestateawareness_callouts" => Some(Enum(ZERO_TO_TWO)),
+            | "player_setting_gamestateawareness_callouts"
+            | "player_setting_tutorialization" => Some(Enum(ZERO_TO_TWO)),
+            "cl_comms_filter" => Some(Enum(COMMS_FILTER)),
             "colorblind_mode"
             | "damage_indicator_style_pilot"
-            | "gamepad_button_layout"
             | "gamepad_stick_layout"
             | "hud_setting_damageIndicatorStyle"
             | "hud_setting_damageTextStyle"
             | "mantle_boost_ui_setting" => Some(Enum(ZERO_TO_THREE)),
+            "gamepad_button_layout" => Some(Enum(ZERO_TO_SIX)),
+            "reticle_color" => Some(RgbOrDefault),
             "gamepad_look_curve" => Some(Integer(0, 5)),
             "gamepad_custom_assist_style" => Some(Enum(BOOL)),
             "gamepad_trigger_threshold" => Some(Integer(0, 100)),
@@ -288,6 +313,13 @@ fn validate_value(file: ConfigFile, key: &str, value: &str) -> Result<(), String
             .parse::<f64>()
             .is_ok_and(|number| number.is_finite() && number >= min && number <= max),
         ValueRule::Enum(values) => values.contains(&value),
+        ValueRule::RgbOrDefault => {
+            value.is_empty()
+                || (value.split_ascii_whitespace().count() == 3
+                    && value
+                        .split_ascii_whitespace()
+                        .all(|channel| channel.parse::<u8>().is_ok()))
+        }
     };
     if valid {
         Ok(())
@@ -391,6 +423,7 @@ fn editable_binding(command: &str, input: &str) -> bool {
             | "use_consumable PHOENIX_KIT"
             | "+moveleft"
             | "+scriptCommand3"
+            | "+scriptcommand3"
             | "+toggle_duck"
             | "+moveright"
             | "+use; +use_long"
@@ -417,7 +450,11 @@ fn editable_binding(command: &str, input: &str) -> bool {
             | "+scriptCommand7"
             | "+attack"
             | "+zoom"
+            | "+toggle_zoom"
+            | "+weaponCycle"
+            | "+dodge"
             | "+ping"
+            | "jpeg"
     )
 }
 
@@ -567,6 +604,12 @@ fn apply_value_updates(
             return Err(format!("apex.gameSettings.errors.keyMissing: {key}"));
         }
         doc.set(key, value.clone())?;
+    }
+    if file == ConfigFile::Profile
+        && updates.contains_key("toggle_on_jump_to_deactivate")
+        && doc.path_exists("toggle_on_jump_to_deactivate_changed")
+    {
+        doc.set("toggle_on_jump_to_deactivate_changed", "1".to_string())?;
     }
     Ok(())
 }
@@ -819,7 +862,7 @@ fn verify_file_bytes(path: &Path, expected: &[u8]) -> Result<(), String> {
     }
 }
 
-fn load_report() -> Result<ApexGameSettingsReport, String> {
+pub(crate) fn load_report() -> Result<ApexGameSettingsReport, String> {
     let settings = load_file(ConfigFile::Settings)?;
     let profile = load_file(ConfigFile::Profile)?;
     let bindings = binding_groups(&settings.doc)
@@ -833,15 +876,18 @@ fn load_report() -> Result<ApexGameSettingsReport, String> {
     })
 }
 
-fn apply_request(request: ApexGameSettingsApplyRequest) -> Result<ApexGameSettingsReport, String> {
-    if apex_is_running_by_tasklist()? {
-        return Err("apex.gameSettings.errors.apexRunning".to_string());
-    }
+fn apply_request_inner(
+    app: Option<&tauri::AppHandle>,
+    request: ApexGameSettingsApplyRequest,
+) -> Result<ApexGameSettingsReport, String> {
     if request.settings_updates.is_empty()
         && request.profile_updates.is_empty()
         && request.binding_updates.is_empty()
     {
         return Err("apex.gameSettings.errors.noChanges".to_string());
+    }
+    if apex_is_running_by_tasklist()? {
+        return Err("apex.gameSettings.errors.apexRunning".to_string());
     }
 
     let mut settings = load_file(ConfigFile::Settings)?;
@@ -877,6 +923,15 @@ fn apply_request(request: ApexGameSettingsApplyRequest) -> Result<ApexGameSettin
     if profile_changed {
         save_backup(&profile.path, &profile.bytes)?;
     }
+    let history_entry = app
+        .map(|app| {
+            record_game_settings_before_locked(
+                app,
+                request.history_source,
+                request.transaction_id.as_deref(),
+            )
+        })
+        .transpose()?;
 
     let commit = (|| -> Result<(), String> {
         if settings_changed {
@@ -901,9 +956,22 @@ fn apply_request(request: ApexGameSettingsApplyRequest) -> Result<ApexGameSettin
         if profile_changed {
             let _ = atomic_write(&profile.path, &profile.bytes);
         }
+        if let (Some(app), Some(history_entry)) = (app, history_entry.as_ref()) {
+            let _ =
+                discard_scope_locked_for_app(app, &history_entry.id, ApexConfigScope::GameSettings);
+        }
         return Err(error);
     }
+    if let Some(app) = app {
+        let _ = prune_history_locked(app);
+    }
     load_report()
+}
+
+pub(crate) fn apply_request_without_history(
+    request: ApexGameSettingsApplyRequest,
+) -> Result<ApexGameSettingsReport, String> {
+    apply_request_inner(None, request)
 }
 
 fn restore_request(
@@ -975,11 +1043,15 @@ pub async fn get_apex_game_settings() -> IpcResult<ApexGameSettingsReport> {
 
 #[tauri::command]
 pub async fn apply_apex_game_settings(
+    app: tauri::AppHandle,
     request: ApexGameSettingsApplyRequest,
 ) -> IpcResult<ApexGameSettingsReport> {
-    blocking_cmd(move || apply_request(request))
-        .await
-        .map_err(apex_settings_error)
+    blocking_cmd(move || {
+        let _guard = lock_history()?;
+        apply_request_inner(Some(&app), request)
+    })
+    .await
+    .map_err(apex_settings_error)
 }
 
 #[tauri::command]
@@ -1080,6 +1152,42 @@ mod tests {
         assert!(validate_value(ConfigFile::Profile, "localClientPlayerCachedLevel", "1").is_err());
         assert!(validate_value(ConfigFile::Profile, "cl_fovScale", "1.7").is_ok());
         assert!(validate_value(ConfigFile::Profile, "cl_fovScale", "2.0").is_err());
+        assert!(validate_value(ConfigFile::Profile, "laserSightColorCustomized", "1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "reticle_color", "").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "reticle_color", "210 190 17").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "reticle_color", "256 190 17").is_err());
+        assert!(validate_value(ConfigFile::Profile, "reticle_color", "210 190").is_err());
+        assert!(validate_value(ConfigFile::Profile, "toggle_on_jump_to_deactivate", "1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "cl_comms_filter", "-1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "cl_comms_filter", "2").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "6").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "7").is_err());
+        assert!(validate_value(ConfigFile::Profile, "player_setting_tutorialization", "2").is_ok());
+        assert!(validate_value(
+            ConfigFile::Profile,
+            "player_setting_arsenals_maphudidentifiers",
+            "3"
+        )
+        .is_err());
+        assert!(validate_value(ConfigFile::Profile, "pin_opt_in", "1").is_ok());
+    }
+
+    #[test]
+    fn jetpack_control_marks_the_explicit_choice_as_changed() {
+        let mut doc = ApexCfgDocument::from_content(
+            "toggle_on_jump_to_deactivate \"0\"\ntoggle_on_jump_to_deactivate_changed \"0\"\n",
+            ApexFileEncoding::Utf8,
+        )
+        .unwrap();
+        apply_value_updates(
+            ConfigFile::Profile,
+            &mut doc,
+            &HashMap::from([("toggle_on_jump_to_deactivate".into(), "1".into())]),
+        )
+        .unwrap();
+        let output = doc.to_string();
+        assert!(output.contains("toggle_on_jump_to_deactivate \"1\""));
+        assert!(output.contains("toggle_on_jump_to_deactivate_changed \"1\""));
     }
 
     #[test]

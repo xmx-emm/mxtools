@@ -1,8 +1,8 @@
 /** Apex 配置快照 JSON（导入/导出） */
 
 export const APEX_CONFIG_SNAPSHOT_KIND = 'apex-config-snapshot' as const;
-export const APEX_CONFIG_SNAPSHOT_VERSION = 2 as const;
-export type ApexConfigSnapshotVersion = 1 | typeof APEX_CONFIG_SNAPSHOT_VERSION;
+export const APEX_CONFIG_SNAPSHOT_VERSION = 1 as const;
+export type ApexConfigSnapshotVersion = typeof APEX_CONFIG_SNAPSHOT_VERSION;
 
 import type {ApexGameSettingsSnapshot} from './apex_game_settings.ts';
 
@@ -24,6 +24,8 @@ export interface ApexConfigSnapshotExportSelection {
   launchOptions: boolean;
   videoConfig: boolean;
   gameSettings?: boolean;
+  aiming?: boolean;
+  controller?: boolean;
   bindings?: boolean;
 }
 
@@ -49,5 +51,7 @@ export interface ApexConfigSnapshotApplySelection {
   /** 按项模式下选中的 preview item id */
   selectedVideoItemIds: string[];
   importGameSettings?: boolean;
+  importAiming?: boolean;
+  importController?: boolean;
   importBindings?: boolean;
 }

@@ -279,7 +279,10 @@ onMounted(() => {
   <main class="optimizer page-content">
     <header class="toolbar">
       <div class="toolbar__copy">
-        <h1>{{ t('gameOptimizer.title') }}</h1>
+        <h1>
+          {{ t('gameOptimizer.title') }}
+          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
+        </h1>
         <p>{{ t('gameOptimizer.subtitle') }}</p>
       </div>
       <div class="toolbar__actions">
@@ -525,6 +528,9 @@ onMounted(() => {
 }
 
 .toolbar__copy h1 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin: 0;
   font-size: 1.2rem;
   font-weight: 650;
@@ -764,14 +770,14 @@ onMounted(() => {
 
 .actions {
   position: sticky;
-  bottom: -10px;
+  bottom: -12px;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin: 20px -10px -10px;
-  padding: 10px;
+  margin: 20px -12px -12px;
+  padding: 10px 12px 12px;
   border-top: 1px solid rgba(var(--v-border-color), 0.1);
   background: rgb(var(--v-theme-surface));
 }

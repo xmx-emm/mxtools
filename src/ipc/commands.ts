@@ -9,7 +9,16 @@ import type {EaDesktopUser} from '@/types/ea.ts';
 import type {ContextMenuItem, CustomBackgroundFolder} from '@/types/explorer.ts';
 import type {AppInfo} from '@/types/app.ts';
 import type {PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
-import type {AlterQCaptureResult, AlterQRoi, AlterQThetaResult} from '@/types/alter_q.ts';
+import type {
+  ApexConfigHistoryEntry,
+  ApexConfigMutationRequest,
+  ApexConfigMutationResult,
+  ApexConfigMutationMeta,
+  ApexHistoryRestoreResult,
+  ApexLauncherRef,
+  ApexResetResult,
+} from '@/types/apex_history.ts';
+import type {ApexQCaptureResult, ApexQRoi, ApexQThetaResult} from '@/types/apex_q.ts';
 import type {
   ApexGameSettingsApplyRequest,
   ApexGameSettingsReport,
@@ -474,15 +483,15 @@ export function getApexLaunchOptionEa(args: {eaUserId: string}): Promise<string>
 export function setApexLaunchOption(args: {
   id: number;
   launchOption: string;
-}): Promise<void> {
-  return ipcInvoke<void>('set_apex_launch_option', args);
+} & ApexConfigMutationMeta): Promise<void> {
+  return ipcInvoke<void>('set_apex_launch_option', {...args});
 }
 
 export function setApexLaunchOptionEa(args: {
   eaUserId: string;
   launchOption: string;
-}): Promise<void> {
-  return ipcInvoke<void>('set_apex_launch_option_ea', args);
+} & ApexConfigMutationMeta): Promise<void> {
+  return ipcInvoke<void>('set_apex_launch_option_ea', {...args});
 }
 
 export function getApexVideoConfig(): Promise<Record<string, string>> {
@@ -511,8 +520,8 @@ export function restoreApexGameSettings(
 
 export function setApexVideoConfig(args: {
   updates: Record<string, string>;
-}): Promise<void> {
-  return ipcInvoke<void>('set_apex_video_config', args);
+} & ApexConfigMutationMeta): Promise<void> {
+  return ipcInvoke<void>('set_apex_video_config', {...args});
 }
 
 export function getApexVideoconfigReadonly(): Promise<boolean> {
@@ -525,6 +534,28 @@ export function setApexVideoconfigReadonly(args: {locked: boolean}): Promise<voi
 
 export function getApexVideoconfigFolderPath(): Promise<string> {
   return ipcInvoke<string>('get_apex_videoconfig_folder_path');
+}
+
+export function listApexConfigHistory(): Promise<ApexConfigHistoryEntry[]> {
+  return ipcInvoke<ApexConfigHistoryEntry[]>('list_apex_config_history');
+}
+
+export function mutateApexConfig(args: {
+  request: ApexConfigMutationRequest;
+}): Promise<ApexConfigMutationResult> {
+  return ipcInvoke<ApexConfigMutationResult>('mutate_apex_config', args);
+}
+
+export function restoreApexConfigHistory(args: {
+  request: {entryId: string; launcher: ApexLauncherRef | null};
+}): Promise<ApexHistoryRestoreResult> {
+  return ipcInvoke<ApexHistoryRestoreResult>('restore_apex_config_history', args);
+}
+
+export function resetApexToGameDefaults(args: {
+  launcher: ApexLauncherRef;
+}): Promise<ApexResetResult> {
+  return ipcInvoke<ApexResetResult>('reset_apex_to_game_defaults', args);
 }
 
 export function getPrimaryDisplayInfo(): Promise<PrimaryDisplayInfo> {
@@ -643,69 +674,68 @@ export function openDevtools(): Promise<void> {
   return ipcInvoke<void>('open_devtools');
 }
 
-// ── Alter Q calculator ────────────────────────────────────
-
-export function alterQOcrAvailable(): Promise<boolean> {
-  return ipcInvoke<boolean>('alter_q_ocr_available');
+// ── APEX Q ballistics calculator ──────────────────────────
+export function apexQOcrAvailable(): Promise<boolean> {
+  return ipcInvoke<boolean>('apex_q_ocr_available');
 }
 
-export type AlterQOcrStatus = {
+export type ApexQOcrStatus = {
   rapidReady: boolean;
   winReady: boolean;
   installDir: string;
   activeEngine: string;
 };
 
-export function alterQOcrStatus(): Promise<AlterQOcrStatus> {
-  return ipcInvoke<AlterQOcrStatus>('alter_q_ocr_status');
+export function apexQOcrStatus(): Promise<ApexQOcrStatus> {
+  return ipcInvoke<ApexQOcrStatus>('apex_q_ocr_status');
 }
 
-export function alterQOcrDownload(): Promise<void> {
-  return ipcInvoke<void>('alter_q_ocr_download');
+export function apexQOcrDownload(): Promise<void> {
+  return ipcInvoke<void>('apex_q_ocr_download');
 }
 
-export function alterQOcrDelete(): Promise<void> {
-  return ipcInvoke<void>('alter_q_ocr_delete');
+export function apexQOcrDelete(): Promise<void> {
+  return ipcInvoke<void>('apex_q_ocr_delete');
 }
 
-export type AlterQSteamScreenshotDir = {
+export type ApexQSteamScreenshotDir = {
   userId: string;
   userName: string;
   path: string;
   exists: boolean;
 };
 
-export function alterQNormalizePath(args: {path: string}): Promise<string> {
-  return ipcInvoke<string>('alter_q_normalize_path', args);
+export function apexQNormalizePath(args: {path: string}): Promise<string> {
+  return ipcInvoke<string>('apex_q_normalize_path', args);
 }
 
-export function alterQListSteamScreenshotDirs(): Promise<AlterQSteamScreenshotDir[]> {
-  return ipcInvoke<AlterQSteamScreenshotDir[]>('alter_q_list_steam_screenshot_dirs');
+export function apexQListSteamScreenshotDirs(): Promise<ApexQSteamScreenshotDir[]> {
+  return ipcInvoke<ApexQSteamScreenshotDir[]>('apex_q_list_steam_screenshot_dirs');
 }
 
-export function alterQSuggestedScreenshotDir(): Promise<string | null> {
-  return ipcInvoke<string | null>('alter_q_suggested_screenshot_dir');
+export function apexQSuggestedScreenshotDir(): Promise<string | null> {
+  return ipcInvoke<string | null>('apex_q_suggested_screenshot_dir');
 }
 
-export function alterQLatestScreenshot(args: {folder: string}): Promise<string> {
-  return ipcInvoke<string>('alter_q_latest_screenshot', args);
+export function apexQLatestScreenshot(args: {folder: string}): Promise<string> {
+  return ipcInvoke<string>('apex_q_latest_screenshot', args);
 }
 
-export function alterQListRecentScreenshots(args: {
+export function apexQListRecentScreenshots(args: {
   folder: string;
   limit: number;
 }): Promise<string[]> {
-  return ipcInvoke<string[]>('alter_q_list_recent_screenshots', args);
+  return ipcInvoke<string[]>('apex_q_list_recent_screenshots', args);
 }
 
-export function alterQScreenshotPreview(args: {
+export function apexQScreenshotPreview(args: {
   path: string;
   maxEdge: number;
 }): Promise<string> {
-  return ipcInvoke<string>('alter_q_screenshot_preview', args);
+  return ipcInvoke<string>('apex_q_screenshot_preview', args);
 }
 
-export type AlterQOcrParseResult = {
+export type ApexQOcrParseResult = {
   alpha: number | null;
   angYaw: number | null;
   angRoll: number | null;
@@ -720,31 +750,31 @@ export type AlterQOcrParseResult = {
   pingConfidence: number | null;
 };
 
-export function alterQTestOcr(args: {
+export function apexQTestOcr(args: {
   path: string;
-  showposRoi: AlterQRoi;
-  pingRoi: AlterQRoi;
+  showposRoi: ApexQRoi;
+  pingRoi: ApexQRoi;
   /** 只识别当前校准项；缺省则两个都识别 */
   kind?: 'showpos' | 'ping';
   /** rapid | win | auto；缺省 auto */
   engine?: 'rapid' | 'win' | 'auto';
-}): Promise<AlterQOcrParseResult> {
-  return ipcInvoke<AlterQOcrParseResult>('alter_q_test_ocr', args);
+}): Promise<ApexQOcrParseResult> {
+  return ipcInvoke<ApexQOcrParseResult>('apex_q_test_ocr', args);
 }
 
-export function alterQComputeTheta(args: {r: number; alpha: number}): Promise<AlterQThetaResult> {
-  return ipcInvoke<AlterQThetaResult>('alter_q_compute_theta', args);
+export function apexQComputeTheta(args: {r: number; alpha: number}): Promise<ApexQThetaResult> {
+  return ipcInvoke<ApexQThetaResult>('apex_q_compute_theta', args);
 }
 
-export function alterQDefaultRois(): Promise<[AlterQRoi, AlterQRoi]> {
-  return ipcInvoke<[AlterQRoi, AlterQRoi]>('alter_q_default_rois');
+export function apexQDefaultRois(): Promise<[ApexQRoi, ApexQRoi]> {
+  return ipcInvoke<[ApexQRoi, ApexQRoi]>('apex_q_default_rois');
 }
 
-export function alterQFromLatestScreenshot(args: {
+export function apexQFromLatestScreenshot(args: {
   folder: string;
   delayMs: number;
-  showposRoi: AlterQRoi;
-  pingRoi: AlterQRoi;
+  showposRoi: ApexQRoi;
+  pingRoi: ApexQRoi;
   engine?: 'rapid' | 'win' | 'auto';
   /**
    * Unix epoch milliseconds captured immediately before a hotkey-triggered
@@ -753,16 +783,16 @@ export function alterQFromLatestScreenshot(args: {
   captureStartedAtMs?: number;
   /** Require the selected image to be newer than captureStartedAtMs. */
   requireFresh?: boolean;
-}): Promise<AlterQCaptureResult> {
-  return ipcInvoke<AlterQCaptureResult>('alter_q_from_latest_screenshot', args);
+}): Promise<ApexQCaptureResult> {
+  return ipcInvoke<ApexQCaptureResult>('apex_q_from_latest_screenshot', args);
 }
 
-export function alterQOpenOcrSettings(): Promise<void> {
-  return ipcInvoke<void>('alter_q_open_ocr_settings');
+export function apexQOpenOcrSettings(): Promise<void> {
+  return ipcInvoke<void>('apex_q_open_ocr_settings');
 }
 
-export function alterQSetCloseToTray(args: {enabled: boolean}): Promise<void> {
-  return ipcInvoke<void>('alter_q_set_close_to_tray', args);
+export function apexQSetCloseToTray(args: {enabled: boolean}): Promise<void> {
+  return ipcInvoke<void>('apex_q_set_close_to_tray', args);
 }
 
 /** 主窗口可见时隐藏托盘，隐藏时显示托盘 */
@@ -772,4 +802,8 @@ export function syncTrayWithMainWindow(): Promise<void> {
 
 export function setTrayLocale(locale: string): Promise<void> {
   return ipcInvoke<void>('set_tray_locale', {locale});
+}
+
+export function setTrayBetaFeatures(enabled: boolean): Promise<void> {
+  return ipcInvoke<void>('set_tray_beta_features', {enabled});
 }

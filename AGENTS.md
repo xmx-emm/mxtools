@@ -11,3 +11,26 @@ run repository-wide formatting unless explicitly requested.
 When architecture, dependencies, build behavior, or durable workflow knowledge
 changes, refresh `PROJECT_CONTEXT.md` in the same task. Before a commit, ensure
 the context describes the committed tree and include it when changed.
+
+## UI consistency rules
+
+- Treat the existing Apex video-config segmented control as the canonical
+  appearance for compact segmented buttons across MxTools. Apex and PUBG must
+  not use different geometry or selected-state colors for the same interaction.
+- Use the semantic control tokens from `src/assets/styles/global.css`: compact
+  tool controls are 28 px, dialog actions are 32 px, and standard form fields
+  are 40 px. Do not introduce a new fixed height when one of these roles applies.
+- Every compact `v-btn-toggle` must use `game-page-segmented-toggle` together
+  with `color="primary"`, `variant="text"`, `border`, `divided`, and compact
+  density; its buttons use the small size where declared individually. The
+  shared class, not `density`, `size`, or an inline `max-height` alone, owns the
+  final 28 px group and button height.
+- Keep the shared 4 px radius, divided border, hover, focus, disabled, and blue
+  primary selected state. Do not add pill radii, page-local active backgrounds,
+  or per-option error/pink colors to indicate a normal selected value. Reserve
+  error color for genuinely destructive or invalid actions and keep requirement
+  warnings in tooltips or validation text.
+- When changing a repeated control, search all instances in the affected tool
+  and migrate the whole interaction family in the same change. Compare Apex and
+  PUBG equivalents and run lint plus `git diff --check` before reporting the UI
+  change complete.

@@ -31,25 +31,14 @@ async function toggleRdpUser(username: string, isCurrentlyRdp: boolean) {
 
 <template>
   <v-card variant="flat" class="rdp-card mb-4">
-    <v-card-title class="d-flex align-center text-subtitle-1 font-weight-medium pb-1">
-      <span class="flex-grow-1">{{ t('rdp.rdpUser.title') }}</span>
-      <v-btn
-        size="small"
-        variant="tonal"
-        rounded="lg"
-        prepend-icon="mdi-refresh"
-        :loading="store.loading"
-        @click="store.loadUsers()"
-      >
-        {{ t('common.refresh') }}
-      </v-btn>
+    <v-card-title class="text-subtitle-1 font-weight-medium pb-1">
+      {{ t('rdp.rdpUser.title') }}
     </v-card-title>
     <v-card-subtitle class="text-caption" style="opacity: 0.8;">
       {{ t('rdp.rdpUser.subtitle') }}
     </v-card-subtitle>
     <v-card-text>
-      <v-progress-linear v-if="store.loading" indeterminate color="primary" class="mb-3"/>
-      <div v-else-if="store.users.length > 0" class="d-flex flex-wrap ga-2">
+      <div v-if="store.users.length > 0" class="d-flex flex-wrap ga-2">
         <v-chip
           v-for="user in store.users"
           :key="user.name"

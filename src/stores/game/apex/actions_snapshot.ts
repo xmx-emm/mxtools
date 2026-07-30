@@ -1,10 +1,9 @@
 import {useToast} from 'vue-toastification';
 import {
   apexIsRunning,
-  setApexVideoConfig,
+  mutateApexConfig,
   writeUtf8File,
 } from '@/ipc/commands.ts';
-import ApexGameSettingsData from '@/data/apex_game_settings.ts';
 import type {
   ApexConfigSnapshot,
   ApexConfigSnapshotApplySelection,
@@ -13,10 +12,20 @@ import type {
 import {
   buildApexConfigSnapshot,
   buildVideoConfigPreviewItems,
+  collectApexGameSettingsGroups,
   collectSelectedVideoUpdates,
   stringifyApexConfigSnapshot,
+  type ApexConfigSnapshotSettingsGroup,
 } from '@/utils/game/apex_config_snapshot.ts';
 import type {ApexStoreThis} from './types.ts';
+import {
+  createApexHistoryTransactionId,
+  toApexLauncherRef,
+} from '@/utils/game/apex_history.ts';
+import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
+import {
+  adoptApexGameSettingsReport,
+} from './actions_settings.ts';
 
 export const apexSnapshotActions = {
   open_config_export_dialog(this: ApexStoreThis) {
@@ -60,14 +69,20 @@ export const apexSnapshotActions = {
     selection: ApexConfigSnapshotExportSelection,
   ): Promise<ApexConfigSnapshot> {
     await this.ensure_configs_loaded_for_snapshot();
-    const settings: Record<string, string> = {};
-    const profile: Record<string, string> = {};
-    for (const field of ApexGameSettingsData) {
-      const value = this.game_settings_values[field.file][field.key];
-      if (value !== undefined) {
-        (field.file === 'settings' ? settings : profile)[field.key] = value;
-      }
+    const report = this.game_settings_report;
+    if (!report) {
+      throw new Error('apex.gameSettings.errors.readFailed');
     }
+    const unknownSettings = new Set(report.settings.unknownKeys);
+    const unknownProfile = new Set(report.profile.unknownKeys);
+    const settings = Object.fromEntries(
+      Object.entries(this.game_settings_values.settings)
+        .filter(([key]) => !unknownSettings.has(key)),
+    );
+    const profile = Object.fromEntries(
+      Object.entries(this.game_settings_values.profile)
+        .filter(([key]) => !unknownProfile.has(key)),
+    );
     return buildApexConfigSnapshot({
       selection,
       launchOptionsRaw: this.launch_options,
@@ -111,8 +126,10 @@ export const apexSnapshotActions = {
     selection: ApexConfigSnapshotApplySelection,
   ): Promise<boolean> {
     const toast = useToast();
+    const transactionId = createApexHistoryTransactionId();
     if (!selection.importLaunchOptions && !selection.importVideoConfig
-      && !selection.importGameSettings && !selection.importBindings) {
+      && !selection.importGameSettings && !selection.importAiming
+      && !selection.importController && !selection.importBindings) {
       toast.warning('apex.configSnapshot.errors.nothingSelected');
       return false;
     }
@@ -134,7 +151,8 @@ export const apexSnapshotActions = {
     }
 
     if ((selection.importVideoConfig && snapshot.videoConfig)
-      || ((selection.importGameSettings || selection.importBindings) && snapshot.gameSettings)) {
+      || ((selection.importGameSettings || selection.importAiming
+        || selection.importController || selection.importBindings) && snapshot.gameSettings)) {
       const running = await apexIsRunning().catch(() => false);
       if (running) {
         toast.error('apex.apexRunningVideoConfig');
@@ -144,63 +162,55 @@ export const apexSnapshotActions = {
 
     this.is_config_snapshot_applying = true;
     try {
-      if (selection.importLaunchOptions && snapshot.launchOptions) {
-        this.parse_loaded_launch_string(snapshot.launchOptions.raw);
-        await this.persist_launch_options();
-      }
-
+      let videoUpdates: Record<string, string> = {};
       if (selection.importVideoConfig && snapshot.videoConfig) {
-        let updates: Record<string, string>;
         if (selection.videoSelectMode === 'all') {
-          updates = {...snapshot.videoConfig};
+          videoUpdates = {...snapshot.videoConfig};
         } else {
           const items = buildVideoConfigPreviewItems(snapshot.videoConfig);
-          updates = collectSelectedVideoUpdates(
+          videoUpdates = collectSelectedVideoUpdates(
             snapshot.videoConfig,
             items,
             selection.selectedVideoItemIds,
           );
-          if (Object.keys(updates).length === 0) {
+          if (Object.keys(videoUpdates).length === 0) {
             toast.warning('apex.configSnapshot.errors.noVideoItemsSelected');
             return false;
           }
         }
-
-        await setApexVideoConfig({updates});
-        this.video_config_values = {
-          ...this.video_config_values,
-          ...updates,
-        };
-        this.original_video_config = {...this.video_config_values};
-        this.video_config_loaded = true;
-
-        if (this.has_out_of_preset_selection) {
-          try {
-            await this.set_videoconfig_readonly(true);
-            toast.info('apex.outOfPresetAutoLocked');
-          } catch (e) {
-            console.warn('force readonly after snapshot import failed', e);
-          }
-        } else {
-          await this.load_videoconfig_readonly();
-        }
       }
 
-      if ((selection.importGameSettings || selection.importBindings) && snapshot.gameSettings) {
+      let gameSettings = null;
+      if ((selection.importGameSettings || selection.importAiming
+        || selection.importController || selection.importBindings) && snapshot.gameSettings) {
         if (!this.game_settings_report) {
           await this.load_apex_game_settings();
         }
         if (!this.game_settings_report) {
           throw new Error('apex.gameSettings.errors.readFailed');
         }
-        if (selection.importGameSettings) {
-          for (const [key, value] of Object.entries(snapshot.gameSettings.settings)) {
-            this.set_game_setting_value('settings', key, value);
+        const report = this.game_settings_report;
+        const nextSettings = {...this.game_settings_values.settings};
+        const nextProfile = {...this.game_settings_values.profile};
+        const selectedGroups: ApexConfigSnapshotSettingsGroup[] = [];
+        if (selection.importGameSettings) selectedGroups.push('gameSettings');
+        if (selection.importAiming) selectedGroups.push('aiming');
+        if (selection.importController) selectedGroups.push('controller');
+        const selectedSettings = collectApexGameSettingsGroups(
+          snapshot.gameSettings,
+          selectedGroups,
+        );
+        if (selectedGroups.length > 0) {
+          for (const [key, value] of Object.entries(selectedSettings.settings)) {
+            nextSettings[key] = value;
           }
-          for (const [key, value] of Object.entries(snapshot.gameSettings.profile)) {
-            this.set_game_setting_value('profile', key, value);
+          for (const [key, value] of Object.entries(selectedSettings.profile)) {
+            nextProfile[key] = value;
           }
         }
+        const nextBindingInputs = Object.fromEntries(
+          this.game_settings_bindings.map(binding => [binding.id, binding.input]),
+        );
         if (selection.importBindings) {
           for (const saved of snapshot.gameSettings.bindings ?? []) {
             const current = this.game_settings_bindings.find(binding => (
@@ -213,12 +223,67 @@ export const apexSnapshotActions = {
             if (!current) {
               throw new Error(`apex.gameSettings.errors.bindingMissing: ${saved.command}`);
             }
-            this.set_game_binding_input(current.id, saved.input);
+            nextBindingInputs[current.id] = saved.input;
           }
         }
-        if (!await this.apply_apex_game_settings({silent: true})) {
-          return false;
+        gameSettings = {
+          settingsRevision: report.settings.revision,
+          profileRevision: report.profile.revision,
+          settingsUpdates: Object.fromEntries(
+            Object.entries(nextSettings).filter(([key, value]) => (
+              this.original_game_settings_values.settings[key] !== value
+            )),
+          ),
+          profileUpdates: Object.fromEntries(
+            Object.entries(nextProfile).filter(([key, value]) => (
+              this.original_game_settings_values.profile[key] !== value
+            )),
+          ),
+          bindingUpdates: this.game_settings_bindings
+            .filter(binding => (
+              this.original_game_settings_bindings[binding.id] !== nextBindingInputs[binding.id]
+            ))
+            .map(binding => ({id: binding.id, input: nextBindingInputs[binding.id]})),
+        };
+      }
+
+      const account = this.active_apex_account;
+      const launchOptions = selection.importLaunchOptions && snapshot.launchOptions
+        ? snapshot.launchOptions.raw
+        : null;
+      const result = await mutateApexConfig({request: {
+        source: 'import',
+        transactionId,
+        launcher: launchOptions && account ? toApexLauncherRef(account) : null,
+        launchOptions,
+        videoUpdates,
+        gameSettings,
+      }});
+
+      if (launchOptions !== null) {
+        this.parse_loaded_launch_string(launchOptions);
+        this.original_launch_options = launchOptions;
+        this.launch_loaded_for_key = this.launcher_selection_key;
+        this.launch_load_status = 'ready';
+      }
+      if (selection.importVideoConfig && snapshot.videoConfig) {
+        const values = result.videoConfig
+          ? normalizeVideoConfigMap(result.videoConfig)
+          : {...this.video_config_values, ...videoUpdates};
+        this.video_config_values = {...values};
+        this.original_video_config = {...values};
+        this.video_config_loaded = true;
+        this.video_config_loaded_key = 'machine';
+        this.video_config_load_status = 'ready';
+        if (this.has_out_of_preset_selection) {
+          await this.set_videoconfig_readonly(true);
+          toast.info('apex.outOfPresetAutoLocked');
+        } else {
+          await this.load_videoconfig_readonly();
         }
+      }
+      if (result.gameSettingsReport) {
+        adoptApexGameSettingsReport(this, result.gameSettingsReport);
       }
 
       toast.success('toast.importApexConfigSnapshotSuccess');

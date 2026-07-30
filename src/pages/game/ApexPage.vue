@@ -22,14 +22,18 @@ import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSetti
 import ApexQuickPresetDialog from '@/components/game/apex/preset/ApexQuickPresetDialog.vue';
 import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
 import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
-import {openAlterQWindow} from '@/utils/windows.ts';
+import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
+import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
+import {openApexQWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
 import {ApexPageTypeEnum} from '@/enum.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {open} from '@tauri-apps/plugin-dialog';
-import {explorerFolder, readUtf8File} from '@/ipc/commands.ts';
+import {apexIsRunning, explorerFolder, readUtf8File} from '@/ipc/commands.ts';
+import {getCurrentWindow} from '@tauri-apps/api/window';
 import {
   ApexConfigSnapshotParseError,
   parseApexConfigSnapshot,
@@ -38,18 +42,25 @@ import {
 const { t } = useI18n();
 const toast = useToast();
 const steam_store = useSteamStore();
-const { check_is_steam_running, refresh_users } = steam_store;
+const { check_is_steam_running } = steam_store;
 const ea_store = useEaStore();
 const apex_store = useApexStore();
+const settings_store = useSettingsStore();
 
-const is_content_loading = computed(() =>
-  apex_store.is_accounts_loading
-  || (apex_store.is_launch_page
-    ? apex_store.is_start_loading
-    : apex_store.is_video_config_page
-      ? apex_store.is_video_config_loading
-      : apex_store.is_game_settings_loading),
-);
+const is_initial_content_loading = computed(() => {
+  if (apex_store.is_launch_page) {
+    return apex_store.is_start_loading
+      && apex_store.launch_loaded_for_key !== apex_store.launcher_selection_key;
+  }
+  if (apex_store.is_video_config_page) {
+    return apex_store.is_video_config_loading && !apex_store.video_config_loaded;
+  }
+  return apex_store.is_game_settings_loading && !apex_store.game_settings_loaded;
+});
+const is_waiting_for_game_defaults = computed(() => (
+  (apex_store.is_video_config_page && apex_store.reset_pending_scopes.includes('video'))
+  || (apex_store.is_game_settings_page && apex_store.reset_pending_scopes.includes('gameSettings'))
+));
 
 const visited_launch_tab = ref(true);
 const visited_video_tab = ref(false);
@@ -58,6 +69,8 @@ const launch_refresh_loading = ref(false);
 const video_refresh_loading = ref(false);
 const game_settings_refresh_loading = ref(false);
 let page_bootstrapped = false;
+let unlisten_window_focus: (() => void) | null = null;
+const pending_defaults_refreshing = ref(false);
 
 async function refresh_running_for_active_account() {
   const acc = apex_store.active_apex_account;
@@ -69,36 +82,70 @@ async function refresh_running_for_active_account() {
   }
 }
 
+async function refresh_pending_defaults() {
+  if (!apex_store.reset_pending_scopes.length || pending_defaults_refreshing.value) return;
+  pending_defaults_refreshing.value = true;
+  try {
+    if (await apexIsRunning().catch(() => true)) return;
+    const requests: Promise<void>[] = [];
+    if (apex_store.reset_pending_scopes.includes('video')) {
+      requests.push(apex_store.load_apex_video_config({silent: true, force: true}));
+    }
+    if (apex_store.reset_pending_scopes.includes('gameSettings')) {
+      requests.push(apex_store.load_apex_game_settings({silent: true, force: true}));
+    }
+    await Promise.all(requests);
+  } finally {
+    pending_defaults_refreshing.value = false;
+  }
+}
+
+function on_app_focus() {
+  if (apex_store.active_apex_account) {
+    void refresh_running_for_active_account();
+  }
+  void refresh_pending_defaults();
+}
+
 function on_visibility_change() {
   if (document.visibilityState === 'visible' && apex_store.active_apex_account) {
-    void refresh_running_for_active_account();
+    on_app_focus();
   }
 }
 
 onMounted(async () => {
-  // 上次进入若中断，loading 标志可能残留，导致遮罩一直转
-  apex_store.is_accounts_loading = false;
-  apex_store.is_start_loading = false;
-  apex_store.is_video_config_loading = false;
-
   await startTauriStoreOnce('apex', () => apex_store.$tauri.start());
-  await refresh_users();
-  await apex_store.refresh_apex_accounts();
+  page_bootstrapped = true;
+  if (apex_store.is_video_config_page) visited_video_tab.value = true;
+  if (apex_store.is_game_settings_page) visited_game_settings_tab.value = true;
+
+  if (apex_store.accounts_loaded) {
+    if (apex_store.is_video_config_page) apex_store.start_video_config();
+    else if (apex_store.is_game_settings_page) apex_store.start_game_settings();
+    else apex_store.start_launch();
+  }
+
+  await apex_store.refresh_apex_accounts({silent: apex_store.accounts_loaded});
   if (apex_store.is_video_config_page) {
     visited_video_tab.value = true;
-    await apex_store.load_apex_video_config();
+    apex_store.start_video_config();
   } else if (apex_store.is_game_settings_page) {
     visited_game_settings_tab.value = true;
-    await apex_store.load_apex_game_settings();
+    apex_store.start_game_settings();
   } else {
-    await apex_store.load_launch_data();
+    apex_store.start_launch();
   }
   await refresh_running_for_active_account();
-  window.addEventListener('visibilitychange', on_visibility_change);
-  page_bootstrapped = true;
+  document.addEventListener('visibilitychange', on_visibility_change);
+  unlisten_window_focus = await getCurrentWindow().onFocusChanged(({payload}) => {
+    if (payload) on_app_focus();
+  });
+  void refresh_pending_defaults();
   if (import.meta.env.DEV) {
     registerHmrCleanup(() => {
-      window.removeEventListener('visibilitychange', on_visibility_change);
+      document.removeEventListener('visibilitychange', on_visibility_change);
+      unlisten_window_focus?.();
+      unlisten_window_focus = null;
     });
   }
 });
@@ -110,10 +157,6 @@ watch(
     await refresh_running_for_active_account();
     if (apex_store.is_launch_page) {
       apex_store.start_launch();
-    } else if (apex_store.is_video_config_page) {
-      apex_store.start_video_config(true);
-    } else {
-      apex_store.start_game_settings(true);
     }
   },
 );
@@ -136,7 +179,9 @@ watch(
 );
 
 onUnmounted(() => {
-  window.removeEventListener('visibilitychange', on_visibility_change);
+  document.removeEventListener('visibilitychange', on_visibility_change);
+  unlisten_window_focus?.();
+  unlisten_window_focus = null;
 });
 
 async function reload_apex_launch_options() {
@@ -153,7 +198,7 @@ async function reload_apex_video_config() {
   if (video_refresh_loading.value) return;
   video_refresh_loading.value = true;
   try {
-    await apex_store.load_apex_video_config();
+    await apex_store.load_apex_video_config({force: true});
   } finally {
     video_refresh_loading.value = false;
   }
@@ -163,7 +208,7 @@ async function reload_apex_game_settings() {
   if (game_settings_refresh_loading.value) return;
   game_settings_refresh_loading.value = true;
   try {
-    await apex_store.load_apex_game_settings();
+    await apex_store.load_apex_game_settings({force: true});
   } finally {
     game_settings_refresh_loading.value = false;
   }
@@ -214,8 +259,8 @@ function open_quick_preset() {
   apex_store.open_quick_preset_dialog();
 }
 
-function open_alter_q() {
-  void openAlterQWindow().catch((error) => toast.error(String(error)));
+function open_apex_q() {
+  void openApexQWindow().catch((error) => toast.error(String(error)));
 }
 
 function open_config_export() {
@@ -254,15 +299,6 @@ async function open_config_import() {
 </script>
 <template>
   <v-col cols="12" class="page-content game-page-layout d-flex flex-column h-100 w-100 position-relative">
-    <v-overlay
-      :model-value="is_content_loading"
-      contained
-      persistent
-      class="align-center justify-center"
-      scrim="rgba(0,0,0,0.25)"
-    >
-      <v-progress-circular indeterminate color="primary" />
-    </v-overlay>
     <div class="apex-page-toolbar game-page-toolbar">
       <ApexLauncherUser
         class="apex-page-toolbar-user"
@@ -281,19 +317,21 @@ async function open_config_import() {
             <v-icon icon="mdi-lightning-bolt-outline" size="small" />
           </v-btn>
         </div>
-        <div class="apex-toolbar-control-slot">
+        <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
           <v-btn
+            icon="mdi-angle-acute"
             size="small"
             variant="text"
             density="compact"
-            class="apex-preset-btn apex-alter-q-btn"
-            :title="t('apex.alterQ.toolbarTip')"
-            :aria-label="t('apex.alterQ.toolbarTip')"
-            @click="open_alter_q"
-          >
-            <v-icon icon="mdi-angle-acute" size="small" />
-            <span class="apex-alter-q-btn-label">{{ t('apex.alterQ.toolbarLabel') }}</span>
-          </v-btn>
+            class="apex-preset-btn"
+            :title="t('apex.apexQ.toolbarTip')"
+            :aria-label="t('apex.apexQ.toolbarTip')"
+            @click="open_apex_q"
+          />
+          <span
+            class="mx-beta-badge apex-q-beta-badge"
+            :title="t('settings.betaFeaturesHint')"
+          >{{ t('common.beta') }}</span>
         </div>
         <div class="apex-toolbar-control-slot">
           <v-btn
@@ -327,8 +365,10 @@ async function open_config_import() {
             mandatory
             divided
             density="compact"
+            color="primary"
             variant="text"
-            :disabled="is_content_loading"
+            border
+            :disabled="apex_store.is_config_snapshot_applying"
           >
             <v-btn
               size="small"
@@ -362,8 +402,15 @@ async function open_config_import() {
     <div class="game-page-gap"/>
 
     <div class="game-page-main" style="flex:1;min-height:0;display:flex">
+      <div v-if="is_initial_content_loading" class="apex-initial-loading">
+        <v-skeleton-loader type="list-item-two-line@7" />
+      </div>
+      <div v-else-if="is_waiting_for_game_defaults" class="apex-defaults-pending text-medium-emphasis">
+        <v-icon icon="mdi-progress-wrench" size="32"/>
+        <span>{{ t('apex.history.pendingDefaults') }}</span>
+      </div>
       <ApexSelectLaunchOptions
-        v-if="apex_store.is_launch_page"
+        v-else-if="apex_store.is_launch_page"
         style="flex:1;min-height:0;"/>
       <ApexVideoConfig
         v-else-if="apex_store.is_video_config_page && visited_video_tab"
@@ -385,6 +432,16 @@ async function open_config_import() {
             @click="reload_apex_launch_options"
             @contextmenu="open_launch_config_folder"
           />
+          <v-btn
+            icon="mdi-history"
+            :title="t('apex.history.open')"
+            @click="apex_store.open_config_history_dialog()"
+          />
+          <v-btn
+            icon="mdi-restore-alert"
+            :title="t('apex.history.resetTitle')"
+            @click="apex_store.open_reset_defaults_dialog()"
+          />
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -400,6 +457,8 @@ async function open_config_import() {
             @click="reload_apex_video_config"
             @contextmenu="open_video_config_folder"
           />
+          <v-btn icon="mdi-history" :title="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
+          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -415,6 +474,8 @@ async function open_config_import() {
             @click="reload_apex_game_settings"
             @contextmenu="open_game_settings_folder"
           />
+          <v-btn icon="mdi-history" :title="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
+          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -430,6 +491,7 @@ async function open_config_import() {
     >
       <component
         :is="apex_store.tip_view"
+        v-bind="apex_store.tip_props"
         class="not_select"
         @contextmenu.prevent="apex_store.closeTip()"
       />
@@ -440,9 +502,28 @@ async function open_config_import() {
     <ApexQuickPresetDialog v-if="apex_store.quick_preset_dialog"/>
     <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
     <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
+    <ApexConfigHistoryDialog/>
+    <ApexResetDefaultsDialog/>
   </v-col>
 </template>
 <style scoped>
+.apex-initial-loading {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.apex-defaults-pending {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
 .apex-page-toolbar {
   display: flex;
   flex-direction: row;
@@ -467,9 +548,21 @@ async function open_config_import() {
 }
 
 .apex-toolbar-control-slot {
+  position: relative;
   display: flex;
   align-items: center;
   height: var(--game-page-control-height);
+}
+
+.apex-q-beta-badge {
+  position: absolute;
+  z-index: 2;
+  top: -7px;
+  right: -9px;
+  min-height: 12px;
+  padding-inline: 3px;
+  font-size: 6px;
+  pointer-events: none;
 }
 
 .apex-toolbar-control-slot :deep(.v-btn-toggle),
@@ -499,61 +592,13 @@ async function open_config_import() {
   font-size: 16px;
 }
 
-.apex-preset-btn.apex-alter-q-btn {
-  width: auto !important;
-  max-width: none !important;
-  padding-inline: 9px !important;
-}
-
-.apex-alter-q-btn :deep(.v-btn__content) {
-  gap: 5px;
-  white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-  .apex-preset-btn.apex-alter-q-btn {
-    width: var(--game-page-control-height) !important;
-    min-width: var(--game-page-control-height) !important;
-    padding-inline: 0 !important;
-  }
-
-  .apex-alter-q-btn-label {
-    display: none;
-  }
-}
-
 .apex-page-type-toggle {
   flex-shrink: 0;
-}
-
-.apex-page-type-toggle :deep(.v-btn) {
-  min-height: var(--game-page-control-height) !important;
-  height: var(--game-page-control-height) !important;
-  color: rgba(var(--v-theme-on-surface), 0.55) !important;
-  background: transparent !important;
-}
-
-.apex-page-type-toggle :deep(.v-btn--active) {
-  color: rgb(var(--v-theme-on-primary-container)) !important;
-  background: rgb(var(--v-theme-primary-container)) !important;
-}
-
-.apex-page-type-toggle :deep(.v-btn--active > .v-btn__overlay) {
-  opacity: 0 !important;
-}
-
-.apex-page-type-toggle :deep(.v-btn:hover:not(.v-btn--active)) {
-  color: rgba(var(--v-theme-on-surface), 0.92) !important;
-  background: rgba(var(--v-theme-on-surface), 0.06) !important;
 }
 
 .apex-page-type-toggle :deep(.v-btn:focus-visible) {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: 1px;
-}
-
-.apex-page-type-toggle :deep(.v-btn--active .v-icon) {
-  color: rgb(var(--v-theme-on-primary-container)) !important;
 }
 
 .apex-page-type-toggle :deep(.v-btn__prepend) {

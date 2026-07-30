@@ -1,7 +1,8 @@
 //! 系统托盘与「关闭到托盘」行为。
 //! 主窗口可见时不显示托盘；仅在主窗口隐藏时显示。
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
@@ -10,52 +11,60 @@ use tauri::{
 
 const TRAY_ID: &str = "main";
 const TRAY_TOOLTIP_WINDOW_LABEL: &str = "tray-tooltip";
+const TRAY_TOOLTIP_SHOW_DELAY: Duration = Duration::from_millis(450);
+const TRAY_TOOLTIP_AUTO_HIDE: Duration = Duration::from_millis(2200);
 
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(false);
+static BETA_FEATURES_ENABLED: AtomicBool = AtomicBool::new(false);
+static TRAY_ENGLISH: AtomicBool = AtomicBool::new(false);
 // `tray-icon` 在 Windows 上对已经隐藏的图标再次 set_visible(false) 会再次执行
 // NIM_DELETE，并向 stderr 输出 "Error removing system tray icon"。记录状态，只在变化时调用。
 static TRAY_VISIBLE: AtomicBool = AtomicBool::new(true);
+static TRAY_TOOLTIP_GENERATION: AtomicU64 = AtomicU64::new(0);
 
-fn build_tray_menu<R: Runtime>(app: &AppHandle<R>, english: bool) -> tauri::Result<Menu<R>> {
-    let (show, alter_q, alter_q_adjust, quit) = if english {
+fn build_tray_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    english: bool,
+    beta_features_enabled: bool,
+) -> tauri::Result<Menu<R>> {
+    let (show, apex_q, apex_q_adjust, quit) = if english {
         (
             "Show main window",
-            "Open Alter Q",
-            "Adjust Alter Q overlay",
+            "Open APEX Q",
+            "Adjust APEX Q overlay",
             "Quit",
         )
     } else {
-        ("显示主窗口", "打开琉雀 Q", "调整琉雀 Q 悬浮窗", "退出")
+        ("显示主窗口", "打开 APEX Q", "调整 APEX Q 悬浮窗", "退出")
     };
-    let (alter_q_ocr, alter_q_settings) = if english {
-        ("Open Alter Q OCR", "Open Alter Q settings")
+    let (apex_q_ocr, apex_q_settings) = if english {
+        ("Open APEX Q OCR", "Open APEX Q settings")
     } else {
-        ("打开琉雀 Q 识别", "打开琉雀 Q 设置")
+        ("打开 APEX Q 识别", "打开 APEX Q 设置")
     };
     let show_i = MenuItem::with_id(app, "show", show, true, None::<&str>)?;
-    let alter_q_i = MenuItem::with_id(app, "alter-q", alter_q, true, None::<&str>)?;
-    let alter_q_ocr_i = MenuItem::with_id(app, "alter-q-ocr", alter_q_ocr, true, None::<&str>)?;
-    let alter_q_settings_i = MenuItem::with_id(
-        app,
-        "alter-q-settings",
-        alter_q_settings,
-        true,
-        None::<&str>,
-    )?;
-    let alter_q_adjust_i =
-        MenuItem::with_id(app, "alter-q-adjust", alter_q_adjust, true, None::<&str>)?;
+    let apex_q_i = MenuItem::with_id(app, "apex-q", apex_q, true, None::<&str>)?;
+    let apex_q_ocr_i = MenuItem::with_id(app, "apex-q-ocr", apex_q_ocr, true, None::<&str>)?;
+    let apex_q_settings_i =
+        MenuItem::with_id(app, "apex-q-settings", apex_q_settings, true, None::<&str>)?;
+    let apex_q_adjust_i =
+        MenuItem::with_id(app, "apex-q-adjust", apex_q_adjust, true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", quit, true, None::<&str>)?;
-    Menu::with_items(
-        app,
-        &[
-            &show_i,
-            &alter_q_i,
-            &alter_q_ocr_i,
-            &alter_q_settings_i,
-            &alter_q_adjust_i,
-            &quit_i,
-        ],
-    )
+    if beta_features_enabled {
+        Menu::with_items(
+            app,
+            &[
+                &show_i,
+                &apex_q_i,
+                &apex_q_ocr_i,
+                &apex_q_settings_i,
+                &apex_q_adjust_i,
+                &quit_i,
+            ],
+        )
+    } else {
+        Menu::with_items(app, &[&show_i, &quit_i])
+    }
 }
 
 pub fn set_close_to_tray(enabled: bool) {
@@ -144,12 +153,21 @@ fn setup_tray_tooltip_window<R: Runtime>(
 }
 
 fn hide_tray_tooltip<R: Runtime>(app: &AppHandle<R>) {
+    TRAY_TOOLTIP_GENERATION.fetch_add(1, Ordering::SeqCst);
+    hide_tray_tooltip_window(app);
+}
+
+fn hide_tray_tooltip_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(tooltip) = app.get_webview_window(TRAY_TOOLTIP_WINDOW_LABEL) {
         let _ = tooltip.hide();
     }
 }
 
-fn show_tray_tooltip<R: Runtime>(app: &AppHandle<R>, cursor: PhysicalPosition<f64>, rect: Rect) {
+fn show_tray_tooltip_now<R: Runtime>(
+    app: &AppHandle<R>,
+    cursor: PhysicalPosition<f64>,
+    rect: Rect,
+) {
     let Some(tooltip) = app.get_webview_window(TRAY_TOOLTIP_WINDOW_LABEL) else {
         return;
     };
@@ -226,9 +244,38 @@ fn show_tray_tooltip<R: Runtime>(app: &AppHandle<R>, cursor: PhysicalPosition<f6
     let _ = tooltip.show();
 }
 
+fn schedule_tray_tooltip<R: Runtime>(
+    app: &AppHandle<R>,
+    cursor: PhysicalPosition<f64>,
+    rect: Rect,
+) {
+    let generation = TRAY_TOOLTIP_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(TRAY_TOOLTIP_SHOW_DELAY).await;
+        if TRAY_TOOLTIP_GENERATION.load(Ordering::SeqCst) != generation {
+            return;
+        }
+        show_tray_tooltip_now(&app, cursor, rect);
+
+        tokio::time::sleep(TRAY_TOOLTIP_AUTO_HIDE).await;
+        if TRAY_TOOLTIP_GENERATION
+            .compare_exchange(
+                generation,
+                generation + 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .is_ok()
+        {
+            hide_tray_tooltip_window(&app);
+        }
+    });
+}
+
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     setup_tray_tooltip_window(app)?;
-    let menu = build_tray_menu(app, false)?;
+    let menu = build_tray_menu(app, false, false)?;
 
     // 默认隐藏：避免正常启动时主窗口尚未 show 前托盘闪一下
     let tray = TrayIconBuilder::with_id(TRAY_ID)
@@ -243,19 +290,19 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::err
             "show" => {
                 show_main_window(app);
             }
-            "alter-q" => {
+            "apex-q" => {
                 // The frontend owns the auxiliary-window lifecycle. Keep tray and
                 // toolbar entry points on the same creation path.
-                let _ = app.emit("alter-q-open-request", "workspace");
+                let _ = app.emit("apex-q-open-request", "workspace");
             }
-            "alter-q-ocr" => {
-                let _ = app.emit("alter-q-open-request", "ocr");
+            "apex-q-ocr" => {
+                let _ = app.emit("apex-q-open-request", "ocr");
             }
-            "alter-q-settings" => {
-                let _ = app.emit("alter-q-open-request", "settings");
+            "apex-q-settings" => {
+                let _ = app.emit("apex-q-open-request", "settings");
             }
-            "alter-q-adjust" => {
-                let _ = app.emit("alter-q-overlay-adjust-request", ());
+            "apex-q-adjust" => {
+                let _ = app.emit("apex-q-overlay-adjust-request", ());
             }
             "quit" => {
                 remove_tray_for_exit(app);
@@ -265,7 +312,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::err
         })
         .on_tray_icon_event(|tray, event| match event {
             TrayIconEvent::Enter { position, rect, .. } => {
-                show_tray_tooltip(tray.app_handle(), position, rect);
+                schedule_tray_tooltip(tray.app_handle(), position, rect);
             }
             TrayIconEvent::Leave { .. } => hide_tray_tooltip(tray.app_handle()),
             TrayIconEvent::Click {
@@ -289,7 +336,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::err
 }
 
 #[tauri::command]
-pub fn alter_q_set_close_to_tray(enabled: bool) {
+pub fn apex_q_set_close_to_tray(enabled: bool) {
     set_close_to_tray(enabled);
 }
 
@@ -305,8 +352,17 @@ pub fn set_tray_locale<R: Runtime>(
 ) -> crate::ipc_error::IpcResult<()> {
     let normalized = locale.trim().to_ascii_lowercase();
     let english = !normalized.starts_with("zh");
-    let menu = build_tray_menu(&app, english)
-        .map_err(|error| crate::ipc_error::IpcError::operation_failed("tray", error.to_string()))?;
+    TRAY_ENGLISH.store(english, Ordering::SeqCst);
+    refresh_tray_menu(&app)
+}
+
+fn refresh_tray_menu<R: Runtime>(app: &AppHandle<R>) -> crate::ipc_error::IpcResult<()> {
+    let menu = build_tray_menu(
+        app,
+        TRAY_ENGLISH.load(Ordering::SeqCst),
+        BETA_FEATURES_ENABLED.load(Ordering::SeqCst),
+    )
+    .map_err(|error| crate::ipc_error::IpcError::operation_failed("tray", error.to_string()))?;
     let tray = app.tray_by_id(TRAY_ID).ok_or_else(|| {
         crate::ipc_error::IpcError::new("tray.not_initialized", "tray icon is not initialized")
     })?;
@@ -314,10 +370,19 @@ pub fn set_tray_locale<R: Runtime>(
         .map_err(|error| crate::ipc_error::IpcError::operation_failed("tray", error.to_string()))
 }
 
+#[tauri::command]
+pub fn set_tray_beta_features<R: Runtime>(
+    app: AppHandle<R>,
+    enabled: bool,
+) -> crate::ipc_error::IpcResult<()> {
+    BETA_FEATURES_ENABLED.store(enabled, Ordering::SeqCst);
+    refresh_tray_menu(&app)
+}
+
 pub fn handle_close_requested<R: Runtime>(window: &tauri::Window<R>, api: &tauri::CloseRequestApi) {
     let label = window.label();
     // 琉雀 Q / 关于等子窗口：关闭只隐藏，避免引导中途按 X 把窗口销毁没了
-    if label == "alter-q-window" || label == "about-window" {
+    if label == "apex-q-window" || label == "about-window" {
         api.prevent_close();
         let _ = window.hide();
         return;

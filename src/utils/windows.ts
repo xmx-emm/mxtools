@@ -3,17 +3,17 @@ import type {WindowOptions} from '@tauri-apps/api/window';
 import {emit} from '@tauri-apps/api/event';
 import i18n from '@/i18n/i18n.ts';
 import {
-  ALTER_Q_WINDOW_NAVIGATE_EVENT,
-  ALTER_Q_WINDOW_TARGET_STORAGE_KEY,
-  type AlterQWindowTarget,
-} from '@/types/alter_q.ts';
+  APEX_Q_WINDOW_NAVIGATE_EVENT,
+  APEX_Q_WINDOW_TARGET_STORAGE_KEY,
+  type ApexQWindowTarget,
+} from '@/types/apex_q.ts';
 
-const ALTER_Q_WIN_REV_KEY = 'mx-alter-q-win-rev';
+const APEX_Q_WIN_REV_KEY = 'mx-apex-q-win-rev';
 /** 无边框标题栏版本：旧带系统装饰的窗口需销毁重建 */
-const ALTER_Q_WIN_REV = 'undecorated-v2';
+const APEX_Q_WIN_REV = 'undecorated-v2';
 const pendingWindowCreates = new Map<string, Promise<void>>();
-let alterQRevisionPromise: Promise<void> | null = null;
-let alterQRevisionEnsured = false;
+let apexQRevisionPromise: Promise<void> | null = null;
+let apexQRevisionEnsured = false;
 
 function waitForWindowCreated(webview: WebviewWindow, route: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -112,23 +112,23 @@ function openAboutWindow() {
   });
 }
 
-async function openAlterQWindow(target: AlterQWindowTarget = 'workspace') {
-  const windowName = 'alter-q-window';
+async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
+  const windowName = 'apex-q-window';
   try {
-    localStorage.setItem(ALTER_Q_WINDOW_TARGET_STORAGE_KEY, target);
+    localStorage.setItem(APEX_Q_WINDOW_TARGET_STORAGE_KEY, target);
   } catch {
     /* The live event below still navigates an existing workbench. */
   }
-  if (!alterQRevisionEnsured) {
-    if (!alterQRevisionPromise) {
-      alterQRevisionPromise = (async () => {
+  if (!apexQRevisionEnsured) {
+    if (!apexQRevisionPromise) {
+      apexQRevisionPromise = (async () => {
         let storedRevision: string | null = null;
         try {
-          storedRevision = localStorage.getItem(ALTER_Q_WIN_REV_KEY);
+          storedRevision = localStorage.getItem(APEX_Q_WIN_REV_KEY);
         } catch {
           /* Storage may be unavailable in a browser preview. */
         }
-        if (storedRevision !== ALTER_Q_WIN_REV) {
+        if (storedRevision !== APEX_Q_WIN_REV) {
           let revisionApplied = true;
           const existing = await WebviewWindow.getByLabel(windowName);
           if (existing) {
@@ -136,41 +136,41 @@ async function openAlterQWindow(target: AlterQWindowTarget = 'workspace') {
               // destroy() removes an old decorated window; close() may only hide it.
               await existing.destroy();
             } catch (e) {
-              console.warn('destroy alter-q window failed', e);
+              console.warn('destroy apex-q window failed', e);
               revisionApplied = false;
             }
           }
           if (revisionApplied) {
             try {
-              localStorage.setItem(ALTER_Q_WIN_REV_KEY, ALTER_Q_WIN_REV);
+              localStorage.setItem(APEX_Q_WIN_REV_KEY, APEX_Q_WIN_REV);
             } catch {
               /* The revision check is an optimization; the window can still open. */
             }
           }
-          alterQRevisionEnsured = revisionApplied;
+          apexQRevisionEnsured = revisionApplied;
           return;
         }
-        alterQRevisionEnsured = true;
+        apexQRevisionEnsured = true;
       })();
     }
     try {
-      await alterQRevisionPromise;
+      await apexQRevisionPromise;
     } finally {
-      alterQRevisionPromise = null;
+      apexQRevisionPromise = null;
     }
   }
-  await openWebWindow('alter-q', {
+  await openWebWindow('apex-q', {
     width: 900,
     height: 680,
     minWidth: 720,
     minHeight: 520,
-    title: String(i18n.global.t('apex.alterQ.windowTitle')),
+    title: String(i18n.global.t('apex.apexQ.windowTitle')),
     decorations: false,
     center: true,
     preventOverflow: true,
   });
   try {
-    await emit(ALTER_Q_WINDOW_NAVIGATE_EVENT, {target});
+    await emit(APEX_Q_WINDOW_NAVIGATE_EVENT, {target});
   } catch {
     /* A newly-created workbench reads the persisted target on mount. */
   }
@@ -179,5 +179,5 @@ async function openAlterQWindow(target: AlterQWindowTarget = 'workspace') {
 export {
   openWebWindow,
   openAboutWindow,
-  openAlterQWindow,
+  openApexQWindow,
 };

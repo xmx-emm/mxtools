@@ -131,9 +131,9 @@ async function save() {
         </v-col>
       </v-card-text>
       <v-card-actions>
-        <v-btn variant="plain" @click="isEditDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="text" @click="isEditDialog = false">{{ t('common.cancel') }}</v-btn>
         <v-spacer></v-spacer>
-        <v-btn @click="save">{{ t('common.save') }}</v-btn>
+        <v-btn color="primary" variant="flat" @click="save">{{ t('common.save') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

@@ -162,9 +162,10 @@ const maxMemDisplayProxy = computed({
               <template v-if="raw.identifier === 'window' && raw.parameters">
                 <v-btn-toggle
                   v-model="pubg_store.settings_config.window"
+                  class="game-page-segmented-toggle"
                   color="primary"
                   variant="text"
-                  style="max-height: 25px"
+                  density="compact"
                   border
                   divided
                   @click.stop=""
@@ -184,9 +185,10 @@ const maxMemDisplayProxy = computed({
               <template v-else-if="raw.identifier === 'graphics_api' && raw.parameters">
                 <v-btn-toggle
                   v-model="pubg_store.settings_config.graphics_api"
+                  class="game-page-segmented-toggle"
                   color="primary"
                   variant="text"
-                  style="max-height: 25px"
+                  density="compact"
                   border
                   divided
                   @click.stop=""
@@ -213,9 +215,10 @@ const maxMemDisplayProxy = computed({
                 />
                 <v-btn-toggle
                   v-model="pubg_store.max_mem_unit"
+                  class="game-page-segmented-toggle"
                   color="primary"
                   variant="text"
-                  style="max-height: 25px"
+                  density="compact"
                   border
                   divided
                   @click.stop=""
@@ -428,9 +431,9 @@ const maxMemDisplayProxy = computed({
 }
 
 .skip-intro-action-btn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
+  min-width: var(--app-control-height-compact);
   padding: 0;
   display: inline-flex;
   align-items: center;

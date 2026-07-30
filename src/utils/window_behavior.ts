@@ -1,6 +1,6 @@
 import {enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostartEnabled} from '@tauri-apps/plugin-autostart';
-import {alterQSetCloseToTray, isLaunchedFromAutostart} from '@/ipc/commands.ts';
-import {loadAlterQPrefs} from '@/types/alter_q.ts';
+import {apexQSetCloseToTray, isLaunchedFromAutostart} from '@/ipc/commands.ts';
+import {loadApexQPrefs} from '@/types/apex_q.ts';
 
 export type WindowBehaviorPrefs = {
   /** 开机随 Windows 启动 */
@@ -41,13 +41,13 @@ export function saveWindowBehaviorPrefs(prefs: WindowBehaviorPrefs) {
  * 旧版把托盘/自启写在琉雀 Q prefs 里；首次迁到全局设置。
  * 返回是否发生了迁移（调用方可写回 settings store）。
  */
-export function migrateAlterQWindowBehaviorIfNeeded(
+export function migrateApexQWindowBehaviorIfNeeded(
   current: WindowBehaviorPrefs,
 ): WindowBehaviorPrefs {
   if (current.autostart || current.closeToTray || current.startInTray) {
     return current;
   }
-  const aq = loadAlterQPrefs();
+  const aq = loadApexQPrefs();
   if (!aq.autostart && !aq.closeToTray && !aq.startInTray) {
     return current;
   }
@@ -61,7 +61,7 @@ export function migrateAlterQWindowBehaviorIfNeeded(
 }
 
 export async function syncCloseToTray(enabled: boolean) {
-  await alterQSetCloseToTray({enabled});
+  await apexQSetCloseToTray({enabled});
 }
 
 export async function syncAutostart(want: boolean) {

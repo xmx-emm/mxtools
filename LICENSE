@@ -1,0 +1,167 @@
+# MxTools 非商业许可证 1.0
+
+Copyright © 2025-2026 小萌新 (xmx-emm)
+
+使用、复制、修改或分发本软件，即表示你接受本许可证的全部条款。
+
+## 1. 适用范围
+
+“本软件”是许可方有权许可、并随本许可证提供的 MxTools 原创代码、文档和素材。
+
+本许可证不适用于第三方代码、模型、图片、文档、名称或商标。它们仍受各自的许可证、授权或法律规定约束。`THIRD_PARTY_NOTICES.md` 中列出的第三方内容和权利风险不因本许可证而获得重新授权。
+
+## 2. 非商业授权
+
+在遵守本许可证的前提下，许可方授予你一项全球性、非独占、免费、不可转让的版权许可，允许你为非商业目的：
+
+1. 使用和运行本软件；
+2. 复制本软件；
+3. 修改本软件并创作衍生作品；
+4. 免费分发原版或修改版，包括建立公开镜像和公开发布修改版；
+5. 为介绍、研究、教学或非商业展示而公开展示本软件。
+
+## 3. 非商业目的
+
+“非商业目的”是指主要目的不是获取商业利益或金钱报酬，并且不存在可合理预期的商业应用。
+
+下列行为属于商业用途，必须事先取得许可方的书面许可：
+
+1. 出售、出租本软件或修改版；
+2. 对下载、访问、安装、使用或分发本软件收费；
+3. 将本软件或修改版作为付费产品、付费服务或收费捆绑包的一部分；
+4. 使用本软件直接提供收费服务，或主要为企业经营、营收或其他商业利益提供支持；
+5. 以广告、会员、订阅、赞助分成或其他变现方式为主要目的分发或运营本软件。
+
+是否盈利不是唯一判断标准。免费提供本软件，但其主要目的在于促进商业利益的，也可能属于商业用途。
+
+## 4. 分发和修改条件
+
+你可以在非商业范围内进行镜像分发或公开发布修改版，无需事先联系许可方，但必须同时满足以下条件：
+
+1. 向接收者提供本许可证全文；
+2. 保留原有版权、归属和许可证声明，以及随本软件提供的所有以 `Required Notice:` 开头的纯文本声明；
+3. 修改版必须清楚说明已作修改，并在合理醒目的位置标注“非官方修改版”或含义相同的说明；
+4. 不得暗示修改版、镜像或分发者获得许可方认可、赞助或官方支持；
+5. 不得对本软件中受本许可证约束的部分施加与本许可证相冲突的条款，也不得移除本许可证的非商业限制；
+6. 你必须自行确认并遵守所有第三方内容的许可证和权利要求。
+
+你可以对自己独立创作的修改部分主张权利或附加条款，但这些条款不得限制接收者依照本许可证使用本软件原有部分，也不得把整体分发变成未经授权的商业用途。
+
+每位合规接收者均直接从许可方获得本许可证项下的授权。你不得代表许可方再许可、转让授权或承诺额外权利。
+
+## 5. 商业许可与赞助
+
+任何商业用途都需要许可方事先明确作出的书面许可。是否授权以及授权条件由许可方与申请者另行协商。
+
+“书面许可”可以是单独签署的协议，也可以是由许可方明确表示同意且能够保存、核验的电子邮件或平台私信。仅发送咨询、收到自动回复、付款或赞助，都不构成书面许可。
+
+商业许可可通过 <https://github.com/xmx-emm>、<https://space.bilibili.com/231639322> 或 <https://pd.qq.com/s/9cqf5hfm> 联系申请。
+
+付款、捐赠或赞助均属自愿支持，不会自动购买功能、技术支持、保证、优先处理权或商业许可。除非许可方另行明确书面同意，赞助者仍受本许可证全部条款约束。
+
+## 6. 无商标授权
+
+本许可证不授予使用许可方或任何第三方的商号、商标、服务标志、产品名称、头像或品牌标识的权利，但为合理说明本软件来源而进行的必要引用除外。
+
+## 7. 违约与终止
+
+如果你违反本许可证，你获得的授权自动终止。首次收到书面违约通知后，如果你在 30 日内完全停止违约、纠正可纠正的影响并重新遵守全部条款，许可方可以书面确认恢复授权；恢复不是自动发生的。
+
+授权终止后，你必须停止未经许可的使用和分发。许可方依法享有的其他权利和救济不受影响。
+
+## 8. 免责声明与责任限制
+
+在法律允许的最大范围内，本软件按“现状”提供，不附带任何明示或默示保证，包括但不限于适销性、特定用途适用性、不侵权、准确性、可靠性或持续可用性的保证。
+
+在法律允许的最大范围内，许可方不对因本软件、本许可证或无法使用本软件产生的任何直接、间接、附带、特殊、惩罚性或后果性损失承担责任。
+
+## 9. 其他
+
+如果本许可证的某一条款被认定为无效或不可执行，其余条款继续有效。许可方未立即行使某项权利，不构成放弃该权利。
+
+本许可证的中文文本为正式文本。下方英文文本仅为便利翻译；中英文不一致时，以中文文本为准。
+
+---
+
+# MxTools Noncommercial License 1.0
+
+Copyright © 2025-2026 小萌新 (xmx-emm)
+
+By using, copying, modifying, or distributing the Software, you accept all terms of this License.
+
+## 1. Scope
+
+“Software” means the original MxTools code, documentation, and assets that the Licensor has the right to license and provides with this License.
+
+This License does not apply to third-party code, models, images, documentation, names, or trademarks. Those materials remain subject to their own licenses, permissions, and applicable law. Third-party materials and rights risks identified in `THIRD_PARTY_NOTICES.md` are not relicensed by this License.
+
+## 2. Noncommercial Grant
+
+Subject to this License, the Licensor grants you a worldwide, non-exclusive, no-charge, non-transferable copyright license, for Noncommercial Purposes, to:
+
+1. use and run the Software;
+2. copy the Software;
+3. modify the Software and create derivative works;
+4. distribute original or modified copies free of charge, including public mirrors and publicly released modified versions; and
+5. publicly display the Software for description, research, teaching, or other noncommercial presentation.
+
+## 3. Noncommercial Purposes
+
+“Noncommercial Purpose” means a purpose primarily not intended for commercial advantage or monetary compensation and without a reasonably anticipated commercial application.
+
+The following are Commercial Uses and require the Licensor's prior written permission:
+
+1. selling or renting the Software or a modified version;
+2. charging for downloading, accessing, installing, using, or distributing the Software;
+3. including the Software or a modified version in a paid product, paid service, or paid bundle;
+4. using the Software directly to provide a paid service or primarily to support business operations, revenue, or another commercial advantage; or
+5. distributing or operating the Software primarily for monetization through advertising, memberships, subscriptions, sponsorship revenue sharing, or similar means.
+
+Profit is not the only factor. Providing the Software free of charge may still be Commercial Use when its primary purpose is to advance a commercial interest.
+
+## 4. Distribution and Modification Conditions
+
+You may create noncommercial mirrors and publicly release modified versions without contacting the Licensor in advance, provided that you:
+
+1. give every recipient the complete text of this License;
+2. preserve all copyright, attribution, and license notices, including every plain-text line beginning with `Required Notice:` supplied with the Software;
+3. clearly identify modified versions as changed and mark them as an “Unofficial Modified Version” or an equivalent notice in a reasonably prominent place;
+4. do not imply that a modified version, mirror, or distributor is endorsed, sponsored, officially supported, or approved by the Licensor;
+5. do not impose terms on the portions covered by this License that conflict with this License or remove its noncommercial restriction; and
+6. independently verify and comply with all requirements that apply to third-party materials.
+
+You may claim rights in, or apply additional terms to, modifications that you independently create, but those terms must not restrict a recipient's exercise of this License for the original portions of the Software or turn the distribution as a whole into an unauthorized Commercial Use.
+
+Each compliant recipient receives permission under this License directly from the Licensor. You may not sublicense, transfer the Licensor's permissions, or promise additional rights on the Licensor's behalf.
+
+## 5. Commercial Permission and Sponsorship
+
+Every Commercial Use requires the Licensor's prior express written permission. Whether permission is granted and on what terms are matters for separate agreement between the Licensor and the applicant.
+
+“Written permission” may be a separately signed agreement or an email or platform direct message in which the Licensor expressly agrees and which can be retained and verified. Merely sending an inquiry, receiving an automated reply, making a payment, or providing sponsorship is not written permission.
+
+Commercial permission may be requested through <https://github.com/xmx-emm>, <https://space.bilibili.com/231639322>, or <https://pd.qq.com/s/9cqf5hfm>.
+
+Payments, donations, and sponsorships are voluntary support. They do not automatically purchase features, technical support, warranties, priority treatment, or commercial permission. Unless the Licensor expressly agrees otherwise in writing, sponsors remain subject to every term of this License.
+
+## 6. No Trademark License
+
+This License does not grant rights to use the trade names, trademarks, service marks, product names, avatars, or branding of the Licensor or any third party, except for necessary references reasonably used to identify the origin of the Software.
+
+## 7. Violation and Termination
+
+Your permissions terminate automatically if you violate this License. After the first written notice of a violation, the Licensor may confirm reinstatement in writing if, within 30 days, you fully stop the violation, correct its remediable effects, and return to full compliance. Reinstatement is not automatic.
+
+After termination, you must stop all unlicensed use and distribution. Other rights and remedies available to the Licensor under applicable law are unaffected.
+
+## 8. Disclaimer and Limitation of Liability
+
+To the maximum extent permitted by law, the Software is provided “AS IS”, without any express or implied warranty, including warranties of merchantability, fitness for a particular purpose, non-infringement, accuracy, reliability, or continued availability.
+
+To the maximum extent permitted by law, the Licensor will not be liable for any direct, indirect, incidental, special, punitive, or consequential damages arising from the Software, this License, or inability to use the Software.
+
+## 9. Miscellaneous
+
+If any term of this License is held invalid or unenforceable, the remaining terms remain in effect. A failure by the Licensor to immediately exercise a right is not a waiver of that right.
+
+The Chinese text of this License is the controlling text. The English text is provided as a convenience translation only. If the texts conflict, the Chinese text controls.

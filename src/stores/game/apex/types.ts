@@ -13,6 +13,8 @@ import type {
 } from '@/types/apex_config_snapshot.ts';
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
 import type {DvsConstraintTrigger} from '@/utils/apex_dvs.ts';
+import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
+import type {ApexConfigHistoryEntry} from '@/types/apex_history.ts';
 import type {createApexState} from './state.ts';
 
 export type ApexVideoWindowMode = 'fullscreen' | 'windowed' | 'borderless';
@@ -42,19 +44,25 @@ export type ApexGetters = {
 
 export type ApexActions = {
   closeTip(): void;
-  showTip(item: { tip?: Component | null | undefined }): void;
+  showTip(item: {
+    tip?: Component | null | undefined;
+    tipProps?: Record<string, unknown>;
+  }): void;
   start_launch(force?: boolean): void;
-  load_launch_data(): Promise<void>;
+  load_launch_data(options?: {force?: boolean}): Promise<void>;
   reload_launch_page(): Promise<void>;
   parse_loaded_launch_string(start_launch_option: string): void;
-  start_load_apex_launch_options_data(): Promise<boolean>;
-  persist_launch_options(): Promise<void>;
+  start_load_apex_launch_options_data(
+    expectedKey?: string | null,
+    expectedGeneration?: number,
+  ): Promise<boolean>;
+  persist_launch_options(meta?: ApexConfigMutationMeta): Promise<void>;
   set_active_apex_account(acc: ApexLauncherAccount): void;
   refresh_apex_accounts(options?: { silent?: boolean }): Promise<void>;
   set_page_type(page: ApexPageTypeEnum): void;
   check_miles_language(force?: boolean): Promise<boolean>;
   update_download_language_button_color(): void;
-  load_apex_video_config(): Promise<void>;
+  load_apex_video_config(options?: {silent?: boolean; force?: boolean}): Promise<void>;
   start_video_config(force?: boolean): void;
   set_video_config_value(identifier: string, value: string): void;
   sync_dvs_related_settings(trigger: DvsConstraintTrigger): void;
@@ -79,20 +87,20 @@ export type ApexActions = {
   get_video_config_window_mode(): ApexVideoWindowMode;
   set_video_config_window_mode(mode: ApexVideoWindowMode): void;
   build_video_config_updates(): Record<string, string>;
-  apply_apex_video_config(options?: { silent?: boolean }): Promise<boolean>;
+  apply_apex_video_config(options?: {silent?: boolean} & ApexConfigMutationMeta): Promise<boolean>;
   load_videoconfig_readonly(): Promise<void>;
   set_videoconfig_readonly(locked: boolean): Promise<boolean>;
-  load_apex_game_settings(): Promise<void>;
+  load_apex_game_settings(options?: {silent?: boolean; force?: boolean}): Promise<void>;
   start_game_settings(force?: boolean): void;
   set_game_setting_value(file: ApexGameSettingsFile, key: string, value: string): void;
   set_game_binding_input(id: string, input: string): void;
-  apply_apex_game_settings(options?: {silent?: boolean}): Promise<boolean>;
+  apply_apex_game_settings(options?: {silent?: boolean} & ApexConfigMutationMeta): Promise<boolean>;
   restore_apex_game_settings(restoreSettings: boolean, restoreProfile: boolean): Promise<boolean>;
   replace_game_settings_bindings(bindings: ApexBinding[]): void;
   open_quick_preset_dialog(): void;
   close_quick_preset_dialog(): void;
-  open_alter_q_dialog(): void;
-  close_alter_q_dialog(): void;
+  open_apex_q_dialog(): void;
+  close_apex_q_dialog(): void;
   set_quick_preset_display(info: PrimaryDisplayInfo | null): void;
   prepare_quick_preset(screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection): void;
   ensure_configs_loaded_for_preset(): Promise<void>;
@@ -112,6 +120,13 @@ export type ApexActions = {
     snapshot: ApexConfigSnapshot,
     selection: ApexConfigSnapshotApplySelection,
   ): Promise<boolean>;
+  open_config_history_dialog(): void;
+  close_config_history_dialog(): void;
+  open_reset_defaults_dialog(): void;
+  close_reset_defaults_dialog(): void;
+  load_config_history(): Promise<void>;
+  restore_config_history(entry: ApexConfigHistoryEntry): Promise<boolean>;
+  reset_apex_to_defaults(): Promise<boolean>;
 };
 
 export type ApexStore = Store<'apex', ApexState, ApexGetters, ApexActions>;

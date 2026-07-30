@@ -16,6 +16,21 @@ export interface AccentTheme {
 
 export const accentThemes: AccentTheme[] = [
   {
+    id: 'apex-red',
+    nameKey: 'settings.accentApexRed',
+    previewColors: ['#4A0B0E', '#7F1418', '#B51F24', '#DA292A', '#FF7070', '#FFC4C4'],
+    light: {
+      primary: '#DA292A',
+      gradient: ['#DA292A', '#A91D22'],
+      shadow: 'rgba(218,41,42,0.27)',
+    },
+    dark: {
+      primary: '#FF7070',
+      gradient: ['#FF7070', '#E33E43'],
+      shadow: 'rgba(255,112,112,0.3)',
+    },
+  },
+  {
     id: 'blue',
     nameKey: 'settings.accentBlue',
     previewColors: ['#06375F', '#0A4E86', '#0F6CBD', '#2589D8', '#4CC2FF', '#C7EAFF'],
@@ -197,10 +212,12 @@ export const accentThemes: AccentTheme[] = [
   },
 ];
 
-export const DEFAULT_ACCENT = 'blue';
+export const DEFAULT_ACCENT = 'apex-red';
 
 export function findAccent(id: string): AccentTheme {
-  return accentThemes.find(t => t.id === id) ?? accentThemes[0];
+  return accentThemes.find(t => t.id === id)
+    ?? accentThemes.find(t => t.id === DEFAULT_ACCENT)
+    ?? accentThemes[0];
 }
 
 function hexToRgb(hex: string): [number, number, number] {

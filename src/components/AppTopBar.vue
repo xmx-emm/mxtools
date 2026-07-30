@@ -125,8 +125,8 @@ onUnmounted(() => {
     <span
       v-if="state.is_elevated"
       class="title-bar-icon"
-      title="Administrator"
-      aria-label="Administrator"
+      :title="t('common.administrator')"
+      :aria-label="t('common.administrator')"
     >
       <v-icon icon="mdi-security" />
     </span>
@@ -258,7 +258,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
+  height: var(--mx-search-height);
   max-width: min(210px, 24vw);
   margin-inline: 6px 8px;
   padding: 0 7px;

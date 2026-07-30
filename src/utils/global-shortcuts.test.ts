@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   },
   setAppLocale: vi.fn(),
   setTrayLocale: vi.fn(),
-  loadAlterQPrefs: vi.fn(),
+  loadApexQPrefs: vi.fn(),
   isRegistered: vi.fn(),
   unregister: vi.fn(),
   addEventListener: vi.fn(),
@@ -24,8 +24,8 @@ vi.mock('@/stores/settings.ts', () => ({
   useSettingsStore: () => mocks.settings,
 }));
 
-vi.mock('@/types/alter_q.ts', () => ({
-  loadAlterQPrefs: mocks.loadAlterQPrefs,
+vi.mock('@/types/apex_q.ts', () => ({
+  loadApexQPrefs: mocks.loadApexQPrefs,
 }));
 
 vi.mock('@/i18n/i18n.ts', () => ({
@@ -64,7 +64,7 @@ describe('locale shortcut cleanup', () => {
     mocks.settings.toggleLocaleShortcutEnabled = true;
     mocks.settings.locale = 'zh-CN';
     mocks.keydownHandler = null;
-    mocks.loadAlterQPrefs.mockReturnValue({
+    mocks.loadApexQPrefs.mockReturnValue({
       enabled: false,
       setupDone: false,
       hotkey: 'F12',
@@ -79,10 +79,10 @@ describe('locale shortcut cleanup', () => {
     vi.stubGlobal('window', {addEventListener: mocks.addEventListener});
   });
 
-  it('does not unregister an enabled, configured Alter-Q hotkey', async () => {
+  it('does not unregister an enabled, configured APEX Q hotkey', async () => {
     mocks.settings.resolvedToggleLocaleShortcut = ' Ctrl+ALT+Z ';
     mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadAlterQPrefs.mockReturnValue({
+    mocks.loadApexQPrefs.mockReturnValue({
       enabled: true,
       setupDone: true,
       hotkey: 'ctrl+alt+z',
@@ -97,9 +97,9 @@ describe('locale shortcut cleanup', () => {
     expect(mocks.unregister).toHaveBeenCalledWith('Ctrl+Alt+X');
   });
 
-  it('cleans the locale candidates when Alter-Q is not active', async () => {
+  it('cleans the locale candidates when APEX Q is not active', async () => {
     mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadAlterQPrefs.mockReturnValue({
+    mocks.loadApexQPrefs.mockReturnValue({
       enabled: false,
       setupDone: true,
       hotkey: 'Ctrl+Alt+Z',
@@ -115,9 +115,9 @@ describe('locale shortcut cleanup', () => {
   });
 
   it('does not clean global shortcuts from a child WebView', async () => {
-    mocks.currentWindow.label = 'alter-q-window';
+    mocks.currentWindow.label = 'apex-q-window';
     mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadAlterQPrefs.mockReturnValue({
+    mocks.loadApexQPrefs.mockReturnValue({
       enabled: true,
       setupDone: true,
       hotkey: 'Ctrl+Alt+Z',
@@ -131,9 +131,9 @@ describe('locale shortcut cleanup', () => {
     expect(mocks.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function), true);
   });
 
-  it('gives a shared accelerator to Alter-Q without toggling locale', async () => {
+  it('gives a shared accelerator to APEX Q without toggling locale', async () => {
     mocks.settings.resolvedToggleLocaleShortcut = ' Ctrl+ALT+Z ';
-    mocks.loadAlterQPrefs.mockReturnValue({
+    mocks.loadApexQPrefs.mockReturnValue({
       enabled: true,
       setupDone: true,
       hotkey: 'ctrl+alt+z',

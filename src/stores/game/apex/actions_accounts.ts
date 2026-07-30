@@ -13,11 +13,12 @@ export const apexAccountActions = {
   set_active_apex_account(this: ApexStoreThis, acc: ApexLauncherAccount) {
     const nextKey = launcherAccountKey(acc);
     if (this.launcher_selection_key !== nextKey) {
+      this.launch_request_generation += 1;
+      this.is_start_loading = false;
+      this.launch_loading_for_key = null;
+      this.launch_load_status = 'idle';
       this.launch_loaded_for_key = null;
-      this.video_config_loaded = false;
       this.original_launch_options = '';
-      this.original_video_config = {};
-      this.video_config_values = {};
       invalidateMilesLanguageCheckCache();
     }
     this.launcher_selection_key = nextKey;
@@ -28,31 +29,42 @@ export const apexAccountActions = {
     }
   },
 
-  async refresh_apex_accounts(this: ApexStoreThis, options?: { silent?: boolean }) {
+  async refresh_apex_accounts(this: ApexStoreThis, _options?: { silent?: boolean }) {
     if (this.is_accounts_loading) return;
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      this.is_accounts_loading = true;
-    }
+    const generation = ++this.accounts_request_generation;
+    this.is_accounts_loading = true;
+    this.accounts_load_status = 'loading';
+    this.accounts_load_error = null;
     try {
       const steam = useSteamStore();
       const ea = useEaStore();
-      await steam.refresh_users({ silent: true });
-      await ea.refresh_users();
+      await Promise.all([
+        steam.refresh_users({silent: true}),
+        ea.refresh_users(),
+      ]);
 
       const accounts: ApexLauncherAccount[] = [
         ...steam.steam_users.map((user) => ({ kind: 'steam' as const, user })),
         ...ea.ea_desktop_users.map((user) => ({ kind: 'ea' as const, user })),
       ];
 
+      if (generation !== this.accounts_request_generation) return;
       const next = resolveActiveApexAccount(accounts, this.launcher_selection_key);
       if (next) {
         this.set_active_apex_account(next);
       } else {
         this.launcher_selection_key = null;
       }
+      this.accounts_loaded = true;
+      this.accounts_loaded_key = 'launchers';
+      this.accounts_load_status = 'ready';
+    } catch (error) {
+      if (generation !== this.accounts_request_generation) return;
+      this.accounts_load_error = String(error);
+      this.accounts_load_status = 'error';
+      throw error;
     } finally {
-      if (!silent) {
+      if (generation === this.accounts_request_generation) {
         this.is_accounts_loading = false;
       }
     }

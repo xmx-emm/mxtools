@@ -3,10 +3,14 @@ use crate::utils::{blocking_cmd, thoroughly_kill_named, ProcessNameMatchMode};
 use windows_tool::game::steam::steam_is_running_by_tasklist as detect_steam_running_by_tasklist;
 use windows_tool::game::steam::user::SteamUser;
 
+pub(crate) fn steam_is_running_sync() -> Result<bool, String> {
+    detect_steam_running_by_tasklist()
+}
+
 /// 通过 `tasklist` 检测 `steam.exe` 进程(非注册表;注册表在强关 Steam 后不会更新).
 #[tauri::command]
 pub async fn steam_is_running_by_tasklist() -> IpcResult<bool> {
-    blocking_cmd(detect_steam_running_by_tasklist)
+    blocking_cmd(steam_is_running_sync)
         .await
         .map_err(|error| IpcError::operation_failed("steam", error))
 }

@@ -58,10 +58,12 @@ const isFilterSearchActive = computed(
     <v-spacer/>
     <v-btn-toggle
       v-model="apex_store.filter_type"
-      class="apex-filter-type-toggle"
+      class="game-page-segmented-toggle"
       density="compact"
       mandatory
+      color="primary"
       variant="text"
+      border
       divided
       :disabled="isFilterSearchActive"
     >
@@ -84,48 +86,4 @@ const isFilterSearchActive = computed(
   width: 240px;
 }
 
-/** 常用 / 全部：次级控件，仅文字区分选中态，不用与主标签相同的 tonal 底色 */
-.apex-filter-type-toggle {
-  box-sizing: border-box;
-  height: 30px !important;
-  padding: 2px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.16);
-  border-radius: var(--app-radius-sm);
-  background: rgba(var(--v-theme-on-surface), 0.045);
-}
-
-.apex-filter-type-toggle :deep(.v-btn) {
-  padding-inline: 6px !important;
-  min-height: 26px !important;
-  height: 26px !important;
-  font-size: 0.6875rem !important;
-  letter-spacing: 0.01em;
-  color: rgba(var(--v-theme-on-surface), 0.62) !important;
-  border-radius: 4px !important;
-  background: transparent !important;
-}
-
-.apex-filter-type-toggle :deep(.v-btn--active) {
-  color: rgb(var(--v-theme-on-primary-container)) !important;
-  background: rgb(var(--v-theme-primary-container)) !important;
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.2);
-}
-
-.apex-filter-type-toggle :deep(.v-btn--active > .v-btn__overlay) {
-  opacity: 0 !important;
-}
-
-.apex-filter-type-toggle :deep(.v-btn:hover:not(.v-btn--active)) {
-  color: rgba(var(--v-theme-on-surface), 0.9) !important;
-  background: rgba(var(--v-theme-on-surface), 0.06) !important;
-}
-
-.apex-filter-type-toggle :deep(.v-btn:focus-visible) {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: 1px;
-}
-
-.apex-filter-type-toggle :deep(.v-btn__content) {
-  padding-inline: 2px;
-}
 </style>

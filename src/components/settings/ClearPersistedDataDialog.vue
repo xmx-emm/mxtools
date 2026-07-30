@@ -77,8 +77,7 @@ async function clearPersistedData() {
       <v-card-actions>
         <v-spacer/>
         <v-btn
-          color="primary"
-          variant="flat"
+          variant="text"
           @click="clearConfirmDialog = false">{{ t('common.cancel') }}
         </v-btn>
         <v-btn color="error" variant="flat" @click="clearPersistedData">{{ t('common.confirm') }}</v-btn>

@@ -226,15 +226,16 @@ function checkIsSamePortForwarding(item: PortForwarding): boolean {
         </v-col>
       </v-card-text>
       <template v-slot:actions>
-        <v-btn @click="initCreate(true)">
+        <v-btn variant="text" :disabled="isCreating" @click="initCreate(true)">
           {{ t('portForwarding.add') }}
         </v-btn>
         <v-spacer></v-spacer>
-        <v-btn @click="isCreateDialog = false">
+        <v-btn variant="text" :disabled="isCreating" @click="isCreateDialog = false">
           {{ t('common.cancel') }}
         </v-btn>
         <v-btn
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="hasValidationError"
           :loading="isCreating"
           @click="onSubmit"

@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
                         color="primary"
                         variant="text"
                         class="apex-parameter-toggle"
-                        style="max-height: 25px"
+                        :style="{maxHeight: 'var(--app-control-height-compact)'}"
                         border
                         divided
                       >
@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
                               density="compact"
                               inset
                               color="primary"
-                              class="apex-parameter-switch"
+                              class="apex-parameter-switch mx-compact-switch"
                             />
                           </div>
                         </template>
@@ -402,7 +402,7 @@ onBeforeUnmount(() => {
                       density="compact"
                       inset
                       color="primary"
-                      class="apex-parameter-switch"
+                      class="apex-parameter-switch mx-compact-switch"
                     />
                   </template>
                   <template v-else-if="item.uiType === 'brightness'">
@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
 .apex-category-text {
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   color: rgba(var(--v-theme-on-surface), 0.75);
 }
 
@@ -637,12 +637,12 @@ onBeforeUnmount(() => {
 }
 
 :deep(.apex-parameter-switch.v-switch) {
-  --v-input-control-height: 25px;
+  --v-input-control-height: var(--app-control-height-compact);
   flex: 0 0 auto;
 }
 
 :deep(.apex-parameter-switch.v-switch .v-selection-control) {
-  min-height: 25px;
+  min-height: var(--app-control-height-compact);
 }
 
 :deep(.apex-parameter-switch.v-switch--inset .v-switch__track) {

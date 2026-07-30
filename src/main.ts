@@ -27,12 +27,13 @@ import {setDebugEnabled} from '@/utils/debug.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts.ts';
 import {
-  bootstrapAlterQEventListeners,
-  bootstrapAlterQFromStorage,
-  setAlterQOverlayInteractionMode,
-} from '@/utils/alter_q.ts';
+  bootstrapApexQEventListeners,
+  bootstrapApexQFromStorage,
+  setApexQOverlayInteractionMode,
+  syncApexQHotkey,
+} from '@/utils/apex_q.ts';
 import {shouldShowMainWindowOnBoot} from '@/utils/window_behavior.ts';
-import {setTrayLocale, syncTrayWithMainWindow} from '@/ipc/commands.ts';
+import {setTrayBetaFeatures, setTrayLocale, syncTrayWithMainWindow} from '@/ipc/commands.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {initFrontendLogger} from '@/utils/logger.ts';
@@ -42,7 +43,8 @@ import {runAllHmrCleanups} from '@/utils/hmr.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
-import {openAlterQWindow} from '@/utils/windows.ts';
+import {openApexQWindow} from '@/utils/windows.ts';
+import {loadApexQPrefs} from '@/types/apex_q.ts';
 
 initFrontendLogger();
 
@@ -50,17 +52,17 @@ const disposeNativeTooltip = installNativeTooltip('mx-native-tooltip');
 
 const isMainWindow = getCurrentWindow().label === 'main';
 let vueApp: VueApp | null = null;
-let stopAlterQOpenRequest: UnlistenFn | null = null;
-let stopAlterQAdjustRequest: UnlistenFn | null = null;
-let alterQRequestListenersStarting: Promise<void> | null = null;
-let alterQRequestListenersDisposed = false;
-let alterQRequestCleanupRegistered = false;
+let stopApexQOpenRequest: UnlistenFn | null = null;
+let stopApexQAdjustRequest: UnlistenFn | null = null;
+let apexQRequestListenersStarting: Promise<void> | null = null;
+let apexQRequestListenersDisposed = false;
+let apexQRequestCleanupRegistered = false;
 
-function reportAlterQWindowOpenFailure(error: unknown) {
-  console.warn('open alter-q window failed', error);
+function reportApexQWindowOpenFailure(error: unknown) {
+  console.warn('open apex-q window failed', error);
 }
 
-function parseAlterQTrayTarget(value: unknown) {
+function parseApexQTrayTarget(value: unknown) {
   const target = typeof value === 'string'
     ? value
     : value && typeof value === 'object'
@@ -71,44 +73,44 @@ function parseAlterQTrayTarget(value: unknown) {
     : 'workspace' as const;
 }
 
-async function ensureAlterQRequestListeners() {
-  if (!isMainWindow || alterQRequestListenersDisposed) return;
-  if (!alterQRequestCleanupRegistered) {
-    alterQRequestCleanupRegistered = true;
+async function ensureApexQRequestListeners() {
+  if (!isMainWindow || apexQRequestListenersDisposed) return;
+  if (!apexQRequestCleanupRegistered) {
+    apexQRequestCleanupRegistered = true;
     registerHmrCleanup(() => {
-      alterQRequestListenersDisposed = true;
-      stopAlterQOpenRequest?.();
-      stopAlterQOpenRequest = null;
-      stopAlterQAdjustRequest?.();
-      stopAlterQAdjustRequest = null;
-      alterQRequestListenersStarting = null;
+      apexQRequestListenersDisposed = true;
+      stopApexQOpenRequest?.();
+      stopApexQOpenRequest = null;
+      stopApexQAdjustRequest?.();
+      stopApexQAdjustRequest = null;
+      apexQRequestListenersStarting = null;
     });
   }
-  if (!alterQRequestListenersStarting) {
-    alterQRequestListenersStarting = (async () => {
-      if (!stopAlterQOpenRequest) {
-        const unlisten = await listen<unknown>('alter-q-open-request', (event) => {
-          void openAlterQWindow(parseAlterQTrayTarget(event.payload))
-            .catch(reportAlterQWindowOpenFailure);
+  if (!apexQRequestListenersStarting) {
+    apexQRequestListenersStarting = (async () => {
+      if (!stopApexQOpenRequest) {
+        const unlisten = await listen<unknown>('apex-q-open-request', (event) => {
+          void openApexQWindow(parseApexQTrayTarget(event.payload))
+            .catch(reportApexQWindowOpenFailure);
         });
-        if (alterQRequestListenersDisposed) unlisten();
-        else stopAlterQOpenRequest = unlisten;
+        if (apexQRequestListenersDisposed) unlisten();
+        else stopApexQOpenRequest = unlisten;
       }
-      if (!stopAlterQAdjustRequest && !alterQRequestListenersDisposed) {
-        const unlisten = await listen('alter-q-overlay-adjust-request', () => {
+      if (!stopApexQAdjustRequest && !apexQRequestListenersDisposed) {
+        const unlisten = await listen('apex-q-overlay-adjust-request', () => {
           void (async () => {
-            const hasOverlay = await setAlterQOverlayInteractionMode('adjusting');
-            if (!hasOverlay) await openAlterQWindow('overlay');
-          })().catch(reportAlterQWindowOpenFailure);
+            const hasOverlay = await setApexQOverlayInteractionMode('adjusting');
+            if (!hasOverlay) await openApexQWindow('overlay');
+          })().catch(reportApexQWindowOpenFailure);
         });
-        if (alterQRequestListenersDisposed) unlisten();
-        else stopAlterQAdjustRequest = unlisten;
+        if (apexQRequestListenersDisposed) unlisten();
+        else stopApexQAdjustRequest = unlisten;
       }
     })().finally(() => {
-      alterQRequestListenersStarting = null;
+      apexQRequestListenersStarting = null;
     });
   }
-  await alterQRequestListenersStarting;
+  await apexQRequestListenersStarting;
 }
 
 // 正常/调试启动始终显示主窗口；仅开机自启且勾选「启动进托盘」时保持隐藏。
@@ -116,14 +118,14 @@ async function ensureAlterQRequestListeners() {
 if (isMainWindow) {
   void (async () => {
     try {
-      await ensureAlterQRequestListeners();
+      await ensureApexQRequestListeners();
     } catch (e) {
-      console.warn('register alter-q window listeners failed', e);
+      console.warn('register apex-q window listeners failed', e);
     }
     try {
-      await bootstrapAlterQEventListeners();
+      await bootstrapApexQEventListeners();
     } catch (e) {
-      console.warn('register alter-q event listeners failed', e);
+      console.warn('register apex-q event listeners failed', e);
     }
     const show = await shouldShowMainWindowOnBoot();
     if (show) await getCurrentWindow().show();
@@ -186,8 +188,10 @@ async function bootstrap() {
   await setAppLocale(resolveLocale(settings.locale));
   applyDocumentLocale(settings.locale);
   if (isMainWindow) {
-    void setTrayLocale(resolveLocale(settings.locale))
-      .catch((e) => console.warn('sync tray locale failed', e));
+    void (async () => {
+      await setTrayBetaFeatures(settings.betaFeaturesEnabled);
+      await setTrayLocale(resolveLocale(settings.locale));
+    })().catch((e) => console.warn('sync tray preferences failed', e));
   }
 
   app.use(i18n);
@@ -205,9 +209,9 @@ async function bootstrap() {
   vueApp = app;
   if (isMainWindow) {
     try {
-      await ensureAlterQRequestListeners();
+      await ensureApexQRequestListeners();
     } catch (e) {
-      console.warn('register alter-q window listeners after mount failed', e);
+      console.warn('register apex-q window listeners after mount failed', e);
     }
   }
   let localeShortcutSetup: Promise<void> | null = null;
@@ -228,9 +232,13 @@ async function bootstrap() {
       console.warn('setup locale toggle shortcut failed', e);
     }
     try {
-      await bootstrapAlterQFromStorage();
+      if (settings.betaFeaturesEnabled) {
+        await bootstrapApexQFromStorage();
+      } else {
+        await syncApexQHotkey({...loadApexQPrefs(), enabled: false});
+      }
     } catch (e) {
-      console.warn('bootstrap alter-q failed', e);
+      console.warn('sync beta apex-q state failed', e);
     }
   }
 }

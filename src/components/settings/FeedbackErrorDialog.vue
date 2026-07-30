@@ -6,8 +6,9 @@ import {openPath, openUrl} from '@tauri-apps/plugin-opener';
 import {useToast} from 'vue-toastification';
 import {version} from '@/env.ts';
 import {GITHUB_ISSUE_URL} from '@/data/url_other.ts';
+import {createGitHubIssueUrl} from '@/utils/github_issue.ts';
 
-const { t } = useI18n();
+const {t} = useI18n();
 const toast = useToast();
 
 const dialog = ref(false);
@@ -27,10 +28,10 @@ async function buildIssueBody(): Promise<string> {
       .join('\n');
 
     const empty = t('settings.feedbackBodyEmpty');
-    const body = [
+    return [
       t('settings.feedbackBodyEnv'),
       '',
-      t('settings.feedbackBodyAppVersion', { version: version.value || 'unknown' }),
+      t('settings.feedbackBodyAppVersion', {version: version.value || 'unknown'}),
       '',
       t('settings.feedbackBodySystem'),
       systemSection,
@@ -53,13 +54,6 @@ async function buildIssueBody(): Promise<string> {
       logs?.frontend || empty,
       '```',
     ].join('\n');
-
-    // URL 长度限制约 2KB,超长时截断日志部分
-    const maxLen = 6000;
-    if (body.length > maxLen) {
-      return body.slice(0, maxLen) + t('settings.feedbackBodyTruncated');
-    }
-    return body;
   } finally {
     loading.value = false;
   }
@@ -69,18 +63,20 @@ async function openGitHubIssue() {
   try {
     const body = await buildIssueBody();
     const summary = description.value?.slice(0, 50) || t('settings.feedbackIssueTitleFallback');
-    const params = new URLSearchParams({
-      title: t('settings.feedbackIssueTitle', { summary }),
+    const url = createGitHubIssueUrl({
+      baseUrl: GITHUB_ISSUE_URL,
+      title: t('settings.feedbackIssueTitle', {summary}),
       body,
+      truncatedNotice: t('settings.feedbackBodyTruncated'),
     });
-    const url = `${GITHUB_ISSUE_URL}?${params.toString()}`;
     await openUrl(url);
-    // 打开日志文件夹,方便用户将 backend.log、frontend.log 拖入 Issue
+
+    // 打开日志文件夹，方便用户将 backend.log、frontend.log 拖入 Issue。
     try {
       const logFolder = await getLogFolderPath();
       await openPath(logFolder);
     } catch {
-      // 忽略打开文件夹失败
+      // 日志文件夹打开失败不影响已经打开的 Issue 页面。
     }
     dialog.value = false;
     description.value = '';
@@ -114,7 +110,9 @@ async function openGitHubIssue() {
       </v-card-text>
       <v-card-actions>
         <v-spacer/>
-        <v-btn @click="dialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="text" :disabled="loading" @click="dialog = false">
+          {{ t('common.cancel') }}
+        </v-btn>
         <v-btn
           color="primary"
           variant="flat"

@@ -8,7 +8,7 @@ import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {useSettingsStore} from '@/stores/settings.ts';
 import {useDebugStore} from '@/stores/debug.ts';
 import {useUiStyleStore} from '@/stores/style.ts';
-import {getLogFolderPath, setTrayLocale} from '@/ipc/commands.ts';
+import {getLogFolderPath, setTrayBetaFeatures, setTrayLocale} from '@/ipc/commands.ts';
 import {openAboutWindow} from '@/utils/windows.ts';
 import FeedbackErrorDialog from '@/components/settings/FeedbackErrorDialog.vue';
 import ClearPersistedDataDialog from '@/components/settings/ClearPersistedDataDialog.vue';
@@ -19,12 +19,12 @@ import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {setAppLocale} from '@/i18n/i18n.ts';
 import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT} from '@/utils/global-shortcuts.ts';
 import {
-  ALTER_Q_PREFS_CHANGED_EVENT,
-  DEFAULT_ALTER_Q_HOTKEY,
-  loadAlterQPrefs,
-  type AlterQPrefs,
-} from '@/types/alter_q.ts';
-import {applyAlterQPrefs} from '@/utils/alter_q.ts';
+  APEX_Q_PREFS_CHANGED_EVENT,
+  DEFAULT_APEX_Q_HOTKEY,
+  loadApexQPrefs,
+  type ApexQPrefs,
+} from '@/types/apex_q.ts';
+import {applyApexQPrefs, bootstrapApexQFromStorage, syncApexQHotkey} from '@/utils/apex_q.ts';
 
 type SettingsTab = 'general' | 'shortcuts' | 'about';
 
@@ -34,11 +34,11 @@ const debugStore = useDebugStore();
 const uiStore = useUiStyleStore();
 const toast = useToast();
 const currentWindowLabel = getCurrentWindow().label;
-let unlistenAlterQPrefs: UnlistenFn | null = null;
+let unlistenApexQPrefs: UnlistenFn | null = null;
 
 const activeTab = ref<SettingsTab>('general');
 const editTheme = ref(uiStore.theme);
-const alterQPrefs = reactive<AlterQPrefs>(loadAlterQPrefs());
+const apexQPrefs = reactive<ApexQPrefs>(loadApexQPrefs());
 
 const tabs = computed(() => [
   {id: 'general' as const, title: t('settings.tabGeneral'), icon: 'mdi-tune-variant'},
@@ -75,7 +75,8 @@ async function openLogFolder() {
 
 function onCleared() {
   editTheme.value = uiStore.theme;
-  Object.assign(alterQPrefs, loadAlterQPrefs());
+  Object.assign(apexQPrefs, loadApexQPrefs());
+  void onBetaFeaturesEnabled(false);
 }
 
 function onThemeChange(value: string) {
@@ -92,32 +93,49 @@ function onToggleLocaleEnabled(v: boolean | null) {
   settingsStore.setToggleLocaleShortcutEnabled(v);
 }
 
-async function persistAlterQ(changedKeys: readonly (keyof AlterQPrefs)[]) {
+async function onBetaFeaturesEnabled(v: boolean | null) {
+  const enabled = v ?? false;
+  settingsStore.setBetaFeaturesEnabled(enabled);
+  await setTrayBetaFeatures(enabled).catch((error) => {
+    console.warn('sync tray beta features failed', error);
+  });
   try {
-    await applyAlterQPrefs(alterQPrefs, {changedKeys});
+    if (enabled) {
+      await bootstrapApexQFromStorage();
+    } else {
+      await syncApexQHotkey({...loadApexQPrefs(), enabled: false});
+    }
+  } catch (error) {
+    console.warn('sync beta apex-q state failed', error);
+  }
+}
+
+async function persistApexQ(changedKeys: readonly (keyof ApexQPrefs)[]) {
+  try {
+    await applyApexQPrefs(apexQPrefs, {changedKeys});
   } catch {
     toast.error(t('settings.shortcutRegisterFailed'));
   }
 }
 
-async function onAlterQEnabled(v: boolean | null) {
-  alterQPrefs.enabled = v ?? false;
-  await persistAlterQ(['enabled']);
-  if (alterQPrefs.enabled && !alterQPrefs.setupDone) {
-    toast.info(t('settings.shortcutAlterQNeedSetup'));
+async function onApexQEnabled(v: boolean | null) {
+  apexQPrefs.enabled = v ?? false;
+  await persistApexQ(['enabled']);
+  if (apexQPrefs.enabled && !apexQPrefs.setupDone) {
+    toast.info(t('settings.shortcutApexQNeedSetup'));
   }
 }
 
-async function onAlterQHotkey(value: string) {
-  alterQPrefs.hotkey = value || DEFAULT_ALTER_Q_HOTKEY;
-  await persistAlterQ(['hotkey']);
+async function onApexQHotkey(value: string) {
+  apexQPrefs.hotkey = value || DEFAULT_APEX_Q_HOTKEY;
+  await persistApexQ(['hotkey']);
   if (!value) toast.info(t('settings.shortcutResetDefault'));
 }
 
-function onShortcutCaptureError(reason: 'invalid' | 'empty', scope: 'app' | 'alterQ' = 'app') {
+function onShortcutCaptureError(reason: 'invalid' | 'empty', scope: 'app' | 'apexQ' = 'app') {
   if (reason !== 'invalid') return;
-  toast.warning(scope === 'alterQ'
-    ? t('settings.shortcutAlterQInvalid')
+  toast.warning(scope === 'apexQ'
+    ? t('settings.shortcutApexQInvalid')
     : t('settings.shortcutNeedModifier'));
 }
 
@@ -141,19 +159,19 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
 }
 
 watch(activeTab, (tab) => {
-  if (tab === 'shortcuts') Object.assign(alterQPrefs, loadAlterQPrefs());
+  if (tab === 'shortcuts') Object.assign(apexQPrefs, loadApexQPrefs());
 });
 
 onMounted(async () => {
-  unlistenAlterQPrefs = await listen<{source?: unknown}>(ALTER_Q_PREFS_CHANGED_EVENT, (event) => {
+  unlistenApexQPrefs = await listen<{source?: unknown}>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
     if (event.payload?.source !== currentWindowLabel) {
-      Object.assign(alterQPrefs, loadAlterQPrefs());
+      Object.assign(apexQPrefs, loadApexQPrefs());
     }
   });
 });
 onUnmounted(() => {
-  unlistenAlterQPrefs?.();
-  unlistenAlterQPrefs = null;
+  unlistenApexQPrefs?.();
+  unlistenApexQPrefs = null;
 });
 </script>
 
@@ -270,6 +288,18 @@ onUnmounted(() => {
                   @update:model-value="debugStore.setEnabled"
                 />
               </label>
+              <label class="setting-row">
+                <span>
+                  <strong>{{ t('settings.betaFeatures') }}</strong>
+                  <small>{{ t('settings.betaFeaturesHint') }}</small>
+                </span>
+                <v-switch
+                  :model-value="settingsStore.betaFeaturesEnabled"
+                  hide-details
+                  color="primary"
+                  @update:model-value="onBetaFeaturesEnabled"
+                />
+              </label>
             </div>
           </section>
 
@@ -339,24 +369,27 @@ onUnmounted(() => {
                   @capture-error="onShortcutCaptureError($event, 'app')"
                 />
               </article>
-              <article class="shortcut-row">
+              <article v-if="settingsStore.betaFeaturesEnabled" class="shortcut-row">
                 <v-switch
-                  :model-value="alterQPrefs.enabled"
+                  :model-value="apexQPrefs.enabled"
                   hide-details
                   color="primary"
-                  @update:model-value="onAlterQEnabled"
+                  @update:model-value="onApexQEnabled"
                 />
                 <div class="shortcut-copy">
-                  <strong>{{ t('settings.shortcutAlterQ') }}</strong>
+                  <strong>
+                    {{ t('settings.shortcutApexQ') }}
+                    <span class="mx-beta-badge ml-1" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
+                  </strong>
                   <span>{{ t('settings.shortcutGlobalOnlyHint') }}</span>
                 </div>
                 <span class="scope-badge scope-badge--global">{{ t('settings.shortcutGlobal') }}</span>
                 <ShortcutInput
-                  scope="alterQ"
-                  :disabled="!alterQPrefs.enabled"
-                  :model-value="alterQPrefs.hotkey || DEFAULT_ALTER_Q_HOTKEY"
-                  @update:model-value="onAlterQHotkey"
-                  @capture-error="onShortcutCaptureError($event, 'alterQ')"
+                  scope="apexQ"
+                  :disabled="!apexQPrefs.enabled"
+                  :model-value="apexQPrefs.hotkey || DEFAULT_APEX_Q_HOTKEY"
+                  @update:model-value="onApexQHotkey"
+                  @capture-error="onShortcutCaptureError($event, 'apexQ')"
                 />
               </article>
             </div>
@@ -411,7 +444,7 @@ onUnmounted(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 31px;
+  min-height: var(--app-control-height-compact);
   gap: 6px;
   padding: 0 11px;
   border: 0;
@@ -513,6 +546,7 @@ onUnmounted(() => {
 .shortcut-copy { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
 .shortcut-copy strong { font-size: 12px; font-weight: 640; }
 .shortcut-copy span { color: rgba(var(--v-theme-on-surface), 0.46); font-size: 9px; line-height: 1.45; }
+.shortcut-copy strong .mx-beta-badge { color: rgb(var(--v-theme-warning)); font-size: 8px; line-height: 1; }
 .scope-badge {
   padding: 3px 7px;
   border-radius: 999px;

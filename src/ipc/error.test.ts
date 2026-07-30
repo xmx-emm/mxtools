@@ -71,7 +71,7 @@ describe('IPC error normalization', () => {
     expect(ipcErrorKey({code: 'apex.file_changed', message: 'changed'}))
       .toBe('apex.gameSettings.errors.fileChanged');
     expect(formatIpcError(known)).toBe('Credentials rejected for alice');
-    expect(formatIpcError({code: 'alter_q.operation_failed', message: 'native failure'}))
+    expect(formatIpcError({code: 'apex_q.operation_failed', message: 'native failure'}))
       .toBe('Command failed: native failure');
   });
 });

@@ -287,12 +287,12 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     valueType: 'enum',
     tip: ApexVideoModelDetailTip,
     options: [
-      { label: '很低', values: { 'setting.r_lod_switch_scale': '0.2' }, outOfPreset: true },
+      { label: 'apexVideoConfig.options.veryLow', values: { 'setting.r_lod_switch_scale': '0.2' }, outOfPreset: true },
       { label: 'apexVideoConfig.options.low', values: { 'setting.r_lod_switch_scale': '0.6' } },
       { label: 'apexVideoConfig.options.medium', values: { 'setting.r_lod_switch_scale': '0.8' } },
       { label: 'apexVideoConfig.options.high', values: { 'setting.r_lod_switch_scale': '1' } },
       { label: 'apexVideoConfig.options.veryHigh', values: { 'setting.r_lod_switch_scale': '2' } },
-      { label: '超高', values: { 'setting.r_lod_switch_scale': '3' }, outOfPreset: true },
+      { label: 'apexVideoConfig.options.ultra', values: { 'setting.r_lod_switch_scale': '3' }, outOfPreset: true },
     ],
     fields: [
       { identifier: 'setting.r_lod_switch_scale', valueType: 'float', min: 0, max: 4, step: 0.05 },
@@ -309,7 +309,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     tip: ApexVideoTextureQualityTip,
     options: [
       {
-        label: '超糊',
+        label: 'apexVideoConfig.options.ultraBlurry',
         values: { 'setting.stream_memory': '0', 'setting.mat_picmip': '3', 'setting.dynamic_streaming_budget': '0' },
         outOfPreset: true
       },
@@ -350,7 +350,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         }
       },
       {
-        label: '很高',
+        label: 'apexVideoConfig.options.veryHigh',
         values: {
           'setting.stream_memory': '2000000',
           'setting.mat_picmip': '0',
@@ -487,8 +487,8 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
       { label: 'apexVideoConfig.options.veryHigh', values: { 'setting.csm_coverage': '4' } },
     ],
     options: [
-      { label: '128超低', values: { 'setting.csm_cascade_res': '128' }, outOfPreset: true },
-      { label: '256很低', values: { 'setting.csm_cascade_res': '256' }, outOfPreset: true },
+      { label: 'apexVideoConfig.options.ultraLow128', values: { 'setting.csm_cascade_res': '128' }, outOfPreset: true },
+      { label: 'apexVideoConfig.options.veryLow256', values: { 'setting.csm_cascade_res': '256' }, outOfPreset: true },
       { label: 'apexVideoConfig.options.low', values: { 'setting.csm_cascade_res': '512' } },
       { label: 'apexVideoConfig.options.high', values: { 'setting.csm_cascade_res': '1024' } },
     ],
@@ -657,7 +657,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     tip: ApexVideoParticleDetailTip,
     options: [
       {
-        label: '超低',
+        label: 'apexVideoConfig.options.ultraLow',
         values: {
           'setting.particle_cpu_level': '2',
           'setting.cl_particle_fallback_base': '3',

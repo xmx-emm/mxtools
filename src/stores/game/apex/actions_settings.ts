@@ -6,12 +6,18 @@ import {
 } from '@/ipc/commands.ts';
 import type {
   ApexBinding,
+  ApexGameSettingsApplyRequest,
   ApexGameSettingsFile,
   ApexGameSettingsReport,
 } from '@/types/apex_game_settings.ts';
 import type {ApexStoreThis} from './types.ts';
+import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
+import {createApexHistoryTransactionId} from '@/utils/game/apex_history.ts';
 
-function adoptReport(store: ApexStoreThis, report: ApexGameSettingsReport) {
+export function adoptApexGameSettingsReport(
+  store: ApexStoreThis,
+  report: ApexGameSettingsReport,
+) {
   store.game_settings_report = report;
   store.game_settings_values = {
     settings: {...report.settings.values},
@@ -26,6 +32,36 @@ function adoptReport(store: ApexStoreThis, report: ApexGameSettingsReport) {
     report.bindings.map(binding => [binding.id, binding.input]),
   );
   store.game_settings_loaded = true;
+  store.game_settings_loaded_key = 'machine';
+  store.game_settings_load_status = 'ready';
+  store.reset_pending_scopes = store.reset_pending_scopes.filter(
+    scope => scope !== 'gameSettings',
+  );
+}
+
+export function buildApexGameSettingsMutation(
+  store: ApexStoreThis,
+): Omit<ApexGameSettingsApplyRequest, 'historySource' | 'transactionId'> | null {
+  const report = store.game_settings_report;
+  if (!report) return null;
+  const settingsUpdates = changedValues(
+    store.game_settings_values.settings,
+    store.original_game_settings_values.settings,
+  );
+  const profileUpdates = changedValues(
+    store.game_settings_values.profile,
+    store.original_game_settings_values.profile,
+  );
+  const bindingUpdates = store.game_settings_bindings
+    .filter(binding => store.original_game_settings_bindings[binding.id] !== binding.input)
+    .map(binding => ({id: binding.id, input: binding.input}));
+  return {
+    settingsRevision: report.settings.revision,
+    profileRevision: report.profile.revision,
+    settingsUpdates,
+    profileUpdates,
+    bindingUpdates,
+  };
 }
 
 function changedValues(
@@ -40,21 +76,44 @@ function changedValues(
 }
 
 export const apexSettingsActions = {
-  async load_apex_game_settings(this: ApexStoreThis) {
-    if (this.is_game_settings_loading) return;
+  async load_apex_game_settings(
+    this: ApexStoreThis,
+    options?: {silent?: boolean; force?: boolean},
+  ) {
+    if (this.is_game_settings_loading && !options?.force) return;
+    const generation = ++this.game_settings_request_generation;
     this.is_game_settings_loading = true;
+    this.game_settings_load_status = 'loading';
+    this.game_settings_load_error = null;
     try {
-      adoptReport(this, await getApexGameSettings());
+      const report = await getApexGameSettings();
+      if (generation !== this.game_settings_request_generation) return;
+      adoptApexGameSettingsReport(this, report);
+      this.game_settings_loaded_key = 'machine';
+      this.game_settings_load_status = 'ready';
     } catch (error) {
+      if (generation !== this.game_settings_request_generation) return;
       console.warn('load_apex_game_settings failed', error);
-      useToast().error(String(error));
+      this.game_settings_load_error = String(error);
+      this.game_settings_load_status = 'error';
+      if (!options?.silent) useToast().error(String(error));
     } finally {
-      this.is_game_settings_loading = false;
+      if (generation === this.game_settings_request_generation) {
+        this.is_game_settings_loading = false;
+      }
     }
   },
 
   start_game_settings(this: ApexStoreThis, force = false) {
-    if (!force && this.game_settings_loaded) return;
+    if (!force && this.reset_pending_scopes.includes('gameSettings')) return;
+    if (!force && this.game_settings_loaded) {
+      // Re-read clean cached settings when returning to the tab so external
+      // Apex edits are reflected without overwriting local unapplied changes.
+      if (!this.is_game_settings_modified && !this.is_game_settings_loading) {
+        void this.load_apex_game_settings({silent: true, force: true});
+      }
+      return;
+    }
     void this.load_apex_game_settings();
   },
 
@@ -74,24 +133,14 @@ export const apexSettingsActions = {
 
   async apply_apex_game_settings(
     this: ApexStoreThis,
-    options?: {silent?: boolean},
+    options?: {silent?: boolean} & ApexConfigMutationMeta,
   ): Promise<boolean> {
     const report = this.game_settings_report;
     if (!report || this.is_game_settings_saving) return false;
-    const settingsUpdates = changedValues(
-      this.game_settings_values.settings,
-      this.original_game_settings_values.settings,
-    );
-    const profileUpdates = changedValues(
-      this.game_settings_values.profile,
-      this.original_game_settings_values.profile,
-    );
-    const bindingUpdates = this.game_settings_bindings
-      .filter(binding => this.original_game_settings_bindings[binding.id] !== binding.input)
-      .map(binding => ({id: binding.id, input: binding.input}));
-    if (!Object.keys(settingsUpdates).length
-      && !Object.keys(profileUpdates).length
-      && !bindingUpdates.length) {
+    const mutation = buildApexGameSettingsMutation(this);
+    if (!mutation || (!Object.keys(mutation.settingsUpdates).length
+      && !Object.keys(mutation.profileUpdates).length
+      && !mutation.bindingUpdates.length)) {
       if (!options?.silent) useToast().info('apex.gameSettings.noChanges');
       return false;
     }
@@ -99,13 +148,11 @@ export const apexSettingsActions = {
     this.is_game_settings_saving = true;
     try {
       const next = await applyApexGameSettings({
-        settingsRevision: report.settings.revision,
-        profileRevision: report.profile.revision,
-        settingsUpdates,
-        profileUpdates,
-        bindingUpdates,
+        ...mutation,
+        historySource: options?.historySource ?? 'apply',
+        transactionId: options?.transactionId ?? createApexHistoryTransactionId(),
       });
-      adoptReport(this, next);
+      adoptApexGameSettingsReport(this, next);
       if (!options?.silent) useToast().success('apex.gameSettings.applySuccess');
       return true;
     } catch (error) {
@@ -132,7 +179,7 @@ export const apexSettingsActions = {
         restoreSettings,
         restoreProfile,
       });
-      adoptReport(this, next);
+      adoptApexGameSettingsReport(this, next);
       useToast().success('apex.gameSettings.restoreSuccess');
       return true;
     } catch (error) {

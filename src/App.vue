@@ -35,7 +35,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-app :theme="ui.themeStyle">
+  <v-app :theme="ui.themeStyle" class="not_select">
     <router-view class="not_scrollbar"/>
   </v-app>
 </template>

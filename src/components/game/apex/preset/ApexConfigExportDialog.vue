@@ -13,11 +13,14 @@ const apex_store = useApexStore();
 const include_launch = ref(true);
 const include_video = ref(true);
 const include_game_settings = ref(true);
+const include_aiming = ref(true);
+const include_controller = ref(true);
 const include_bindings = ref(true);
 const exporting = ref(false);
 
 const can_export = computed(() => include_launch.value || include_video.value
-  || include_game_settings.value || include_bindings.value);
+  || include_game_settings.value || include_aiming.value
+  || include_controller.value || include_bindings.value);
 
 watch(
   () => apex_store.config_export_dialog,
@@ -26,6 +29,8 @@ watch(
       include_launch.value = true;
       include_video.value = true;
       include_game_settings.value = true;
+      include_aiming.value = true;
+      include_controller.value = true;
       include_bindings.value = true;
     }
   },
@@ -59,6 +64,8 @@ async function confirm_export() {
       launchOptions: include_launch.value,
       videoConfig: include_video.value,
       gameSettings: include_game_settings.value,
+      aiming: include_aiming.value,
+      controller: include_controller.value,
       bindings: include_bindings.value,
     });
     toast.success('toast.exportApexConfigSnapshotSuccess');
@@ -94,6 +101,18 @@ async function confirm_export() {
           density="compact"
           hide-details
           :label="t('apex.configSnapshot.blockLaunch')"
+        />
+        <v-checkbox
+          v-model="include_aiming"
+          density="compact"
+          hide-details
+          :label="t('apex.configSnapshot.blockAiming')"
+        />
+        <v-checkbox
+          v-model="include_controller"
+          density="compact"
+          hide-details
+          :label="t('apex.configSnapshot.blockController')"
         />
         <v-checkbox
           v-model="include_game_settings"

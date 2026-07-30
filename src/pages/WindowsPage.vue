@@ -6,11 +6,13 @@ import {useI18n} from 'vue-i18n';
 import {getSystemInfo} from '@/ipc/commands.ts';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {useToast} from 'vue-toastification';
+import {useSettingsStore} from '@/stores/settings.ts';
 
 const { t } = useI18n();
 const toast = useToast();
 const route = useRoute();
 const router = useRouter();
+const settingsStore = useSettingsStore();
 const systemInfo = ref<[string, string][]>([]);
 const isLoading = ref(false);
 
@@ -58,12 +60,14 @@ onMounted(async () => {
       <h2 class="text-h6 font-weight-medium">{{ t('windows.title') }}</h2>
       <div class="windows-toolbar__actions">
         <v-btn
+          v-if="settingsStore.betaFeaturesEnabled"
           size="small"
           variant="tonal"
           prepend-icon="mdi-speedometer"
           @click="router.push('/game_optimizer')"
         >
           {{ t('windows.gameOptimizer') }}
+          <span class="mx-beta-badge ml-2" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
         </v-btn>
         <v-btn
           v-if="!isLoading && showData.length"

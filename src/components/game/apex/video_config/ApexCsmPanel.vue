@@ -91,7 +91,7 @@ function onDetailInput(value: number | null) {
           color="primary"
           variant="text"
           class="apex-parameter-toggle"
-          style="max-height: 25px"
+          :style="{maxHeight: 'var(--app-control-height-compact)'}"
           border
           divided
         >
@@ -116,7 +116,7 @@ function onDetailInput(value: number | null) {
           color="primary"
           variant="text"
           class="apex-parameter-toggle"
-          style="max-height: 25px"
+          :style="{maxHeight: 'var(--app-control-height-compact)'}"
           border
           divided
         >
@@ -185,12 +185,12 @@ function onDetailInput(value: number | null) {
 }
 
 :deep(.apex-parameter-switch.v-switch) {
-  --v-input-control-height: 25px;
+  --v-input-control-height: var(--app-control-height-compact);
   flex: 0 0 auto;
 }
 
 :deep(.apex-parameter-switch.v-switch .v-selection-control) {
-  min-height: 25px;
+  min-height: var(--app-control-height-compact);
 }
 
 :deep(.apex-parameter-switch.v-switch--inset .v-switch__track) {

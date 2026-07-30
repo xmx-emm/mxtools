@@ -4,11 +4,13 @@ import {
   clampNavPrimaryWidth,
   clampNavSecondaryWidth,
   NAV_MIN_WIDTH,
+  NAV_PRIMARY_MAX,
+  NAV_SECONDARY_MAX,
 } from '@/constants/nav_layout.ts';
 import {
   applyWindowBehavior,
   loadWindowBehaviorPrefs,
-  migrateAlterQWindowBehaviorIfNeeded,
+  migrateApexQWindowBehaviorIfNeeded,
   type WindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
 
@@ -36,6 +38,8 @@ export const useSettingsStore = defineStore('settings', {
     toggleLocaleShortcut: DEFAULT_TOGGLE_LOCALE_SHORTCUT,
     /** 是否启用「切换界面语言」快捷键 */
     toggleLocaleShortcutEnabled: true,
+    /** 是否显示并启用仍在测试中的功能 */
+    betaFeaturesEnabled: false,
     /** 开机自启 */
     autostart: false,
     /** 关闭窗口时最小化到托盘（否则退出） */
@@ -81,17 +85,20 @@ export const useSettingsStore = defineStore('settings', {
       if (!tag || this.dismissedHintTags.includes(tag)) return;
       this.dismissedHintTags = [...this.dismissedHintTags, tag];
     },
-    setNavPrimaryWidth(width: number) {
-      this.navPrimaryWidth = clampNavPrimaryWidth(width);
+    setNavPrimaryWidth(width: number, max = NAV_PRIMARY_MAX) {
+      this.navPrimaryWidth = Math.min(max, clampNavPrimaryWidth(width));
     },
-    setNavSecondaryWidth(width: number) {
-      this.navSecondaryWidth = clampNavSecondaryWidth(width);
+    setNavSecondaryWidth(width: number, max = NAV_SECONDARY_MAX) {
+      this.navSecondaryWidth = Math.min(max, clampNavSecondaryWidth(width));
     },
     setToggleLocaleShortcut(shortcut: string) {
       this.toggleLocaleShortcut = shortcut || DEFAULT_TOGGLE_LOCALE_SHORTCUT;
     },
     setToggleLocaleShortcutEnabled(v: boolean | null) {
       this.toggleLocaleShortcutEnabled = v ?? false;
+    },
+    setBetaFeaturesEnabled(v: boolean | null) {
+      this.betaFeaturesEnabled = v ?? false;
     },
     setAutostart(v: boolean | null) {
       this.autostart = v ?? false;
@@ -108,7 +115,7 @@ export const useSettingsStore = defineStore('settings', {
     /** 从 localStorage / 旧琉雀 Q prefs 对齐，并同步系统托盘与自启 */
     async syncWindowBehaviorFromStorage() {
       const early = loadWindowBehaviorPrefs();
-      const migrated = migrateAlterQWindowBehaviorIfNeeded({
+      const migrated = migrateApexQWindowBehaviorIfNeeded({
         autostart: this.autostart || early.autostart,
         closeToTray: this.closeToTray || early.closeToTray,
         startInTray: this.startInTray || early.startInTray,
@@ -125,6 +132,9 @@ export const useSettingsStore = defineStore('settings', {
       }
       if (typeof this.toggleLocaleShortcutEnabled !== 'boolean') {
         this.toggleLocaleShortcutEnabled = true;
+      }
+      if (typeof this.betaFeaturesEnabled !== 'boolean') {
+        this.betaFeaturesEnabled = false;
       }
       // 旧持久化可能仍带 globalShortcutsEnabled；从 state 上删掉避免继续同步
       const anyState = this as unknown as Record<string, unknown>;

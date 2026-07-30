@@ -45,7 +45,10 @@ onMounted(load);
     <header class="app-page__header">
       <div class="app-page__heading">
         <div class="app-page__eyebrow">Windows</div>
-        <h1 class="app-page__title">{{ t('inputMethod.title') }}</h1>
+        <h1 class="app-page__title">
+          {{ t('inputMethod.title') }}
+          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
+        </h1>
         <p class="app-page__subtitle">{{ t('inputMethod.description') }}</p>
       </div>
       <v-btn
@@ -90,6 +93,12 @@ onMounted(load);
 </template>
 
 <style scoped>
+.app-page__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .input-method-content {
   --app-page-max-width: 920px;
 }
