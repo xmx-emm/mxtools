@@ -66,4 +66,6 @@ export interface ApexQuickPresetSelection {
   launchOptions: Record<string, boolean>;
   /** 视频配置开关 key -> 是否启用(onValues) */
   videoOptions: Record<string, boolean>;
+  /** 已确认的 profile.cfg 优化项；未确认值不会进入此表。 */
+  gameSettingOptions: Record<string, boolean>;
 }

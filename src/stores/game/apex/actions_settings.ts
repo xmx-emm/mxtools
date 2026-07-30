@@ -31,6 +31,7 @@ export function adoptApexGameSettingsReport(
   store.original_game_settings_bindings = Object.fromEntries(
     report.bindings.map(binding => [binding.id, binding.input]),
   );
+  store.game_settings_binding_draft_sequence = 0;
   store.game_settings_loaded = true;
   store.game_settings_loaded_key = 'machine';
   store.game_settings_load_status = 'ready';
@@ -52,15 +53,32 @@ export function buildApexGameSettingsMutation(
     store.game_settings_values.profile,
     store.original_game_settings_values.profile,
   );
-  const bindingUpdates = store.game_settings_bindings
-    .filter(binding => store.original_game_settings_bindings[binding.id] !== binding.input)
-    .map(binding => ({id: binding.id, input: binding.input}));
+  const bindingMutations: ApexGameSettingsApplyRequest['bindingMutations'] = [];
+  const currentById = new Map(store.game_settings_bindings.map(binding => [binding.id, binding]));
+  for (const [id, originalInput] of Object.entries(store.original_game_settings_bindings)) {
+    const binding = currentById.get(id);
+    if (!binding || !binding.input) {
+      bindingMutations.push({operation: 'delete', id});
+    } else if (binding.input !== originalInput) {
+      bindingMutations.push({operation: 'update', id, input: binding.input});
+    }
+  }
+  for (const binding of store.game_settings_bindings) {
+    if (binding.id in store.original_game_settings_bindings || !binding.input) continue;
+    if (!binding.templateId) continue;
+    bindingMutations.push({
+      operation: 'create',
+      templateId: binding.templateId,
+      input: binding.input,
+      context: binding.context === 1 ? 1 : 0,
+    });
+  }
   return {
     settingsRevision: report.settings.revision,
     profileRevision: report.profile.revision,
     settingsUpdates,
     profileUpdates,
-    bindingUpdates,
+    bindingMutations,
   };
 }
 
@@ -126,9 +144,36 @@ export const apexSettingsActions = {
     this.game_settings_values[file][key] = value;
   },
 
-  set_game_binding_input(this: ApexStoreThis, id: string, input: string) {
-    const binding = this.game_settings_bindings.find(item => item.id === id);
-    if (binding) binding.input = input;
+  set_game_binding_slot(
+    this: ApexStoreThis,
+    templateId: string,
+    bindingId: string | null,
+    input: string,
+    context: 0 | 1,
+  ) {
+    if (bindingId) {
+      const index = this.game_settings_bindings.findIndex(item => item.id === bindingId);
+      if (index < 0) return;
+      const binding = this.game_settings_bindings[index];
+      if (binding.templateId && !input) {
+        this.game_settings_bindings.splice(index, 1);
+      } else {
+        binding.input = input;
+      }
+      return;
+    }
+    if (!input) return;
+    const template = this.game_settings_bindings.find(item => item.id === templateId);
+    if (!template) return;
+    const sequence = ++this.game_settings_binding_draft_sequence;
+    this.game_settings_bindings.push({
+      ...template,
+      id: `binding:draft:${sequence}`,
+      input,
+      context,
+      occurrence: sequence,
+      templateId,
+    });
   },
 
   async apply_apex_game_settings(
@@ -140,7 +185,7 @@ export const apexSettingsActions = {
     const mutation = buildApexGameSettingsMutation(this);
     if (!mutation || (!Object.keys(mutation.settingsUpdates).length
       && !Object.keys(mutation.profileUpdates).length
-      && !mutation.bindingUpdates.length)) {
+      && !mutation.bindingMutations.length)) {
       if (!options?.silent) useToast().info('apex.gameSettings.noChanges');
       return false;
     }

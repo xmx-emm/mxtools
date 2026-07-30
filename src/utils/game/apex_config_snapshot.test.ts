@@ -46,6 +46,21 @@ describe('buildApexConfigSnapshot', () => {
     expect(snap.videoConfig).toBeUndefined();
   });
 
+  it('never exports machine-local audio device identifiers', () => {
+    const snap = buildApexConfigSnapshot({
+      selection: {launchOptions: false, videoConfig: false, gameSettings: true},
+      gameSettings: {
+        settings: {
+          miles_output_device: '{device-guid}',
+          voice_input_device: '{microphone-guid}',
+          gfx_nvnUseLowLatency: '1',
+        },
+        profile: {},
+      },
+    });
+    expect(snap.gameSettings?.settings).toEqual({gfx_nvnUseLowLatency: '1'});
+  });
+
   it('exports aiming and controller settings as distinct selections', () => {
     const values = {
       settings: {
@@ -137,6 +152,23 @@ describe('parseApexConfigSnapshot', () => {
     expect(parsed.version).toBe(1);
     expect(parsed.launchOptions?.raw).toBe('-fullscreen');
     expect(parsed.gameSettings).toBeUndefined();
+  });
+
+  it('drops machine-local audio devices from imported snapshots', () => {
+    const parsed = parseApexConfigSnapshot(JSON.stringify({
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-14T00:00:00.000Z',
+      gameSettings: {
+        settings: {
+          miles_output_device: '{other-output}',
+          voice_input_device: '{other-microphone}',
+          mouse_sensitivity: '1.2',
+        },
+        profile: {},
+      },
+    }));
+    expect(parsed.gameSettings?.settings).toEqual({mouse_sensitivity: '1.2'});
   });
 
   it('rejects malformed game settings and binding blocks', () => {

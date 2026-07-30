@@ -16,6 +16,8 @@ export interface ApexBinding {
   heldCommand?: string | null;
   editable: boolean;
   occurrence: number;
+  /** Frontend-only source binding used when drafting a new second slot. */
+  templateId?: string;
 }
 
 export interface ApexGameSettingsReport {
@@ -24,17 +26,17 @@ export interface ApexGameSettingsReport {
   bindings: ApexBinding[];
 }
 
-export interface ApexBindingUpdate {
-  id: string;
-  input: string;
-}
+export type ApexBindingMutation =
+  | {operation: 'update'; id: string; input: string}
+  | {operation: 'delete'; id: string}
+  | {operation: 'create'; templateId: string; input: string; context: 0 | 1};
 
 export interface ApexGameSettingsApplyRequest {
   settingsRevision: string;
   profileRevision: string;
   settingsUpdates: Record<string, string>;
   profileUpdates: Record<string, string>;
-  bindingUpdates: ApexBindingUpdate[];
+  bindingMutations: ApexBindingMutation[];
   historySource?: import('./apex_history.ts').ApexHistorySource;
   transactionId?: string;
 }

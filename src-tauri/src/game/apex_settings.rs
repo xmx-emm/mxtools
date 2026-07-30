@@ -6,7 +6,7 @@ use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::blocking_cmd;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -85,10 +85,21 @@ pub struct ApexGameSettingsReport {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApexBindingUpdate {
-    pub id: String,
-    pub input: String,
+#[serde(tag = "operation", rename_all = "camelCase")]
+pub enum ApexBindingMutation {
+    Update {
+        id: String,
+        input: String,
+    },
+    Delete {
+        id: String,
+    },
+    Create {
+        #[serde(rename = "templateId")]
+        template_id: String,
+        input: String,
+        context: i32,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,7 +112,7 @@ pub struct ApexGameSettingsApplyRequest {
     #[serde(default)]
     pub profile_updates: HashMap<String, String>,
     #[serde(default)]
-    pub binding_updates: Vec<ApexBindingUpdate>,
+    pub binding_mutations: Vec<ApexBindingMutation>,
     #[serde(default)]
     pub history_source: ApexHistorySource,
     #[serde(default)]
@@ -144,7 +155,8 @@ const ZERO_TO_TWO: &[&str] = &["0", "1", "2"];
 const ZERO_TO_THREE: &[&str] = &["0", "1", "2", "3"];
 const ZERO_TO_SIX: &[&str] = &["0", "1", "2", "3", "4", "5", "6"];
 const COMMS_FILTER: &[&str] = &["-1", "0", "1"];
-const MINUS_ONE_TO_EIGHT: &[&str] = &["-1", "0", "1", "2", "3", "4", "5", "6", "7", "8"];
+const TRIGGER_THRESHOLDS: &[&str] = &["0", "30", "64", "128", "255"];
+const MINUS_ONE_TO_SEVEN: &[&str] = &["-1", "0", "1", "2", "3", "4", "5", "6", "7"];
 const AUDIO_CHANNELS: &[&str] = &["0", "2", "4", "6", "8"];
 
 fn indexed_suffix(key: &str, prefix: &str, max: u8) -> bool {
@@ -258,9 +270,9 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "mantle_boost_ui_setting" => Some(Enum(ZERO_TO_THREE)),
             "gamepad_button_layout" => Some(Enum(ZERO_TO_SIX)),
             "reticle_color" => Some(RgbOrDefault),
-            "gamepad_look_curve" => Some(Integer(0, 5)),
+            "gamepad_look_curve" => Some(Integer(0, 4)),
             "gamepad_custom_assist_style" => Some(Enum(BOOL)),
-            "gamepad_trigger_threshold" => Some(Integer(0, 100)),
+            "gamepad_trigger_threshold" => Some(Enum(TRIGGER_THRESHOLDS)),
             "cl_fovScale" => Some(Number(1.0, 1.7)),
             "cl_safearea" | "hud_setting_pingAlpha" => Some(Number(0.0, 1.0)),
             "gameCursor_Velocity" => Some(Number(100.0, 5000.0)),
@@ -286,13 +298,13 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "sound_volume_sfx_observer"
             | "sprint_view_shake_style"
             | "ziprail_roll_strength" => Some(Number(0.0, 1.0)),
-            "voice_quiet_threshold" => Some(Integer(0, 4000)),
+            "voice_quiet_threshold" => Some(Number(0.0, 4000.0)),
             "net_netGraph2" | "mantle_boost_input_setting" => Some(Enum(ZERO_TO_TWO)),
             _ if indexed_suffix(key, "gamepad_ads_advanced_sensitivity_scalar_", 7) => {
                 Some(Number(0.1, 10.0))
             }
-            _ if indexed_suffix(key, "gamepad_aim_speed_ads_", 7) => Some(Enum(MINUS_ONE_TO_EIGHT)),
-            "gamepad_aim_speed" => Some(Integer(0, 8)),
+            _ if indexed_suffix(key, "gamepad_aim_speed_ads_", 7) => Some(Enum(MINUS_ONE_TO_SEVEN)),
+            "gamepad_aim_speed" => Some(Integer(0, 7)),
             _ => None,
         },
     }
@@ -593,6 +605,43 @@ fn replace_binding_input(line: &str, input: &str) -> Result<String, String> {
     ))
 }
 
+fn replace_binding_context(line: &str, context: i32) -> Result<String, String> {
+    let last_quote = line
+        .rfind('"')
+        .ok_or_else(|| "apex.gameSettings.errors.bindingMalformed".to_string())?;
+    let suffix = &line[last_quote + 1..];
+    let leading_len = suffix.len() - suffix.trim_start().len();
+    let trailing_len = suffix.len() - suffix.trim_end().len();
+    if suffix.trim().parse::<i32>().is_err() {
+        return Err("apex.gameSettings.errors.bindingMalformed".to_string());
+    }
+    let leading = &suffix[..leading_len];
+    let trailing = if trailing_len == 0 {
+        ""
+    } else {
+        &suffix[suffix.len() - trailing_len..]
+    };
+    Ok(format!(
+        "{}{}{}{}",
+        &line[..last_quote + 1],
+        leading,
+        context,
+        trailing
+    ))
+}
+
+fn binding_action_key(binding: &ApexBinding) -> String {
+    format!(
+        "{}\u{1f}{}",
+        binding.command.to_ascii_lowercase(),
+        binding
+            .held_command
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+    )
+}
+
 fn apply_value_updates(
     file: ConfigFile,
     doc: &mut ApexCfgDocument,
@@ -614,71 +663,174 @@ fn apply_value_updates(
     Ok(())
 }
 
-fn apply_binding_updates(
+fn apply_binding_mutations(
     doc: &mut ApexCfgDocument,
-    updates: &[ApexBindingUpdate],
+    mutations: &[ApexBindingMutation],
 ) -> Result<(), String> {
+    if mutations.is_empty() {
+        return Ok(());
+    }
     let groups = binding_groups(doc);
     let by_id: HashMap<&str, &BindingGroup> = groups
         .iter()
         .map(|group| (group.public.id.as_str(), group))
         .collect();
-    let mut requested: HashMap<&str, String> = HashMap::new();
-    for update in updates {
-        let group = by_id
-            .get(update.id.as_str())
-            .ok_or_else(|| format!("apex.gameSettings.errors.bindingMissing: {}", update.id))?;
-        if !group.public.editable {
-            return Err(format!(
-                "apex.gameSettings.errors.bindingNotEditable: {}",
-                update.id
-            ));
-        }
-        let normalized = normalize_binding_input(&update.input);
-        if !valid_binding_input(&normalized) {
-            return Err(format!(
-                "apex.gameSettings.errors.invalidBinding: {normalized}"
-            ));
-        }
-        if requested
-            .insert(group.public.id.as_str(), normalized)
-            .is_some()
-        {
-            return Err(format!(
-                "apex.gameSettings.errors.duplicateBindingUpdate: {}",
-                update.id
-            ));
-        }
-    }
+    let mut updates: HashMap<String, String> = HashMap::new();
+    let mut deletions: HashSet<String> = HashSet::new();
+    let mut creations: Vec<(&BindingGroup, String, i32)> = Vec::new();
+    let mut mutated_ids: HashSet<String> = HashSet::new();
 
-    let mut final_inputs: HashMap<String, String> = HashMap::new();
-    for group in &groups {
-        let final_input = requested
-            .get(group.public.id.as_str())
-            .cloned()
-            .unwrap_or_else(|| group.public.input.clone());
-        if let Some(existing) =
-            final_inputs.insert(final_input.to_ascii_uppercase(), group.public.id.clone())
-        {
-            if existing != group.public.id {
-                return Err(format!(
-                    "apex.gameSettings.errors.bindingConflict: {final_input}"
-                ));
+    for mutation in mutations {
+        match mutation {
+            ApexBindingMutation::Update { id, input } => {
+                let group = by_id
+                    .get(id.as_str())
+                    .ok_or_else(|| format!("apex.gameSettings.errors.bindingMissing: {id}"))?;
+                if !group.public.editable {
+                    return Err(format!("apex.gameSettings.errors.bindingNotEditable: {id}"));
+                }
+                if !mutated_ids.insert(id.clone()) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.duplicateBindingMutation: {id}"
+                    ));
+                }
+                let normalized = normalize_binding_input(input);
+                if !valid_binding_input(&normalized) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.invalidBinding: {normalized}"
+                    ));
+                }
+                updates.insert(id.clone(), normalized);
+            }
+            ApexBindingMutation::Delete { id } => {
+                let group = by_id
+                    .get(id.as_str())
+                    .ok_or_else(|| format!("apex.gameSettings.errors.bindingMissing: {id}"))?;
+                if !group.public.editable {
+                    return Err(format!("apex.gameSettings.errors.bindingNotEditable: {id}"));
+                }
+                if !mutated_ids.insert(id.clone()) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.duplicateBindingMutation: {id}"
+                    ));
+                }
+                deletions.insert(id.clone());
+            }
+            ApexBindingMutation::Create {
+                template_id,
+                input,
+                context,
+            } => {
+                let template = by_id.get(template_id.as_str()).ok_or_else(|| {
+                    format!("apex.gameSettings.errors.bindingMissing: {template_id}")
+                })?;
+                if !template.public.editable {
+                    return Err(format!(
+                        "apex.gameSettings.errors.bindingNotEditable: {template_id}"
+                    ));
+                }
+                if !matches!(*context, 0 | 1) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.invalidBindingContext: {context}"
+                    ));
+                }
+                let normalized = normalize_binding_input(input);
+                if !valid_binding_input(&normalized) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.invalidBinding: {normalized}"
+                    ));
+                }
+                creations.push((template, normalized, *context));
             }
         }
     }
+    let mut final_bindings: Vec<ApexBinding> = groups
+        .iter()
+        .filter(|group| !deletions.contains(&group.public.id))
+        .map(|group| {
+            let mut binding = group.public.clone();
+            if let Some(input) = updates.get(&binding.id) {
+                binding.input = input.clone();
+            }
+            binding
+        })
+        .collect();
+    for (index, (template, input, context)) in creations.iter().enumerate() {
+        let mut binding = template.public.clone();
+        binding.id = format!("binding:new:{index}");
+        binding.input = input.clone();
+        binding.context = *context;
+        final_bindings.push(binding);
+    }
 
-    for group in &groups {
-        let Some(input) = requested.get(group.public.id.as_str()) else {
-            continue;
-        };
-        for index in &group.line_indices {
-            let ApexCfgLine::Raw(raw) = &mut doc.lines[*index] else {
-                return Err("apex.gameSettings.errors.bindingMalformed".to_string());
-            };
-            *raw = replace_binding_input(raw, input)?;
+    let mut final_inputs: HashMap<String, String> = HashMap::new();
+    let mut action_counts: HashMap<String, usize> = HashMap::new();
+    for binding in &final_bindings {
+        if let Some(existing) =
+            final_inputs.insert(binding.input.to_ascii_uppercase(), binding.id.clone())
+        {
+            if existing != binding.id {
+                return Err(format!(
+                    "apex.gameSettings.errors.bindingConflict: {}",
+                    binding.input
+                ));
+            }
+        }
+        if binding.editable {
+            *action_counts
+                .entry(binding_action_key(binding))
+                .or_default() += 1;
         }
     }
+    if action_counts.values().any(|count| *count > 2) {
+        return Err("apex.gameSettings.errors.bindingSlotLimit".to_string());
+    }
+
+    let mut group_id_by_line: HashMap<usize, &str> = HashMap::new();
+    for group in &groups {
+        for index in &group.line_indices {
+            group_id_by_line.insert(*index, group.public.id.as_str());
+        }
+    }
+    let mut create_after: HashMap<usize, Vec<Vec<ApexCfgLine>>> = HashMap::new();
+    for (template, input, context) in creations {
+        let mut lines = Vec::with_capacity(template.line_indices.len());
+        for index in &template.line_indices {
+            let ApexCfgLine::Raw(raw) = &doc.lines[*index] else {
+                return Err("apex.gameSettings.errors.bindingMalformed".to_string());
+            };
+            let replaced = replace_binding_input(raw, &input)?;
+            lines.push(ApexCfgLine::Raw(replace_binding_context(
+                &replaced, context,
+            )?));
+        }
+        let after = *template
+            .line_indices
+            .last()
+            .ok_or_else(|| "apex.gameSettings.errors.bindingMalformed".to_string())?;
+        create_after.entry(after).or_default().push(lines);
+    }
+
+    let mut next_lines = Vec::with_capacity(doc.lines.len() + mutations.len() * 2);
+    for (index, line) in doc.lines.iter().enumerate() {
+        let group_id = group_id_by_line.get(&index).copied();
+        if !group_id.is_some_and(|id| deletions.contains(id)) {
+            if let Some(input) = group_id.and_then(|id| updates.get(id)) {
+                let ApexCfgLine::Raw(raw) = line else {
+                    return Err("apex.gameSettings.errors.bindingMalformed".to_string());
+                };
+                next_lines.push(ApexCfgLine::Raw(replace_binding_input(raw, input)?));
+            } else {
+                next_lines.push(line.clone());
+            }
+        }
+        if let Some(groups) = create_after.remove(&index) {
+            for created in groups {
+                next_lines.extend(created);
+            }
+        }
+    }
+    doc.lines = next_lines;
     Ok(())
 }
 
@@ -822,33 +974,6 @@ fn verify_updates(
     Ok(())
 }
 
-fn verify_binding_updates(path: &Path, updates: &[ApexBindingUpdate]) -> Result<(), String> {
-    if updates.is_empty() {
-        return Ok(());
-    }
-    let bytes =
-        fs::read(path).map_err(|error| format!("apex.gameSettings.errors.readFailed: {error}"))?;
-    let (content, encoding) = decode_bytes(&bytes)?;
-    let doc = ApexCfgDocument::from_content(&content, encoding)?;
-    let groups = binding_groups(&doc);
-    for update in updates {
-        let expected = normalize_binding_input(&update.input);
-        let Some(group) = groups.iter().find(|group| group.public.id == update.id) else {
-            return Err(format!(
-                "apex.gameSettings.errors.verifyFailed: binding {}",
-                update.id
-            ));
-        };
-        if group.public.input != expected {
-            return Err(format!(
-                "apex.gameSettings.errors.verifyFailed: binding {}",
-                update.id
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn verify_file_bytes(path: &Path, expected: &[u8]) -> Result<(), String> {
     let actual = fs::read(path)
         .map_err(|error| format!("apex.gameSettings.errors.verifyFailed: {error}"))?;
@@ -882,7 +1007,7 @@ fn apply_request_inner(
 ) -> Result<ApexGameSettingsReport, String> {
     if request.settings_updates.is_empty()
         && request.profile_updates.is_empty()
-        && request.binding_updates.is_empty()
+        && request.binding_mutations.is_empty()
     {
         return Err("apex.gameSettings.errors.noChanges".to_string());
     }
@@ -907,10 +1032,10 @@ fn apply_request_inner(
         &mut profile.doc,
         &request.profile_updates,
     )?;
-    apply_binding_updates(&mut settings.doc, &request.binding_updates)?;
+    apply_binding_mutations(&mut settings.doc, &request.binding_mutations)?;
 
     let settings_changed =
-        !request.settings_updates.is_empty() || !request.binding_updates.is_empty();
+        !request.settings_updates.is_empty() || !request.binding_mutations.is_empty();
     let profile_changed = !request.profile_updates.is_empty();
     let settings_new = encode_doc(&settings.doc);
     let profile_new = encode_doc(&profile.doc);
@@ -946,7 +1071,12 @@ fn apply_request_inner(
             &request.settings_updates,
         )?;
         verify_updates(ConfigFile::Profile, &profile.path, &request.profile_updates)?;
-        verify_binding_updates(&settings.path, &request.binding_updates)?;
+        if settings_changed {
+            verify_file_bytes(&settings.path, &settings_new)?;
+        }
+        if profile_changed {
+            verify_file_bytes(&profile.path, &profile_new)?;
+        }
         Ok(())
     })();
     if let Err(error) = commit {
@@ -1087,7 +1217,6 @@ fn apex_settings_error(message: String) -> IpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use windows_tool::game::apex::config::ApexFileEncoding;
 
     fn sample() -> ApexCfgDocument {
@@ -1118,9 +1247,9 @@ mod tests {
     #[test]
     fn rejects_conflicting_binding() {
         let mut doc = sample();
-        let error = apply_binding_updates(
+        let error = apply_binding_mutations(
             &mut doc,
-            &[ApexBindingUpdate {
+            &[ApexBindingMutation::Update {
                 id: "binding:0".into(),
                 input: "4".into(),
             }],
@@ -1132,9 +1261,9 @@ mod tests {
     #[test]
     fn updates_tap_and_held_lines_together() {
         let mut doc = sample();
-        apply_binding_updates(
+        apply_binding_mutations(
             &mut doc,
-            &[ApexBindingUpdate {
+            &[ApexBindingMutation::Update {
                 id: "binding:1".into(),
                 input: "q".into(),
             }],
@@ -1162,6 +1291,20 @@ mod tests {
         assert!(validate_value(ConfigFile::Profile, "cl_comms_filter", "2").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "6").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "7").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "7").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "8").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "-1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "7").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "8").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "4").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "5").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_trigger_threshold", "255").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_trigger_threshold", "100").is_err());
+        assert!(
+            validate_value(ConfigFile::Profile, "voice_quiet_threshold", "1932.638062").is_ok()
+        );
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "3").is_err());
         assert!(validate_value(ConfigFile::Profile, "player_setting_tutorialization", "2").is_ok());
         assert!(validate_value(
             ConfigFile::Profile,
@@ -1191,6 +1334,23 @@ mod tests {
     }
 
     #[test]
+    fn runtime_verified_keyboard_commands_are_editable() {
+        for command in [
+            "+dodge",
+            "+scriptCommand3",
+            "+scriptcommand3",
+            "+scriptCommand4",
+            "+scriptCommand5",
+            "+scriptCommand6",
+            "+toggle_zoom",
+            "+weaponCycle",
+            "jpeg",
+        ] {
+            assert!(editable_binding(command, "F2"), "{command}");
+        }
+    }
+
+    #[test]
     fn rejects_unknown_and_unsafe_inputs() {
         assert!(!valid_binding_input("A_BUTTON"));
         assert!(!valid_binding_input("w;quit"));
@@ -1199,28 +1359,96 @@ mod tests {
     }
 
     #[test]
-    fn verifies_serialized_binding_updates() {
+    fn creates_and_deletes_one_binding_slot_without_touching_the_other() {
         let mut doc = sample();
-        let update = ApexBindingUpdate {
-            id: "binding:1".into(),
-            input: "q".into(),
-        };
-        apply_binding_updates(&mut doc, std::slice::from_ref(&update)).unwrap();
+        apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Create {
+                template_id: "binding:0".into(),
+                input: "MWHEELUP".into(),
+                context: 1,
+            }],
+        )
+        .unwrap();
+        let groups = binding_groups(&doc);
+        let forward: Vec<_> = groups
+            .iter()
+            .filter(|group| group.public.command == "+forward")
+            .collect();
+        assert_eq!(forward.len(), 2);
+        assert_eq!(forward[0].public.input, "w");
+        assert_eq!(forward[1].public.input, "MWHEELUP");
+        assert_eq!(forward[1].public.context, 1);
 
-        let path = std::env::temp_dir().join(format!(
-            "mxtools-apex-settings-{}-{}.cfg",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        fs::write(&path, encode_doc(&doc)).unwrap();
-        assert!(verify_binding_updates(&path, std::slice::from_ref(&update)).is_ok());
+        let second_id = forward[1].public.id.clone();
+        apply_binding_mutations(&mut doc, &[ApexBindingMutation::Delete { id: second_id }])
+            .unwrap();
+        let output = doc.to_string();
+        assert!(output.contains("bind_US_standard \"w\" \"+forward\" 0"));
+        assert!(!output.contains("MWHEELUP"));
+    }
 
-        fs::write(&path, encode_doc(&sample())).unwrap();
-        assert!(verify_binding_updates(&path, std::slice::from_ref(&update)).is_err());
-        let _ = fs::remove_file(path);
+    #[test]
+    fn preserves_held_pair_when_creating_and_deleting_a_slot() {
+        let mut doc = sample();
+        apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Create {
+                template_id: "binding:1".into(),
+                input: "q".into(),
+                context: 1,
+            }],
+        )
+        .unwrap();
+        let output = doc.to_string();
+        assert!(output.contains("bind_US_standard \"q\" \"+scriptCommand4\" 1"));
+        assert!(output.contains("bind_held_US_standard \"q\" \"+scriptCommand2\" 1"));
+    }
+
+    #[test]
+    fn can_delete_the_template_slot_while_creating_the_other_slot() {
+        let mut doc = sample();
+        apply_binding_mutations(
+            &mut doc,
+            &[
+                ApexBindingMutation::Delete {
+                    id: "binding:0".into(),
+                },
+                ApexBindingMutation::Create {
+                    template_id: "binding:0".into(),
+                    input: "MWHEELUP".into(),
+                    context: 1,
+                },
+            ],
+        )
+        .unwrap();
+        let output = doc.to_string();
+        assert!(!output.contains("bind_US_standard \"w\" \"+forward\" 0"));
+        assert!(output.contains("bind_US_standard \"MWHEELUP\" \"+forward\" 1"));
+    }
+
+    #[test]
+    fn rejects_a_third_slot_for_the_same_action() {
+        let mut doc = sample();
+        apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Create {
+                template_id: "binding:0".into(),
+                input: "q".into(),
+                context: 1,
+            }],
+        )
+        .unwrap();
+        let error = apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Create {
+                template_id: "binding:0".into(),
+                input: "e".into(),
+                context: 1,
+            }],
+        )
+        .unwrap_err();
+        assert!(error.contains("bindingSlotLimit"));
     }
 
     #[test]

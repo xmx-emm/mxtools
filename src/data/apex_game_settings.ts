@@ -58,10 +58,16 @@ const bool = (
   section: ApexGameSettingDefinition['section'],
 ) => field(id, file, key, section, 'toggle', {options: boolOptions});
 
+// Deliberately absent from the editable catalog until a future live-game pass
+// captures every option and all coupled writes. Do not infer values from menu
+// order. Gameplay: damage_indicator_style_pilot, hud_setting_showMeter,
+// hud_setting_pingAlpha, mantle_boost_input_setting, mantle_boost_ui_setting.
+// Controller: gamepad_aim_speed_ads_0..7, gamepad_use_per_scope_ads_settings,
+// joy_rumble, the PS5 adaptive-trigger setting whose key was not observed, and
+// all gamepad_custom_* / advanced-look controls. Audio:
+// sound_num_speakers, miles_mix + dialogue_cat_*, and VoiceChatMode.
+// See docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md for the evidence and retest list.
 const ApexGameSettings: ApexGameSettingDefinition[] = [
-  field('damageFeedback', 'profile', 'damage_indicator_style_pilot', 'gameplay', 'enum', {
-    options: describedOptions('damageFeedback', ['1', 'twoDimensional'], ['2', 'threeDimensional'], ['3', 'both']),
-  }),
   field('reticleDamageFeedback', 'profile', 'hud_setting_damageIndicatorStyle', 'gameplay', 'enum', {
     options: describedOptions('reticleDamageFeedback', ['0', 'off'], ['1', 'reticleX'], ['2', 'reticleXShield']),
   }),
@@ -135,35 +141,52 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     },
   )),
 
-  bool('controllerCustom', 'profile', 'gamepad_custom_enabled', 'controller'),
-  field('controllerAimSpeed', 'profile', 'gamepad_aim_speed', 'controller', 'number', {min: 0, max: 8, step: 1}),
-  field('controllerButtonLayout', 'profile', 'gamepad_button_layout', 'controller', 'enum', {
-    options: describedOptions('controllerButtonLayout',
-      ['4', 'default'], ['5', 'buttonJumper'], ['6', 'buttonPuncher'], ['0', 'evolved'],
-      ['1', 'grenadier'], ['2', 'ninja'], ['3', 'custom'],
+  field('controllerAimSpeed', 'profile', 'gamepad_aim_speed', 'controller', 'enum', {
+    options: options(
+      ['0', 'veryLow'], ['1', 'low'], ['2', 'preset'], ['3', 'high'],
+      ['4', 'veryHigh'], ['5', 'superHigh'], ['6', 'ultraHigh'], ['7', 'extreme'],
     ),
   }),
-  field('controllerStickLayout', 'profile', 'gamepad_stick_layout', 'controller', 'enum', {options: zeroToThree}),
-  field('controllerLookCurve', 'profile', 'gamepad_look_curve', 'controller', 'number', {min: 0, max: 5, step: 1}),
-  field('controllerLookDeadzone', 'profile', 'gamepad_deadzone_index_look', 'controller', 'enum', {options: zeroToTwo}),
-  field('controllerMoveDeadzone', 'profile', 'gamepad_deadzone_index_move', 'controller', 'enum', {options: zeroToTwo}),
-  field('controllerTriggerThreshold', 'profile', 'gamepad_trigger_threshold', 'controller', 'number', {min: 0, max: 100, step: 1}),
-  bool('controllerToggleAds', 'profile', 'gamepad_toggle_ads', 'controller'),
-  bool('controllerToggleCrouch', 'profile', 'gamepad_togglecrouch_hold', 'controller'),
-  field('controllerRumble', 'profile', 'joy_rumble', 'controller', 'enum', {options: zeroToTwo}),
-  bool('controllerInvert', 'profile', 'joy_inverty', 'controller'),
-  field('alcResponseCurve', 'profile', 'gamepad_custom_curve', 'controller', 'number', {min: 0, max: 30, step: 0.1}),
-  field('alcInnerDeadzone', 'profile', 'gamepad_custom_deadzone_in', 'controller', 'number', {min: 0, max: 1, step: 0.01}),
-  field('alcOuterThreshold', 'profile', 'gamepad_custom_deadzone_out', 'controller', 'number', {min: 0, max: 1, step: 0.01}),
-  field('alcHipYaw', 'profile', 'gamepad_custom_hip_yaw', 'controller', 'number', {min: 0, max: 500, step: 1}),
-  field('alcHipPitch', 'profile', 'gamepad_custom_hip_pitch', 'controller', 'number', {min: 0, max: 500, step: 1}),
-  field('alcAdsYaw', 'profile', 'gamepad_custom_ads_yaw', 'controller', 'number', {min: 0, max: 500, step: 1}),
-  field('alcAdsPitch', 'profile', 'gamepad_custom_ads_pitch', 'controller', 'number', {min: 0, max: 500, step: 1}),
-  bool('perScopeController', 'profile', 'gamepad_use_per_scope_sensitivity_scalars', 'controller'),
-
-  field('speakerChannels', 'settings', 'sound_num_speakers', 'audio', 'enum', {
-    options: ['0', '2', '4', '6', '8'].map(value => ({value, labelKey: `apexGameSettings.options.channels${value}`})),
+  field('controllerButtonLayout', 'profile', 'gamepad_button_layout', 'controller', 'enum', {
+    options: describedOptions('controllerButtonLayout',
+      ['0', 'default'], ['1', 'buttonJumper'], ['2', 'buttonPuncher'], ['3', 'evolved'],
+      ['4', 'grenadier'], ['5', 'ninja'], ['6', 'custom'],
+    ),
   }),
+  field('controllerStickLayout', 'profile', 'gamepad_stick_layout', 'controller', 'enum', {
+    options: describedOptions('controllerStickLayout',
+      ['0', 'default'], ['1', 'southpaw'], ['2', 'legacy'], ['3', 'legacySouthpaw'],
+    ),
+  }),
+  field('controllerUseType', 'profile', 'gamepad_use_type', 'controller', 'enum', {
+    options: describedOptions('controllerUseType',
+      ['0', 'tapUseHoldReload'], ['1', 'holdUseTapReload'], ['2', 'tapUseReload'],
+    ),
+  }),
+  field('controllerLookCurve', 'profile', 'gamepad_look_curve', 'controller', 'enum', {
+    options: describedOptions('controllerLookCurve',
+      ['0', 'classic'], ['1', 'steady'], ['2', 'fineAim'], ['3', 'highVelocity'], ['4', 'linear'],
+    ),
+  }),
+  field('controllerLookDeadzone', 'profile', 'gamepad_deadzone_index_look', 'controller', 'enum', {
+    options: options(['0', 'none'], ['1', 'small'], ['2', 'large']),
+  }),
+  field('controllerMoveDeadzone', 'profile', 'gamepad_deadzone_index_move', 'controller', 'enum', {
+    options: options(['1', 'small'], ['2', 'large']),
+  }),
+  field('controllerTriggerThreshold', 'profile', 'gamepad_trigger_threshold', 'controller', 'enum', {
+    options: options(['0', 'none'], ['30', 'default'], ['64', 'medium'], ['128', 'high'], ['255', 'highest']),
+  }),
+  field('controllerToggleAds', 'profile', 'gamepad_toggle_ads', 'controller', 'enum', {
+    options: options(['0', 'hold'], ['1', 'toggle']),
+  }),
+  field('controllerToggleCrouch', 'profile', 'gamepad_togglecrouch_hold', 'controller', 'enum', {
+    options: options(['0', 'toggle'], ['1', 'hold']),
+  }),
+  field('controllerSurvivalSlot', 'profile', 'gamepad_toggle_survivalSlot_to_weaponInspect', 'controller', 'enum', {
+    options: boolOptions,
+  }),
+  bool('controllerInvert', 'profile', 'joy_inverty', 'controller'),
   field('sfxVolume', 'profile', 'sound_volume_sfx', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('dialogueVolume', 'profile', 'sound_volume_dialogue', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('gameMusicVolume', 'profile', 'sound_volume_music_game', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
@@ -173,7 +196,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('voiceEnabled', 'profile', 'voice_enabled', 'audio'),
   bool('voiceMute', 'settings', 'voice_mixer_mute', 'audio'),
   field('voiceInputVolume', 'settings', 'voice_mixer_volume', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
-  bool('pushToTalk', 'settings', 'voice_vox', 'audio'),
+  field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 4000, step: 1}),
 
   bool('buttonHints', 'profile', 'hud_setting_showButtonHints', 'hud'),
   bool('hopUpPopup', 'profile', 'hud_setting_showHopUpPopUp', 'hud'),

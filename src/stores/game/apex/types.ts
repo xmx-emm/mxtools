@@ -93,12 +93,16 @@ export type ApexActions = {
   load_apex_game_settings(options?: {silent?: boolean; force?: boolean}): Promise<void>;
   start_game_settings(force?: boolean): void;
   set_game_setting_value(file: ApexGameSettingsFile, key: string, value: string): void;
-  set_game_binding_input(id: string, input: string): void;
+  set_game_binding_slot(
+    templateId: string,
+    bindingId: string | null,
+    input: string,
+    context: 0 | 1,
+  ): void;
   apply_apex_game_settings(options?: {silent?: boolean} & ApexConfigMutationMeta): Promise<boolean>;
   restore_apex_game_settings(restoreSettings: boolean, restoreProfile: boolean): Promise<boolean>;
   replace_game_settings_bindings(bindings: ApexBinding[]): void;
-  open_quick_preset_dialog(): void;
-  close_quick_preset_dialog(): void;
+  open_quick_preset_window(): void;
   open_apex_q_dialog(): void;
   close_apex_q_dialog(): void;
   set_quick_preset_display(info: PrimaryDisplayInfo | null): void;

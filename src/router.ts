@@ -6,7 +6,11 @@ import {useSettingsStore} from '@/stores/settings.ts';
 import {setAppLocale} from '@/i18n/i18n.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
-import {openAboutWindow, openApexQWindow} from '@/utils/windows.ts';
+import {
+  openAboutWindow,
+  openApexQWindow,
+  openApexQuickPresetWindow,
+} from '@/utils/windows.ts';
 import {consumeRestoreHashAlignedForRouter} from '@/utils/restore-last-route-hash.ts';
 import PUBGIcon from '@/components/icons/PUBGIcon.vue';
 
@@ -14,6 +18,7 @@ const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
 const ApexQOverlayView = () => import('./views/ApexQOverlayView.vue');
 const ApexQWindowView = () => import('./views/ApexQWindowView.vue');
+const ApexQuickPresetWindowView = () => import('./views/ApexQuickPresetWindowView.vue');
 const SettingsView = () => import('./views/SettingsView.vue');
 const GamePage = () => import('./pages/GamePage.vue');
 const WindowsPage = () => import('./pages/WindowsPage.vue');
@@ -35,6 +40,7 @@ export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = [
   '/about',
   '/apex-q-overlay',
   '/apex-q',
+  '/apex-quick-preset',
 ];
 
 /** 侧栏「工具」子项元数据：路由、文案 key、图标等，供导航与 `router.ts` 内工具表共用 */
@@ -128,6 +134,7 @@ const routes = [
 
   { path: '/about', component: AboutView },
   { path: '/apex-q', component: ApexQWindowView },
+  { path: '/apex-quick-preset', component: ApexQuickPresetWindowView },
   { path: '/apex-q-overlay', component: ApexQOverlayView },
 
   // 404
@@ -316,8 +323,20 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  if (toPathOnly === '/apex-quick-preset') {
+    const win = getCurrentWindow();
+    if (win.label === 'main') {
+      void openApexQuickPresetWindow()
+        .catch((error) => console.warn('open apex quick preset route failed', error));
+      next(false);
+      return;
+    }
+  }
+
   // 悬浮结果窗 / APEX Q 独立窗：不走主窗口恢复路由逻辑
-  if (toPathOnly === '/apex-q-overlay' || toPathOnly === '/apex-q') {
+  if (toPathOnly === '/apex-q-overlay'
+    || toPathOnly === '/apex-q'
+    || toPathOnly === '/apex-quick-preset') {
     next();
     return;
   }

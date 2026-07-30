@@ -91,7 +91,7 @@ export const apexSnapshotActions = {
         settings,
         profile,
         bindings: this.game_settings_bindings
-          .filter(binding => binding.editable)
+          .filter(binding => binding.editable && binding.input)
           .map(binding => ({
             input: binding.input,
             command: binding.command,
@@ -239,11 +239,15 @@ export const apexSnapshotActions = {
               this.original_game_settings_values.profile[key] !== value
             )),
           ),
-          bindingUpdates: this.game_settings_bindings
+          bindingMutations: this.game_settings_bindings
             .filter(binding => (
               this.original_game_settings_bindings[binding.id] !== nextBindingInputs[binding.id]
             ))
-            .map(binding => ({id: binding.id, input: nextBindingInputs[binding.id]})),
+            .map(binding => ({
+              operation: 'update' as const,
+              id: binding.id,
+              input: nextBindingInputs[binding.id],
+            })),
         };
       }
 

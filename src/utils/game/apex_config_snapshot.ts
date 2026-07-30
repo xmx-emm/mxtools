@@ -30,6 +30,16 @@ export type ApexConfigSnapshotSettingsGroups = Record<
   Pick<ApexGameSettingsSnapshot, 'settings' | 'profile'>
 >;
 
+/** Hardware endpoint IDs are machine-local and must never move between devices. */
+export const APEX_MACHINE_LOCAL_GAME_SETTING_KEYS = new Set([
+  'settings:miles_output_device',
+  'settings:voice_input_device',
+]);
+
+function isMachineLocalGameSetting(file: 'settings' | 'profile', key: string): boolean {
+  return APEX_MACHINE_LOCAL_GAME_SETTING_KEYS.has(`${file}:${key}`);
+}
+
 const gameSettingGroupByKey = new Map(
   ApexGameSettingsData.map(field => [
     `${field.file}:${field.key}`,
@@ -69,6 +79,7 @@ export function splitApexGameSettingsSnapshot(
 
   for (const file of ['settings', 'profile'] as const) {
     for (const [key, value] of Object.entries(snapshot[file])) {
+      if (isMachineLocalGameSetting(file, key)) continue;
       const group = settingsGroupForKey(file, key);
       groups[group][file][key] = value;
     }
@@ -227,8 +238,12 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
     if (!isPlainStringRecord(game.settings) || !isPlainStringRecord(game.profile)) {
       throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidGameSettings');
     }
-    const gameSettings = game.settings;
-    const gameProfile = game.profile;
+    const gameSettings = Object.fromEntries(
+      Object.entries(game.settings).filter(([key]) => !isMachineLocalGameSetting('settings', key)),
+    );
+    const gameProfile = Object.fromEntries(
+      Object.entries(game.profile).filter(([key]) => !isMachineLocalGameSetting('profile', key)),
+    );
     let bindings: ApexGameSettingsSnapshot['bindings'];
     if (game.bindings !== undefined) {
       if (!Array.isArray(game.bindings) || !game.bindings.every(isApexBindingSnapshot)) {

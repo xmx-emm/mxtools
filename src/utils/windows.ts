@@ -176,8 +176,22 @@ async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
   }
 }
 
+async function openApexQuickPresetWindow() {
+  await openWebWindow('apex-quick-preset', {
+    width: 760,
+    height: 760,
+    minWidth: 640,
+    minHeight: 560,
+    title: String(i18n.global.t('apexQuickPreset.title')),
+    decorations: false,
+    center: true,
+    preventOverflow: true,
+  });
+}
+
 export {
   openWebWindow,
   openAboutWindow,
   openApexQWindow,
+  openApexQuickPresetWindow,
 };

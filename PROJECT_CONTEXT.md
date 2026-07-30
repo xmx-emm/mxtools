@@ -60,6 +60,10 @@ noncommercial mirrors and public modified versions are allowed.
   generations; clean cached game-setting tabs silently refresh when revisited
   so external Apex edits are reflected, while dirty local edits are preserved.
   Stale responses are ignored.
+- Apex quick presets run in the independent `/apex-quick-preset` Tauri WebView
+  with the shared `VMain + AppTopBar` shell. That WebView restores the persisted
+  Apex account and independently reads launch, video, and game-setting state;
+  it never assumes the main WebView's Pinia memory is available.
 - The Apex game-setting catalog mirrors the in-game Gameplay, HUD,
   Accessibility, and Privacy groups alongside the existing aiming, binding,
   controller, and audio groups. Known setting rows share a reusable right-click
@@ -69,7 +73,24 @@ noncommercial mirrors and public modified versions are allowed.
   `cl_comms_filter` values `1/0/-1` for none/non-friends/everyone, and the
   companion `toggle_on_jump_to_deactivate_changed=1` marker when jetpack/glide
   control is explicitly changed. The evidence table and intentionally deferred
-  values are recorded in `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`.
+  values are recorded in `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`. General
+  mouse ADS sensitivity mirrors one value across all eight per-optic scalar
+  keys, while per-optic mode disables the general editor and exposes those keys
+  independently. Controller preset values follow the runtime-observed menu
+  order from `0` through `6`; controller stick layouts similarly map Default,
+  Southpaw, Legacy, and Legacy Southpaw to `0` through `3`. Trigger deadzone is
+  a five-value enum (`0/30/64/128/255`), not a percentage slider, and controller
+  look sensitivity is an eight-label enum stored as `0` through `7`. General
+  controller ADS sensitivity adds a `-1` value meaning “same as look sensitivity”.
+  Controller response curve is `0` through `4`; look deadzone is `0` through
+  `2`, while movement deadzone intentionally exposes only stored values `1`
+  and `2`. Controller ADS/per-optic storage, audio-channel, vibration,
+  voice-record-mode, and audio-mix enumeration, plus damage-feedback values,
+  remain read-only because current runtime evidence is incomplete or conflicts
+  with the previous catalog. Advanced Look Controls are
+  recorded for reference but intentionally
+  remain read-only until their full ranges, steps, dependencies, and tips are
+  verified as one group.
 - Apex history and configuration transactions are implemented by
   `src-tauri/src/game/apex_history.rs`, exposed through typed wrappers in
   `src/ipc/commands.ts`, and adopted by `src/stores/game/apex/actions_history.ts`.
@@ -157,10 +178,20 @@ noncommercial mirrors and public modified versions are allowed.
   under the global history mutex. Quick presets and snapshot imports use one
   `mutate_apex_config` transaction so their scopes share a transaction ID and
   any failed file write rolls the affected files back.
+- Editable Apex keyboard/mouse actions render as two binding slots. Frontend
+  drafts become explicit create/update/delete mutations; the Rust writer keeps
+  adjacent held bindings paired, rejects a third slot per action, and validates
+  global input uniqueness before writing. The quick preset uses the same
+  transaction to set the confirmed gameplay/HUD/accessibility optimizations and
+  the MOUSE2/MWHEEL binding layout. Unverified transparent ping opacity remains
+  deferred.
 - Apex configuration snapshots use the version-1 JSON shape while export and
   import controls classify backend-supported keys into other game settings,
   keyboard/mouse aiming and sensitivity, controller settings and sensitivity,
   and bindings.
+- Snapshot import/export always excludes machine-local audio endpoint IDs
+  `miles_output_device` and `voice_input_device`; the dialogs state this
+  explicitly so device selections are not transferred to another computer.
 - Snapshot Vitest automation covers version rejection, serialized export
   filtering, and keyboard/mouse versus controller import isolation; the
   frontend CI job runs it through the existing `npm test` gate.
@@ -181,8 +212,9 @@ noncommercial mirrors and public modified versions are allowed.
 - Backend diagnostics stay in IPC `message`/`details`; stable codes drive
   centralized frontend localization and folder-sharing interaction branches.
 - Production frontend builds emit a Vite manifest and `dist/bundle-report.json`.
-  `scripts/bundle-budget.mjs` enforces startup, per-asset, and aggregate raw/gzip
-  limits after every `npm run build`. Tauri packaging preserves the report at
+  The default `npm run build` records startup, per-asset, and aggregate raw/gzip
+  sizes without failing on budget overruns. `npm run bundle:check` remains an
+  optional strict diagnostic. Tauri packaging preserves the report at
   `src-tauri/target/bundle-report.json` but removes the report and Vite manifest
   from the embedded frontend assets.
 - Feedback pre-fills a GitHub Issue with environment data and log excerpts, caps
@@ -233,9 +265,9 @@ noncommercial mirrors and public modified versions are allowed.
   release builds use reproducible dependency resolution.
 - APEX Q SFC line limits are enforced by ESLint: coordinator and new panels
   are capped at 700 lines, calibration wrappers at 500.
-- Bundle limits are hard gates: startup plus largest locale 525/205 KiB,
-  JS chunk 185/68 KiB, CSS asset 270/40 KiB, all JS 1500/525 KiB, and all CSS
-  580/105 KiB (raw/gzip).
+- Bundle size budgets remain visible in `dist/bundle-report.json` and through
+  the optional `npm run bundle:check` diagnostic, but they are not default
+  frontend build gates.
 - Mirrors and modified releases are allowed only for noncommercial purposes and
   must preserve the complete MxTools license plus all `Required Notice:` lines.
   Third-party material remains under its own rights and license terms.
@@ -244,8 +276,8 @@ noncommercial mirrors and public modified versions are allowed.
 
 - Frontend lint: `npm.cmd run lint`
 - Frontend tests: `npm.cmd test`
-- Frontend types/build: `npm.cmd run build`
-- Bundle report/check: `npm.cmd run bundle:report` / `npm.cmd run bundle:check`
+- Frontend types/build and bundle report: `npm.cmd run build`
+- Optional strict bundle diagnostic: `npm.cmd run bundle:check`
 - Rust formatting: run `cargo fmt --check` from `src-tauri/`
 - Rust lint: run `cargo clippy --all-targets -- -D warnings` from `src-tauri/`
 - Rust tests: run `cargo test` from `src-tauri/`

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue';
+import {computed, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {getPrimaryDisplayInfo} from '@/ipc/commands.ts';
 import {useToast} from 'vue-toastification';
@@ -11,12 +11,14 @@ import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
+  buildDefaultGameSettingOptions,
   buildDefaultLaunchOptions,
   buildDefaultVideoOptions,
   FPS_CAP_MAX,
   FPS_CAP_MIN,
   graphicsQualityPresets,
   quickPresetLaunchOptionToggles,
+  quickPresetGameSettingToggles,
   quickPresetVideoConfigToggles,
   sortedAspectPresets,
 } from '@/data/presets/apex_quick_preset.ts';
@@ -40,6 +42,8 @@ import {
   resolveQuickPresetInitialAspectValue,
 } from '@/utils/game/apex_quick_preset.ts';
 import {useCloseLauncherThenApply} from '@/composables/useCloseLauncherThenApply.ts';
+import {getCurrentWindow} from '@tauri-apps/api/window';
+import ApexGameSettingTip from '@/components/game/apex/settings/ApexGameSettingTip.vue';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -60,6 +64,7 @@ const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competi
 const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
 const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
+const game_setting_options = ref<Record<string, boolean>>(buildDefaultGameSettingOptions());
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
 
@@ -74,6 +79,7 @@ function build_selection(): ApexQuickPresetSelection {
     enableSimplifiedReticle: simplified_reticle.value,
     launchOptions: launch_options.value,
     videoOptions: video_options.value,
+    gameSettingOptions: game_setting_options.value,
   };
 }
 
@@ -100,6 +106,9 @@ async function load_display_info() {
     if (Object.keys(apex_store.video_config_values).length === 0) {
       await apex_store.load_apex_video_config();
     }
+    if (!apex_store.game_settings_report) {
+      await apex_store.load_apex_game_settings();
+    }
     const has_letterbox = apex_store.options_selection.some(
       (item) => item.identifier === 'letterbox_aspect',
     );
@@ -122,7 +131,7 @@ async function load_display_info() {
 }
 
 function on_close() {
-  apex_store.close_quick_preset_dialog();
+  void getCurrentWindow().close();
 }
 
 function show_launch_option_tip(toggle: ApexQuickPresetLaunchOptionToggle) {
@@ -150,6 +159,13 @@ function show_video_option_tip(toggle: ApexQuickPresetVideoToggle) {
   }
 }
 
+function show_game_setting_tip(fieldId: string) {
+  apex_store.showTip({
+    tip: ApexGameSettingTip,
+    tipProps: {fieldId},
+  });
+}
+
 async function run_persist() {
   if (!local_display.value) return;
   if (enable_resolution_preset.value && aspect_value.value == null) {
@@ -159,7 +175,10 @@ async function run_persist() {
   try {
     await apex_store.ensure_configs_loaded_for_preset();
     apex_store.prepare_quick_preset(local_display.value, build_selection());
-    await apex_store.apply_quick_preset_persist();
+    const applied = await apex_store.apply_quick_preset_persist();
+    if (applied) {
+      await getCurrentWindow().close();
+    }
   } catch (e) {
     if (String(e) === 'Error: GRAPHICS_PRESET_NOT_FOUND') {
       toast.error('apexQuickPreset.graphicsNotFound');
@@ -198,7 +217,6 @@ const {
     }
     if (!await apex_store.check_miles_language()) {
       toast.error('toast.milesLanguageNotFound');
-      apex_store.close_quick_preset_dialog();
       if (apex_store.active_apex_account?.kind === 'ea') {
         apex_store.download_miles_language_manual_dialog_ea = true;
       } else {
@@ -237,27 +255,15 @@ const close_steam_apply_user = computed(() => {
   return acc?.kind === 'steam' ? acc.user : null;
 });
 
-watch(
-  () => apex_store.quick_preset_dialog,
-  (open) => {
-    if (open) {
-      void load_display_info();
-    } else {
-      cancel();
-    }
-  },
-  { immediate: true },
-);
+void load_display_info();
 </script>
 
 <template>
-  <v-dialog
-    :model-value="apex_store.quick_preset_dialog"
-    max-width="600"
-    scrollable
-    @update:model-value="(v: boolean) => { if (!v) on_close(); }"
-  >
-    <v-card :title="t('apexQuickPreset.title')">
+  <div class="quick-preset-shell--window">
+    <v-card
+      :title="t('apexQuickPreset.title')"
+      class="quick-preset-card--window"
+    >
       <v-card-text>
         <v-progress-linear v-if="display_loading" indeterminate class="mb-3"/>
         <v-alert
@@ -311,10 +317,10 @@ watch(
                   <v-btn-toggle
                     v-model="lock_axis"
                     mandatory
+                    density="compact"
                     color="primary"
                     variant="text"
-                    class="apex-parameter-toggle mb-2"
-                    :style="{maxHeight: 'var(--app-control-height-compact)'}"
+                    class="apex-parameter-toggle game-page-segmented-toggle mb-2"
                     border
                     divided
                   >
@@ -325,10 +331,10 @@ watch(
                 <div>
                   <v-btn-toggle
                     v-model="aspect_value"
+                    density="compact"
                     color="primary"
                     variant="text"
-                    class="apex-parameter-toggle aspect-preset-toggle mb-2"
-                    :style="{maxHeight: 'var(--app-control-height-compact)'}"
+                    class="apex-parameter-toggle aspect-preset-toggle game-page-segmented-toggle mb-2"
                     border
                     divided
                   >
@@ -370,10 +376,10 @@ watch(
                 <v-btn-toggle
                   v-model="graphics_preset_id"
                   mandatory
+                  density="compact"
                   color="primary"
                   variant="text"
-                  class="apex-parameter-toggle graphics-preset-toggle mb-2"
-                  :style="{maxHeight: 'var(--app-control-height-compact)'}"
+                  class="apex-parameter-toggle graphics-preset-toggle game-page-segmented-toggle mb-2"
                   border
                   divided
                 >
@@ -451,6 +457,45 @@ watch(
               </div>
             </div>
           </div>
+
+          <div class="preset-box mt-4">
+            <div class="preset-box-header section-label mb-0 px-3 py-2">
+              {{ t('apexQuickPreset.gameOptimizationsLabel') }}
+            </div>
+            <div class="preset-box-body preset-optimization-grid">
+              <div>
+                <div
+                  v-for="opt in quickPresetGameSettingToggles"
+                  :key="opt[0]"
+                  class="option-tip-wrap"
+                  :title="t('apexLaunchOptions.ui.rightClickTip')"
+                  @contextmenu.prevent="show_game_setting_tip(opt[0])"
+                >
+                  <v-checkbox
+                    v-model="game_setting_options[opt[0]]"
+                    :label="t(`apexGameSettings.fields.${opt[0]}.name`)"
+                    density="compact"
+                    hide-details
+                    color="primary"
+                    class="compact-checkbox"
+                  />
+                </div>
+              </div>
+              <div class="preset-binding-summary text-caption">
+                <strong>{{ t('apexQuickPreset.bindingOptimizationsLabel') }}</strong>
+                <span>MOUSE2 → {{ t('apexGameSettings.bindings.holdAim') }}</span>
+                <span>MWHEELUP → {{ t('apexGameSettings.bindings.moveForward') }}</span>
+                <span>MWHEELDOWN → {{ t('apexGameSettings.bindings.jump') }}</span>
+              </div>
+              <v-alert
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="preset-ping-warning"
+                :text="t('apexQuickPreset.pingOpacityDeferred')"
+              />
+            </div>
+          </div>
         </template>
       </v-card-text>
 
@@ -467,6 +512,18 @@ watch(
         </v-btn>
       </v-card-actions>
     </v-card>
+  </div>
+
+  <v-dialog
+    v-model="apex_store.tip_dialog"
+    content-class="apex-tip-dialog-no-ripple"
+  >
+    <component
+      :is="apex_store.tip_view"
+      v-bind="apex_store.tip_props"
+      class="not_select"
+      @contextmenu.prevent="apex_store.closeTip()"
+    />
   </v-dialog>
 
   <v-dialog v-model="dialog" max-width="400" persistent>
@@ -501,6 +558,21 @@ watch(
   font-weight: 600;
   margin-bottom: 6px;
   color: rgba(var(--v-theme-on-surface), 0.75);
+}
+
+.quick-preset-shell--window,
+.quick-preset-card--window {
+  height: 100%;
+}
+
+.quick-preset-card--window {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.quick-preset-card--window :deep(.v-card-text) {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .info-grid {
@@ -624,9 +696,32 @@ watch(
   min-width: 0;
 }
 
+.preset-optimization-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.8fr);
+  gap: 8px 18px;
+}
+
+.preset-binding-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.preset-ping-warning {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 560px) {
   .preset-options-columns {
     grid-template-columns: 1fr;
+  }
+  .preset-optimization-grid {
+    grid-template-columns: 1fr;
+  }
+  .preset-ping-warning {
+    grid-column: auto;
   }
 }
 </style>

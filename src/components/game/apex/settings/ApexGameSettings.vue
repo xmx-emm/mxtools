@@ -22,6 +22,7 @@ import ApexRgbIntegerInput from './ApexRgbIntegerInput.vue';
 const apex_store = useApexStore();
 const {locale, t, te} = useI18n();
 const toast = useToast();
+const bindingSlots = [0, 1] as const;
 const sectionsScroll = ref<HTMLElement | null>(null);
 const canScrollSectionsLeft = ref(false);
 const canScrollSectionsRight = ref(false);
@@ -152,21 +153,57 @@ function bindingName(binding: ApexBinding): string {
   return key && te(key) ? t(key) : binding.command;
 }
 
-const visibleBindings = computed(() => apex_store.game_settings_bindings.filter(binding => {
+interface ApexBindingAction {
+  key: string;
+  bindings: ApexBinding[];
+  template: ApexBinding;
+}
+
+function bindingActionKey(binding: ApexBinding): string {
+  return `${binding.command.toLowerCase()}\u001f${(binding.heldCommand ?? '').toLowerCase()}`;
+}
+
+const bindingActions = computed<ApexBindingAction[]>(() => {
+  const grouped = new Map<string, ApexBinding[]>();
+  for (const binding of apex_store.game_settings_bindings) {
+    if (!binding.editable) continue;
+    const key = bindingActionKey(binding);
+    const group = grouped.get(key) ?? [];
+    group.push(binding);
+    grouped.set(key, group);
+  }
+  return Array.from(grouped, ([key, bindings]) => ({
+    key,
+    bindings,
+    template: bindings.find(binding => !binding.templateId) ?? bindings[0],
+  }));
+});
+
+const visibleBindingActions = computed(() => bindingActions.value.filter(action => {
   if (!query.value) return true;
-  return [bindingName(binding), binding.command, binding.heldCommand, binding.input]
-    .join(' ')
-    .toLowerCase()
-    .includes(query.value);
+  return action.bindings.some(binding => (
+    [bindingName(binding), binding.command, binding.heldCommand, binding.input]
+      .join(' ')
+      .toLowerCase()
+      .includes(query.value)
+  ));
 }));
 
-function updateBinding(binding: ApexBinding, input: string) {
-  const conflict = findApexBindingConflict(apex_store.game_settings_bindings, binding.id, input);
+function updateBinding(action: ApexBindingAction, slot: 0 | 1, input: string) {
+  const binding = action.bindings[slot];
+  const conflict = input
+    ? findApexBindingConflict(apex_store.game_settings_bindings, binding?.id ?? '', input)
+    : undefined;
   if (conflict) {
     toast.error(t('apexGameSettings.bindingConflict', {key: input, action: bindingName(conflict)}));
     return;
   }
-  apex_store.set_game_binding_input(binding.id, input);
+  apex_store.set_game_binding_slot(
+    action.template.id,
+    binding?.id ?? null,
+    input,
+    slot,
+  );
 }
 
 function enumItems(field: ApexGameSettingDefinition) {
@@ -318,26 +355,26 @@ function enumItems(field: ApexGameSettingDefinition) {
       </template>
 
       <template v-else-if="section === 'bindings'">
-        <v-list-item v-for="binding in visibleBindings" :key="binding.id" class="setting-row">
+        <v-list-item v-for="action in visibleBindingActions" :key="action.key" class="setting-row">
           <template #title>
             <div class="setting-title-row">
-              <span>{{ bindingName(binding) }}</span>
-              <v-chip v-if="!binding.editable" size="x-small" variant="tonal">
-                {{ t('apexGameSettings.readOnly') }}
-              </v-chip>
+              <span>{{ bindingName(action.template) }}</span>
             </div>
           </template>
           <template #subtitle>
-            <code>{{ binding.command }}</code>
-            <span v-if="binding.heldCommand"> / {{ binding.heldCommand }}</span>
+            <code>{{ action.template.command }}</code>
+            <span v-if="action.template.heldCommand"> / {{ action.template.heldCommand }}</span>
           </template>
           <template #append>
-            <ApexBindingSelect
-              v-if="binding.editable"
-              :model-value="binding.input"
-              @update:model-value="updateBinding(binding, $event)"
-            />
-            <code v-else class="binding-readonly">{{ binding.input }}</code>
+            <div class="binding-slots">
+              <ApexBindingSelect
+                v-for="slot in bindingSlots"
+                :key="action.bindings[slot]?.id ?? `${action.key}:${slot}`"
+                :model-value="action.bindings[slot]?.input ?? ''"
+                clearable
+                @update:model-value="updateBinding(action, slot, $event)"
+              />
+            </div>
           </template>
         </v-list-item>
       </template>
@@ -356,7 +393,7 @@ function enumItems(field: ApexGameSettingDefinition) {
       </template>
 
       <div
-        v-if="(section === 'bindings' ? visibleBindings.length : section === 'unknown' ? unknownEntries.length : visibleFields.length) === 0"
+        v-if="(section === 'bindings' ? visibleBindingActions.length : section === 'unknown' ? unknownEntries.length : visibleFields.length) === 0"
         class="empty-state text-medium-emphasis"
       >
         {{ t('apexGameSettings.empty') }}
@@ -464,7 +501,8 @@ function enumItems(field: ApexGameSettingDefinition) {
 .setting-enum-scroll { max-width: min(52vw, 460px); overflow-x: auto; scrollbar-width: none; }
 .setting-enum-toggle { width: max-content; max-width: none; }
 .setting-enum-toggle :deep(.v-btn) { flex: 0 0 auto; white-space: nowrap; }
-.binding-readonly, .unknown-value { display: block; max-width: 220px; overflow: hidden; color: rgba(var(--v-theme-on-surface), 0.68); text-overflow: ellipsis; white-space: nowrap; }
+.unknown-value { display: block; max-width: 220px; overflow: hidden; color: rgba(var(--v-theme-on-surface), 0.68); text-overflow: ellipsis; white-space: nowrap; }
+.binding-slots { display: grid; grid-template-columns: repeat(2, minmax(112px, 150px)); gap: 6px; }
 .empty-state { display: grid; min-height: 160px; place-items: center; font-size: 13px; }
 @media (max-width: 760px) {
   .settings-toolbar { flex-wrap: wrap; }
@@ -472,6 +510,7 @@ function enumItems(field: ApexGameSettingDefinition) {
   .settings-search { flex: 1 1 180px; }
   .setting-title-row code { display: none; }
   .setting-enum-scroll { max-width: 46vw; }
+  .binding-slots { grid-template-columns: repeat(2, minmax(86px, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .settings-scroll-hint,

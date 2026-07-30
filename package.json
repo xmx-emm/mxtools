@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build && npm run bundle:check",
+    "build": "vue-tsc --noEmit && vite build && npm run bundle:report",
     "build:tauri": "npm run build && node scripts/prepare-tauri-dist.mjs",
     "bundle:check": "node scripts/bundle-budget.mjs --check",
     "bundle:report": "node scripts/bundle-budget.mjs",

@@ -208,7 +208,7 @@ describe.each([
           profileRevision: 'profile-r1',
           settingsUpdates,
           profileUpdates,
-          bindingUpdates: [],
+          bindingMutations: [],
         },
       }),
     });

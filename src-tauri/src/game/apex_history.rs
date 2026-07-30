@@ -1026,7 +1026,7 @@ fn mutate_impl(
     let game_changed = request.game_settings.as_ref().is_some_and(|game| {
         !game.settings_updates.is_empty()
             || !game.profile_updates.is_empty()
-            || !game.binding_updates.is_empty()
+            || !game.binding_mutations.is_empty()
     });
 
     let mut changed_scopes = Vec::new();

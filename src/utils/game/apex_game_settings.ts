@@ -11,7 +11,9 @@ export function findApexBindingConflict(
 ): ApexBinding | undefined {
   const normalized = input.toUpperCase();
   return bindings.find(binding => (
-    binding.id !== targetId && binding.input.toUpperCase() === normalized
+    binding.input
+    && binding.id !== targetId
+    && binding.input.toUpperCase() === normalized
   ));
 }
 

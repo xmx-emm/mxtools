@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import ApexGameSettingsData from '@/data/apex_game_settings.ts';
+import ApexGameSettingsData, {apexBindingCommandLabels} from '@/data/apex_game_settings.ts';
 import {mdiPathByName} from '@/icons/mdi-icons.ts';
 import type {ApexBinding} from '@/types/apex_game_settings.ts';
 import {
@@ -64,10 +64,24 @@ describe('Apex game settings catalog', () => {
       disabledWhen: {file: 'settings', key: 'mouse_use_per_scope_sensitivity_scalars', value: '0'},
     });
     expect(ApexGameSettingsData.find(field => field.id === 'controllerButtonLayout')?.options?.map(option => option.value)).toEqual([
-      '4', '5', '6', '0', '1', '2', '3',
+      '0', '1', '2', '3', '4', '5', '6',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerMoveDeadzone')?.options?.map(option => option.value)).toEqual([
+      '1', '2',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerTriggerThreshold')?.options?.map(option => option.value)).toEqual([
+      '0', '30', '64', '128', '255',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'autoMuteCommunications')?.options?.map(option => option.value)).toEqual([
+      '1', '0', '-1',
     ]);
 
     const keys = ApexGameSettingsData.map(field => field.key);
+    expect(keys).not.toContain('damage_indicator_style_pilot');
+    expect(keys).not.toContain('gamepad_aim_speed_ads_0');
+    expect(keys).not.toContain('joy_rumble');
+    expect(keys).not.toContain('sound_num_speakers');
+    expect(keys).not.toContain('VoiceChatMode');
     expect(keys).not.toContain('hud_setting_showMeter');
     expect(keys).not.toContain('hud_setting_pingAlpha');
     expect(keys).not.toContain('mantle_boost_input_setting');
@@ -84,6 +98,19 @@ describe('Apex binding conflict checks', () => {
 
   it('allows a binding to keep its current key', () => {
     expect(findApexBindingConflict(bindings, 'one', 'W')).toBeUndefined();
+  });
+});
+
+describe('Apex runtime binding labels', () => {
+  it('labels the non-obvious commands confirmed by before/after reset snapshots', () => {
+    expect(apexBindingCommandLabels).toMatchObject({
+      '+dodge': 'movementAbility',
+      '+scriptCommand3': 'toggleFireMode',
+      '+scriptcommand3': 'toggleFireMode',
+      '+scriptCommand4': 'useSelectedMedical',
+      '+scriptCommand5': 'characterUtility',
+      '+scriptCommand6': 'survivalItem',
+    });
   });
 });
 

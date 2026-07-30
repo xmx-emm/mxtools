@@ -280,3 +280,18 @@ export function buildDefaultVideoOptions(): Record<string, boolean> {
     quickPresetVideoConfigToggles.map((opt) => [opt.key, opt.defaultEnabled]),
   );
 }
+
+/** [field id, profile.cfg key, optimized value] */
+export const quickPresetGameSettingToggles = [
+  ['damageClosesDeathbox', 'player_setting_damage_closes_deathbox_menu', '0'],
+  ['stickySprint', 'player_setting_stickysprintforward', '1'],
+  ['autoSprint', 'player_setting_autosprint', '1'],
+  ['rotateMinimap', 'hud_setting_minimapRotate', '1'],
+  ['subtitles', 'closecaption', '0'],
+] as const;
+
+export function buildDefaultGameSettingOptions(): Record<string, boolean> {
+  return Object.fromEntries(
+    quickPresetGameSettingToggles.map(([id]) => [id, true]),
+  );
+}

@@ -19,7 +19,6 @@ import ApexVideoConfig from '@/components/game/apex/video_config/ApexVideoConfig
 import ApexVideoConfigApply from '@/components/game/apex/video_config/ApexVideoConfigApply.vue';
 import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.vue';
 import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSettingsApply.vue';
-import ApexQuickPresetDialog from '@/components/game/apex/preset/ApexQuickPresetDialog.vue';
 import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
 import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
 import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
@@ -256,7 +255,7 @@ function on_page_type_change(value: ApexPageTypeEnum | null) {
 }
 
 function open_quick_preset() {
-  apex_store.open_quick_preset_dialog();
+  apex_store.open_quick_preset_window();
 }
 
 function open_apex_q() {
@@ -499,7 +498,6 @@ async function open_config_import() {
     <ApexSteamManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog"/>
     <ApexEaManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog_ea"/>
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
-    <ApexQuickPresetDialog v-if="apex_store.quick_preset_dialog"/>
     <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
     <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
     <ApexConfigHistoryDialog/>

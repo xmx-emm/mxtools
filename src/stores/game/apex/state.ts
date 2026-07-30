@@ -71,6 +71,7 @@ export function createApexState() {
     },
     game_settings_bindings: <ApexBinding[]>[],
     original_game_settings_bindings: <Record<string, string>>{},
+    game_settings_binding_draft_sequence: 0,
     game_settings_loaded: false,
     fps: 320,//锁帧
     lobby_max_fps: 0,//大厅帧数
@@ -105,7 +106,6 @@ export function createApexState() {
     /** 用于刷新列表后恢复选中项；合并账户见 getter apex_accounts / active_apex_account */
     launcher_selection_key: <string | null>null,
 
-    quick_preset_dialog: false,
     quick_preset_display: <PrimaryDisplayInfo | null>null,
     quick_preset_applying: false,
 

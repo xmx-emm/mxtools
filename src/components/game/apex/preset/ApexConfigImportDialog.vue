@@ -227,6 +227,13 @@ const applying = computed(
         <p class="text-body-2 text-medium-emphasis mb-3">
           {{ t('apex.configSnapshot.importHint') }}
         </p>
+        <v-alert
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+          :text="t('apex.configSnapshot.machineLocalExcluded')"
+        />
 
         <template v-if="has_launch">
           <v-checkbox
