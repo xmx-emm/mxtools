@@ -6,6 +6,7 @@ import type {SteamUser} from '@/types/steam.ts';
 
 const mocks = vi.hoisted(() => ({
   apexIsRunning: vi.fn(),
+  checkApexMilesLanguage: vi.fn(),
   mutateApexConfig: vi.fn(),
   writeUtf8File: vi.fn(),
 }));
@@ -106,6 +107,7 @@ beforeEach(() => {
   setActivePinia(createPinia());
   vi.clearAllMocks();
   mocks.apexIsRunning.mockResolvedValue(false);
+  mocks.checkApexMilesLanguage.mockResolvedValue(true);
   mocks.mutateApexConfig.mockResolvedValue({
     historyEntry: null,
     changedScopes: ['gameSettings'],
@@ -146,6 +148,27 @@ describe('Apex snapshot export automation', () => {
     expect(content).not.toContain('custom_profile_key');
     expect(content).not.toContain('mouse_sensitivity');
   });
+
+  it('does not require unselected sources to be loaded', async () => {
+    const apex = prepareLoadedStore();
+    apex.game_settings_loaded = false;
+    apex.game_settings_report = null;
+    apex.launch_loaded_for_key = null;
+
+    await apex.export_config_snapshot_to_file('C:/tmp/apex-video.json', {
+      launchOptions: false,
+      videoConfig: true,
+      gameSettings: false,
+      aiming: false,
+      controller: false,
+      bindings: false,
+    });
+
+    const written = JSON.parse(mocks.writeUtf8File.mock.calls[0][0].content) as ApexConfigSnapshot;
+    expect(written.videoConfig).toEqual({'setting.fullscreen': '1'});
+    expect(written.launchOptions).toBeUndefined();
+    expect(written.gameSettings).toBeUndefined();
+  });
 });
 
 describe.each([
@@ -167,6 +190,8 @@ describe.each([
 ])('Apex snapshot $name import automation', ({selection, settingsUpdates, profileUpdates}) => {
   it('sends only the selected input-method settings to the transaction', async () => {
     const apex = prepareLoadedStore();
+    apex.game_settings_values.settings.gfx_nvnUseLowLatency = '0';
+    apex.game_settings_values.profile.CrossPlay_user_optin = '0';
     const snapshot: ApexConfigSnapshot = {
       version: 1,
       kind: 'apex-config-snapshot',
@@ -211,6 +236,104 @@ describe.each([
           bindingMutations: [],
         },
       }),
+    });
+  });
+});
+
+describe('Apex snapshot binding reconciliation', () => {
+  it('creates, updates, and deletes context slots from a clean report', async () => {
+    const apex = prepareLoadedStore();
+    const bindings = [
+      {
+        id: 'binding-zoom-0', input: 'MOUSE2', command: '+zoom', context: 0,
+        heldCommand: '+zoom_held', editable: true, occurrence: 0,
+      },
+      {
+        id: 'binding-zoom-1', input: 'MOUSE3', command: '+zoom', context: 1,
+        heldCommand: '+zoom_held', editable: true, occurrence: 0,
+      },
+      {
+        id: 'binding-forward-0', input: 'W', command: '+forward', context: 0,
+        heldCommand: '+forward_held', editable: true, occurrence: 0,
+      },
+      {
+        id: 'binding-melee-0', input: 'V', command: '+melee', context: 0,
+        heldCommand: null, editable: true, occurrence: 0,
+      },
+    ];
+    apex.game_settings_report = {
+      ...gameSettingsReport(),
+      bindings,
+    };
+    apex.game_settings_bindings = bindings.map(binding => ({...binding}));
+    apex.original_game_settings_bindings = Object.fromEntries(
+      bindings.map(binding => [binding.id, binding.input]),
+    );
+
+    const applied = await apex.apply_config_snapshot({
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-29T00:00:00.000Z',
+      gameSettings: {
+        settings: {},
+        profile: {},
+        bindings: [
+          {
+            input: 'MOUSE4', command: '+zoom', context: 1,
+            heldCommand: '+zoom_held', occurrence: 0,
+          },
+          {
+            input: 'W', command: '+forward', context: 0,
+            heldCommand: '+forward_held', occurrence: 0,
+          },
+          {
+            input: 'SPACE', command: '+forward', context: 1,
+            heldCommand: '+forward_held', occurrence: 0,
+          },
+        ],
+      },
+    }, {
+      importLaunchOptions: false,
+      importVideoConfig: false,
+      videoSelectMode: 'all',
+      selectedVideoItemIds: [],
+      importGameSettings: false,
+      importAiming: false,
+      importController: false,
+      importBindings: true,
+    });
+
+    expect(applied).toBe(true);
+    const request = mocks.mutateApexConfig.mock.calls[0][0].request;
+    expect(request.gameSettings.bindingMutations).toEqual([
+      {operation: 'delete', id: 'binding-zoom-0'},
+      {operation: 'update', id: 'binding-zoom-1', input: 'MOUSE4'},
+      {operation: 'create', templateId: 'binding-forward-0', input: 'SPACE', context: 1},
+      {operation: 'delete', id: 'binding-melee-0'},
+    ]);
+  });
+});
+
+describe('Apex snapshot launch validation', () => {
+  it('checks the language contained in the snapshot instead of the local draft', async () => {
+    const apex = prepareLoadedStore();
+    const applied = await apex.apply_config_snapshot({
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-29T00:00:00.000Z',
+      launchOptions: {raw: '+miles_language japanese +fps_max 240'},
+    }, {
+      importLaunchOptions: true,
+      importVideoConfig: false,
+      videoSelectMode: 'all',
+      selectedVideoItemIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(mocks.checkApexMilesLanguage).toHaveBeenCalledWith({
+      language: 'japanese',
+      platform: 'steam',
+      eaUserId: null,
     });
   });
 });

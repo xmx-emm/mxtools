@@ -25,6 +25,7 @@ use winapi::um::winbase::{MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE
 
 const HISTORY_SCHEMA_VERSION: u32 = 1;
 const HISTORY_LIMIT_PER_STREAM: usize = 30;
+const LEGACY_IMPORT_MARKER: &str = ".legacy-backup-imported-v1";
 static HISTORY_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -92,6 +93,12 @@ pub struct ApexConfigHistoryEntry {
     pub source: ApexHistorySource,
     pub scopes: Vec<ApexConfigScope>,
     pub launcher: Option<ApexLauncherRef>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ApexScopedHistoryRecord {
+    pub entry: ApexConfigHistoryEntry,
+    pub scope_added: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -544,6 +551,41 @@ pub(crate) fn prune_history_locked(app: &tauri::AppHandle) -> Result<(), String>
     prune_locked(&history_dir(app)?)
 }
 
+fn record_scope_locked(
+    dir: &Path,
+    source: ApexHistorySource,
+    transaction_id: Option<&str>,
+    scope: ApexConfigScope,
+    parts: RecordParts,
+) -> Result<ApexScopedHistoryRecord, String> {
+    let transaction_id = resolve_transaction_id(transaction_id);
+    let path = entry_path(dir, &transaction_id)?;
+    let scope_added = match fs::metadata(&path) {
+        Ok(metadata) if metadata.is_file() => {
+            let existing = load_entry(&path)?;
+            let already_recorded = existing.scopes.contains(&scope)
+                || match scope {
+                    ApexConfigScope::Launch => existing.launch_options.is_some(),
+                    ApexConfigScope::Video => existing.video.is_some(),
+                    ApexConfigScope::GameSettings => {
+                        existing.settings.is_some() || existing.profile.is_some()
+                    }
+                };
+            !already_recorded
+        }
+        Ok(_) => return Err("apex.history.errors.invalidEntry".to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+        Err(error) => {
+            return Err(format!(
+                "apex.history.errors.readFailed: {}: {error}",
+                path.display()
+            ))
+        }
+    };
+    let entry = record_locked(dir, source, Some(&transaction_id), parts)?;
+    Ok(ApexScopedHistoryRecord { entry, scope_added })
+}
+
 fn discard_scope_locked(dir: &Path, id: &str, scope: ApexConfigScope) -> Result<(), String> {
     let path = entry_path(dir, id)?;
     if !path.is_file() {
@@ -573,12 +615,13 @@ pub(crate) fn record_launch_before_locked(
     transaction_id: Option<&str>,
     launcher: ApexLauncherRef,
     current: String,
-) -> Result<ApexConfigHistoryEntry, String> {
+) -> Result<ApexScopedHistoryRecord, String> {
     let dir = history_dir(app)?;
-    record_locked(
+    record_scope_locked(
         &dir,
         source,
         transaction_id,
+        ApexConfigScope::Launch,
         RecordParts {
             launcher: Some(launcher),
             launch_options: Some(current),
@@ -593,13 +636,14 @@ pub(crate) fn record_video_before_locked(
     app: &tauri::AppHandle,
     source: ApexHistorySource,
     transaction_id: Option<&str>,
-) -> Result<ApexConfigHistoryEntry, String> {
+) -> Result<ApexScopedHistoryRecord, String> {
     let dir = history_dir(app)?;
     let video = capture_file(&apex::apex_video_config_path()?)?;
-    record_locked(
+    record_scope_locked(
         &dir,
         source,
         transaction_id,
+        ApexConfigScope::Video,
         RecordParts {
             launcher: None,
             launch_options: None,
@@ -614,13 +658,14 @@ pub(crate) fn record_game_settings_before_locked(
     app: &tauri::AppHandle,
     source: ApexHistorySource,
     transaction_id: Option<&str>,
-) -> Result<ApexConfigHistoryEntry, String> {
+) -> Result<ApexScopedHistoryRecord, String> {
     let dir = history_dir(app)?;
     let (settings_path, profile_path) = apex_settings::apex_game_settings_paths()?;
-    record_locked(
+    record_scope_locked(
         &dir,
         source,
         transaction_id,
+        ApexConfigScope::GameSettings,
         RecordParts {
             launcher: None,
             launch_options: None,
@@ -629,6 +674,13 @@ pub(crate) fn record_game_settings_before_locked(
             profile: Some(capture_file(&profile_path)?),
         },
     )
+}
+
+pub(crate) fn prepare_legacy_game_settings_import_locked(
+    app: &tauri::AppHandle,
+) -> Result<(), String> {
+    let dir = history_dir(app)?;
+    import_legacy_locked(&dir)
 }
 
 pub(crate) fn discard_scope_locked_for_app(
@@ -647,6 +699,17 @@ fn legacy_backup_path(path: &Path) -> PathBuf {
     path.with_file_name(format!("{name}.mxtools.bak"))
 }
 
+fn read_optional_file(path: &Path) -> Result<Option<Vec<u8>>, String> {
+    match fs::read(path) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!(
+            "apex.history.errors.readFailed: {}: {error}",
+            path.display()
+        )),
+    }
+}
+
 fn import_legacy_paths_locked(
     dir: &Path,
     settings_path: &Path,
@@ -654,8 +717,8 @@ fn import_legacy_paths_locked(
 ) -> Result<(), String> {
     let settings_backup = legacy_backup_path(settings_path);
     let profile_backup = legacy_backup_path(profile_path);
-    let settings_bytes = fs::read(&settings_backup).ok();
-    let profile_bytes = fs::read(&profile_backup).ok();
+    let settings_bytes = read_optional_file(&settings_backup)?;
+    let profile_bytes = read_optional_file(&profile_backup)?;
     if settings_bytes.is_none() && profile_bytes.is_none() {
         return Ok(());
     }
@@ -696,7 +759,29 @@ fn import_legacy_locked(dir: &Path) -> Result<(), String> {
     let Ok((settings_path, profile_path)) = apex_settings::apex_game_settings_paths() else {
         return Ok(());
     };
-    import_legacy_paths_locked(dir, &settings_path, &profile_path)
+    import_legacy_once_paths_locked(dir, &settings_path, &profile_path)
+}
+
+fn import_legacy_once_paths_locked(
+    dir: &Path,
+    settings_path: &Path,
+    profile_path: &Path,
+) -> Result<(), String> {
+    let marker = dir.join(LEGACY_IMPORT_MARKER);
+    match fs::metadata(&marker) {
+        Ok(metadata) if metadata.is_file() => return Ok(()),
+        Ok(_) => return Err("apex.history.errors.invalidEntry".to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(format!(
+                "apex.history.errors.readFailed: {}: {error}",
+                marker.display()
+            ))
+        }
+    }
+    import_legacy_paths_locked(dir, settings_path, profile_path)?;
+    fs::write(&marker, b"imported")
+        .map_err(|error| format!("write {} failed: {error}", marker.display()))
 }
 
 fn read_launch(launcher: &ApexLauncherRef) -> Result<String, String> {
@@ -836,18 +921,145 @@ fn reset_impl(
         Ok(())
     })();
     if let Err(error) = result {
-        let _ = write_launch(&launcher, &launch_options);
-        let _ = restore_file(&video, &video_path);
-        let _ = restore_file(&settings, &settings_path);
-        let _ = restore_file(&profile, &profile_path);
-        let _ = fs::remove_file(entry_path(&dir, &entry.id)?);
-        return Err(error);
+        let mut rollback_errors = Vec::new();
+        collect_rollback_error(
+            &mut rollback_errors,
+            "launch",
+            restore_launch_verified(&launcher, &launch_options),
+        );
+        collect_rollback_error(
+            &mut rollback_errors,
+            "video",
+            restore_file_verified(&video, &video_path),
+        );
+        collect_rollback_error(
+            &mut rollback_errors,
+            "settings",
+            restore_file_verified(&settings, &settings_path),
+        );
+        collect_rollback_error(
+            &mut rollback_errors,
+            "profile",
+            restore_file_verified(&profile, &profile_path),
+        );
+        if rollback_errors.is_empty() {
+            collect_rollback_error(
+                &mut rollback_errors,
+                "history cleanup",
+                restore_history_entry_file(&entry_path(&dir, &entry.id)?, None),
+            );
+        }
+        return Err(with_rollback_failure(error, rollback_errors));
     }
     let _ = prune_locked(&dir);
     Ok(ApexResetResult {
         history_entry: entry,
         pending_scopes: vec![ApexConfigScope::Video, ApexConfigScope::GameSettings],
     })
+}
+
+fn rollback_game_files(
+    game_paths: Option<&(PathBuf, PathBuf)>,
+    settings: Option<&StoredFile>,
+    profile: Option<&StoredFile>,
+) -> Result<(), String> {
+    let Some((settings_path, profile_path)) = game_paths else {
+        return Ok(());
+    };
+    let mut errors = Vec::new();
+    if let Some(file) = settings {
+        collect_rollback_error(
+            &mut errors,
+            "settings",
+            restore_file_verified(file, settings_path),
+        );
+    }
+    if let Some(file) = profile {
+        collect_rollback_error(
+            &mut errors,
+            "profile",
+            restore_file_verified(file, profile_path),
+        );
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+fn verify_stored_file(file: &StoredFile, target: &Path) -> Result<(), String> {
+    if !file.existed {
+        return match fs::metadata(target) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Ok(_) => Err(format!("{} still exists", target.display())),
+            Err(error) => Err(format!("verify {} failed: {error}", target.display())),
+        };
+    }
+    let expected = verified_bytes(file)?;
+    let actual =
+        fs::read(target).map_err(|error| format!("verify {} failed: {error}", target.display()))?;
+    if actual != expected {
+        return Err(format!("verify {} content mismatch", target.display()));
+    }
+    let readonly = fs::metadata(target)
+        .map_err(|error| format!("verify {} failed: {error}", target.display()))?
+        .permissions()
+        .readonly();
+    if readonly != file.readonly {
+        return Err(format!("verify {} readonly mismatch", target.display()));
+    }
+    Ok(())
+}
+
+fn restore_file_verified(file: &StoredFile, target: &Path) -> Result<(), String> {
+    let restore_error = restore_file(file, target).err();
+    match verify_stored_file(file, target) {
+        Ok(()) => Ok(()),
+        Err(verify_error) => Err(match restore_error {
+            Some(error) => format!("{error}; {verify_error}"),
+            None => verify_error,
+        }),
+    }
+}
+
+fn restore_launch_verified(launcher: &ApexLauncherRef, value: &str) -> Result<(), String> {
+    let restore_error = write_launch(launcher, value).err();
+    match read_launch(launcher) {
+        Ok(current) if current == value => Ok(()),
+        Ok(_) => Err(match restore_error {
+            Some(error) => format!("{error}; launch readback mismatch"),
+            None => "launch readback mismatch".to_string(),
+        }),
+        Err(read_error) => Err(match restore_error {
+            Some(error) => format!("{error}; {read_error}"),
+            None => read_error,
+        }),
+    }
+}
+
+fn collect_rollback_error(errors: &mut Vec<String>, label: &str, result: Result<(), String>) {
+    if let Err(error) = result {
+        errors.push(format!("{label}: {error}"));
+    }
+}
+
+fn with_rollback_failure(error: String, rollback_errors: Vec<String>) -> String {
+    if rollback_errors.is_empty() {
+        error
+    } else {
+        format!(
+            "{error}; apex.history.errors.rollbackFailed: {}",
+            rollback_errors.join("; ")
+        )
+    }
+}
+
+fn without_nested_rollback_failure(error: String) -> String {
+    error
+        .split_once("; apex.history.errors.rollbackFailed:")
+        .map(|(message, _)| message.to_string())
+        .unwrap_or(error)
 }
 
 fn restore_impl(
@@ -947,21 +1159,38 @@ fn restore_impl(
         Ok(())
     })();
     if let Err(error) = result {
+        let mut rollback_errors = Vec::new();
         if let (Some(launcher), Some(value)) = (&target.launcher, current_launch.as_deref()) {
-            let _ = write_launch(launcher, value);
+            collect_rollback_error(
+                &mut rollback_errors,
+                "launch",
+                restore_launch_verified(launcher, value),
+            );
         }
         if let (Some(file), Some(path)) = (&current_video, &video_path) {
-            let _ = restore_file(file, path);
+            collect_rollback_error(
+                &mut rollback_errors,
+                "video",
+                restore_file_verified(file, path),
+            );
         }
-        if let (Some((settings_path, profile_path)), Some(file)) = (&game_paths, &current_settings)
-        {
-            let _ = restore_file(file, settings_path);
-            if let Some(profile) = &current_profile {
-                let _ = restore_file(profile, profile_path);
-            }
+        collect_rollback_error(
+            &mut rollback_errors,
+            "game settings",
+            rollback_game_files(
+                game_paths.as_ref(),
+                current_settings.as_ref(),
+                current_profile.as_ref(),
+            ),
+        );
+        if rollback_errors.is_empty() {
+            collect_rollback_error(
+                &mut rollback_errors,
+                "history cleanup",
+                restore_history_entry_file(&entry_path(&dir, &undo.id)?, None),
+            );
         }
-        let _ = fs::remove_file(entry_path(&dir, &undo.id)?);
-        return Err(error);
+        return Err(with_rollback_failure(error, rollback_errors));
     }
     let mut pending_scopes = Vec::new();
     if target.video.as_ref().is_some_and(|file| !file.existed) {
@@ -986,11 +1215,37 @@ fn restore_impl(
 
 fn restore_history_entry_file(path: &Path, previous: Option<&[u8]>) -> Result<(), String> {
     if let Some(bytes) = previous {
-        atomic_write(path, bytes)
-    } else if path.exists() {
-        fs::remove_file(path).map_err(|error| error.to_string())
+        let write_error = atomic_write(path, bytes).err();
+        match fs::read(path) {
+            Ok(current) if current == bytes => Ok(()),
+            Ok(_) => Err(match write_error {
+                Some(error) => format!("{error}; history readback mismatch"),
+                None => "history readback mismatch".to_string(),
+            }),
+            Err(read_error) => Err(match write_error {
+                Some(error) => format!("{error}; {read_error}"),
+                None => read_error.to_string(),
+            }),
+        }
     } else {
-        Ok(())
+        match fs::metadata(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.to_string()),
+            Ok(_) => {
+                let remove_error = fs::remove_file(path).err();
+                match fs::metadata(path) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Ok(_) => Err(match remove_error {
+                        Some(error) => format!("{error}; history entry still exists"),
+                        None => "history entry still exists".to_string(),
+                    }),
+                    Err(error) => Err(match remove_error {
+                        Some(remove_error) => format!("{remove_error}; {error}"),
+                        None => error.to_string(),
+                    }),
+                }
+            }
+        }
     }
 }
 
@@ -1011,6 +1266,7 @@ fn mutate_impl(
         .zip(current_launch.as_ref())
         .is_some_and(|(next, current)| next != current);
 
+    apex::validate_video_updates(&request.video_updates)?;
     let current_video_values = if request.video_updates.is_empty() {
         None
     } else {
@@ -1082,8 +1338,11 @@ fn mutate_impl(
 
     let transaction_id = resolve_transaction_id(request.transaction_id.as_deref());
     let dir = history_dir(app)?;
+    if game_changed {
+        import_legacy_locked(&dir)?;
+    }
     let history_path = entry_path(&dir, &transaction_id)?;
-    let previous_history = fs::read(&history_path).ok();
+    let previous_history = read_optional_file(&history_path)?;
     let history_entry = record_locked(
         &dir,
         request.source,
@@ -1127,24 +1386,50 @@ fn mutate_impl(
     })();
 
     if let Err(error) = commit {
+        let mut rollback_errors = Vec::new();
         if launch_changed {
             if let (Some(launcher), Some(value)) =
                 (request.launcher.as_ref(), current_launch.as_deref())
             {
-                let _ = write_launch(launcher, value);
+                collect_rollback_error(
+                    &mut rollback_errors,
+                    "launch",
+                    restore_launch_verified(launcher, value),
+                );
             }
         }
         if let (Some(file), Some(path)) = (&video_before, &video_path) {
-            let _ = restore_file(file, path);
+            collect_rollback_error(
+                &mut rollback_errors,
+                "video",
+                restore_file_verified(file, path),
+            );
         }
         if let (Some(file), Some((settings_path, _))) = (&settings_before, &game_paths) {
-            let _ = restore_file(file, settings_path);
+            collect_rollback_error(
+                &mut rollback_errors,
+                "settings",
+                restore_file_verified(file, settings_path),
+            );
         }
         if let (Some(file), Some((_, profile_path))) = (&profile_before, &game_paths) {
-            let _ = restore_file(file, profile_path);
+            collect_rollback_error(
+                &mut rollback_errors,
+                "profile",
+                restore_file_verified(file, profile_path),
+            );
         }
-        let _ = restore_history_entry_file(&history_path, previous_history.as_deref());
-        return Err(error);
+        if rollback_errors.is_empty() {
+            collect_rollback_error(
+                &mut rollback_errors,
+                "history",
+                restore_history_entry_file(&history_path, previous_history.as_deref()),
+            );
+        }
+        return Err(with_rollback_failure(
+            without_nested_rollback_failure(error),
+            rollback_errors,
+        ));
     }
 
     let _ = prune_locked(&dir);
@@ -1409,6 +1694,25 @@ mod tests {
     }
 
     #[test]
+    fn profile_only_rollback_restores_the_previous_profile() {
+        let dir = TestDir::new("profile-only-rollback");
+        let settings_path = dir.0.join("settings.cfg");
+        let profile_path = dir.0.join("profile.cfg");
+        fs::write(&profile_path, b"profile-before").unwrap();
+        let profile = capture_file(&profile_path).unwrap();
+        fs::write(&profile_path, b"profile-after").unwrap();
+
+        rollback_game_files(
+            Some(&(settings_path, profile_path.clone())),
+            None,
+            Some(&profile),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read(&profile_path).unwrap(), b"profile-before");
+    }
+
+    #[test]
     fn legacy_backups_import_once_and_remain_untouched() {
         let dir = TestDir::new("legacy");
         let history = dir.0.join("history");
@@ -1428,6 +1732,75 @@ mod tests {
         assert_eq!(entries[0].source, ApexHistorySource::LegacyBackup);
         assert_eq!(fs::read(&settings_backup).unwrap(), b"legacy-settings");
         assert_eq!(fs::read(&profile_backup).unwrap(), b"legacy-profile");
+    }
+
+    #[test]
+    fn legacy_backup_marker_prevents_importing_later_internal_backups() {
+        let dir = TestDir::new("legacy-marker");
+        let history = dir.0.join("history");
+        fs::create_dir_all(&history).unwrap();
+        let settings_path = dir.0.join("settings.cfg");
+        let profile_path = dir.0.join("profile.cfg");
+        let settings_backup = legacy_backup_path(&settings_path);
+        fs::write(&settings_backup, b"legacy-settings").unwrap();
+
+        import_legacy_once_paths_locked(&history, &settings_path, &profile_path).unwrap();
+        fs::write(&settings_backup, b"new-internal-backup").unwrap();
+        import_legacy_once_paths_locked(&history, &settings_path, &profile_path).unwrap();
+
+        let entries = load_entries(&history).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(history.join(LEGACY_IMPORT_MARKER).is_file());
+    }
+
+    #[test]
+    fn legacy_backup_read_errors_do_not_write_the_migration_marker() {
+        let dir = TestDir::new("legacy-read-error");
+        let history = dir.0.join("history");
+        fs::create_dir_all(&history).unwrap();
+        let settings_path = dir.0.join("settings.cfg");
+        let profile_path = dir.0.join("profile.cfg");
+        fs::create_dir_all(legacy_backup_path(&settings_path)).unwrap();
+
+        let error =
+            import_legacy_once_paths_locked(&history, &settings_path, &profile_path).unwrap_err();
+
+        assert!(error.contains("readFailed"));
+        assert!(!history.join(LEGACY_IMPORT_MARKER).exists());
+    }
+
+    #[test]
+    fn repeated_scope_records_report_that_the_scope_already_existed() {
+        let dir = TestDir::new("repeated-scope");
+        let video_path = dir.0.join("videoconfig.txt");
+        let parts = || RecordParts {
+            launcher: None,
+            launch_options: None,
+            video: Some(stored_file_for_bytes(&video_path, b"before".to_vec())),
+            settings: None,
+            profile: None,
+        };
+
+        let first = record_scope_locked(
+            &dir.0,
+            ApexHistorySource::Apply,
+            Some("shared-transaction"),
+            ApexConfigScope::Video,
+            parts(),
+        )
+        .unwrap();
+        let second = record_scope_locked(
+            &dir.0,
+            ApexHistorySource::Apply,
+            Some("shared-transaction"),
+            ApexConfigScope::Video,
+            parts(),
+        )
+        .unwrap();
+
+        assert!(first.scope_added);
+        assert!(!second.scope_added);
+        assert_eq!(first.entry.id, second.entry.id);
     }
 
     #[test]

@@ -129,11 +129,13 @@ const {AUTHOR_GITHUB, AUTHOR_VIDEO, applySteamUser, calibrateOpen, checkOcr, del
           <div v-else-if="wizardStep === 3" class="apex-q-step">
               <v-btn-toggle
                 :model-value="folderMode"
-                class="mt-3"
-              density="compact"
-              divided
+                class="mt-3 game-page-segmented-toggle"
+                density="compact"
+                divided
                 mandatory
                 color="primary"
+                variant="text"
+                border
                 @update:model-value="onFolderModeChange"
               >
               <v-btn value="steam" size="small">{{ t('apex.apexQ.folderModeSteam') }}</v-btn>

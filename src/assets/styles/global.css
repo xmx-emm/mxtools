@@ -720,6 +720,15 @@ html[data-mx-theme-transition-fallback] .v-application {
 }
 
 /* Shared compact controls used by dense desktop toolbars and editable rows. */
+.mx-compact-icon-button.v-btn {
+  flex: 0 0 var(--app-control-height-compact);
+  width: var(--app-control-height-compact);
+  min-width: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  min-height: var(--app-control-height-compact) !important;
+  padding: 0 !important;
+}
+
 .mx-compact-field {
   --v-input-control-height: var(--app-control-height-compact);
 }

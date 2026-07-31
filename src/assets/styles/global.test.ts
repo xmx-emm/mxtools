@@ -16,3 +16,14 @@ describe('global reduced-motion styles', () => {
     expect(reducedMotionCss).toContain('animation-duration: 0.01ms !important');
   });
 });
+
+describe('global compact icon controls', () => {
+  it('uses the shared 28 px compact control token', () => {
+    const start = globalCss.indexOf('.mx-compact-icon-button.v-btn');
+    const block = globalCss.slice(start, globalCss.indexOf('}', start) + 1);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(block).toContain('width: var(--app-control-height-compact)');
+    expect(block).toContain('height: var(--app-control-height-compact) !important');
+  });
+});

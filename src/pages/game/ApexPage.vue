@@ -37,6 +37,12 @@ import {
   ApexConfigSnapshotParseError,
   parseApexConfigSnapshot,
 } from '@/utils/game/apex_config_snapshot.ts';
+import {
+  listenApexConfigChanged,
+  markApexConfigChangeSeen,
+  pendingApexConfigChange,
+  type ApexExternalConfigScope,
+} from '@/utils/game/apex_config_events.ts';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -69,7 +75,73 @@ const video_refresh_loading = ref(false);
 const game_settings_refresh_loading = ref(false);
 let page_bootstrapped = false;
 let unlisten_window_focus: (() => void) | null = null;
+let unlisten_config_changed: (() => void) | null = null;
+let external_config_refresh: Promise<void> | null = null;
+const pending_external_scopes = new Set<ApexExternalConfigScope>();
 const pending_defaults_refreshing = ref(false);
+
+async function refresh_external_config(scopes: ApexExternalConfigScope[]) {
+  for (const scope of scopes) pending_external_scopes.add(scope);
+  if (external_config_refresh) return external_config_refresh;
+  external_config_refresh = (async () => {
+    while (pending_external_scopes.size > 0) {
+      const selected = new Set(pending_external_scopes);
+      pending_external_scopes.clear();
+      const requests: Promise<unknown>[] = [];
+      if (selected.has('launch') && apex_store.active_apex_account) {
+        requests.push(apex_store.reload_launch_page());
+      }
+      if (selected.has('video')) {
+        requests.push(apex_store.load_apex_video_config({silent: true, force: true}));
+      }
+      if (selected.has('gameSettings')) {
+        requests.push(apex_store.load_apex_game_settings({
+          silent: true,
+          force: true,
+          discardLocal: true,
+        }));
+      }
+      await Promise.all(requests);
+      const failed: ApexExternalConfigScope[] = [];
+      if (selected.has('launch') && apex_store.active_apex_account
+        && (apex_store.launch_load_status !== 'ready'
+          || apex_store.launch_loaded_for_key !== apex_store.launcher_selection_key)) {
+        failed.push('launch');
+      }
+      if (selected.has('video')
+        && (apex_store.video_config_load_status !== 'ready'
+          || !apex_store.video_config_loaded)) {
+        failed.push('video');
+      }
+      if (selected.has('gameSettings')
+        && (apex_store.game_settings_load_status !== 'ready'
+          || !apex_store.game_settings_loaded
+          || !apex_store.game_settings_report)) {
+        failed.push('gameSettings');
+      }
+      if (failed.length > 0) {
+        throw new Error(`Apex external configuration refresh failed: ${failed.join(', ')}`);
+      }
+    }
+  })().finally(() => {
+    external_config_refresh = null;
+    if (pending_external_scopes.size > 0) {
+      void refresh_external_config([]);
+    }
+  });
+  return external_config_refresh;
+}
+
+async function refresh_pending_external_config() {
+  const pendingChange = pendingApexConfigChange();
+  if (!pendingChange) return;
+  try {
+    await refresh_external_config(pendingChange.scopes);
+    markApexConfigChangeSeen(pendingChange.revision);
+  } catch (error) {
+    console.warn('refresh pending Apex configuration failed', error);
+  }
+}
 
 async function refresh_running_for_active_account() {
   const acc = apex_store.active_apex_account;
@@ -104,6 +176,7 @@ function on_app_focus() {
     void refresh_running_for_active_account();
   }
   void refresh_pending_defaults();
+  void refresh_pending_external_config();
 }
 
 function on_visibility_change() {
@@ -114,6 +187,14 @@ function on_visibility_change() {
 
 onMounted(async () => {
   await startTauriStoreOnce('apex', () => apex_store.$tauri.start());
+  unlisten_config_changed = await listenApexConfigChanged(async ({scopes, revision}) => {
+    try {
+      await refresh_external_config(scopes);
+      markApexConfigChangeSeen(revision);
+    } catch (error) {
+      console.warn('refresh live Apex configuration failed', error);
+    }
+  });
   page_bootstrapped = true;
   if (apex_store.is_video_config_page) visited_video_tab.value = true;
   if (apex_store.is_game_settings_page) visited_game_settings_tab.value = true;
@@ -135,6 +216,7 @@ onMounted(async () => {
     apex_store.start_launch();
   }
   await refresh_running_for_active_account();
+  await refresh_pending_external_config();
   document.addEventListener('visibilitychange', on_visibility_change);
   unlisten_window_focus = await getCurrentWindow().onFocusChanged(({payload}) => {
     if (payload) on_app_focus();
@@ -145,6 +227,8 @@ onMounted(async () => {
       document.removeEventListener('visibilitychange', on_visibility_change);
       unlisten_window_focus?.();
       unlisten_window_focus = null;
+      unlisten_config_changed?.();
+      unlisten_config_changed = null;
     });
   }
 });
@@ -181,6 +265,8 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', on_visibility_change);
   unlisten_window_focus?.();
   unlisten_window_focus = null;
+  unlisten_config_changed?.();
+  unlisten_config_changed = null;
 });
 
 async function reload_apex_launch_options() {

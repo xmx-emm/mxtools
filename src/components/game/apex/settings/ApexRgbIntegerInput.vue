@@ -5,6 +5,7 @@ import {useI18n} from 'vue-i18n';
 const props = defineProps<{
   modelValue: string
   label: string
+  disabled?: boolean
 }>();
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void
@@ -34,6 +35,7 @@ watch(
 const isDefault = computed(() => !props.modelValue.trim());
 
 function updateChannel(index: number, event: Event) {
+  if (props.disabled) return;
   channels[index] = (event.target as HTMLInputElement).value;
   const parsed = channels.map(value => Number(value));
   if (channels.some(value => value === '')
@@ -42,6 +44,7 @@ function updateChannel(index: number, event: Event) {
 }
 
 function useDefault() {
+  if (props.disabled) return;
   channels.splice(0, 3, '', '', '');
   emit('update:modelValue', '');
 }
@@ -53,6 +56,7 @@ function useDefault() {
       size="small"
       :variant="isDefault ? 'tonal' : 'text'"
       :color="isDefault ? 'primary' : undefined"
+      :disabled="disabled"
       @click.stop="useDefault"
     >
       {{ t('apexGameSettings.options.default') }}
@@ -70,6 +74,7 @@ function useDefault() {
         step="1"
         :placeholder="String(['R', 'G', 'B'][index])"
         :aria-label="`${label} ${['R', 'G', 'B'][index]}`"
+        :disabled="disabled"
         @input="updateChannel(index, $event)"
         @click.stop
         @mousedown.stop

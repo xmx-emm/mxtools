@@ -96,6 +96,10 @@ they appear in `settings.cfg`:
 - `miles_output_device` (audio output device)
 - `voice_input_device` (voice recording/input device)
 
+No separate, verified Apex key for another “audio input device” selector was
+observed in this session. Do not add or transfer one by name inference; record
+its exact key first during a future runtime pass.
+
 ## Recorded only: advanced look controls
 
 The following in-game controller settings are recorded from the Advanced Look

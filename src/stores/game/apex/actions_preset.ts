@@ -25,6 +25,7 @@ import {
 } from '@/utils/game/apex_history.ts';
 import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
 import {apexIsRunning, mutateApexConfig} from '@/ipc/commands.ts';
+import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 import {
   adoptApexGameSettingsReport,
   buildApexGameSettingsMutation,
@@ -43,7 +44,7 @@ function clearPresetBindingInput(
   inputs: readonly string[],
 ) {
   const wanted = new Set(inputs.map(input => input.toUpperCase()));
-  for (const binding of store.game_settings_bindings) {
+  for (const binding of [...store.game_settings_bindings]) {
     if (binding.editable
       && sameBindingCommand(binding.command, command)
       && wanted.has(binding.input.toUpperCase())) {
@@ -64,9 +65,15 @@ function setPresetBindingInput(
   context: 0 | 1,
 ) {
   const normalizedInput = input.toUpperCase();
-  for (const binding of store.game_settings_bindings) {
+  for (const binding of [...store.game_settings_bindings]) {
     if (!binding.input || binding.input.toUpperCase() !== normalizedInput) continue;
-    if (sameBindingCommand(binding.command, command) && binding.context === context) return;
+    if (binding.editable
+      && sameBindingCommand(binding.command, command)
+      && !binding.heldCommand
+      && binding.context === context) continue;
+    if (!binding.editable) {
+      throw new Error(`apex.gameSettings.errors.bindingConflict: ${input}`);
+    }
     store.set_game_binding_slot(
       binding.templateId ?? binding.id,
       binding.id,
@@ -80,15 +87,19 @@ function setPresetBindingInput(
     && sameBindingCommand(binding.command, command)
     && !binding.heldCommand
   ));
+  const target = actionBindings.find(binding => binding.context === context);
+  if (target) {
+    store.set_game_binding_slot(
+      target.templateId ?? target.id,
+      target.id,
+      input,
+      context,
+    );
+    return;
+  }
   const active = actionBindings.filter(binding => binding.input);
   if (active.length >= 2) {
-    const replace = active[1];
-    store.set_game_binding_slot(
-      replace.templateId ?? replace.id,
-      replace.id,
-      '',
-      replace.context === 1 ? 1 : 0,
-    );
+    throw new Error(`apex.gameSettings.errors.bindingSlotLimit: ${command}`);
   }
   const template = actionBindings.find(binding => !binding.templateId) ?? actionBindings[0];
   if (!template) {
@@ -109,15 +120,17 @@ function prepareQuickPresetGameSettings(
 
   clearPresetBindingInput(store, '+toggle_zoom', ['MOUSE2']);
   clearPresetBindingInput(store, '+weaponCycle', ['MWHEELUP', 'MWHEELDOWN']);
-  setPresetBindingInput(store, '+zoom', 'MOUSE2', 0);
+  setPresetBindingInput(store, '+zoom', 'MOUSE2', 1);
   setPresetBindingInput(store, '+forward', 'MWHEELUP', 1);
   setPresetBindingInput(store, '+jump', 'MWHEELDOWN', 1);
 }
 
 export const apexPresetActions = {
-  open_quick_preset_window() {
+  open_quick_preset_window(this: ApexStoreThis) {
     void import('@/utils/windows.ts')
-      .then(({openApexQuickPresetWindow}) => openApexQuickPresetWindow())
+      .then(({openApexQuickPresetWindow}) => (
+        openApexQuickPresetWindow(this.launcher_selection_key)
+      ))
       .catch((error) => console.warn('open apex quick preset failed', error));
   },
 
@@ -207,6 +220,10 @@ export const apexPresetActions = {
     if (Object.keys(this.video_config_values).length === 0) {
       await this.load_apex_video_config();
     }
+    if (this.video_config_load_status !== 'ready'
+      || Object.keys(this.video_config_values).length === 0) {
+      throw new Error('apex.videoConfigLoadFailed');
+    }
     if (!this.game_settings_report) {
       await this.load_apex_game_settings();
     }
@@ -226,7 +243,7 @@ export const apexPresetActions = {
         return false;
       }
 
-      const apexRunning = await apexIsRunning().catch(() => false);
+      const apexRunning = await apexIsRunning();
       if (apexRunning) {
         toast.error('apex.apexRunningVideoConfig');
         return false;
@@ -269,6 +286,10 @@ export const apexPresetActions = {
         await this.set_videoconfig_readonly(true);
       } else {
         await this.load_videoconfig_readonly();
+      }
+      if (result.changedScopes.length > 0) {
+        await emitApexConfigChanged(result.changedScopes)
+          .catch(error => console.warn('notify Apex config change failed', error));
       }
       toast.success('apexQuickPreset.applySuccess');
       return true;

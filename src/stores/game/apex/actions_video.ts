@@ -223,7 +223,14 @@ export const apexVideoActions = {
     options?: {silent?: boolean} & ApexConfigMutationMeta,
   ): Promise<boolean> {
     const toast = useToast();
-    const running = await apexIsRunning().catch(() => false);
+    let running: boolean;
+    try {
+      running = await apexIsRunning();
+    } catch (error) {
+      console.warn('check Apex running state failed', error);
+      if (!options?.silent) toast.error(String(error));
+      return false;
+    }
     if (running) {
       toast.error('apex.apexRunningVideoConfig');
       return false;
@@ -240,8 +247,8 @@ export const apexVideoActions = {
       // 选用了 Apex 预设之外的档位时，强制只读，防止启动游戏被还原。
       if (this.has_out_of_preset_selection) {
         try {
-          await this.set_videoconfig_readonly(true);
-          toast.info('apex.outOfPresetAutoLocked');
+          const locked = await this.set_videoconfig_readonly(true);
+          if (locked) toast.info('apex.outOfPresetAutoLocked');
         } catch (e) {
           console.warn('force readonly after apply failed', e);
         }

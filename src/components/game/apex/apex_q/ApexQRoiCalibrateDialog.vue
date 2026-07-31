@@ -53,7 +53,16 @@ const {MAX_ZOOM, MIN_ZOOM, activeRoi, allRegionsVerified, bumpZoom, confirm, foc
         />
 
         <div class="d-flex flex-wrap align-center ga-2 mb-3">
-          <v-btn-toggle v-model="kind" density="compact" divided mandatory color="primary">
+          <v-btn-toggle
+            v-model="kind"
+            class="game-page-segmented-toggle"
+            density="compact"
+            divided
+            mandatory
+            color="primary"
+            variant="text"
+            border
+          >
             <v-btn value="showpos" size="small">{{ t('apex.apexQ.calibrateShowpos') }}</v-btn>
             <v-btn value="ping" size="small">{{ t('apex.apexQ.calibratePing') }}</v-btn>
           </v-btn-toggle>

@@ -1,6 +1,7 @@
 import {useToast} from 'vue-toastification';
 import {
   apexIsRunning,
+  checkApexMilesLanguage,
   mutateApexConfig,
   writeUtf8File,
 } from '@/ipc/commands.ts';
@@ -18,6 +19,11 @@ import {
   type ApexConfigSnapshotSettingsGroup,
 } from '@/utils/game/apex_config_snapshot.ts';
 import type {ApexStoreThis} from './types.ts';
+import type {
+  ApexBinding,
+  ApexBindingMutation,
+  ApexBindingSnapshot,
+} from '@/types/apex_game_settings.ts';
 import {
   createApexHistoryTransactionId,
   toApexLauncherRef,
@@ -26,6 +32,236 @@ import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
 import {
   adoptApexGameSettingsReport,
 } from './actions_settings.ts';
+
+const allSnapshotSources: ApexConfigSnapshotExportSelection = {
+  launchOptions: true,
+  videoConfig: true,
+  gameSettings: true,
+  aiming: true,
+  controller: true,
+  bindings: true,
+};
+
+const SNAPSHOT_LOAD_TIMEOUT_MS = 10_000;
+
+function waitForSnapshotTick(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 15));
+}
+
+async function waitForSnapshotLoad(options: {
+  start: () => Promise<unknown> | unknown;
+  loading: () => boolean;
+  status: () => string;
+  ready: () => boolean;
+  error: string;
+}): Promise<void> {
+  const deadline = Date.now() + SNAPSHOT_LOAD_TIMEOUT_MS;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(options.start),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(options.error)),
+          SNAPSHOT_LOAD_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+  while (options.loading()) {
+    if (Date.now() >= deadline) throw new Error(options.error);
+    await waitForSnapshotTick();
+  }
+  if (!options.ready() || options.status() === 'error') {
+    throw new Error(options.error);
+  }
+}
+
+function needsGameSettingsSource(selection: {
+  gameSettings?: boolean;
+  aiming?: boolean;
+  controller?: boolean;
+  bindings?: boolean;
+}): boolean {
+  return Boolean(
+    selection.gameSettings
+    || selection.aiming
+    || selection.controller
+    || selection.bindings,
+  );
+}
+
+/** Load only the sources selected by an export/import operation. */
+async function ensureSnapshotSourcesLoaded(
+  store: ApexStoreThis,
+  selection: {
+    launchOptions?: boolean;
+    videoConfig?: boolean;
+    gameSettings?: boolean;
+    aiming?: boolean;
+    controller?: boolean;
+    bindings?: boolean;
+  },
+): Promise<void> {
+  if (selection.launchOptions) {
+    const expectedKey = store.launcher_selection_key;
+    if (!expectedKey) throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
+    const loaded = store.launch_loaded_for_key === expectedKey
+      && !store.is_start_loading
+      && store.launch_load_status !== 'error';
+    if (!loaded) {
+      await waitForSnapshotLoad({
+        start: () => store.load_launch_data(),
+        loading: () => store.is_start_loading,
+        status: () => store.launch_load_status,
+        ready: () => store.launch_loaded_for_key === expectedKey,
+        error: 'LAUNCH_OPTIONS_LOAD_FAILED',
+      });
+    }
+  }
+
+  if (selection.videoConfig) {
+    const loaded = store.video_config_loaded
+      && !store.is_video_config_loading
+      && store.video_config_load_status !== 'error';
+    if (!loaded) {
+      await waitForSnapshotLoad({
+        start: () => store.load_apex_video_config({silent: true}),
+        loading: () => store.is_video_config_loading,
+        status: () => store.video_config_load_status,
+        ready: () => store.video_config_loaded,
+        error: 'VIDEO_CONFIG_LOAD_FAILED',
+      });
+    }
+  }
+
+  if (needsGameSettingsSource(selection)) {
+    const loaded = store.game_settings_loaded
+      && Boolean(store.game_settings_report)
+      && !store.is_game_settings_loading
+      && store.game_settings_load_status !== 'error';
+    if (!loaded) {
+      await waitForSnapshotLoad({
+        start: () => store.load_apex_game_settings({silent: true}),
+        loading: () => store.is_game_settings_loading,
+        status: () => store.game_settings_load_status,
+        ready: () => store.game_settings_loaded && Boolean(store.game_settings_report),
+        error: 'GAME_SETTINGS_LOAD_FAILED',
+      });
+    }
+  }
+}
+
+function bindingActionKey(binding: {
+  command: string;
+  heldCommand?: string | null;
+}): string {
+  return `${binding.command.toLowerCase()}\u001f${(binding.heldCommand ?? '').toLowerCase()}`;
+}
+
+function bindingIdentityKey(binding: {
+  command: string;
+  heldCommand?: string | null;
+  context: number;
+  occurrence: number;
+}): string {
+  return `${bindingActionKey(binding)}\u001f${binding.context}\u001f${binding.occurrence}`;
+}
+
+function normalizedBindingInput(input: string): string {
+  return input.trim().toUpperCase();
+}
+
+/** Reconcile the complete editable binding set, including missing context slots. */
+function buildSnapshotBindingMutations(
+  baseline: ApexBinding[],
+  saved: ApexBindingSnapshot[],
+): ApexBindingMutation[] {
+  const mutations: ApexBindingMutation[] = [];
+  const baselineEditable = baseline.filter(binding => binding.editable);
+  const baselineByIdentity = new Map<string, ApexBinding>();
+  for (const binding of baselineEditable) {
+    const identity = bindingIdentityKey(binding);
+    if (baselineByIdentity.has(identity)) {
+      throw new Error(`apex.gameSettings.errors.duplicateBindingIdentity: ${binding.command}`);
+    }
+    baselineByIdentity.set(identity, binding);
+  }
+
+  const savedByIdentity = new Map<string, ApexBindingSnapshot>();
+  const savedSlots = new Set<string>();
+  const actionKeys = new Set(baselineEditable.map(bindingActionKey));
+  for (const binding of saved) {
+    const identity = bindingIdentityKey(binding);
+    const slot = `${bindingActionKey(binding)}\u001f${binding.context}`;
+    if (savedByIdentity.has(identity) || savedSlots.has(slot)) {
+      throw new Error(`apex.gameSettings.errors.duplicateBindingIdentity: ${binding.command}`);
+    }
+    savedByIdentity.set(identity, binding);
+    savedSlots.add(slot);
+    actionKeys.add(bindingActionKey(binding));
+  }
+
+  for (const actionKey of actionKeys) {
+    const current = baselineEditable.filter(binding => bindingActionKey(binding) === actionKey);
+    const desired = saved.filter(binding => bindingActionKey(binding) === actionKey);
+    const desiredByIdentity = new Map(
+      desired.map(binding => [bindingIdentityKey(binding), binding]),
+    );
+    const template = current[0];
+    if (!template) {
+      throw new Error(`apex.gameSettings.errors.bindingMissing: ${desired[0]?.command ?? actionKey}`);
+    }
+
+    for (const binding of current) {
+      const identity = bindingIdentityKey(binding);
+      const wanted = desiredByIdentity.get(identity);
+      if (!wanted) {
+        mutations.push({operation: 'delete', id: binding.id});
+      } else if (normalizedBindingInput(binding.input) !== normalizedBindingInput(wanted.input)) {
+        mutations.push({operation: 'update', id: binding.id, input: wanted.input});
+      }
+    }
+
+    for (const wanted of desired) {
+      const identity = bindingIdentityKey(wanted);
+      if (baselineByIdentity.has(identity)) continue;
+      if (wanted.context !== 0 && wanted.context !== 1) {
+        throw new Error(`apex.gameSettings.errors.invalidBindingContext: ${wanted.context}`);
+      }
+      mutations.push({
+        operation: 'create',
+        templateId: template.id,
+        input: wanted.input,
+        context: wanted.context,
+      });
+    }
+  }
+
+  return mutations;
+}
+
+function snapshotMilesLanguage(raw: string): string | null {
+  const match = raw.match(/(?:^|\s)\+miles_language\s+([^\s]+)/i);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+async function validateSnapshotLaunchLanguage(
+  store: ApexStoreThis,
+  raw: string,
+): Promise<boolean> {
+  const language = snapshotMilesLanguage(raw);
+  if (!language || language === 'english') return true;
+  const account = store.active_apex_account;
+  if (!account) return false;
+  return checkApexMilesLanguage({
+    language,
+    platform: account.kind === 'ea' ? 'ea' : 'steam',
+    eaUserId: account.kind === 'ea' ? account.user.id : null,
+  });
+}
 
 export const apexSnapshotActions = {
   open_config_export_dialog(this: ApexStoreThis) {
@@ -47,59 +283,52 @@ export const apexSnapshotActions = {
 
   /** 确保导出所需数据已加载 */
   async ensure_configs_loaded_for_snapshot(this: ApexStoreThis): Promise<void> {
-    const key = this.launcher_selection_key;
-    if (!key || this.launch_loaded_for_key !== key) {
-      const ok = await this.start_load_apex_launch_options_data();
-      if (!ok) {
-        throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
-      }
-      this.original_launch_options = this.launch_options;
-      this.launch_loaded_for_key = this.launcher_selection_key;
-    }
-    if (!this.video_config_loaded || Object.keys(this.video_config_values).length === 0) {
-      await this.load_apex_video_config();
-    }
-    if (!this.game_settings_loaded || !this.game_settings_report) {
-      await this.load_apex_game_settings();
-    }
+    await ensureSnapshotSourcesLoaded(this, allSnapshotSources);
   },
 
   async build_config_snapshot(
     this: ApexStoreThis,
     selection: ApexConfigSnapshotExportSelection,
   ): Promise<ApexConfigSnapshot> {
-    await this.ensure_configs_loaded_for_snapshot();
-    const report = this.game_settings_report;
-    if (!report) {
+    await ensureSnapshotSourcesLoaded(this, selection);
+    const needsGame = needsGameSettingsSource(selection);
+    const report = needsGame ? this.game_settings_report : null;
+    if (needsGame && !report) {
       throw new Error('apex.gameSettings.errors.readFailed');
     }
-    const unknownSettings = new Set(report.settings.unknownKeys);
-    const unknownProfile = new Set(report.profile.unknownKeys);
-    const settings = Object.fromEntries(
-      Object.entries(this.game_settings_values.settings)
-        .filter(([key]) => !unknownSettings.has(key)),
-    );
-    const profile = Object.fromEntries(
-      Object.entries(this.game_settings_values.profile)
-        .filter(([key]) => !unknownProfile.has(key)),
-    );
+    const unknownSettings = new Set(report?.settings.unknownKeys ?? []);
+    const unknownProfile = new Set(report?.profile.unknownKeys ?? []);
+    const settings = needsGame
+      ? Object.fromEntries(
+        Object.entries(this.game_settings_values.settings)
+          .filter(([key]) => !unknownSettings.has(key)),
+      )
+      : {};
+    const profile = needsGame
+      ? Object.fromEntries(
+        Object.entries(this.game_settings_values.profile)
+          .filter(([key]) => !unknownProfile.has(key)),
+      )
+      : {};
     return buildApexConfigSnapshot({
       selection,
-      launchOptionsRaw: this.launch_options,
-      videoConfig: {...this.video_config_values},
-      gameSettings: {
-        settings,
-        profile,
-        bindings: this.game_settings_bindings
-          .filter(binding => binding.editable && binding.input)
-          .map(binding => ({
-            input: binding.input,
-            command: binding.command,
-            context: binding.context,
-            heldCommand: binding.heldCommand,
-            occurrence: binding.occurrence,
-          })),
-      },
+      ...(selection.launchOptions ? {launchOptionsRaw: this.launch_options} : {}),
+      ...(selection.videoConfig ? {videoConfig: {...this.video_config_values}} : {}),
+      ...(needsGame ? {
+        gameSettings: {
+          settings,
+          profile,
+          bindings: this.game_settings_bindings
+            .filter(binding => binding.editable && binding.input)
+            .map(binding => ({
+              input: binding.input,
+              command: binding.command,
+              context: binding.context,
+              heldCommand: binding.heldCommand,
+              occurrence: binding.occurrence,
+            })),
+        },
+      } : {}),
     });
   },
 
@@ -139,7 +368,7 @@ export const apexSnapshotActions = {
         toast.error('apex.noLauncherAccount');
         return false;
       }
-      if (!await this.check_miles_language()) {
+      if (!await validateSnapshotLaunchLanguage(this, snapshot.launchOptions.raw)) {
         toast.error('toast.milesLanguageNotFound');
         if (this.active_apex_account?.kind === 'ea') {
           this.download_miles_language_manual_dialog_ea = true;
@@ -153,7 +382,7 @@ export const apexSnapshotActions = {
     if ((selection.importVideoConfig && snapshot.videoConfig)
       || ((selection.importGameSettings || selection.importAiming
         || selection.importController || selection.importBindings) && snapshot.gameSettings)) {
-      const running = await apexIsRunning().catch(() => false);
+      const running = await apexIsRunning();
       if (running) {
         toast.error('apex.apexRunningVideoConfig');
         return false;
@@ -162,6 +391,16 @@ export const apexSnapshotActions = {
 
     this.is_config_snapshot_applying = true;
     try {
+      await ensureSnapshotSourcesLoaded(this, {
+        // Launch validation uses the candidate snapshot text directly.  Do
+        // not force a second read of the current launcher value here.
+        launchOptions: false,
+        videoConfig: selection.importVideoConfig && Boolean(snapshot.videoConfig),
+        gameSettings: selection.importGameSettings && Boolean(snapshot.gameSettings),
+        aiming: selection.importAiming && Boolean(snapshot.gameSettings),
+        controller: selection.importController && Boolean(snapshot.gameSettings),
+        bindings: selection.importBindings && Boolean(snapshot.gameSettings),
+      });
       let videoUpdates: Record<string, string> = {};
       if (selection.importVideoConfig && snapshot.videoConfig) {
         if (selection.videoSelectMode === 'all') {
@@ -184,14 +423,13 @@ export const apexSnapshotActions = {
       if ((selection.importGameSettings || selection.importAiming
         || selection.importController || selection.importBindings) && snapshot.gameSettings) {
         if (!this.game_settings_report) {
-          await this.load_apex_game_settings();
-        }
-        if (!this.game_settings_report) {
           throw new Error('apex.gameSettings.errors.readFailed');
         }
         const report = this.game_settings_report;
-        const nextSettings = {...this.game_settings_values.settings};
-        const nextProfile = {...this.game_settings_values.profile};
+        // Start from the last clean report so unrelated local drafts cannot
+        // leak into a selected-group import.
+        const nextSettings = {...this.original_game_settings_values.settings};
+        const nextProfile = {...this.original_game_settings_values.profile};
         const selectedGroups: ApexConfigSnapshotSettingsGroup[] = [];
         if (selection.importGameSettings) selectedGroups.push('gameSettings');
         if (selection.importAiming) selectedGroups.push('aiming');
@@ -202,30 +440,22 @@ export const apexSnapshotActions = {
         );
         if (selectedGroups.length > 0) {
           for (const [key, value] of Object.entries(selectedSettings.settings)) {
-            nextSettings[key] = value;
+            if (key in nextSettings && !report.settings.unknownKeys.includes(key)) {
+              nextSettings[key] = value;
+            }
           }
           for (const [key, value] of Object.entries(selectedSettings.profile)) {
-            nextProfile[key] = value;
-          }
-        }
-        const nextBindingInputs = Object.fromEntries(
-          this.game_settings_bindings.map(binding => [binding.id, binding.input]),
-        );
-        if (selection.importBindings) {
-          for (const saved of snapshot.gameSettings.bindings ?? []) {
-            const current = this.game_settings_bindings.find(binding => (
-              binding.editable
-              && binding.command === saved.command
-              && binding.context === saved.context
-              && binding.occurrence === saved.occurrence
-              && (binding.heldCommand ?? null) === (saved.heldCommand ?? null)
-            ));
-            if (!current) {
-              throw new Error(`apex.gameSettings.errors.bindingMissing: ${saved.command}`);
+            if (key in nextProfile && !report.profile.unknownKeys.includes(key)) {
+              nextProfile[key] = value;
             }
-            nextBindingInputs[current.id] = saved.input;
           }
         }
+        if (selection.importBindings && snapshot.gameSettings.bindings === undefined) {
+          throw new Error('apex.configSnapshot.errors.invalidBindings');
+        }
+        const bindingMutations = selection.importBindings
+          ? buildSnapshotBindingMutations(report.bindings, snapshot.gameSettings.bindings ?? [])
+          : [];
         gameSettings = {
           settingsRevision: report.settings.revision,
           profileRevision: report.profile.revision,
@@ -239,15 +469,7 @@ export const apexSnapshotActions = {
               this.original_game_settings_values.profile[key] !== value
             )),
           ),
-          bindingMutations: this.game_settings_bindings
-            .filter(binding => (
-              this.original_game_settings_bindings[binding.id] !== nextBindingInputs[binding.id]
-            ))
-            .map(binding => ({
-              operation: 'update' as const,
-              id: binding.id,
-              input: nextBindingInputs[binding.id],
-            })),
+          bindingMutations,
         };
       }
 
@@ -280,8 +502,8 @@ export const apexSnapshotActions = {
         this.video_config_loaded_key = 'machine';
         this.video_config_load_status = 'ready';
         if (this.has_out_of_preset_selection) {
-          await this.set_videoconfig_readonly(true);
-          toast.info('apex.outOfPresetAutoLocked');
+          const locked = await this.set_videoconfig_readonly(true);
+          if (locked) toast.info('apex.outOfPresetAutoLocked');
         } else {
           await this.load_videoconfig_readonly();
         }

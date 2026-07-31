@@ -60,10 +60,16 @@ pub async fn set_apex_launch_option_ea(
                 id: ea_user_id.clone(),
                 name: String::new(),
             },
-            current,
+            current.clone(),
         )?;
         if let Err(error) = write_ea_launch_options(&ea_user_id, &launch_option) {
-            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Launch);
+            let unchanged = read_ea_launch_options(&ea_user_id)
+                .map(|after| after == current)
+                .unwrap_or(false);
+            if unchanged && entry.scope_added {
+                let _ =
+                    discard_scope_locked_for_app(&app, &entry.entry.id, ApexConfigScope::Launch);
+            }
             return Err(error);
         }
         let _ = prune_history_locked(&app);

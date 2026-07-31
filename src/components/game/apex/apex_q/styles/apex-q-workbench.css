@@ -604,20 +604,6 @@
   gap: 7px;
 }
 
-.apex-q-segmented {
-  height: 34px;
-  margin-bottom: 12px;
-  padding: 3px;
-  border: 1px solid var(--aq-border);
-  border-radius: 10px;
-  background: rgba(var(--v-theme-on-surface), 0.035);
-}
-
-.apex-q-segmented .v-btn {
-  height: 26px !important;
-  border-radius: 7px !important;
-}
-
 .apex-q-source-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

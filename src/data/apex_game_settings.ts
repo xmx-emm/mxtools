@@ -9,17 +9,6 @@ const boolOptions: ApexGameSettingOption[] = [
   {value: '1', labelKey: 'apexGameSettings.options.on'},
 ];
 
-const zeroToTwo: ApexGameSettingOption[] = [
-  {value: '0', labelKey: 'apexGameSettings.options.level0'},
-  {value: '1', labelKey: 'apexGameSettings.options.level1'},
-  {value: '2', labelKey: 'apexGameSettings.options.level2'},
-];
-
-const zeroToThree: ApexGameSettingOption[] = [
-  ...zeroToTwo,
-  {value: '3', labelKey: 'apexGameSettings.options.level3'},
-];
-
 const options = (...items: [string, string][]): ApexGameSettingOption[] => items.map(
   ([value, label]) => ({value, labelKey: `apexGameSettings.options.${label}`}),
 );
@@ -68,10 +57,6 @@ const bool = (
 // sound_num_speakers, miles_mix + dialogue_cat_*, and VoiceChatMode.
 // See docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md for the evidence and retest list.
 const ApexGameSettings: ApexGameSettingDefinition[] = [
-  field('reticleDamageFeedback', 'profile', 'hud_setting_damageIndicatorStyle', 'gameplay', 'enum', {
-    options: describedOptions('reticleDamageFeedback', ['0', 'off'], ['1', 'reticleX'], ['2', 'reticleXShield']),
-  }),
-  field('damageTextStyle', 'profile', 'hud_setting_damageTextStyle', 'gameplay', 'enum', {options: zeroToThree}),
   field('reticleColor', 'profile', 'reticle_color', 'gameplay', 'rgb'),
   field('laserSightCustom', 'profile', 'laserSightColorCustomized', 'gameplay', 'enum', {
     options: options(['0', 'default'], ['1', 'custom']),
@@ -102,7 +87,6 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   }),
   bool('crossPlay', 'profile', 'CrossPlay_user_optin', 'gameplay'),
   bool('abilityFovScaling', 'profile', 'fov_disableAbilityScaling', 'gameplay'),
-  field('lowAmmoWarning', 'profile', 'player_setting_lowammo_setting', 'gameplay', 'enum', {options: zeroToTwo}),
   field('viewShake', 'profile', 'sprint_view_shake_style', 'gameplay', 'number', {min: 0, max: 1, step: 0.1}),
   bool('nvidiaLowLatency', 'settings', 'gfx_nvnUseLowLatency', 'gameplay'),
   bool('nvidiaLowLatencyBoost', 'settings', 'gfx_nvnUseLowLatencyBoost', 'gameplay'),

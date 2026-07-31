@@ -53,11 +53,44 @@ pub(crate) fn apex_video_config_path() -> Result<PathBuf, String> {
 
 pub(crate) fn read_video_config_sync() -> Result<HashMap<String, String>, String> {
     let (_, values) = read_apex_videoconfig()?;
-    Ok(values)
+    Ok(values
+        .into_iter()
+        .map(|(key, value)| (key.trim_matches('"').to_string(), value))
+        .collect())
 }
 
 pub(crate) fn patch_video_config_sync(updates: &HashMap<String, String>) -> Result<(), String> {
+    validate_video_updates(updates)?;
     patch_apex_videoconfig(updates).map(|_| ())
+}
+
+pub(crate) fn validate_video_updates(updates: &HashMap<String, String>) -> Result<(), String> {
+    for (key, value) in updates {
+        let suffix = key
+            .strip_prefix("setting.")
+            .ok_or_else(|| format!("apex.errors.invalidVideoConfigKey: {key}"))?;
+        if suffix.is_empty()
+            || !suffix
+                .chars()
+                .next()
+                .is_some_and(|character| character.is_ascii_alphanumeric())
+            || !suffix.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '_' | '.' | '-')
+            })
+            || key
+                .chars()
+                .any(|character| character == '"' || character.is_control())
+        {
+            return Err(format!("apex.errors.invalidVideoConfigKey: {key}"));
+        }
+        if value
+            .chars()
+            .any(|character| character == '"' || character.is_control())
+        {
+            return Err(format!("apex.errors.invalidVideoConfigValue: {key}"));
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn apex_is_running_sync() -> Result<bool, String> {
@@ -114,10 +147,16 @@ pub async fn set_apex_launch_option(
                 id: id.to_string(),
                 name: String::new(),
             },
-            current,
+            current.clone(),
         )?;
         if let Err(error) = write_steam_launch_options(id, &launch_option) {
-            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Launch);
+            let unchanged = read_steam_launch_options(id)
+                .map(|after| after == current)
+                .unwrap_or(false);
+            if unchanged && entry.scope_added {
+                let _ =
+                    discard_scope_locked_for_app(&app, &entry.entry.id, ApexConfigScope::Launch);
+            }
             return Err(error);
         }
         let _ = prune_history_locked(&app);
@@ -298,7 +337,8 @@ pub async fn set_apex_video_config(
 ) -> IpcResult<()> {
     blocking_cmd(move || {
         let _guard = lock_history()?;
-        let (_, current) = read_apex_videoconfig()?;
+        validate_video_updates(&updates)?;
+        let current = read_video_config_sync()?;
         let changed = updates
             .iter()
             .any(|(key, value)| current.get(key) != Some(value));
@@ -314,7 +354,16 @@ pub async fn set_apex_video_config(
             transaction_id.as_deref(),
         )?;
         if let Err(error) = patch_video_config_sync(&updates) {
-            let _ = discard_scope_locked_for_app(&app, &entry.id, ApexConfigScope::Video);
+            let unchanged = read_video_config_sync()
+                .map(|after| {
+                    updates
+                        .iter()
+                        .all(|(key, _)| after.get(key) == current.get(key))
+                })
+                .unwrap_or(false);
+            if unchanged && entry.scope_added {
+                let _ = discard_scope_locked_for_app(&app, &entry.entry.id, ApexConfigScope::Video);
+            }
             return Err(error);
         }
         let _ = prune_history_locked(&app);
@@ -363,6 +412,9 @@ pub async fn set_apex_config_file(
             return Err("apex.apexRunningVideoConfig".to_string());
         }
         let kind = parse_config_file_kind(&kind)?;
+        if matches!(kind, ApexConfigFileKind::VideoConfig) {
+            validate_video_updates(&updates)?;
+        }
         let path = windows_tool::game::apex::get_apex_config_path(kind)?;
         let mut doc = if path.exists() {
             ApexCfgDocument::load_from_file(&path)?
@@ -404,6 +456,38 @@ impl PathBufExt for PathBuf {
         ) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("{} {:?}", e, self)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn video_updates_accept_only_canonical_setting_keys() {
+        assert!(validate_video_updates(&HashMap::from([(
+            "setting.defaultres".to_string(),
+            "1920".to_string(),
+        )]))
+        .is_ok());
+        for key in [
+            "other.defaultres",
+            "\"setting.defaultres\"",
+            "setting.defaultres\nsetting.fullscreen",
+            "setting.",
+        ] {
+            assert!(
+                validate_video_updates(&HashMap::from([(key.to_string(), "1".to_string(),)]))
+                    .is_err()
+            );
+        }
+        for value in ["bad\0value", "bad\nvalue", "bad\u{85}value", "\"quoted\""] {
+            assert!(validate_video_updates(&HashMap::from([(
+                "setting.defaultres".to_string(),
+                value.to_string(),
+            )]))
+            .is_err());
         }
     }
 }

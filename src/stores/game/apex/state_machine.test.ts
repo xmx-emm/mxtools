@@ -2,16 +2,19 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {createPinia, setActivePinia} from 'pinia';
 import type {SteamUser} from '@/types/steam.ts';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
+import type {ApexGameSettingsReport} from '@/types/apex_game_settings.ts';
 
 const mocks = vi.hoisted(() => ({
   getApexLaunchOption: vi.fn(),
   getApexVideoConfig: vi.fn(),
+  getApexGameSettings: vi.fn(),
   mutateApexConfig: vi.fn(),
   setApexLaunchOption: vi.fn(),
   setApexLaunchOptionEa: vi.fn(),
   setApexVideoConfig: vi.fn(),
   apexIsRunning: vi.fn(),
   getApexVideoconfigReadonly: vi.fn(),
+  emitApexConfigChanged: vi.fn(),
 }));
 
 vi.mock('vue-toastification', () => ({
@@ -28,9 +31,16 @@ vi.mock('@/ipc/commands.ts', async () => {
   return {...actual, ...mocks};
 });
 
+vi.mock('@/utils/game/apex_config_events.ts', () => ({
+  emitApexConfigChanged: mocks.emitApexConfigChanged,
+}));
+
 import {useApexStore} from './index.ts';
 import {useSteamStore} from '@/stores/game/steam.ts';
-import {buildApexGameSettingsMutation} from './actions_settings.ts';
+import {
+  adoptApexGameSettingsReport,
+  buildApexGameSettingsMutation,
+} from './actions_settings.ts';
 import {buildDefaultGameSettingOptions} from '@/data/presets/apex_quick_preset.ts';
 
 function deferred<T>() {
@@ -43,11 +53,32 @@ function steamUser(id: string): SteamUser {
   return {id, name: `Steam ${id}`, avatar: '', config_path: `C:/steam/${id}/localconfig.vdf`};
 }
 
+function gameSettingsReport(value: string): ApexGameSettingsReport {
+  return {
+    settings: {
+      path: 'settings.cfg',
+      revision: `settings-${value}`,
+      values: {mouse_sensitivity: value},
+      unknownKeys: [],
+      backupAvailable: false,
+    },
+    profile: {
+      path: 'profile.cfg',
+      revision: `profile-${value}`,
+      values: {},
+      unknownKeys: [],
+      backupAvailable: false,
+    },
+    bindings: [],
+  };
+}
+
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.clearAllMocks();
   mocks.apexIsRunning.mockResolvedValue(false);
   mocks.getApexVideoconfigReadonly.mockResolvedValue(false);
+  mocks.emitApexConfigChanged.mockResolvedValue(undefined);
 });
 
 describe('Apex cached loading state machine', () => {
@@ -97,6 +128,77 @@ describe('Apex cached loading state machine', () => {
     expect(apex.video_config_load_status).toBe('ready');
     expect(mocks.getApexVideoConfig).toHaveBeenCalledTimes(2);
   });
+
+  it('lets every caller await the same in-flight game settings read', async () => {
+    const pending = deferred<ApexGameSettingsReport>();
+    mocks.getApexGameSettings.mockReturnValueOnce(pending.promise);
+    const apex = useApexStore();
+
+    const first = apex.load_apex_game_settings();
+    const second = apex.load_apex_game_settings();
+    expect(mocks.getApexGameSettings).toHaveBeenCalledTimes(1);
+    expect(apex.is_game_settings_loading).toBe(true);
+
+    pending.resolve(gameSettingsReport('1'));
+    await Promise.all([first, second]);
+    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1');
+    expect(apex.game_settings_load_status).toBe('ready');
+    expect(apex.is_game_settings_loading).toBe(false);
+  });
+
+  it('does not let a stale silent refresh overwrite a newer local edit', async () => {
+    const pending = deferred<ApexGameSettingsReport>();
+    mocks.getApexGameSettings.mockReturnValueOnce(pending.promise);
+    const apex = useApexStore();
+    adoptApexGameSettingsReport(apex, gameSettingsReport('1'));
+
+    const refresh = apex.load_apex_game_settings({silent: true, force: true});
+    apex.set_game_setting_value('settings', 'mouse_sensitivity', '1.5');
+    pending.resolve(gameSettingsReport('2'));
+    await refresh;
+
+    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1.5');
+    expect(apex.original_game_settings_values.settings.mouse_sensitivity).toBe('1');
+    expect(apex.game_settings_load_status).toBe('ready');
+    expect(apex.is_game_settings_loading).toBe(false);
+  });
+
+  it('returns to ready when a forced refresh preserves an existing draft', async () => {
+    const pending = deferred<ApexGameSettingsReport>();
+    mocks.getApexGameSettings.mockReturnValueOnce(pending.promise);
+    const apex = useApexStore();
+    adoptApexGameSettingsReport(apex, gameSettingsReport('1'));
+    apex.set_game_setting_value('settings', 'mouse_sensitivity', '1.5');
+
+    const refresh = apex.load_apex_game_settings({silent: true, force: true});
+    pending.resolve(gameSettingsReport('2'));
+    await refresh;
+
+    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1.5');
+    expect(apex.original_game_settings_values.settings.mouse_sensitivity).toBe('1');
+    expect(apex.game_settings_load_status).toBe('ready');
+    expect(apex.is_game_settings_loading).toBe(false);
+  });
+
+  it('can explicitly replace a pre-existing draft after another window writes config', async () => {
+    const pending = deferred<ApexGameSettingsReport>();
+    mocks.getApexGameSettings.mockReturnValueOnce(pending.promise);
+    const apex = useApexStore();
+    adoptApexGameSettingsReport(apex, gameSettingsReport('1'));
+    apex.set_game_setting_value('settings', 'mouse_sensitivity', '1.5');
+
+    const refresh = apex.load_apex_game_settings({
+      silent: true,
+      force: true,
+      discardLocal: true,
+    });
+    pending.resolve(gameSettingsReport('2'));
+    await refresh;
+
+    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('2');
+    expect(apex.original_game_settings_values.settings.mouse_sensitivity).toBe('2');
+    expect(apex.is_game_settings_modified).toBe(false);
+  });
 });
 
 describe('Apex unified mutations', () => {
@@ -123,6 +225,10 @@ describe('Apex unified mutations', () => {
     expect(mocks.mutateApexConfig).toHaveBeenCalledTimes(1);
     expect(mocks.setApexLaunchOption).not.toHaveBeenCalled();
     expect(mocks.setApexVideoConfig).not.toHaveBeenCalled();
+    expect(mocks.emitApexConfigChanged).toHaveBeenCalledWith([
+      'launch',
+      'video',
+    ]);
   });
 
   it('imports selected launch options with one backend transaction', async () => {
@@ -193,6 +299,29 @@ describe('Apex binding slot drafts', () => {
       {operation: 'create', templateId: 'binding:0', input: 'MWHEELUP', context: 1},
     ]);
   });
+
+  it('rejects setting and binding edits while a write is in progress', () => {
+    const apex = useApexStore();
+    adoptApexGameSettingsReport(apex, {
+      ...gameSettingsReport('1'),
+      bindings: [{
+        id: 'binding:0',
+        input: 'W',
+        command: '+forward',
+        context: 0,
+        heldCommand: null,
+        editable: true,
+        occurrence: 0,
+      }],
+    });
+    apex.is_game_settings_saving = true;
+
+    apex.set_game_setting_value('settings', 'mouse_sensitivity', '2');
+    apex.set_game_binding_slot('binding:0', 'binding:0', 'S', 0);
+
+    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1');
+    expect(apex.game_settings_bindings[0].input).toBe('W');
+  });
 });
 
 describe('Apex quick preset game optimizations', () => {
@@ -247,9 +376,15 @@ describe('Apex quick preset game optimizations', () => {
     expect(active.filter(binding => binding.command === '+weaponCycle')).toHaveLength(0);
     expect(active.filter(binding => binding.command === '+zoom').map(binding => binding.input))
       .toEqual(['\\', 'MOUSE2']);
+    expect(active.filter(binding => binding.command === '+zoom').map(binding => binding.context))
+      .toEqual([0, 1]);
     expect(active.filter(binding => binding.command === '+forward').map(binding => binding.input))
       .toEqual(['w', 'MWHEELUP']);
+    expect(active.filter(binding => binding.command === '+forward').map(binding => binding.context))
+      .toEqual([0, 1]);
     expect(active.filter(binding => binding.command === '+jump').map(binding => binding.input))
       .toEqual(['SPACE', 'MWHEELDOWN']);
+    expect(active.filter(binding => binding.command === '+jump').map(binding => binding.context))
+      .toEqual([0, 1]);
   });
 });

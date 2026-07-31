@@ -1,6 +1,6 @@
 use crate::game::apex_history::{
-    discard_scope_locked_for_app, lock_history, prune_history_locked,
-    record_game_settings_before_locked, ApexConfigScope, ApexHistorySource,
+    discard_scope_locked_for_app, lock_history, prepare_legacy_game_settings_import_locked,
+    prune_history_locked, record_game_settings_before_locked, ApexConfigScope, ApexHistorySource,
 };
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::blocking_cmd;
@@ -151,13 +151,12 @@ struct BindingGroup {
 }
 
 const BOOL: &[&str] = &["0", "1"];
+const ONE_TO_TWO: &[&str] = &["1", "2"];
 const ZERO_TO_TWO: &[&str] = &["0", "1", "2"];
 const ZERO_TO_THREE: &[&str] = &["0", "1", "2", "3"];
 const ZERO_TO_SIX: &[&str] = &["0", "1", "2", "3", "4", "5", "6"];
 const COMMS_FILTER: &[&str] = &["-1", "0", "1"];
 const TRIGGER_THRESHOLDS: &[&str] = &["0", "30", "64", "128", "255"];
-const MINUS_ONE_TO_SEVEN: &[&str] = &["-1", "0", "1", "2", "3", "4", "5", "6", "7"];
-const AUDIO_CHANNELS: &[&str] = &["0", "2", "4", "6", "8"];
 
 fn indexed_suffix(key: &str, prefix: &str, max: u8) -> bool {
     key.strip_prefix(prefix)
@@ -185,10 +184,8 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "cc_linger_time" => Some(Number(0.0, 10.0)),
             "cc_predisplay_time" => Some(Number(0.0, 5.0)),
             "mouse_sensitivity" => Some(Number(0.01, 20.0)),
-            "miles_channels" | "sound_num_speakers" => Some(Enum(AUDIO_CHANNELS)),
             "sound_volume_voice" => Some(Number(0.0, 2.0)),
             "voice_mixer_volume" | "voice_scale" => Some(Number(0.0, 1.0)),
-            "VoiceChatMode" => Some(Enum(ZERO_TO_TWO)),
             "ui_layout_mode" => Some(Enum(BOOL)),
             _ if indexed_suffix(key, "mouse_zoomed_sensitivity_scalar_", 7) => {
                 Some(Number(0.1, 10.0))
@@ -206,13 +203,9 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "gamepad_aim_assist_hip_low_power_scopes"
             | "gamepad_aim_assist_melee"
             | "gamepad_buttons_are_southpaw"
-            | "gamepad_custom_assist_on"
-            | "gamepad_custom_enabled"
             | "gamepad_toggle_ads"
             | "gamepad_toggle_survivalSlot_to_weaponInspect"
             | "gamepad_togglecrouch_hold"
-            | "gamepad_use_per_scope_ads_settings"
-            | "gamepad_use_per_scope_sensitivity_scalars"
             | "hud_setting_accessibleChat"
             | "hud_setting_adsDof"
             | "hud_setting_anonymousMode"
@@ -226,7 +219,6 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "hud_setting_showHopUpPopUp"
             | "hud_setting_showLevelUp"
             | "hud_setting_showMedals"
-            | "hud_setting_showMeter"
             | "hud_setting_showObituary"
             | "hud_setting_showOffscreenPortrait"
             | "hud_setting_showTeamNamesOnMap"
@@ -251,46 +243,23 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "weapon_setting_autocycle_on_empty" => Some(Bool),
             "cc_text_size"
             | "gamepad_deadzone_index_look"
-            | "gamepad_deadzone_index_move"
             | "gamepad_use_type"
             | "hud_setting_chainHeal"
             | "hud_setting_streamerMode"
             | "hudchat_visibility"
-            | "joy_rumble"
             | "player_setting_arsenals_maphudidentifiers"
-            | "player_setting_lowammo_setting"
             | "player_setting_gamestateawareness_callouts"
             | "player_setting_tutorialization" => Some(Enum(ZERO_TO_TWO)),
+            "gamepad_deadzone_index_move" => Some(Enum(ONE_TO_TWO)),
             "cl_comms_filter" => Some(Enum(COMMS_FILTER)),
-            "colorblind_mode"
-            | "damage_indicator_style_pilot"
-            | "gamepad_stick_layout"
-            | "hud_setting_damageIndicatorStyle"
-            | "hud_setting_damageTextStyle"
-            | "mantle_boost_ui_setting" => Some(Enum(ZERO_TO_THREE)),
+            "colorblind_mode" | "gamepad_stick_layout" => Some(Enum(ZERO_TO_THREE)),
             "gamepad_button_layout" => Some(Enum(ZERO_TO_SIX)),
             "reticle_color" => Some(RgbOrDefault),
             "gamepad_look_curve" => Some(Integer(0, 4)),
-            "gamepad_custom_assist_style" => Some(Enum(BOOL)),
             "gamepad_trigger_threshold" => Some(Enum(TRIGGER_THRESHOLDS)),
             "cl_fovScale" => Some(Number(1.0, 1.7)),
-            "cl_safearea" | "hud_setting_pingAlpha" => Some(Number(0.0, 1.0)),
+            "cl_safearea" => Some(Number(0.0, 1.0)),
             "gameCursor_Velocity" => Some(Number(100.0, 5000.0)),
-            "gamepad_custom_curve" => Some(Number(0.0, 30.0)),
-            "gamepad_custom_deadzone_in"
-            | "gamepad_custom_deadzone_out"
-            | "gamepad_custom_ads_turn_delay"
-            | "gamepad_custom_ads_turn_time"
-            | "gamepad_custom_hip_turn_delay"
-            | "gamepad_custom_hip_turn_time" => Some(Number(0.0, 1.0)),
-            "gamepad_custom_ads_pitch"
-            | "gamepad_custom_ads_turn_pitch"
-            | "gamepad_custom_ads_turn_yaw"
-            | "gamepad_custom_ads_yaw"
-            | "gamepad_custom_hip_pitch"
-            | "gamepad_custom_hip_turn_pitch"
-            | "gamepad_custom_hip_turn_yaw"
-            | "gamepad_custom_hip_yaw" => Some(Number(0.0, 500.0)),
             "sound_volume_dialogue"
             | "sound_volume_music_game"
             | "sound_volume_music_lobby"
@@ -299,11 +268,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "sprint_view_shake_style"
             | "ziprail_roll_strength" => Some(Number(0.0, 1.0)),
             "voice_quiet_threshold" => Some(Number(0.0, 4000.0)),
-            "net_netGraph2" | "mantle_boost_input_setting" => Some(Enum(ZERO_TO_TWO)),
-            _ if indexed_suffix(key, "gamepad_ads_advanced_sensitivity_scalar_", 7) => {
-                Some(Number(0.1, 10.0))
-            }
-            _ if indexed_suffix(key, "gamepad_aim_speed_ads_", 7) => Some(Enum(MINUS_ONE_TO_SEVEN)),
+            "net_netGraph2" => Some(Enum(BOOL)),
             "gamepad_aim_speed" => Some(Integer(0, 7)),
             _ => None,
         },
@@ -654,11 +619,14 @@ fn apply_value_updates(
         }
         doc.set(key, value.clone())?;
     }
-    if file == ConfigFile::Profile
-        && updates.contains_key("toggle_on_jump_to_deactivate")
-        && doc.path_exists("toggle_on_jump_to_deactivate_changed")
-    {
-        doc.set("toggle_on_jump_to_deactivate_changed", "1".to_string())?;
+    if file == ConfigFile::Profile && updates.contains_key("toggle_on_jump_to_deactivate") {
+        const CHANGED_KEY: &str = "toggle_on_jump_to_deactivate_changed";
+        if !doc.path_exists(CHANGED_KEY) {
+            return Err(format!(
+                "apex.gameSettings.errors.keyMissing: {CHANGED_KEY}"
+            ));
+        }
+        doc.set(CHANGED_KEY, "1".to_string())?;
     }
     Ok(())
 }
@@ -765,6 +733,8 @@ fn apply_binding_mutations(
 
     let mut final_inputs: HashMap<String, String> = HashMap::new();
     let mut action_counts: HashMap<String, usize> = HashMap::new();
+    let mut action_contexts: HashMap<String, HashSet<i32>> = HashMap::new();
+    let mut has_duplicate_context = false;
     for binding in &final_bindings {
         if let Some(existing) =
             final_inputs.insert(binding.input.to_ascii_uppercase(), binding.id.clone())
@@ -777,13 +747,28 @@ fn apply_binding_mutations(
             }
         }
         if binding.editable {
-            *action_counts
-                .entry(binding_action_key(binding))
-                .or_default() += 1;
+            if !matches!(binding.context, 0 | 1) {
+                return Err(format!(
+                    "apex.gameSettings.errors.invalidBindingContext: {}",
+                    binding.context
+                ));
+            }
+            let action_key = binding_action_key(binding);
+            *action_counts.entry(action_key.clone()).or_default() += 1;
+            if !action_contexts
+                .entry(action_key)
+                .or_default()
+                .insert(binding.context)
+            {
+                has_duplicate_context = true;
+            }
         }
     }
     if action_counts.values().any(|count| *count > 2) {
         return Err("apex.gameSettings.errors.bindingSlotLimit".to_string());
+    }
+    if has_duplicate_context {
+        return Err("apex.gameSettings.errors.duplicateBindingContext".to_string());
     }
 
     let mut group_id_by_line: HashMap<usize, &str> = HashMap::new();
@@ -987,6 +972,64 @@ fn verify_file_bytes(path: &Path, expected: &[u8]) -> Result<(), String> {
     }
 }
 
+fn restore_bytes_verified(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let restore_error = atomic_write(path, bytes).err();
+    match verify_file_bytes(path, bytes) {
+        Ok(()) => Ok(()),
+        Err(verify_error) => Err(match restore_error {
+            Some(error) => format!("{error}; {verify_error}"),
+            None => verify_error,
+        }),
+    }
+}
+
+fn collect_rollback_error(errors: &mut Vec<String>, label: &str, result: Result<(), String>) {
+    if let Err(error) = result {
+        errors.push(format!("{label}: {error}"));
+    }
+}
+
+fn rollback_loaded_files(
+    settings: Option<(&Path, &[u8])>,
+    profile: Option<(&Path, &[u8])>,
+) -> Result<(), String> {
+    let mut errors = Vec::new();
+    if let Some((path, bytes)) = settings {
+        collect_rollback_error(&mut errors, "settings", restore_bytes_verified(path, bytes));
+    }
+    if let Some((path, bytes)) = profile {
+        collect_rollback_error(&mut errors, "profile", restore_bytes_verified(path, bytes));
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+fn with_rollback_failure(error: String, rollback_error: Option<String>) -> String {
+    match rollback_error {
+        Some(rollback_error) => {
+            format!("{error}; apex.history.errors.rollbackFailed: {rollback_error}")
+        }
+        None => error,
+    }
+}
+
+struct RestoreRequestFailure {
+    message: String,
+    rollback_succeeded: bool,
+}
+
+impl From<String> for RestoreRequestFailure {
+    fn from(message: String) -> Self {
+        Self {
+            message,
+            rollback_succeeded: true,
+        }
+    }
+}
+
 pub(crate) fn load_report() -> Result<ApexGameSettingsReport, String> {
     let settings = load_file(ConfigFile::Settings)?;
     let profile = load_file(ConfigFile::Profile)?;
@@ -1042,13 +1085,16 @@ fn apply_request_inner(
 
     ensure_revision(&settings.path, &request.settings_revision)?;
     ensure_revision(&profile.path, &request.profile_revision)?;
+    if let Some(app) = app {
+        prepare_legacy_game_settings_import_locked(app)?;
+    }
     if settings_changed {
         save_backup(&settings.path, &settings.bytes)?;
     }
     if profile_changed {
         save_backup(&profile.path, &profile.bytes)?;
     }
-    let history_entry = app
+    let history_record = app
         .map(|app| {
             record_game_settings_before_locked(
                 app,
@@ -1080,17 +1126,22 @@ fn apply_request_inner(
         Ok(())
     })();
     if let Err(error) = commit {
-        if settings_changed {
-            let _ = atomic_write(&settings.path, &settings.bytes);
+        let rollback = rollback_loaded_files(
+            settings_changed.then_some((settings.path.as_path(), settings.bytes.as_slice())),
+            profile_changed.then_some((profile.path.as_path(), profile.bytes.as_slice())),
+        );
+        if rollback.is_ok() {
+            if let (Some(app), Some(history_record)) = (app, history_record.as_ref()) {
+                if history_record.scope_added {
+                    let _ = discard_scope_locked_for_app(
+                        app,
+                        &history_record.entry.id,
+                        ApexConfigScope::GameSettings,
+                    );
+                }
+            }
         }
-        if profile_changed {
-            let _ = atomic_write(&profile.path, &profile.bytes);
-        }
-        if let (Some(app), Some(history_entry)) = (app, history_entry.as_ref()) {
-            let _ =
-                discard_scope_locked_for_app(app, &history_entry.id, ApexConfigScope::GameSettings);
-        }
-        return Err(error);
+        return Err(with_rollback_failure(error, rollback.err()));
     }
     if let Some(app) = app {
         let _ = prune_history_locked(app);
@@ -1106,19 +1157,21 @@ pub(crate) fn apply_request_without_history(
 
 fn restore_request(
     request: ApexGameSettingsRestoreRequest,
-) -> Result<ApexGameSettingsReport, String> {
+) -> Result<ApexGameSettingsReport, RestoreRequestFailure> {
     if apex_is_running_by_tasklist()? {
-        return Err("apex.gameSettings.errors.apexRunning".to_string());
+        return Err("apex.gameSettings.errors.apexRunning".to_string().into());
     }
     if !request.restore_settings && !request.restore_profile {
-        return Err("apex.gameSettings.errors.noRestoreSelection".to_string());
+        return Err("apex.gameSettings.errors.noRestoreSelection"
+            .to_string()
+            .into());
     }
     let settings = load_file(ConfigFile::Settings)?;
     let profile = load_file(ConfigFile::Profile)?;
     if settings.revision != request.settings_revision
         || profile.revision != request.profile_revision
     {
-        return Err("apex.gameSettings.errors.fileChanged".to_string());
+        return Err("apex.gameSettings.errors.fileChanged".to_string().into());
     }
     let settings_backup = request
         .restore_settings
@@ -1137,7 +1190,7 @@ fn restore_request(
     ensure_revision(&settings.path, &request.settings_revision)?;
     ensure_revision(&profile.path, &request.profile_revision)?;
 
-    let commit = (|| -> Result<(), String> {
+    let commit = (|| -> Result<ApexGameSettingsReport, String> {
         if let Some(bytes) = settings_backup.as_ref() {
             atomic_write(&settings.path, bytes)?;
         }
@@ -1150,20 +1203,28 @@ fn restore_request(
         if let Some(bytes) = profile_backup.as_ref() {
             verify_file_bytes(&profile.path, bytes)?;
         }
-        Ok(())
+        load_report()
     })();
-    if let Err(error) = commit {
-        // Restore every selected file so a failed second replacement cannot leave
-        // settings.cfg and profile.cfg from different snapshots.
-        if request.restore_settings {
-            let _ = atomic_write(&settings.path, &settings.bytes);
+    match commit {
+        Ok(report) => Ok(report),
+        Err(error) => {
+            // Restore every selected file so a failed replacement or readback cannot
+            // leave settings.cfg and profile.cfg from different snapshots.
+            let rollback = rollback_loaded_files(
+                request
+                    .restore_settings
+                    .then_some((settings.path.as_path(), settings.bytes.as_slice())),
+                request
+                    .restore_profile
+                    .then_some((profile.path.as_path(), profile.bytes.as_slice())),
+            );
+            let rollback_succeeded = rollback.is_ok();
+            Err(RestoreRequestFailure {
+                message: with_rollback_failure(error, rollback.err()),
+                rollback_succeeded,
+            })
         }
-        if request.restore_profile {
-            let _ = atomic_write(&profile.path, &profile.bytes);
-        }
-        return Err(error);
     }
-    load_report()
 }
 
 #[tauri::command]
@@ -1186,11 +1247,32 @@ pub async fn apply_apex_game_settings(
 
 #[tauri::command]
 pub async fn restore_apex_game_settings(
+    app: tauri::AppHandle,
     request: ApexGameSettingsRestoreRequest,
 ) -> IpcResult<ApexGameSettingsReport> {
-    blocking_cmd(move || restore_request(request))
-        .await
-        .map_err(apex_settings_error)
+    blocking_cmd(move || {
+        let _guard = lock_history()?;
+        let history_record =
+            record_game_settings_before_locked(&app, ApexHistorySource::HistoryRestore, None)?;
+        match restore_request(request) {
+            Ok(report) => {
+                let _ = prune_history_locked(&app);
+                Ok(report)
+            }
+            Err(error) => {
+                if error.rollback_succeeded && history_record.scope_added {
+                    let _ = discard_scope_locked_for_app(
+                        &app,
+                        &history_record.entry.id,
+                        ApexConfigScope::GameSettings,
+                    );
+                }
+                Err(error.message)
+            }
+        }
+    })
+    .await
+    .map_err(apex_settings_error)
 }
 
 fn apex_settings_error(message: String) -> IpcError {
@@ -1293,8 +1375,8 @@ mod tests {
         assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "7").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "7").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "8").is_err());
-        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "-1").is_ok());
-        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "7").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "-1").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "7").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "8").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "4").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "5").is_err());
@@ -1303,8 +1385,13 @@ mod tests {
         assert!(
             validate_value(ConfigFile::Profile, "voice_quiet_threshold", "1932.638062").is_ok()
         );
-        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_err());
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "3").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "0").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "2").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "net_netGraph2", "2").is_err());
+        assert!(validate_value(ConfigFile::Profile, "hud_setting_pingAlpha", "0").is_err());
         assert!(validate_value(ConfigFile::Profile, "player_setting_tutorialization", "2").is_ok());
         assert!(validate_value(
             ConfigFile::Profile,
@@ -1331,6 +1418,22 @@ mod tests {
         let output = doc.to_string();
         assert!(output.contains("toggle_on_jump_to_deactivate \"1\""));
         assert!(output.contains("toggle_on_jump_to_deactivate_changed \"1\""));
+    }
+
+    #[test]
+    fn jetpack_control_rejects_a_missing_companion_marker() {
+        let mut doc = ApexCfgDocument::from_content(
+            "toggle_on_jump_to_deactivate \"0\"\n",
+            ApexFileEncoding::Utf8,
+        )
+        .unwrap();
+        let error = apply_value_updates(
+            ConfigFile::Profile,
+            &mut doc,
+            &HashMap::from([("toggle_on_jump_to_deactivate".into(), "1".into())]),
+        )
+        .unwrap_err();
+        assert!(error.contains("toggle_on_jump_to_deactivate_changed"));
     }
 
     #[test]
@@ -1449,6 +1552,21 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.contains("bindingSlotLimit"));
+    }
+
+    #[test]
+    fn rejects_duplicate_contexts_for_the_same_action() {
+        let mut doc = sample();
+        let error = apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Create {
+                template_id: "binding:0".into(),
+                input: "q".into(),
+                context: 0,
+            }],
+        )
+        .unwrap_err();
+        assert!(error.contains("duplicateBindingContext"));
     }
 
     #[test]

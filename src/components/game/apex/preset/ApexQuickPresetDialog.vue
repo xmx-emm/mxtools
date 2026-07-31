@@ -65,6 +65,14 @@ const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
 const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
 const game_setting_options = ref<Record<string, boolean>>(buildDefaultGameSettingOptions());
+const target_account = computed(() => apex_store.active_apex_account);
+const target_account_label = computed(() => {
+  const account = target_account.value;
+  if (!account) return t('apexQuickPreset.noAccount');
+  const platform = account.kind === 'steam' ? 'Steam' : 'EA';
+  const identity = account.user.name?.trim() || account.user.id;
+  return `${platform} · ${identity}`;
+});
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
 
@@ -100,14 +108,30 @@ async function load_display_info() {
     apex_store.set_quick_preset_display(info);
     fps_cap.value = defaultFpsCap(info.maxRefreshRate);
     const key = apex_store.launcher_selection_key;
-    if (!key || apex_store.launch_loaded_for_key !== key) {
-      await apex_store.start_load_apex_launch_options_data();
+    if (!key) throw new Error(t('apexQuickPreset.launchLoadFailed'));
+    if (apex_store.launch_loaded_for_key !== key
+      || apex_store.launch_load_status !== 'ready') {
+      await apex_store.load_launch_data({force: true});
     }
-    if (Object.keys(apex_store.video_config_values).length === 0) {
-      await apex_store.load_apex_video_config();
+    if (apex_store.launch_loaded_for_key !== key
+      || apex_store.launch_load_status !== 'ready') {
+      throw new Error(t('apexQuickPreset.launchLoadFailed'));
+    }
+    if (!apex_store.video_config_loaded
+      || apex_store.video_config_load_status !== 'ready'
+      || Object.keys(apex_store.video_config_values).length === 0) {
+      await apex_store.load_apex_video_config({silent: true, force: true});
+    }
+    if (apex_store.video_config_load_status !== 'ready'
+      || Object.keys(apex_store.video_config_values).length === 0) {
+      throw new Error(t('apexQuickPreset.videoLoadFailed'));
+    }
+    if (!apex_store.game_settings_report
+      || apex_store.game_settings_load_status !== 'ready') {
+      await apex_store.load_apex_game_settings({silent: true, force: true});
     }
     if (!apex_store.game_settings_report) {
-      await apex_store.load_apex_game_settings();
+      throw new Error(t('apexQuickPreset.gameSettingsLoadFailed'));
     }
     const has_letterbox = apex_store.options_selection.some(
       (item) => item.identifier === 'letterbox_aspect',
@@ -131,6 +155,7 @@ async function load_display_info() {
 }
 
 function on_close() {
+  if (apex_store.quick_preset_applying) return;
   void getCurrentWindow().close();
 }
 
@@ -272,11 +297,21 @@ void load_display_info();
           density="compact"
           class="mb-3"
           :text="display_error"
-        />
+        >
+          <template #append>
+            <v-btn size="small" variant="text" @click="load_display_info">
+              {{ t('apexQuickPreset.retry') }}
+            </v-btn>
+          </template>
+        </v-alert>
 
         <template v-if="local_display">
           <div class="section-label">{{ t('apexQuickPreset.screenInfo') }}</div>
           <div class="info-grid mb-4">
+            <div class="info-item">
+              <span class="info-key">{{ t('apexQuickPreset.targetAccount') }}</span>
+              <span class="info-val">{{ target_account_label }}</span>
+            </div>
             <div class="info-item">
               <span class="info-key">{{ t('apexQuickPreset.screenSize') }}</span>
               <span class="info-val">{{ local_display.width }} × {{ local_display.height }}</span>
@@ -420,6 +455,14 @@ void load_display_info();
                   color="primary"
                   class="compact-checkbox"
                 />
+                <v-btn
+                  icon="mdi-information-outline"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
+                  @click.stop="show_launch_option_tip(opt)"
+                />
               </div>
               <div
                 class="option-tip-wrap"
@@ -433,6 +476,14 @@ void load_display_info();
                   hide-details
                   color="primary"
                   class="compact-checkbox"
+                />
+                <v-btn
+                  icon="mdi-information-outline"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t('apexQuickPreset.simplifiedReticle')})"
+                  @click.stop="show_reticle_tip()"
                 />
               </div>
             </div>
@@ -454,6 +505,14 @@ void load_display_info();
                   color="primary"
                   class="compact-checkbox"
                 />
+                <v-btn
+                  icon="mdi-information-outline"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
+                  @click.stop="show_video_option_tip(opt)"
+                />
               </div>
             </div>
           </div>
@@ -473,11 +532,19 @@ void load_display_info();
                 >
                   <v-checkbox
                     v-model="game_setting_options[opt[0]]"
-                    :label="t(`apexGameSettings.fields.${opt[0]}.name`)"
+                    :label="t(`apexQuickPreset.optimizations.${opt[3]}`)"
                     density="compact"
                     hide-details
                     color="primary"
                     class="compact-checkbox"
+                  />
+                  <v-btn
+                    icon="mdi-information-outline"
+                    density="compact"
+                    variant="text"
+                    class="mx-compact-icon-button"
+                    :aria-label="t('apexGameSettings.openTip', {setting: t(`apexGameSettings.fields.${opt[0]}.name`)})"
+                    @click.stop="show_game_setting_tip(opt[0])"
                   />
                 </div>
               </div>
@@ -501,7 +568,11 @@ void load_display_info();
 
       <v-card-actions>
         <v-spacer/>
-        <v-btn variant="text" @click="on_close">{{ t('common.cancel') }}</v-btn>
+        <v-btn
+          variant="text"
+          :disabled="apex_store.quick_preset_applying"
+          @click="on_close"
+        >{{ t('common.cancel') }}</v-btn>
         <v-btn
           color="primary"
           :loading="apex_store.quick_preset_applying || is_apply_running"
@@ -566,13 +637,21 @@ void load_display_info();
 }
 
 .quick-preset-card--window {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 0;
   box-shadow: none;
 }
 
 .quick-preset-card--window :deep(.v-card-text) {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+
+.quick-preset-card--window :deep(.v-card-actions) {
+  flex: 0 0 auto;
 }
 
 .info-grid {
@@ -588,7 +667,14 @@ void load_display_info();
 }
 
 .info-key {
+  flex: 0 0 auto;
   color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.info-val {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .gap-2 {
@@ -658,7 +744,14 @@ void load_display_info();
 }
 
 .option-tip-wrap {
+  display: flex;
+  align-items: center;
   cursor: default;
+}
+
+.option-tip-wrap .compact-checkbox {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .preset-box {

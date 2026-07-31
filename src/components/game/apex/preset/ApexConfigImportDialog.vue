@@ -110,6 +110,7 @@ watch(video_items, (items) => {
 });
 
 function on_close() {
+  if (applying.value) return;
   apex_store.close_config_import_dialog();
 }
 
@@ -137,7 +138,9 @@ async function run_apply() {
   try {
     const ok = await apex_store.apply_config_snapshot(snap, build_selection());
     if (ok) {
-      on_close();
+      // The launcher/apply composable still reports running until this function
+      // resolves, so bypass the user-close guard on the confirmed success path.
+      apex_store.close_config_import_dialog();
     }
   } catch (err) {
     console.warn('import apex config snapshot failed', err);
@@ -220,6 +223,7 @@ const applying = computed(
     :model-value="apex_store.config_import_dialog"
     max-width="560"
     scrollable
+    :persistent="applying"
     @update:model-value="(v: boolean) => { if (!v) on_close(); }"
   >
     <v-card :title="t('apex.configSnapshot.importTitle')">
@@ -325,8 +329,11 @@ const applying = computed(
               v-model="video_mode"
               mandatory
               density="compact"
-              variant="outlined"
-              class="mb-3"
+              color="primary"
+              variant="text"
+              border
+              divided
+              class="mb-3 game-page-segmented-toggle"
             >
               <v-btn size="small" value="all">
                 {{ t('apex.configSnapshot.videoModeAll') }}

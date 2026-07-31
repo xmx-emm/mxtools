@@ -88,9 +88,10 @@ function onDetailInput(value: number | null) {
           :model-value="coverageModel"
           @update:model-value="onCoverageInput($event as number | null)"
           :disabled="!csmEnabled"
+          density="compact"
           color="primary"
           variant="text"
-          class="apex-parameter-toggle"
+          class="apex-parameter-toggle game-page-segmented-toggle"
           :style="{maxHeight: 'var(--app-control-height-compact)'}"
           border
           divided
@@ -113,9 +114,10 @@ function onDetailInput(value: number | null) {
           :model-value="detailModel"
           @update:model-value="onDetailInput($event as number | null)"
           :disabled="!csmEnabled"
+          density="compact"
           color="primary"
           variant="text"
-          class="apex-parameter-toggle"
+          class="apex-parameter-toggle game-page-segmented-toggle"
           :style="{maxHeight: 'var(--app-control-height-compact)'}"
           border
           divided

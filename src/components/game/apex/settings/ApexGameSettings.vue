@@ -79,6 +79,12 @@ const search = computed({
   set: value => { apex_store.game_settings_filter_search = String(value ?? ''); },
 });
 const query = computed(() => search.value.trim().toLowerCase());
+const settingsBusy = computed(() => (
+  apex_store.is_game_settings_saving
+  || apex_store.is_game_settings_restoring
+  || apex_store.is_config_snapshot_applying
+  || apex_store.quick_preset_applying
+));
 function valueFor(field: ApexGameSettingDefinition): string {
   return apex_store.game_settings_values[field.file][field.readKey ?? field.key] ?? '';
 }
@@ -98,6 +104,7 @@ function storageKeyLabel(field: ApexGameSettingDefinition): string {
 }
 
 function isDisabled(field: ApexGameSettingDefinition): boolean {
+  if (settingsBusy.value) return true;
   const dependency = field.disabledWhen;
   return !!dependency
     && apex_store.game_settings_values[dependency.file][dependency.key] === dependency.value;
@@ -156,6 +163,7 @@ function bindingName(binding: ApexBinding): string {
 interface ApexBindingAction {
   key: string;
   bindings: ApexBinding[];
+  slots: [ApexBinding | undefined, ApexBinding | undefined];
   template: ApexBinding;
 }
 
@@ -172,11 +180,18 @@ const bindingActions = computed<ApexBindingAction[]>(() => {
     group.push(binding);
     grouped.set(key, group);
   }
-  return Array.from(grouped, ([key, bindings]) => ({
-    key,
-    bindings,
-    template: bindings.find(binding => !binding.templateId) ?? bindings[0],
-  }));
+  return Array.from(grouped, ([key, bindings]) => {
+    const slots: ApexBindingAction['slots'] = [
+      bindings.find(binding => binding.context === 0),
+      bindings.find(binding => binding.context === 1),
+    ];
+    return {
+      key,
+      bindings,
+      slots,
+      template: bindings.find(binding => !binding.templateId) ?? bindings[0],
+    };
+  });
 });
 
 const visibleBindingActions = computed(() => bindingActions.value.filter(action => {
@@ -190,7 +205,8 @@ const visibleBindingActions = computed(() => bindingActions.value.filter(action 
 }));
 
 function updateBinding(action: ApexBindingAction, slot: 0 | 1, input: string) {
-  const binding = action.bindings[slot];
+  if (settingsBusy.value) return;
+  const binding = action.slots[slot];
   const conflict = input
     ? findApexBindingConflict(apex_store.game_settings_bindings, binding?.id ?? '', input)
     : undefined;
@@ -242,6 +258,8 @@ function enumItems(field: ApexGameSettingDefinition) {
             density="compact"
             color="primary"
             variant="text"
+            border
+            divided
             class="settings-sections game-page-segmented-toggle"
           >
             <v-btn
@@ -294,6 +312,14 @@ function enumItems(field: ApexGameSettingDefinition) {
             <div class="setting-title-row">
               <span>{{ t(field.labelKey) }}</span>
               <code>{{ storageKeyLabel(field) }}</code>
+              <v-btn
+                icon="mdi-information-outline"
+                density="compact"
+                variant="text"
+                class="mx-compact-icon-button"
+                :aria-label="t('apexGameSettings.openTip', {setting: t(field.labelKey)})"
+                @click.stop="showSettingTip(field)"
+              />
             </div>
           </template>
           <template #subtitle>{{ t(field.descriptionKey) }}</template>
@@ -338,6 +364,7 @@ function enumItems(field: ApexGameSettingDefinition) {
               v-else-if="field.control === 'rgb'"
               :model-value="valueFor(field)"
               :label="t(field.labelKey)"
+              :disabled="isDisabled(field)"
               @update:model-value="setValue(field, $event)"
             />
             <ApexNumberInput
@@ -369,8 +396,11 @@ function enumItems(field: ApexGameSettingDefinition) {
             <div class="binding-slots">
               <ApexBindingSelect
                 v-for="slot in bindingSlots"
-                :key="action.bindings[slot]?.id ?? `${action.key}:${slot}`"
-                :model-value="action.bindings[slot]?.input ?? ''"
+                :key="action.slots[slot]?.id ?? `${action.key}:${slot}`"
+                :model-value="action.slots[slot]?.input ?? ''"
+                :action-label="bindingName(action.template)"
+                :slot-number="slot + 1"
+                :disabled="settingsBusy"
                 clearable
                 @update:model-value="updateBinding(action, slot, $event)"
               />

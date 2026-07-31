@@ -26,11 +26,13 @@ const {AUTHOR_GITHUB, AUTHOR_HOME, applySteamUser, flushScheduledPrefsPersist, f
                 </header>
               <v-btn-toggle
                 :model-value="folderMode"
-                  class="apex-q-segmented"
+                class="game-page-segmented-toggle mb-3"
                 density="compact"
                 mandatory
                 color="primary"
                 variant="text"
+                border
+                divided
                 @update:model-value="onFolderModeChange"
               >
                 <v-btn value="steam" size="small">{{ t('apex.apexQ.folderModeSteam') }}</v-btn>

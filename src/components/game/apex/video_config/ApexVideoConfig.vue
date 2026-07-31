@@ -335,9 +335,10 @@ onBeforeUnmount(() => {
                       <v-btn-toggle
                         :model-value="enumModel(item)"
                         @update:model-value="onEnumInput(item, $event as number | null)"
+                        density="compact"
                         color="primary"
                         variant="text"
-                        class="apex-parameter-toggle"
+                        class="apex-parameter-toggle game-page-segmented-toggle"
                         :style="{maxHeight: 'var(--app-control-height-compact)'}"
                         border
                         divided

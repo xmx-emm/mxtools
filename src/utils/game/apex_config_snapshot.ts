@@ -112,6 +112,35 @@ function isPlainStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
+/**
+ * videoconfig keys are written into a quoted key/value file.  Keep the
+ * snapshot boundary deliberately narrower than the native parser so a local
+ * hand-edited JSON file cannot inject quotes, line breaks, or control bytes.
+ */
+export function isValidApexVideoConfigKey(key: string): boolean {
+  if (!/^setting\.[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(key)) return false;
+  for (const character of key) {
+    const code = character.charCodeAt(0);
+    if (character === '"' || code <= 0x1f || code === 0x7f) return false;
+  }
+  return true;
+}
+
+export function isValidApexVideoConfigValue(value: string): boolean {
+  return !Array.from(value).some(character => {
+    const code = character.charCodeAt(0);
+    return character === '"' || code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+  });
+}
+
+function validateVideoConfigRecord(value: Record<string, string>): void {
+  if (Object.entries(value).some(([key, item]) => (
+    !isValidApexVideoConfigKey(key) || !isValidApexVideoConfigValue(item)
+  ))) {
+    throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidVideoConfig');
+  }
+}
+
 function isApexBindingSnapshot(value: unknown): value is ApexBindingSnapshot {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;
@@ -123,12 +152,30 @@ function isApexBindingSnapshot(value: unknown): value is ApexBindingSnapshot {
     && item.command.length > 0
     && typeof item.context === 'number'
     && Number.isInteger(item.context)
+    && (item.context === 0 || item.context === 1)
     && typeof item.occurrence === 'number'
     && Number.isInteger(item.occurrence)
     && item.occurrence >= 0
     && (item.heldCommand === undefined
       || item.heldCommand === null
       || typeof item.heldCommand === 'string');
+}
+
+function apexBindingSnapshotIdentity(binding: ApexBindingSnapshot): string {
+  return [
+    binding.command.toLowerCase(),
+    (binding.heldCommand ?? '').toLowerCase(),
+    binding.context,
+    binding.occurrence,
+  ].join('\u001f');
+}
+
+function apexBindingSnapshotSlot(binding: ApexBindingSnapshot): string {
+  return [
+    binding.command.toLowerCase(),
+    (binding.heldCommand ?? '').toLowerCase(),
+    binding.context,
+  ].join('\u001f');
 }
 
 /** 从当前状态组装快照（未勾选的块省略字段） */
@@ -157,6 +204,7 @@ export function buildApexConfigSnapshot(input: {
   }
   if (selection.videoConfig) {
     snapshot.videoConfig = {...(input.videoConfig ?? {})};
+    validateVideoConfigRecord(snapshot.videoConfig);
   }
   if (selection.gameSettings || selection.aiming || selection.controller || selection.bindings) {
     const selectedGroups: ApexConfigSnapshotSettingsGroup[] = [];
@@ -226,6 +274,7 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
     if (!isPlainStringRecord(obj.videoConfig)) {
       throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidVideoConfig');
     }
+    validateVideoConfigRecord(obj.videoConfig);
     snapshot.videoConfig = {...obj.videoConfig};
   }
 
@@ -248,6 +297,17 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
     if (game.bindings !== undefined) {
       if (!Array.isArray(game.bindings) || !game.bindings.every(isApexBindingSnapshot)) {
         throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidBindings');
+      }
+      const identities = new Set<string>();
+      const slots = new Set<string>();
+      for (const binding of game.bindings) {
+        const identity = apexBindingSnapshotIdentity(binding);
+        const slot = apexBindingSnapshotSlot(binding);
+        if (identities.has(identity) || slots.has(slot)) {
+          throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidBindings');
+        }
+        identities.add(identity);
+        slots.add(slot);
       }
       bindings = game.bindings.map(binding => ({...binding}));
     }

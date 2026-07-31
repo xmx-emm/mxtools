@@ -235,9 +235,10 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                   <v-btn-toggle
                     v-model:model-value="apex_store.settings_config[item.identifier]"
                     v-if="isSelected"
+                    density="compact"
                     color="primary"
                     variant="text"
-                    class="apex-parameter-toggle"
+                    class="apex-parameter-toggle game-page-segmented-toggle"
                     :style="{maxHeight: 'var(--app-control-height-compact)'}"
                     border
                     divided>

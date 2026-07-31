@@ -9,8 +9,12 @@ export const apexConfigMessages = {
     bindingConflict: 'Key {key} is already used by "{action}"',
     bindingRecording: 'Press a key…',
     bindingEdit: 'Click, then press the new keyboard, mouse, or wheel input',
+    bindingEditSlot: 'Edit binding {slot} for “{action}”',
+    bindingRecordingSlot: 'Recording binding {slot} for “{action}”; press an input',
     bindingUnassigned: 'Unassigned',
     bindingClear: 'Clear this binding',
+    bindingClearSlot: 'Clear binding {slot} for “{action}”',
+    openTip: 'Open help for “{setting}”',
     scrollSectionsLeft: 'View more categories to the left',
     scrollSectionsRight: 'View more categories to the right',
     sections: {

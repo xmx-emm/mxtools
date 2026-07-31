@@ -16,8 +16,10 @@ const props = withDefaults(
     title?: string;
     /** 主工作区才提供命令面板入口；独立工具窗口保持原生标题栏密度。 */
     showCommandPalette?: boolean;
+    /** Critical writes may temporarily prevent the window from being closed. */
+    closeDisabled?: boolean;
   }>(),
-  {title: '', showCommandPalette: false},
+  {title: '', showCommandPalette: false, closeDisabled: false},
 );
 const emit = defineEmits<{(event: 'open-command-palette'): void}>();
 
@@ -54,6 +56,7 @@ const resizeStateScheduler = createRafScheduler(() => {
 });
 
 function close_window() {
+  if (props.closeDisabled) return;
   const window = WebviewWindow.getCurrent();
   window.close();
 }
@@ -154,6 +157,7 @@ onUnmounted(() => {
         class="title-bar-btn title-bar-btn-close"
         :aria-label="t('common.close')"
         :title="t('common.close')"
+        :disabled="closeDisabled"
         @click="close_window"
       >
         <v-icon icon="mdi-window-close"/>
@@ -340,16 +344,26 @@ onUnmounted(() => {
   transition: transform var(--app-motion-fast) var(--app-ease-emphasized);
 }
 
-.title-bar-actions .title-bar-btn:hover {
+.title-bar-actions .title-bar-btn:hover:not(:disabled) {
   opacity: 1;
   background: rgba(128, 128, 128, 0.15);
 }
 
-.title-bar-actions .title-bar-btn:hover :deep(.v-icon) {
+.title-bar-actions .title-bar-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.title-bar-actions .title-bar-btn:disabled:hover {
+  color: inherit;
+  background: transparent;
+}
+
+.title-bar-actions .title-bar-btn:hover:not(:disabled) :deep(.v-icon) {
   transform: scale(1.05);
 }
 
-.title-bar-actions .title-bar-btn:active :deep(.v-icon) {
+.title-bar-actions .title-bar-btn:active:not(:disabled) :deep(.v-icon) {
   transform: scale(0.92);
 }
 
@@ -365,7 +379,7 @@ onUnmounted(() => {
   color: rgb(var(--v-theme-warning));
 }
 
-.title-bar-actions .title-bar-btn.title-bar-btn-close:hover {
+.title-bar-actions .title-bar-btn.title-bar-btn-close:hover:not(:disabled) {
   background-color: rgb(232, 17, 35);
   color: rgb(255, 255, 255);
 }

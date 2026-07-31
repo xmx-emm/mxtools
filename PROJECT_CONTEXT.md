@@ -59,11 +59,16 @@ noncommercial mirrors and public modified versions are allowed.
   independent `idle/loading/ready/error` states, loaded keys, and request
   generations; clean cached game-setting tabs silently refresh when revisited
   so external Apex edits are reflected, while dirty local edits are preserved.
-  Stale responses are ignored.
+  Stale responses are ignored. A successful write from the quick-preset WebView
+  publishes a Tauri event plus a durable local-storage revision; the main
+  WebView replaces affected local drafts only after every requested scope
+  reloads successfully, and retries unseen revisions on focus.
 - Apex quick presets run in the independent `/apex-quick-preset` Tauri WebView
   with the shared `VMain + AppTopBar` shell. That WebView restores the persisted
-  Apex account and independently reads launch, video, and game-setting state;
-  it never assumes the main WebView's Pinia memory is available.
+  Apex account from the route query, live event, and local storage, then
+  independently reads launch, video, and game-setting state. Account
+  initialization is latest-request-wins and never assumes the main WebView's
+  Pinia memory is available.
 - The Apex game-setting catalog mirrors the in-game Gameplay, HUD,
   Accessibility, and Privacy groups alongside the existing aiming, binding,
   controller, and audio groups. Known setting rows share a reusable right-click
@@ -177,18 +182,24 @@ noncommercial mirrors and public modified versions are allowed.
 - Apex launch, video, and game-setting writes record their pre-change state
   under the global history mutex. Quick presets and snapshot imports use one
   `mutate_apex_config` transaction so their scopes share a transaction ID and
-  any failed file write rolls the affected files back.
+  any failed file write rolls the affected files back. Rollback is verified;
+  when it cannot be proven complete, the recovery history is retained instead
+  of being discarded. Repeated writes to one scope in the same transaction do
+  not delete the transaction's original undo state.
 - Editable Apex keyboard/mouse actions render as two binding slots. Frontend
-  drafts become explicit create/update/delete mutations; the Rust writer keeps
-  adjacent held bindings paired, rejects a third slot per action, and validates
-  global input uniqueness before writing. The quick preset uses the same
-  transaction to set the confirmed gameplay/HUD/accessibility optimizations and
-  the MOUSE2/MWHEEL binding layout. Unverified transparent ping opacity remains
-  deferred.
+  slots map to the real config contexts `0` and `1`, and drafts become explicit
+  create/update/delete mutations. The Rust writer keeps adjacent held bindings
+  paired, rejects duplicate or third slots, and validates global input
+  uniqueness before writing. The quick preset updates those same contexts in
+  place and uses the same transaction to set the confirmed gameplay/HUD/
+  accessibility optimizations and the MOUSE2/MWHEEL binding layout. Unverified
+  transparent ping opacity remains deferred.
 - Apex configuration snapshots use the version-1 JSON shape while export and
   import controls classify backend-supported keys into other game settings,
   keyboard/mouse aiming and sensitivity, controller settings and sensitivity,
-  and bindings.
+  and bindings. Export loads only selected sources; import starts from the last
+  clean disk report rather than an unsaved draft, and binding import reconciles
+  the complete selected two-slot topology with create/update/delete mutations.
 - Snapshot import/export always excludes machine-local audio endpoint IDs
   `miles_output_device` and `voice_input_device`; the dialogs state this
   explicitly so device selections are not transferred to another computer.
@@ -200,7 +211,13 @@ noncommercial mirrors and public modified versions are allowed.
   attributes, SHA-256 checksums, versioned metadata, and 30 entries per stream.
   Launch history is isolated per Steam/EA account; video and game-setting
   history is machine-wide. Existing `.mxtools.bak` game-setting files are
-  fingerprinted and imported once without being removed.
+  fingerprinted and imported once without being removed; a migration marker is
+  written before internal backups can be mistaken for later legacy imports, and
+  transient backup read errors do not write that marker.
+- Apex video mutations accept only canonical ASCII `setting.*` keys and reject
+  quoted or control-character keys and values before no-op detection. Parsed
+  video keys are normalized without outer quotes so unchanged values remain
+  true no-ops.
 - Apex-only reset clears launch options for the selected account and removes
   `videoconfig.txt`, `settings.cfg`, and `profile.cfg` after recording history.
   The frontend then waits for Apex to regenerate defaults and checks again on

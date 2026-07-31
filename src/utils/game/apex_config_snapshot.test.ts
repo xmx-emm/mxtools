@@ -4,6 +4,7 @@ import {
   buildApexConfigSnapshot,
   buildVideoConfigPreviewItems,
   collectSelectedVideoUpdates,
+  isValidApexVideoConfigKey,
   parseApexConfigSnapshot,
   splitApexGameSettingsSnapshot,
   stringifyApexConfigSnapshot,
@@ -201,6 +202,58 @@ describe('parseApexConfigSnapshot', () => {
         bindings: [{input: 'w', command: '+forward', context: 0.5, occurrence: 0}],
       },
     }))).toThrow('apex.configSnapshot.errors.invalidBindings');
+  });
+
+  it('rejects videoconfig keys outside the setting namespace', () => {
+    const base = {
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-14T00:00:00.000Z',
+    };
+    for (const key of ['videoconfig.fullscreen', 'setting.', 'setting.bad"key', 'setting.bad\nkey']) {
+      expect(() => parseApexConfigSnapshot(JSON.stringify({
+        ...base,
+        videoConfig: {[key]: '1'},
+      }))).toThrow('apex.configSnapshot.errors.invalidVideoConfig');
+    }
+    for (const value of ['bad\0value', 'bad\nvalue', 'bad\u0085value', '"quoted"']) {
+      expect(() => parseApexConfigSnapshot(JSON.stringify({
+        ...base,
+        videoConfig: {'setting.fullscreen': value},
+      }))).toThrow('apex.configSnapshot.errors.invalidVideoConfig');
+    }
+  });
+
+  it('rejects duplicate binding identities and contexts outside the two slots', () => {
+    const base = {
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-14T00:00:00.000Z',
+    };
+    const binding = {input: 'W', command: '+forward', context: 0, occurrence: 0};
+    expect(() => parseApexConfigSnapshot(JSON.stringify({
+      ...base,
+      gameSettings: {
+        settings: {}, profile: {},
+        bindings: [binding, {...binding, input: 'S', occurrence: 1}],
+      },
+    }))).toThrow('apex.configSnapshot.errors.invalidBindings');
+    expect(() => parseApexConfigSnapshot(JSON.stringify({
+      ...base,
+      gameSettings: {
+        settings: {}, profile: {},
+        bindings: [{...binding, context: 2}],
+      },
+    }))).toThrow('apex.configSnapshot.errors.invalidBindings');
+  });
+});
+
+describe('isValidApexVideoConfigKey', () => {
+  it('accepts normalized setting keys and rejects control characters', () => {
+    expect(isValidApexVideoConfigKey('setting.fullscreen')).toBe(true);
+    expect(isValidApexVideoConfigKey('setting.unknown_custom')).toBe(true);
+    expect(isValidApexVideoConfigKey('setting.bad\u0000key')).toBe(false);
+    expect(isValidApexVideoConfigKey('"setting.fullscreen"')).toBe(false);
   });
 });
 

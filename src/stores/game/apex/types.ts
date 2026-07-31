@@ -90,7 +90,11 @@ export type ApexActions = {
   apply_apex_video_config(options?: {silent?: boolean} & ApexConfigMutationMeta): Promise<boolean>;
   load_videoconfig_readonly(): Promise<void>;
   set_videoconfig_readonly(locked: boolean): Promise<boolean>;
-  load_apex_game_settings(options?: {silent?: boolean; force?: boolean}): Promise<void>;
+  load_apex_game_settings(options?: {
+    silent?: boolean
+    force?: boolean
+    discardLocal?: boolean
+  }): Promise<void>;
   start_game_settings(force?: boolean): void;
   set_game_setting_value(file: ApexGameSettingsFile, key: string, value: string): void;
   set_game_binding_slot(

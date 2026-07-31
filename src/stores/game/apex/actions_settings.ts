@@ -14,6 +14,23 @@ import type {ApexStoreThis} from './types.ts';
 import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
 import {createApexHistoryTransactionId} from '@/utils/game/apex_history.ts';
 
+const gameSettingsLoadRequests = new WeakMap<object, Promise<void>>();
+
+function invalidateGameSettingsLoad(store: ApexStoreThis) {
+  store.game_settings_request_generation += 1;
+  store.is_game_settings_loading = false;
+  if (store.game_settings_load_status === 'loading') {
+    store.game_settings_load_status = store.game_settings_loaded ? 'ready' : 'idle';
+  }
+}
+
+function gameSettingsWriteInProgress(store: ApexStoreThis): boolean {
+  return store.is_game_settings_saving
+    || store.is_game_settings_restoring
+    || store.is_config_snapshot_applying
+    || store.quick_preset_applying;
+}
+
 export function adoptApexGameSettingsReport(
   store: ApexStoreThis,
   report: ApexGameSettingsReport,
@@ -35,6 +52,7 @@ export function adoptApexGameSettingsReport(
   store.game_settings_loaded = true;
   store.game_settings_loaded_key = 'machine';
   store.game_settings_load_status = 'ready';
+  store.game_settings_load_error = null;
   store.reset_pending_scopes = store.reset_pending_scopes.filter(
     scope => scope !== 'gameSettings',
   );
@@ -96,30 +114,39 @@ function changedValues(
 export const apexSettingsActions = {
   async load_apex_game_settings(
     this: ApexStoreThis,
-    options?: {silent?: boolean; force?: boolean},
-  ) {
-    if (this.is_game_settings_loading && !options?.force) return;
+    options?: {silent?: boolean; force?: boolean; discardLocal?: boolean},
+  ): Promise<void> {
+    if (this.is_game_settings_loading && !options?.force) {
+      return gameSettingsLoadRequests.get(this) ?? Promise.resolve();
+    }
     const generation = ++this.game_settings_request_generation;
     this.is_game_settings_loading = true;
     this.game_settings_load_status = 'loading';
     this.game_settings_load_error = null;
-    try {
-      const report = await getApexGameSettings();
-      if (generation !== this.game_settings_request_generation) return;
-      adoptApexGameSettingsReport(this, report);
-      this.game_settings_loaded_key = 'machine';
-      this.game_settings_load_status = 'ready';
-    } catch (error) {
-      if (generation !== this.game_settings_request_generation) return;
-      console.warn('load_apex_game_settings failed', error);
-      this.game_settings_load_error = String(error);
-      this.game_settings_load_status = 'error';
-      if (!options?.silent) useToast().error(String(error));
-    } finally {
-      if (generation === this.game_settings_request_generation) {
-        this.is_game_settings_loading = false;
+    const request = (async () => {
+      try {
+        const report = await getApexGameSettings();
+        if (generation !== this.game_settings_request_generation) return;
+        if (this.is_game_settings_modified && !options?.discardLocal) {
+          this.game_settings_load_status = this.game_settings_loaded ? 'ready' : 'idle';
+          return;
+        }
+        adoptApexGameSettingsReport(this, report);
+      } catch (error) {
+        if (generation !== this.game_settings_request_generation) return;
+        console.warn('load_apex_game_settings failed', error);
+        this.game_settings_load_error = String(error);
+        this.game_settings_load_status = 'error';
+        if (!options?.silent) useToast().error(String(error));
+      } finally {
+        if (generation === this.game_settings_request_generation) {
+          this.is_game_settings_loading = false;
+          gameSettingsLoadRequests.delete(this);
+        }
       }
-    }
+    })();
+    gameSettingsLoadRequests.set(this, request);
+    return request;
   },
 
   start_game_settings(this: ApexStoreThis, force = false) {
@@ -141,6 +168,9 @@ export const apexSettingsActions = {
     key: string,
     value: string,
   ) {
+    if (gameSettingsWriteInProgress(this)
+      || this.game_settings_values[file][key] === value) return;
+    invalidateGameSettingsLoad(this);
     this.game_settings_values[file][key] = value;
   },
 
@@ -151,10 +181,14 @@ export const apexSettingsActions = {
     input: string,
     context: 0 | 1,
   ) {
+    if (gameSettingsWriteInProgress(this)) return;
     if (bindingId) {
       const index = this.game_settings_bindings.findIndex(item => item.id === bindingId);
       if (index < 0) return;
       const binding = this.game_settings_bindings[index];
+      if (!binding.editable) return;
+      if (binding.input === input) return;
+      invalidateGameSettingsLoad(this);
       if (binding.templateId && !input) {
         this.game_settings_bindings.splice(index, 1);
       } else {
@@ -164,7 +198,8 @@ export const apexSettingsActions = {
     }
     if (!input) return;
     const template = this.game_settings_bindings.find(item => item.id === templateId);
-    if (!template) return;
+    if (!template?.editable) return;
+    invalidateGameSettingsLoad(this);
     const sequence = ++this.game_settings_binding_draft_sequence;
     this.game_settings_bindings.push({
       ...template,
@@ -181,7 +216,7 @@ export const apexSettingsActions = {
     options?: {silent?: boolean} & ApexConfigMutationMeta,
   ): Promise<boolean> {
     const report = this.game_settings_report;
-    if (!report || this.is_game_settings_saving) return false;
+    if (!report || gameSettingsWriteInProgress(this)) return false;
     const mutation = buildApexGameSettingsMutation(this);
     if (!mutation || (!Object.keys(mutation.settingsUpdates).length
       && !Object.keys(mutation.profileUpdates).length
@@ -190,6 +225,7 @@ export const apexSettingsActions = {
       return false;
     }
 
+    invalidateGameSettingsLoad(this);
     this.is_game_settings_saving = true;
     try {
       const next = await applyApexGameSettings({
@@ -215,7 +251,8 @@ export const apexSettingsActions = {
     restoreProfile: boolean,
   ): Promise<boolean> {
     const report = this.game_settings_report;
-    if (!report || this.is_game_settings_restoring) return false;
+    if (!report || gameSettingsWriteInProgress(this)) return false;
+    invalidateGameSettingsLoad(this);
     this.is_game_settings_restoring = true;
     try {
       const next = await restoreApexGameSettings({
@@ -237,6 +274,8 @@ export const apexSettingsActions = {
   },
 
   replace_game_settings_bindings(this: ApexStoreThis, bindings: ApexBinding[]) {
+    if (gameSettingsWriteInProgress(this)) return;
+    invalidateGameSettingsLoad(this);
     this.game_settings_bindings = bindings.map(binding => ({...binding}));
   },
 };

@@ -118,12 +118,12 @@ watch(activeIndex, () => {
       <div class="preview-toolbar bg-surface">
         <v-btn-toggle
           v-model="activeIndex"
-          class="preview-type-toggle"
+          class="preview-type-toggle game-page-segmented-toggle"
           mandatory
           density="compact"
-          variant="tonal"
-          color="surface-variant"
-          style="height: var(--app-control-height-compact);"
+          variant="text"
+          color="primary"
+          border
           divided
         >
           <v-btn

@@ -1,4 +1,5 @@
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
+import type {WebviewOptions} from '@tauri-apps/api/webview';
 import type {WindowOptions} from '@tauri-apps/api/window';
 import {emit} from '@tauri-apps/api/event';
 import i18n from '@/i18n/i18n.ts';
@@ -7,10 +8,15 @@ import {
   APEX_Q_WINDOW_TARGET_STORAGE_KEY,
   type ApexQWindowTarget,
 } from '@/types/apex_q.ts';
+import {
+  emitApexQuickPresetAccount,
+  rememberApexQuickPresetAccount,
+} from '@/utils/game/apex_config_events.ts';
 
 const APEX_Q_WIN_REV_KEY = 'mx-apex-q-win-rev';
 /** 无边框标题栏版本：旧带系统装饰的窗口需销毁重建 */
 const APEX_Q_WIN_REV = 'undecorated-v2';
+type OpenWebWindowOptions = Omit<WebviewOptions, 'x' | 'y' | 'width' | 'height'> & WindowOptions;
 const pendingWindowCreates = new Map<string, Promise<void>>();
 let apexQRevisionPromise: Promise<void> | null = null;
 let apexQRevisionEnsured = false;
@@ -57,7 +63,7 @@ async function activateWebWindow(
   await window.setFocus();
 }
 
-async function openWebWindow(route: string, options?: WindowOptions) {
+async function openWebWindow(route: string, options?: OpenWebWindowOptions) {
   const title = options?.title;
   const windowName = `${route}-window`;
   const pending = pendingWindowCreates.get(windowName);
@@ -176,17 +182,19 @@ async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
   }
 }
 
-async function openApexQuickPresetWindow() {
+async function openApexQuickPresetWindow(accountKey: string | null = null) {
+  const query = accountKey ? `?account=${encodeURIComponent(accountKey)}` : '';
+  rememberApexQuickPresetAccount(accountKey);
   await openWebWindow('apex-quick-preset', {
+    url: `#/apex-quick-preset${query}`,
     width: 760,
     height: 760,
-    minWidth: 640,
-    minHeight: 560,
     title: String(i18n.global.t('apexQuickPreset.title')),
     decorations: false,
     center: true,
     preventOverflow: true,
   });
+  await emitApexQuickPresetAccount(accountKey).catch(() => undefined);
 }
 
 export {
