@@ -663,6 +663,10 @@ export function getSystemInfo(): Promise<[string, string][]> {
   return ipcInvoke<[string, string][]>('system_info');
 }
 
+export function repairWindowsIconCache(): Promise<void> {
+  return ipcInvoke<void>('repair_windows_icon_cache');
+}
+
 export function writeFrontendLog(args: {
   level: string;
   message: string;

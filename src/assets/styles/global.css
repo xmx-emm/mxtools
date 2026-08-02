@@ -526,6 +526,34 @@ html[data-mx-theme-transition-fallback] .v-application {
   }
 }
 
+/* Performance mode disables all visible motion, including Vuetify overlays and
+   component-scoped styles. Toastification's hidden progress bar remains the
+   timeout clock that closes transient notifications. */
+html[data-mx-performance-mode] {
+  --app-motion-fast: 0ms;
+  --app-motion-base: 0ms;
+  --app-motion-slow: 0ms;
+  --mx-theme-transition-duration: 0ms;
+}
+
+html[data-mx-performance-mode] *:not(.Vue-Toastification__progress-bar),
+html[data-mx-performance-mode] *::before,
+html[data-mx-performance-mode] *::after {
+  scroll-behavior: auto !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-mx-performance-mode] .Vue-Toastification__progress-bar {
+  visibility: hidden;
+}
+
+html[data-mx-performance-mode] ::view-transition-group(root),
+html[data-mx-performance-mode] ::view-transition-old(root),
+html[data-mx-performance-mode] ::view-transition-new(root) {
+  animation: none !important;
+}
+
 /* 全局菜单尺寸微缩,统一用于 VMenu 弹层 */
 .compact-menu .v-list {
   padding: 1px 0;
@@ -727,6 +755,39 @@ html[data-mx-theme-transition-fallback] .v-application {
   height: var(--app-control-height-compact) !important;
   min-height: var(--app-control-height-compact) !important;
   padding: 0 !important;
+}
+
+/* Repeated row-level help should stay discoverable without forming a loud
+   column of outlined icons. The host reveals one action at a time for pointer
+   users; keyboard and touch input keep an explicit affordance. */
+.game-page-row-tip-button.v-btn {
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  opacity: 0;
+  transition:
+    color var(--app-motion-fast) var(--app-ease-standard),
+    opacity var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.game-page-row-tip-button.v-btn .v-icon {
+  font-size: 15px;
+}
+
+.game-page-row-tip-host:hover .game-page-row-tip-button.v-btn,
+.game-page-row-tip-host:focus-within .game-page-row-tip-button.v-btn,
+.game-page-row-tip-button.v-btn:focus-visible {
+  opacity: 0.72;
+}
+
+.game-page-row-tip-button.v-btn:hover,
+.game-page-row-tip-button.v-btn:focus-visible {
+  color: rgb(var(--v-theme-primary));
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .game-page-row-tip-button.v-btn {
+    opacity: 0.56;
+  }
 }
 
 .mx-compact-field {

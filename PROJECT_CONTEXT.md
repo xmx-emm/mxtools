@@ -51,6 +51,11 @@ noncommercial mirrors and public modified versions are allowed.
   `src/themes.ts`. APEX red is the default for new or reset preferences, while
   an existing persisted accent remains selected; the static splash and tray
   tooltip fallbacks match that default.
+- `settings.performanceMode` is a persisted, default-off preference that adds
+  `data-mx-performance-mode` to the document root. It disables visible CSS
+  animations and transitions across pages and overlays, and bypasses theme
+  View Transitions; the hidden toast progress bar continues only as its timeout
+  clock so notifications still close automatically.
 - The global reduced-motion rule shortens decorative animations and transitions
   but excludes Vue Toastification's progress bar because its `animationend`
   event is the notification timeout clock.
@@ -68,7 +73,12 @@ noncommercial mirrors and public modified versions are allowed.
   Apex account from the route query, live event, and local storage, then
   independently reads launch, video, and game-setting state. Account
   initialization is latest-request-wins and never assumes the main WebView's
-  Pinia memory is available.
+  Pinia memory is available. The `apex-quick-preset-window` label must remain in
+  the shared Tauri capability so its event listeners and title-bar window APIs
+  can initialize. Repeated row-level help actions in quick presets and the Apex
+  game-setting catalog share a 28 px hit target and stay visually quiet until
+  their row is hovered or keyboard-focused, with a persistent low-emphasis
+  affordance on touch-only input.
 - The Apex game-setting catalog mirrors the in-game Gameplay, HUD,
   Accessibility, and Privacy groups alongside the existing aiming, binding,
   controller, and audio groups. Known setting rows share a reusable right-click
@@ -202,7 +212,9 @@ noncommercial mirrors and public modified versions are allowed.
   the complete selected two-slot topology with create/update/delete mutations.
 - Snapshot import/export always excludes machine-local audio endpoint IDs
   `miles_output_device` and `voice_input_device`; the dialogs state this
-  explicitly so device selections are not transferred to another computer.
+  explicitly so device selections are not transferred to another computer. It
+  also excludes the Apex-managed video key `setting.configversion` in both
+  directions.
 - Snapshot Vitest automation covers version rejection, serialized export
   filtering, and keyboard/mouse versus controller import isolation; the
   frontend CI job runs it through the existing `npm test` gate.
@@ -226,6 +238,10 @@ noncommercial mirrors and public modified versions are allowed.
 - Remote Desktop performs one page-level `loadAll` operation. Initial loading
   uses a contained overlay; later refreshes preserve existing card geometry and
   animate one fixed refresh affordance instead of replacing each card body.
+- The Windows overview can rebuild the current user's blank icon cache after a
+  confirmation. Its native command stops only Explorer processes in the current
+  Windows session, removes legacy and per-size `iconcache*.db` files without
+  touching thumbnail caches, and always attempts to restore the desktop shell.
 - Backend diagnostics stay in IPC `message`/`details`; stable codes drive
   centralized frontend localization and folder-sharing interaction branches.
 - Production frontend builds emit a Vite manifest and `dist/bundle-report.json`.
@@ -256,6 +272,11 @@ noncommercial mirrors and public modified versions are allowed.
   unwrapped executable remains an internal build artifact. Per-release evidence
   and remaining manual checks are recorded under
   `docs/RELEASE_CHECKLIST_<version>.md`.
+
+- `npm.cmd run "tauri dev"` uses `scripts/tauri-dev.mjs` as a Windows
+  single-instance development launcher. It removes only process trees proven
+  to belong to this worktree, refuses to terminate an unknown owner of fixed
+  Vite port 14200, and then invokes the repository-local Tauri CLI.
 
 ## Constraints
 
@@ -300,7 +321,7 @@ noncommercial mirrors and public modified versions are allowed.
 - Rust tests: run `cargo test` from `src-tauri/`
 - Windows release artifacts: `npm.cmd run "build window release"`
 - Release artifact size gate: `npm.cmd run release:size:check`
-- Whitespace/conflicts: `git -c safe.directory=E:/tauri/mxtools diff --check`
+- Whitespace/conflicts: `git diff --check`
 
 ## Current Risks
 

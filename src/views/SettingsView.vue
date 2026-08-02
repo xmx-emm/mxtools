@@ -93,6 +93,10 @@ function onToggleLocaleEnabled(v: boolean | null) {
   settingsStore.setToggleLocaleShortcutEnabled(v);
 }
 
+function onPerformanceMode(v: boolean | null) {
+  settingsStore.setPerformanceMode(v);
+}
+
 async function onBetaFeaturesEnabled(v: boolean | null) {
   const enabled = v ?? false;
   settingsStore.setBetaFeaturesEnabled(enabled);
@@ -274,6 +278,18 @@ onUnmounted(() => {
                   hide-details
                   color="primary"
                   @update:model-value="settingsStore.setRestoreLastRoute"
+                />
+              </label>
+              <label class="setting-row">
+                <span>
+                  <strong>{{ t('settings.performanceMode') }}</strong>
+                  <small>{{ t('settings.performanceModeHint') }}</small>
+                </span>
+                <v-switch
+                  :model-value="settingsStore.performanceMode"
+                  hide-details
+                  color="primary"
+                  @update:model-value="onPerformanceMode"
                 />
               </label>
               <label class="setting-row">

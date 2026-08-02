@@ -68,6 +68,8 @@ export const appMessages = {
     windowBehaviorHint: 'Choose how the app starts, closes, and stays available in the system tray.',
     preferences: 'App behavior',
     preferencesHint: 'Adjust page restoration and diagnostics.',
+    performanceMode: 'Performance mode',
+    performanceModeHint: 'Disable all interface animations and transitions',
     appearance: 'Appearance & language',
     appearanceHint: 'Use a comfortable theme, language, and accent color across the app.',
     supportAndData: 'Support & app data',

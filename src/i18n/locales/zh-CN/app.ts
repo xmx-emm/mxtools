@@ -68,6 +68,8 @@ export const appMessages = {
     windowBehaviorHint: '控制应用如何启动、关闭以及驻留在系统托盘。',
     preferences: '应用行为',
     preferencesHint: '调整页面恢复与诊断相关选项。',
+    performanceMode: '性能模式',
+    performanceModeHint: '关闭所有界面动画与过渡效果',
     appearance: '外观与语言',
     appearanceHint: '使用柔和主题、界面语言和强调色打造舒适一致的体验。',
     supportAndData: '支持与应用数据',

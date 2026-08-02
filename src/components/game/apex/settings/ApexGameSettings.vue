@@ -303,7 +303,7 @@ function enumItems(field: ApexGameSettingDefinition) {
         <v-list-item
           v-for="field in visibleFields"
           :key="field.id"
-          class="setting-row"
+          class="setting-row game-page-row-tip-host"
           :class="{'setting-row--disabled': isDisabled(field)}"
           :title="t('apexLaunchOptions.ui.rightClickTip')"
           @contextmenu.prevent="showSettingTip(field)"
@@ -313,10 +313,10 @@ function enumItems(field: ApexGameSettingDefinition) {
               <span>{{ t(field.labelKey) }}</span>
               <code>{{ storageKeyLabel(field) }}</code>
               <v-btn
-                icon="mdi-information-outline"
+                icon="mdi-information-variant"
                 density="compact"
                 variant="text"
-                class="mx-compact-icon-button"
+                class="mx-compact-icon-button game-page-row-tip-button"
                 :aria-label="t('apexGameSettings.openTip', {setting: t(field.labelKey)})"
                 @click.stop="showSettingTip(field)"
               />

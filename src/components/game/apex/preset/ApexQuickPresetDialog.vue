@@ -443,7 +443,7 @@ void load_display_info();
               <div
                 v-for="opt in quickPresetLaunchOptionToggles"
                 :key="opt.key"
-                class="option-tip-wrap"
+                class="option-tip-wrap game-page-row-tip-host"
                 :title="t('apexLaunchOptions.ui.rightClickTip')"
                 @contextmenu.prevent="show_launch_option_tip(opt)"
               >
@@ -456,16 +456,16 @@ void load_display_info();
                   class="compact-checkbox"
                 />
                 <v-btn
-                  icon="mdi-information-outline"
+                  icon="mdi-information-variant"
                   density="compact"
                   variant="text"
-                  class="mx-compact-icon-button"
+                  class="mx-compact-icon-button game-page-row-tip-button"
                   :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
                   @click.stop="show_launch_option_tip(opt)"
                 />
               </div>
               <div
-                class="option-tip-wrap"
+                class="option-tip-wrap game-page-row-tip-host"
                 :title="t('apexLaunchOptions.ui.rightClickTip')"
                 @contextmenu.prevent="show_reticle_tip()"
               >
@@ -478,10 +478,10 @@ void load_display_info();
                   class="compact-checkbox"
                 />
                 <v-btn
-                  icon="mdi-information-outline"
+                  icon="mdi-information-variant"
                   density="compact"
                   variant="text"
-                  class="mx-compact-icon-button"
+                  class="mx-compact-icon-button game-page-row-tip-button"
                   :aria-label="t('apexGameSettings.openTip', {setting: t('apexQuickPreset.simplifiedReticle')})"
                   @click.stop="show_reticle_tip()"
                 />
@@ -493,7 +493,7 @@ void load_display_info();
               <div
                 v-for="opt in quickPresetVideoConfigToggles"
                 :key="opt.key"
-                class="option-tip-wrap"
+                class="option-tip-wrap game-page-row-tip-host"
                 :title="t('apexLaunchOptions.ui.rightClickTip')"
                 @contextmenu.prevent="show_video_option_tip(opt)"
               >
@@ -506,10 +506,10 @@ void load_display_info();
                   class="compact-checkbox"
                 />
                 <v-btn
-                  icon="mdi-information-outline"
+                  icon="mdi-information-variant"
                   density="compact"
                   variant="text"
-                  class="mx-compact-icon-button"
+                  class="mx-compact-icon-button game-page-row-tip-button"
                   :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
                   @click.stop="show_video_option_tip(opt)"
                 />
@@ -526,7 +526,7 @@ void load_display_info();
                 <div
                   v-for="opt in quickPresetGameSettingToggles"
                   :key="opt[0]"
-                  class="option-tip-wrap"
+                  class="option-tip-wrap game-page-row-tip-host"
                   :title="t('apexLaunchOptions.ui.rightClickTip')"
                   @contextmenu.prevent="show_game_setting_tip(opt[0])"
                 >
@@ -539,10 +539,10 @@ void load_display_info();
                     class="compact-checkbox"
                   />
                   <v-btn
-                    icon="mdi-information-outline"
+                    icon="mdi-information-variant"
                     density="compact"
                     variant="text"
-                    class="mx-compact-icon-button"
+                    class="mx-compact-icon-button game-page-row-tip-button"
                     :aria-label="t('apexGameSettings.openTip', {setting: t(`apexGameSettings.fields.${opt[0]}.name`)})"
                     @click.stop="show_game_setting_tip(opt[0])"
                   />

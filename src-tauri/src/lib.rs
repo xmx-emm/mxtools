@@ -17,6 +17,7 @@ mod test;
 mod tray;
 mod user;
 mod utils;
+mod windows_shell;
 
 use tauri::Manager;
 
@@ -98,6 +99,7 @@ use crate::user::{
     add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
     rename_windows_user,
 };
+use crate::windows_shell::repair_windows_icon_cache;
 
 fn open_external_url_in_browser(url: &str) {
     if url.starts_with("http://") || url.starts_with("https://") {
@@ -216,6 +218,7 @@ pub fn run() {
             get_primary_display_info,
             read_utf8_file,
             write_utf8_file,
+            repair_windows_icon_cache,
             // folder sharing
             list_local_shares,
             list_local_share_access,

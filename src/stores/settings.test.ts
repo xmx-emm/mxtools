@@ -13,3 +13,15 @@ describe('settings beta features', () => {
     expect(settings.betaFeaturesEnabled).toBe(true);
   });
 });
+
+describe('settings performance mode', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it('defaults off and follows explicit changes', () => {
+    const settings = useSettingsStore();
+    expect(settings.performanceMode).toBe(false);
+
+    settings.setPerformanceMode(true);
+    expect(settings.performanceMode).toBe(true);
+  });
+});

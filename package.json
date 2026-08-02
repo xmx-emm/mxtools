@@ -11,7 +11,7 @@
     "bundle:report": "node scripts/bundle-budget.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri dev": "tauri dev",
+    "tauri dev": "node scripts/tauri-dev.mjs",
     "build window": "tauri build",
     "build window release": "node scripts/build-windows-release.mjs",
     "release:size:check": "node scripts/release-size-budget.mjs",

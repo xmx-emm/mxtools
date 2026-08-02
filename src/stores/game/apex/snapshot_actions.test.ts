@@ -7,6 +7,7 @@ import type {SteamUser} from '@/types/steam.ts';
 const mocks = vi.hoisted(() => ({
   apexIsRunning: vi.fn(),
   checkApexMilesLanguage: vi.fn(),
+  getApexVideoconfigReadonly: vi.fn(),
   mutateApexConfig: vi.fn(),
   writeUtf8File: vi.fn(),
 }));
@@ -108,6 +109,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.apexIsRunning.mockResolvedValue(false);
   mocks.checkApexMilesLanguage.mockResolvedValue(true);
+  mocks.getApexVideoconfigReadonly.mockResolvedValue(false);
   mocks.mutateApexConfig.mockResolvedValue({
     historyEntry: null,
     changedScopes: ['gameSettings'],
@@ -151,6 +153,7 @@ describe('Apex snapshot export automation', () => {
 
   it('does not require unselected sources to be loaded', async () => {
     const apex = prepareLoadedStore();
+    apex.video_config_values['setting.configversion'] = '7';
     apex.game_settings_loaded = false;
     apex.game_settings_report = null;
     apex.launch_loaded_for_key = null;
@@ -168,6 +171,33 @@ describe('Apex snapshot export automation', () => {
     expect(written.videoConfig).toEqual({'setting.fullscreen': '1'});
     expect(written.launchOptions).toBeUndefined();
     expect(written.gameSettings).toBeUndefined();
+  });
+});
+
+describe('Apex snapshot video import automation', () => {
+  it('never sends the game-managed config version to the transaction', async () => {
+    const apex = prepareLoadedStore();
+    const applied = await apex.apply_config_snapshot({
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-29T00:00:00.000Z',
+      videoConfig: {
+        'setting.configversion': '7',
+        'setting.fullscreen': '0',
+      },
+    }, {
+      importLaunchOptions: false,
+      importVideoConfig: true,
+      videoSelectMode: 'all',
+      selectedVideoItemIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(mocks.mutateApexConfig).toHaveBeenCalledWith({
+      request: expect.objectContaining({
+        videoUpdates: {'setting.fullscreen': '0'},
+      }),
+    });
   });
 });
 

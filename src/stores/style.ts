@@ -58,6 +58,11 @@ function prefersReducedMotion(): boolean {
   }
 }
 
+function performanceModeEnabled(): boolean {
+  return typeof document !== 'undefined' &&
+    document.documentElement.hasAttribute('data-mx-performance-mode');
+}
+
 function transitionOrigin(
   root: HTMLElement,
   requested?: ThemeTransitionOrigin,
@@ -157,7 +162,8 @@ async function applyThemeTransition(
   if (
     typeof window === 'undefined' ||
     typeof document === 'undefined' ||
-    prefersReducedMotion()
+    prefersReducedMotion() ||
+    performanceModeEnabled()
   ) {
     await applyWithoutTransition(update);
     return;

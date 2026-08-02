@@ -15,6 +15,19 @@ describe('global reduced-motion styles', () => {
     expect(reducedMotionCss).toContain('*:not(.Vue-Toastification__progress-bar)');
     expect(reducedMotionCss).toContain('animation-duration: 0.01ms !important');
   });
+
+  it('disables visible motion in performance mode', () => {
+    const start = globalCss.indexOf('html[data-mx-performance-mode] {');
+    const nextSection = globalCss.indexOf('/* 全局菜单', start);
+    const performanceModeCss = globalCss.slice(start, nextSection);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(nextSection).toBeGreaterThan(start);
+    expect(performanceModeCss).toContain('animation: none !important');
+    expect(performanceModeCss).toContain('transition: none !important');
+    expect(performanceModeCss).toContain('*:not(.Vue-Toastification__progress-bar)');
+    expect(performanceModeCss).toContain('.Vue-Toastification__progress-bar');
+  });
 });
 
 describe('global compact icon controls', () => {

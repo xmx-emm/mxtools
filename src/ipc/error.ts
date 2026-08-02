@@ -28,6 +28,7 @@ function commandDomain(command: string): string {
   if (command.includes('game_optimizer') || command.includes('game_network')) return 'game_optimizer';
   if (command.includes('port_forwarding')) return 'port_forwarding';
   if (command.includes('windows_user')) return 'windows_user';
+  if (command.includes('windows_icon_cache')) return 'windows';
   return 'common';
 }
 
@@ -149,6 +150,8 @@ export function ipcErrorKey(error: unknown): string | null {
       candidates.push(`apex.${group.join('.')}.errors.${camelCase(reason)}`);
     }
     candidates.push(`apex.errors.${camelCase(reason)}`);
+  } else if (domain === 'windows') {
+    candidates.push(`windows.errors.${camelCase(reason)}`);
   }
 
   return candidates.find(key => i18n.global.te(key)) ?? null;

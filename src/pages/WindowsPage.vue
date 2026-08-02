@@ -3,7 +3,8 @@ import {routeFullPath} from '../utils/router.ts';
 import {useRoute, useRouter} from 'vue-router';
 import {computed, onMounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
-import {getSystemInfo} from '@/ipc/commands.ts';
+import {getSystemInfo, repairWindowsIconCache} from '@/ipc/commands.ts';
+import {formatIpcError} from '@/ipc/error.ts';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {useToast} from 'vue-toastification';
 import {useSettingsStore} from '@/stores/settings.ts';
@@ -15,6 +16,8 @@ const router = useRouter();
 const settingsStore = useSettingsStore();
 const systemInfo = ref<[string, string][]>([]);
 const isLoading = ref(false);
+const repairDialogOpen = ref(false);
+const repairingIconCache = ref(false);
 
 const isWindows = computed(() => routeFullPath(route) === '/tools/windows');
 const showData = computed(() => {
@@ -41,6 +44,20 @@ async function copySysInfo() {
   }
 }
 
+async function repairBlankIcons() {
+  if (repairingIconCache.value) return;
+  repairingIconCache.value = true;
+  try {
+    await repairWindowsIconCache();
+    repairDialogOpen.value = false;
+    toast.success(t('windows.iconRepair.success'));
+  } catch (error) {
+    toast.error(formatIpcError(error));
+  } finally {
+    repairingIconCache.value = false;
+  }
+}
+
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -59,6 +76,16 @@ onMounted(async () => {
     <div class="windows-toolbar mb-3">
       <h2 class="text-h6 font-weight-medium">{{ t('windows.title') }}</h2>
       <div class="windows-toolbar__actions">
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-auto-fix"
+          :loading="repairingIconCache"
+          :disabled="repairingIconCache"
+          @click="repairDialogOpen = true"
+        >
+          {{ t('windows.iconRepair.button') }}
+        </v-btn>
         <v-btn
           v-if="settingsStore.betaFeaturesEnabled"
           size="small"
@@ -104,6 +131,40 @@ onMounted(async () => {
       <router-view/>
     </div>
   </div>
+
+  <v-dialog v-model="repairDialogOpen" max-width="520" persistent>
+    <v-card>
+      <v-card-title>{{ t('windows.iconRepair.title') }}</v-card-title>
+      <v-card-text>
+        <p class="mb-3">{{ t('windows.iconRepair.description') }}</p>
+        <v-alert type="warning" variant="tonal" density="compact">
+          {{ t('windows.iconRepair.warning') }}
+        </v-alert>
+        <p class="text-caption mt-3 mb-0 icon-repair-scope">
+          {{ t('windows.iconRepair.scope') }}
+        </p>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer/>
+        <v-btn
+          variant="text"
+          :disabled="repairingIconCache"
+          @click="repairDialogOpen = false"
+        >
+          {{ t('common.cancel') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="repairingIconCache"
+          :disabled="repairingIconCache"
+          @click="repairBlankIcons"
+        >
+          {{ t('windows.iconRepair.confirm') }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
@@ -155,5 +216,9 @@ onMounted(async () => {
 
 :deep(.system-info-table tbody tr:hover) {
   background: rgba(var(--v-theme-on-surface), 0.03) !important;
+}
+
+.icon-repair-scope {
+  color: rgba(var(--v-theme-on-surface), 0.62);
 }
 </style>

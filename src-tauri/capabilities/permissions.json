@@ -5,6 +5,7 @@
   "windows": [
     "main",
     "about-window",
+    "apex-quick-preset-window",
     "apex-q-window",
     "apex-q-overlay-window"
   ],

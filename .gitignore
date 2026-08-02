@@ -29,3 +29,6 @@ components.d.ts
 
 /src-tauri/icons/android/*
 /src-tauri/icons/ios/*
+
+# Local agent visual-QA artifact
+/design-qa.md

@@ -62,6 +62,17 @@ describe('buildApexConfigSnapshot', () => {
     expect(snap.gameSettings?.settings).toEqual({gfx_nvnUseLowLatency: '1'});
   });
 
+  it('never exports the game-managed config version', () => {
+    const snap = buildApexConfigSnapshot({
+      selection: {launchOptions: false, videoConfig: true},
+      videoConfig: {
+        'setting.configversion': '7',
+        'setting.fullscreen': '1',
+      },
+    });
+    expect(snap.videoConfig).toEqual({'setting.fullscreen': '1'});
+  });
+
   it('exports aiming and controller settings as distinct selections', () => {
     const values = {
       settings: {
@@ -170,6 +181,19 @@ describe('parseApexConfigSnapshot', () => {
       },
     }));
     expect(parsed.gameSettings?.settings).toEqual({mouse_sensitivity: '1.2'});
+  });
+
+  it('drops the game-managed config version from imported snapshots', () => {
+    const parsed = parseApexConfigSnapshot(JSON.stringify({
+      version: 1,
+      kind: 'apex-config-snapshot',
+      exportedAt: '2026-07-14T00:00:00.000Z',
+      videoConfig: {
+        'setting.configversion': '7',
+        'setting.fullscreen': '1',
+      },
+    }));
+    expect(parsed.videoConfig).toEqual({'setting.fullscreen': '1'});
   });
 
   it('rejects malformed game settings and binding blocks', () => {

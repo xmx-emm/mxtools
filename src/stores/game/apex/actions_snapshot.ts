@@ -15,6 +15,7 @@ import {
   buildVideoConfigPreviewItems,
   collectApexGameSettingsGroups,
   collectSelectedVideoUpdates,
+  omitApexGameManagedVideoConfig,
   stringifyApexConfigSnapshot,
   type ApexConfigSnapshotSettingsGroup,
 } from '@/utils/game/apex_config_snapshot.ts';
@@ -403,12 +404,13 @@ export const apexSnapshotActions = {
       });
       let videoUpdates: Record<string, string> = {};
       if (selection.importVideoConfig && snapshot.videoConfig) {
+        const importableVideoConfig = omitApexGameManagedVideoConfig(snapshot.videoConfig);
         if (selection.videoSelectMode === 'all') {
-          videoUpdates = {...snapshot.videoConfig};
+          videoUpdates = importableVideoConfig;
         } else {
-          const items = buildVideoConfigPreviewItems(snapshot.videoConfig);
+          const items = buildVideoConfigPreviewItems(importableVideoConfig);
           videoUpdates = collectSelectedVideoUpdates(
-            snapshot.videoConfig,
+            importableVideoConfig,
             items,
             selection.selectedVideoItemIds,
           );

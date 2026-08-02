@@ -40,6 +40,7 @@ export const useSettingsStore = defineStore('settings', {
     toggleLocaleShortcutEnabled: true,
     /** 是否显示并启用仍在测试中的功能 */
     betaFeaturesEnabled: false,
+    performanceMode: false,
     /** 开机自启 */
     autostart: false,
     /** 关闭窗口时最小化到托盘（否则退出） */
@@ -100,6 +101,9 @@ export const useSettingsStore = defineStore('settings', {
     setBetaFeaturesEnabled(v: boolean | null) {
       this.betaFeaturesEnabled = v ?? false;
     },
+    setPerformanceMode(v: boolean | null) {
+      this.performanceMode = v ?? false;
+    },
     setAutostart(v: boolean | null) {
       this.autostart = v ?? false;
       void applyWindowBehavior(this.windowBehavior);
@@ -135,6 +139,9 @@ export const useSettingsStore = defineStore('settings', {
       }
       if (typeof this.betaFeaturesEnabled !== 'boolean') {
         this.betaFeaturesEnabled = false;
+      }
+      if (typeof this.performanceMode !== 'boolean') {
+        this.performanceMode = false;
       }
       // 旧持久化可能仍带 globalShortcutsEnabled；从 state 上删掉避免继续同步
       const anyState = this as unknown as Record<string, unknown>;
