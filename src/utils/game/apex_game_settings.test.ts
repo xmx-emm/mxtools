@@ -108,9 +108,21 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'audioOutputConfiguration')).toMatchObject({
       file: 'settings', key: 'miles_channels', control: 'enum',
       options: [
-        {value: '0'},
-        {value: '1'},
-        {value: '2'},
+        {
+          value: '0',
+          labelKey: 'apexGameSettings.options.deviceDefault',
+          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.deviceDefault',
+        },
+        {
+          value: '1',
+          labelKey: 'apexGameSettings.options.mono',
+          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.mono',
+        },
+        {
+          value: '2',
+          labelKey: 'apexGameSettings.options.stereo',
+          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.stereo',
+        },
       ],
     });
     expect(ApexGameSettingsData.find(field => field.id === 'pingOpacity')?.options?.map(option => option.value)).toEqual([
