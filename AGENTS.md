@@ -12,6 +12,19 @@ When architecture, dependencies, build behavior, or durable workflow knowledge
 changes, refresh `PROJECT_CONTEXT.md` in the same task. Before a commit, ensure
 the context describes the committed tree and include it when changed.
 
+## Test organization
+
+- Put new or changed test-only code in dedicated files (`*.test.*` for the
+  frontend and external test modules for Rust); do not add it to production
+  modules.
+- Give each independently owned feature or workflow a focused test file. Do not
+  append new feature coverage to a broad omnibus test file when it can be tested
+  separately.
+- Existing inline or omnibus tests do not require an unrelated bulk migration.
+  When changing behavior they already cover, move that behavior's assertions
+  into its focused test file. Extract shared test helpers only when multiple
+  focused files reuse them.
+
 ## UI consistency rules
 
 - Treat the existing Apex video-config segmented control as the canonical

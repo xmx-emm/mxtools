@@ -301,6 +301,12 @@ noncommercial mirrors and public modified versions are allowed.
   broadly reformat it.
 - Tauri runtime APIs are not available in browser-only tests; keep core
   placement and preference behavior testable with mocks.
+- New or changed test-only code belongs in dedicated frontend `*.test.*` files or
+  external Rust test modules, not production modules. Feature coverage uses a
+  focused test file instead of expanding an omnibus test; existing broad tests
+  are migrated when their covered behavior changes, not through unrelated bulk
+  churn. Apex audio mapping coverage lives in
+  `src/utils/game/apex_audio_settings.test.ts`.
 - Keep user-facing data labels as locale keys rather than embedding Chinese or
   English strings in configuration arrays. Numeric values, units, and product
   names may remain literal.

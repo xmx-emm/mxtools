@@ -99,32 +99,6 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'autoMuteCommunications')?.options?.map(option => option.value)).toEqual([
       '1', '0', '-1',
     ]);
-    expect(ApexGameSettingsData.find(field => field.id === 'voiceChatRecordMode')?.options?.map(option => option.value)).toEqual([
-      '0', '1', '2',
-    ]);
-    expect(ApexGameSettingsData.find(field => field.id === 'voiceActivationThreshold')).toMatchObject({
-      file: 'profile', key: 'voice_quiet_threshold', min: 0, max: 32767, step: 1,
-    });
-    expect(ApexGameSettingsData.find(field => field.id === 'audioOutputConfiguration')).toMatchObject({
-      file: 'settings', key: 'miles_channels', control: 'enum',
-      options: [
-        {
-          value: '0',
-          labelKey: 'apexGameSettings.options.deviceDefault',
-          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.deviceDefault',
-        },
-        {
-          value: '1',
-          labelKey: 'apexGameSettings.options.mono',
-          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.mono',
-        },
-        {
-          value: '2',
-          labelKey: 'apexGameSettings.options.stereo',
-          descriptionKey: 'apexGameSettings.fields.audioOutputConfiguration.options.stereo',
-        },
-      ],
-    });
     expect(ApexGameSettingsData.find(field => field.id === 'pingOpacity')?.options?.map(option => option.value)).toEqual([
       '0.500000', '1.000000',
     ]);
