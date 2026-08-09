@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 import {useI18n} from 'vue-i18n';
+import {ipcErrorKey} from '@/ipc/error.ts';
 import type {RazerPollingStatus} from '@/types/razer_polling.ts';
 
 const props = defineProps<{
   statuses: RazerPollingStatus[];
   selectedDeviceId: string | null;
+  recordedRatesHz: number[];
+  modelPresetRecorded: boolean;
   loading: boolean;
   applying: boolean;
 }>();
@@ -23,14 +26,22 @@ const connected = computed(() => props.statuses.filter(status => status.availabl
 const selected = computed(() => connected.value.find(
   status => status.device.deviceId === props.selectedDeviceId,
 ) ?? connected.value[0] ?? null);
-const rateOptions = computed(() => selected.value?.supportedRatesHz.length
-  ? selected.value.supportedRatesHz
-  : selected.value?.candidateRatesHz ?? []);
+const rateOptions = computed(() => props.recordedRatesHz.length
+  ? props.recordedRatesHz
+  : selected.value?.supportedRatesHz.length
+    ? selected.value.supportedRatesHz
+    : selected.value?.candidateRatesHz ?? []);
 const canWrite = computed(() => Boolean(selected.value)
   && !props.loading
   && !props.applying
   && !selected.value?.busy
   && !selected.value?.faulted);
+const selectedError = computed(() => {
+  const code = selected.value?.lastError;
+  if (!code) return '';
+  const key = ipcErrorKey({code, message: code});
+  return key ? t(key) : t('razerPolling.faulted');
+});
 const deviceItems = computed(() => connected.value.map(status => ({
   title: status.device.name,
   value: status.device.deviceId,
@@ -106,7 +117,11 @@ function formatRate(rate: number) {
       </v-btn-toggle>
 
       <div class="razer-device__actions">
-        <span>{{ t('razerPolling.verifiedHint') }}</span>
+        <span>
+          {{ modelPresetRecorded
+            ? t('razerPolling.modelPresetLoaded')
+            : t('razerPolling.verifiedHint') }}
+        </span>
         <div>
           <v-btn
             size="small"
@@ -136,7 +151,7 @@ function formatRate(rate: number) {
         variant="tonal"
         density="compact"
       >
-        {{ selected.lastError || t('razerPolling.faulted') }}
+        {{ selectedError || t('razerPolling.faulted') }}
       </v-alert>
     </template>
     <p v-else class="razer-device__empty">{{ t('razerPolling.notFoundHint') }}</p>
@@ -152,7 +167,7 @@ function formatRate(rate: number) {
 .razer-device__meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .razer-device__meta span { color: rgba(var(--v-theme-on-surface), .55); font-size: 11px; }
 .razer-device__meta strong { font-size: 16px; font-variant-numeric: tabular-nums; }
-.razer-device__rates { display: flex; max-width: 100%; margin-top: 10px; overflow-x: auto; }
+.razer-device__rates { display: inline-flex; max-width: 100%; margin-top: 10px; overflow-x: auto; }
 .razer-device__rates :deep(.v-btn) { flex: 0 0 auto; min-width: 48px; }
 .razer-device__actions { margin-top: 10px; }
 .razer-device__actions > div { display: flex; flex: 0 0 auto; gap: 4px; }

@@ -41,7 +41,9 @@ noncommercial mirrors and public modified versions are allowed.
   and video search filters deliberately wrap at 560 px, while shared game-page
   bottom action groups stack into separate rows at that breakpoint. User-facing
   `mdi-*` icons must also be imported and registered in
-  `src/icons/mdi-icons.ts`, the application's SVG icon resolver.
+  `src/icons/mdi-icons.ts`, the application's SVG icon resolver. UI changes
+  audit every icon name in the affected component family against that registry
+  because an unknown name otherwise renders without its declared icon.
 - `AppTopBar` keeps the command trigger's icon, `Ctrl+K` keycap, and accessible
   name at narrow widths; below 520 px it hides only the visible text label.
 - The Settings page exposes General, Appearance & language, Shortcuts, and About
@@ -82,8 +84,17 @@ noncommercial mirrors and public modified versions are allowed.
   Game Checkup's executable selection. The page unwraps reactive Razer runtime
   configuration through `src/utils/background_runtime.ts` before structured
   cloning, so initial load and persistence never pass a Vue Proxy to the native
-  bridge. Navigation titles remain the plain tool name while Beta guidance stays
-  in its separate badge or hint. Its shared autostart control sits in a
+  bridge. Safely completed capability verification persists supported rates in
+  `modelPresets` under a canonical lowercase `VID:PID` key, while desktop and
+  game choices remain device-ID-specific. Connected devices merge their saved
+  instance rates, same-model preset, and live-confirmed values; incomplete,
+  faulted, or un-restored verification never replaces the model preset.
+  Capability checks use an application-styled Vuetify confirmation dialog and
+  invoke HID verification only after the user confirms. The compact rate strip
+  sizes to its options and only scrolls when the available
+  width is narrower. Navigation titles remain the plain tool name while Beta
+  guidance stays in its separate badge or hint. Its shared autostart control
+  sits in a
   page-owned divided row with the same 16 px horizontal inset as adjacent
   controls, preventing the compact switch from touching or clipping at the card
   edge. It is the final game-tool entry and uses
@@ -94,19 +105,23 @@ noncommercial mirrors and public modified versions are allowed.
   dashboard, and direct routing while Beta features are disabled. Its native
   Protocol 2.5 HID transaction layer is `src-tauri/src/razer_polling.rs`.
   It discovers only Razer `MI_03` feature interfaces with the verified
-  91-byte report layout, sends semantic GET before every SET, requires a
-  checksum/transaction-validated readback, and records the first confirmed
-  rate per stable device identity for restoration. The native status and
-  configuration schemas are device arrays: serial, Container ID, or PnP
-  instance identity is hashed for the frontend, each device has independent
-  baseline/current/fault/busy/transaction state, and SET/restore IPC always
-  carries `deviceId`. A missing response or unverified result latches writes
-  until an explicit probe succeeds. Capability verification tests every lower
-  candidate individually before walking higher candidates in ascending order;
-  an explicitly unsupported lower tier is skipped, an explicitly unsupported
-  upper tier establishes the limit, and an ambiguous or nonresponsive result
-  stops immediately. A conclusive run restores the readback-confirmed original
-  value. Foreground switching uses one Windows
+  91-byte report layout and rotating `0x00..0x1E` transaction IDs. Each logical
+  command sends its feature report once, then performs bounded response reads
+  for the same transaction because wireless devices can report busy before the
+  final asynchronous response; stale responses from older transactions are
+  skipped within that bound. The layer sends semantic GET before every SET,
+  requires a checksum/header/transaction-validated final response, and records
+  the first confirmed rate per stable device identity for restoration. The
+  native status and configuration schemas are device arrays: serial, Container
+  ID, or PnP instance identity is hashed for the frontend, each device has
+  independent baseline/current/fault/busy/transaction state, and SET/restore
+  IPC always carries `deviceId`. A missing response or unverified result latches
+  writes until an explicit probe succeeds. Capability verification tests every
+  lower candidate individually before walking higher candidates in ascending
+  order; an explicitly unsupported lower tier is skipped, an explicitly
+  unsupported upper tier establishes the limit, and an ambiguous or
+  nonresponsive result stops immediately. A conclusive run restores the
+  readback-confirmed original value. Foreground switching uses one Windows
   `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` message thread plus device-change
   notifications, resolves the foreground process once, coalesces bursts to the
   latest target, and serializes work per device without a timer or HID polling

@@ -18,6 +18,9 @@ const FEATURE_USAGE: u16 = 0x0001;
 const PROFILE: u8 = 1;
 const COMMAND_GET_POLLING_RATE: u8 = 0xc0;
 const COMMAND_SET_POLLING_RATE: u8 = 0x40;
+const RESPONSE_READ_ATTEMPTS: usize = 12;
+const RESPONSE_INITIAL_DELAY_MS: u64 = 10;
+const RESPONSE_RETRY_DELAY_MS: u64 = 15;
 const CONFIG_SCHEMA_VERSION: u32 = 1;
 const JOURNAL_SCHEMA_VERSION: u32 = 1;
 const SUPPORTED_RATES: [u32; 7] = [125, 250, 500, 1000, 2000, 4000, 8000];
@@ -554,25 +557,24 @@ struct Response {
 }
 
 trait FeatureTransport {
-    fn exchange(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<[u8; REPORT_LENGTH]>;
+    fn send(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<()>;
+    fn receive(&mut self) -> IpcResult<[u8; REPORT_LENGTH]>;
 }
 
-fn parse_response(
-    request: &[u8; REPORT_LENGTH],
-    response: &[u8; REPORT_LENGTH],
-) -> IpcResult<Response> {
+fn validate_response_integrity(response: &[u8; REPORT_LENGTH]) -> IpcResult<()> {
     if response[0] != 0 || response[89] != checksum(response) {
         return Err(error(
             "checksum_mismatch",
             "Razer polling response checksum is invalid",
         ));
     }
-    if response[2] != request[2] {
-        return Err(error(
-            "transaction_mismatch",
-            "Razer polling response transaction does not match",
-        ));
-    }
+    Ok(())
+}
+
+fn parse_matching_response(
+    request: &[u8; REPORT_LENGTH],
+    response: &[u8; REPORT_LENGTH],
+) -> IpcResult<Response> {
     if response[6] != 2 || response[7] != 0 || response[8] != request[8] || response[9] != PROFILE {
         return Err(error(
             "protocol_failure",
@@ -592,13 +594,55 @@ fn command<T: FeatureTransport + ?Sized>(
     value: u8,
 ) -> IpcResult<Response> {
     let request = request(next_transaction(protocol), command, value);
-    let response = transport.exchange(request)?;
-    parse_response(&request, &response)
+    transport.send(request)?;
+
+    let mut last_stale_transaction = None;
+    let mut last_pending_response = None;
+    for attempt in 0..RESPONSE_READ_ATTEMPTS {
+        let delay_ms = if attempt == 0 {
+            RESPONSE_INITIAL_DELAY_MS
+        } else {
+            RESPONSE_RETRY_DELAY_MS
+        };
+        protocol_sleep(Duration::from_millis(delay_ms));
+        let response = transport.receive()?;
+        validate_response_integrity(&response)?;
+        if response[2] != request[2] {
+            last_stale_transaction = Some(response[2]);
+            continue;
+        }
+        // Transaction zero makes an empty cached report look current.
+        if response.iter().all(|byte| *byte == 0) {
+            last_pending_response = Some(Response {
+                status: 0,
+                value: 0,
+            });
+            continue;
+        }
+        let parsed = parse_matching_response(&request, &response)?;
+        if !matches!(parsed.status, 0 | 1) {
+            return Ok(parsed);
+        }
+        last_pending_response = Some(parsed);
+    }
+
+    if let Some(response) = last_pending_response {
+        return Ok(response);
+    }
+    Err(error(
+        "transaction_mismatch",
+        "Razer polling response transaction did not match before the read limit",
+    )
+    .with_detail("expectedTransaction", request[2])
+    .with_detail(
+        "actualTransaction",
+        last_stale_transaction.unwrap_or_default(),
+    ))
 }
 
 fn status_error(status: u8, operation: &str) -> IpcError {
     let reason = match status {
-        1 => "busy",
+        0 | 1 => "busy",
         3 => "device_failed",
         4 => "no_response",
         5 => "command_unsupported",
@@ -624,28 +668,19 @@ fn read_rate<T: FeatureTransport + ?Sized>(
     transport: &mut T,
     protocol: &mut ProtocolState,
 ) -> IpcResult<u32> {
-    for attempt in 0..2 {
-        let response = command(transport, protocol, COMMAND_GET_POLLING_RATE, 0)?;
-        match response.status {
-            2 => {
-                return code_to_rate(response.value).ok_or_else(|| {
-                    error(
-                        "invalid_rate_code",
-                        format!(
-                            "Razer returned unsupported polling code {:02x}",
-                            response.value
-                        ),
-                    )
-                })
-            }
-            1 if attempt == 0 => protocol_sleep(Duration::from_millis(60)),
-            status => return Err(status_error(status, "read")),
-        }
+    let response = command(transport, protocol, COMMAND_GET_POLLING_RATE, 0)?;
+    match response.status {
+        2 => code_to_rate(response.value).ok_or_else(|| {
+            error(
+                "invalid_rate_code",
+                format!(
+                    "Razer returned unsupported polling code {:02x}",
+                    response.value
+                ),
+            )
+        }),
+        status => Err(status_error(status, "read")),
     }
-    Err(error(
-        "busy",
-        "Razer polling rate remained busy while reading",
-    ))
 }
 
 fn set_rate_ack<T: FeatureTransport + ?Sized>(
@@ -659,18 +694,11 @@ fn set_rate_ack<T: FeatureTransport + ?Sized>(
             format!("Unsupported polling rate: {rate_hz}"),
         )
     })?;
-    for attempt in 0..2 {
-        let response = command(transport, protocol, COMMAND_SET_POLLING_RATE, code)?;
-        match response.status {
-            2 => return Ok(()),
-            1 if attempt == 0 => protocol_sleep(Duration::from_millis(75)),
-            status => return Err(status_error(status, "write")),
-        }
+    let response = command(transport, protocol, COMMAND_SET_POLLING_RATE, code)?;
+    match response.status {
+        2 => Ok(()),
+        status => Err(status_error(status, "write")),
     }
-    Err(error(
-        "busy",
-        "Razer polling rate remained busy while writing",
-    ))
 }
 
 fn verify_rate<T: FeatureTransport + ?Sized>(
@@ -1209,7 +1237,7 @@ mod windows {
     }
 
     impl FeatureTransport for HidTransport {
-        fn exchange(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<[u8; REPORT_LENGTH]> {
+        fn send(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<()> {
             let ok = unsafe {
                 HidD_SetFeature(
                     self.handle,
@@ -1221,7 +1249,10 @@ mod windows {
                 return Err(error("set_feature_failed", "HidD_SetFeature failed")
                     .with_detail("win32Code", unsafe { GetLastError() }));
             }
-            protocol_sleep(Duration::from_millis(30));
+            Ok(())
+        }
+
+        fn receive(&mut self) -> IpcResult<[u8; REPORT_LENGTH]> {
             let mut response = [0u8; REPORT_LENGTH];
             let ok = unsafe {
                 HidD_GetFeature(
@@ -2643,6 +2674,7 @@ mod tests {
     struct FakeTransport {
         responses: VecDeque<FakeReply>,
         requests: Vec<[u8; REPORT_LENGTH]>,
+        pending_request: Option<[u8; REPORT_LENGTH]>,
     }
 
     impl FakeTransport {
@@ -2650,13 +2682,20 @@ mod tests {
             Self {
                 responses: responses.into_iter().collect(),
                 requests: Vec::new(),
+                pending_request: None,
             }
         }
     }
 
     impl FeatureTransport for FakeTransport {
-        fn exchange(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<[u8; REPORT_LENGTH]> {
+        fn send(&mut self, request: [u8; REPORT_LENGTH]) -> IpcResult<()> {
             self.requests.push(request);
+            self.pending_request = Some(request);
+            Ok(())
+        }
+
+        fn receive(&mut self) -> IpcResult<[u8; REPORT_LENGTH]> {
+            let request = self.pending_request.expect("receive without request");
             match self.responses.pop_front().expect("unexpected request") {
                 FakeReply::Status(status, value) => {
                     let mut response = request;

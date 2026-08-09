@@ -9,6 +9,8 @@ export interface RazerBackgroundDeviceProfile {
   [key: string]: unknown;
 }
 
+export type RazerBackgroundModelPresets = Record<string, number[]>;
+
 export interface RazerBackgroundGameMatcher {
   executable?: string | null;
   packageFamilyName?: string | null;
@@ -29,6 +31,7 @@ export interface RazerBackgroundGame {
 export interface RazerBackgroundConfig {
   enabled: boolean;
   deviceProfiles: Record<string, RazerBackgroundDeviceProfile>;
+  modelPresets?: RazerBackgroundModelPresets;
   games: RazerBackgroundGame[];
   [key: string]: unknown;
 }

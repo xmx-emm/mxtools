@@ -4,7 +4,26 @@ import type {
   RazerBackgroundGameMatcher,
 } from '@/types/background_runtime.ts';
 import type {InstalledGame} from '@/types/game_scan.ts';
-import type {RazerPollingStatus} from '@/types/razer_polling.ts';
+import type {
+  RazerPollingDevice,
+  RazerPollingStatus,
+} from '@/types/razer_polling.ts';
+
+function normalizedRates(rates: readonly number[]): number[] {
+  return [...new Set(rates)].sort((left, right) => left - right);
+}
+
+function ratesEqual(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((rate, index) => rate === right[index]);
+}
+
+export function razerModelKey(
+  device: Pick<RazerPollingDevice, 'vendorId' | 'productId'>,
+): string {
+  const vendorId = device.vendorId.toString(16).padStart(4, '0');
+  const productId = device.productId.toString(16).padStart(4, '0');
+  return `${vendorId}:${productId}`;
+}
 
 export function connectedRazerStatuses(statuses: readonly RazerPollingStatus[]) {
   return statuses.filter(status => status.available);
@@ -16,6 +35,42 @@ export function confirmedRates(status: RazerPollingStatus): number[] {
   return [...rates].sort((left, right) => left - right);
 }
 
+export function verifiedRatesForStatus(
+  config: RazerBackgroundConfig,
+  status: RazerPollingStatus,
+): number[] {
+  const profileRates = config.deviceProfiles[status.device.deviceId]?.verifiedRatesHz ?? [];
+  const modelRates = config.modelPresets?.[razerModelKey(status.device)] ?? [];
+  return normalizedRates([...profileRates, ...modelRates, ...confirmedRates(status)]);
+}
+
+export function hasModelPreset(
+  config: RazerBackgroundConfig,
+  status: RazerPollingStatus,
+): boolean {
+  return Boolean(config.modelPresets?.[razerModelKey(status.device)]?.length);
+}
+
+export function recordVerifiedModelPreset(
+  config: RazerBackgroundConfig,
+  status: RazerPollingStatus,
+  supportedRatesHz: readonly number[],
+): boolean {
+  const rates = normalizedRates(supportedRatesHz);
+  if (!rates.length || status.currentRateHz == null) return false;
+
+  config.modelPresets ??= {};
+  config.modelPresets[razerModelKey(status.device)] = rates;
+  const deviceId = status.device.deviceId;
+  const existing = config.deviceProfiles[deviceId];
+  config.deviceProfiles[deviceId] = {
+    ...existing,
+    idleRateHz: existing?.idleRateHz ?? status.currentRateHz,
+    verifiedRatesHz: rates,
+  };
+  return true;
+}
+
 export function highestConfirmedRate(status: RazerPollingStatus): number | null {
   const rates = confirmedRates(status);
   return rates[rates.length - 1] ?? null;
@@ -24,20 +79,25 @@ export function highestConfirmedRate(status: RazerPollingStatus): number | null 
 export function syncConnectedDeviceProfiles(
   config: RazerBackgroundConfig,
   statuses: readonly RazerPollingStatus[],
-) {
+): boolean {
+  let changed = false;
   for (const status of connectedRazerStatuses(statuses)) {
     const deviceId = status.device.deviceId;
     const existing = config.deviceProfiles[deviceId];
-    const rates = confirmedRates(status);
+    const rates = verifiedRatesForStatus(config, status);
     if (!existing && status.currentRateHz == null) continue;
-    config.deviceProfiles[deviceId] = {
+    const next = {
       ...existing,
       idleRateHz: existing?.idleRateHz ?? status.currentRateHz!,
-      verifiedRatesHz: existing?.verifiedRatesHz.length
-        ? existing.verifiedRatesHz
-        : rates,
+      verifiedRatesHz: rates,
     };
+    if (existing
+      && existing.idleRateHz === next.idleRateHz
+      && ratesEqual(existing.verifiedRatesHz, next.verifiedRatesHz)) continue;
+    config.deviceProfiles[deviceId] = next;
+    changed = true;
   }
+  return changed;
 }
 
 export function scannedGameMatchers(game: InstalledGame): RazerBackgroundGameMatcher[] {

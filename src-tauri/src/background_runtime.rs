@@ -16,6 +16,7 @@ use crate::razer_polling::{razer_polling_status, RazerPollingStatus};
 pub const BACKGROUND_RUNTIME_SCHEMA_VERSION: u32 = 1;
 pub const BACKGROUND_RUNTIME_FILE_NAME: &str = "background-runtime.json";
 pub const BACKGROUND_RUNTIME_DEV_FILE_NAME: &str = "background-runtime.dev.json";
+const RAZER_VENDOR_ID: u16 = 0x1532;
 pub const RAZER_SUPPORTED_RATES_HZ: [u32; 7] = [125, 250, 500, 1_000, 2_000, 4_000, 8_000];
 
 const AUTOSTART_ARGUMENT: &str = "--autostart";
@@ -227,6 +228,8 @@ pub struct RazerGamePollingConfig {
 pub struct RazerBackgroundConfig {
     pub enabled: bool,
     pub device_profiles: BTreeMap<String, RazerDevicePollingConfig>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub model_presets: BTreeMap<String, Vec<u32>>,
     pub games: Vec<RazerGamePollingConfig>,
     #[serde(flatten)]
     pub extensions: BTreeMap<String, Value>,
@@ -1371,6 +1374,21 @@ fn validate_razer(config: &RazerBackgroundConfig) -> IpcResult<()> {
         }
     }
 
+    for (model_key, verified_rates_hz) in &config.model_presets {
+        if !valid_razer_model_key(model_key) || verified_rates_hz.is_empty() {
+            return Err(invalid_config("Razer model preset is invalid"));
+        }
+        let mut rates = HashSet::new();
+        for rate in verified_rates_hz {
+            validate_razer_rate(*rate)?;
+            if !rates.insert(*rate) {
+                return Err(invalid_config(format!(
+                    "Razer model {model_key} contains duplicate verified rates"
+                )));
+            }
+        }
+    }
+
     let mut game_ids = HashSet::new();
     for game in &config.games {
         let id = game.id.trim();
@@ -1407,6 +1425,21 @@ fn validate_razer(config: &RazerBackgroundConfig) -> IpcResult<()> {
         }
     }
     Ok(())
+}
+
+fn valid_razer_model_key(model_key: &str) -> bool {
+    if model_key.len() != 9 || model_key.as_bytes().get(4) != Some(&b':') {
+        return false;
+    }
+    let Ok(vendor_id) = u16::from_str_radix(&model_key[..4], 16) else {
+        return false;
+    };
+    let Ok(product_id) = u16::from_str_radix(&model_key[5..], 16) else {
+        return false;
+    };
+    vendor_id == RAZER_VENDOR_ID
+        && product_id != 0
+        && model_key == format!("{vendor_id:04x}:{product_id:04x}")
 }
 
 fn validate_razer_rate(rate: u32) -> IpcResult<()> {

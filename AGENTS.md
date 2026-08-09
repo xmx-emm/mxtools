@@ -12,6 +12,13 @@ When architecture, dependencies, build behavior, or durable workflow knowledge
 changes, refresh `PROJECT_CONTEXT.md` in the same task. Before a commit, ensure
 the context describes the committed tree and include it when changed.
 
+## Response output
+
+- Do not output transaction records, synthetic baseline/modified/rollback
+  ledgers, artifact manifests, or process-accounting details unless the user
+  explicitly requests them. Report only the requested work and concise,
+  relevant completion evidence.
+
 ## Test organization
 
 - Put new or changed test-only code in dedicated files (`*.test.*` for the
@@ -43,6 +50,10 @@ the context describes the committed tree and include it when changed.
   or per-option error/pink colors to indicate a normal selected value. Reserve
   error color for genuinely destructive or invalid actions and keep requirement
   warnings in tooltips or validation text.
+- Every user-facing `mdi-*` name referenced by a template must be imported and
+  mapped in `src/icons/mdi-icons.ts`. When changing an action group, audit every
+  icon in that component family against the registry so a declared icon cannot
+  silently render as missing.
 - When changing a repeated control, search all instances in the affected tool
   and migrate the whole interaction family in the same change. Compare Apex and
   PUBG equivalents and run lint plus `git diff --check` before reporting the UI

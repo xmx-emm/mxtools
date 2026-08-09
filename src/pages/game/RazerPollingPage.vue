@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue';
-import {open, confirm} from '@tauri-apps/plugin-dialog';
+import {open} from '@tauri-apps/plugin-dialog';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
@@ -22,8 +22,11 @@ import type {InstalledGame, InstalledGameScanReport} from '@/types/game_scan.ts'
 import type {RazerPollingStatus} from '@/types/razer_polling.ts';
 import {
   createManualGame,
+  hasModelPreset,
   mergeScannedGame,
+  recordVerifiedModelPreset,
   syncConnectedDeviceProfiles,
+  verifiedRatesForStatus,
 } from '@/utils/razer_polling_config.ts';
 import {cloneRazerBackgroundConfig} from '@/utils/background_runtime.ts';
 
@@ -36,7 +39,12 @@ const toast = useToast();
 const runtime = useBackgroundRuntimeStore();
 const statuses = ref<RazerPollingStatus[]>([]);
 const selectedDeviceId = ref<string | null>(null);
-const config = ref<RazerBackgroundConfig>({enabled: false, deviceProfiles: {}, games: []});
+const config = ref<RazerBackgroundConfig>({
+  enabled: false,
+  deviceProfiles: {},
+  modelPresets: {},
+  games: [],
+});
 const loading = ref(false);
 const applying = ref(false);
 const scanning = ref(false);
@@ -47,6 +55,7 @@ const otherSearch = ref('');
 const manualDialog = ref(false);
 const manualName = ref('');
 const manualExecutables = ref<string[]>([]);
+const verifyDialogDeviceId = ref<string | null>(null);
 
 const connected = computed(() => statuses.value.filter(status => status.available));
 const selectedStatus = computed(() => connected.value.find(
@@ -62,9 +71,15 @@ const otherGames = computed(() => {
     .filter(game => !game.isShooter && !configuredIds.value.has(game.logicalId))
     .filter(game => !query || game.name.toLocaleLowerCase().includes(query));
 });
-const rateOptions = computed(() => selectedProfile.value?.verifiedRatesHz.length
-  ? selectedProfile.value.verifiedRatesHz
-  : selectedStatus.value?.supportedRatesHz ?? []);
+const rateOptions = computed(() => selectedStatus.value
+  ? verifiedRatesForStatus(config.value, selectedStatus.value)
+  : []);
+const selectedHasModelPreset = computed(() => selectedStatus.value
+  ? hasModelPreset(config.value, selectedStatus.value)
+  : false);
+const verifyDialogStatus = computed(() => statuses.value.find(
+  status => status.device.deviceId === verifyDialogDeviceId.value,
+) ?? null);
 
 function errorMessage(error: unknown) {
   const key = ipcErrorKey(error);
@@ -72,10 +87,11 @@ function errorMessage(error: unknown) {
 }
 
 function ensureDeviceProfiles() {
-  syncConnectedDeviceProfiles(config.value, statuses.value);
+  const changed = syncConnectedDeviceProfiles(config.value, statuses.value);
   if (!connected.value.some(status => status.device.deviceId === selectedDeviceId.value)) {
     selectedDeviceId.value = connected.value[0]?.device.deviceId ?? null;
   }
+  return changed;
 }
 
 async function persistConfig() {
@@ -86,12 +102,14 @@ async function persistConfig() {
 
 async function refreshDevices() {
   if (!isTauriRuntime || loading.value) return;
+  const previousConfig = cloneRazerBackgroundConfig(config.value);
   loading.value = true;
   feedback.value = '';
   try {
     statuses.value = await probeRazerPolling();
-    ensureDeviceProfiles();
+    if (ensureDeviceProfiles() && config.value.enabled) await persistConfig();
   } catch (error) {
+    config.value = previousConfig;
     feedback.value = errorMessage(error);
   } finally {
     loading.value = false;
@@ -129,24 +147,45 @@ async function restore(deviceId: string) {
   }
 }
 
-async function verifyCapabilities(deviceId: string) {
-  const accepted = await confirm(t('razerPolling.verifyCapabilitiesConfirm'), {
-    title: t('razerPolling.verifyCapabilities'),
-    kind: 'warning',
-  });
-  if (!accepted) return;
+function requestCapabilitiesVerification(deviceId: string) {
+  verifyDialogDeviceId.value = deviceId;
+}
+
+async function verifyCapabilities() {
+  const deviceId = verifyDialogDeviceId.value;
+  if (!deviceId || applying.value) return;
+  verifyDialogDeviceId.value = null;
+  const previousConfig = cloneRazerBackgroundConfig(config.value);
+  const targetStatus = statuses.value.find(item => item.device.deviceId === deviceId) ?? null;
   applying.value = true;
   feedback.value = '';
   try {
     const result = await verifyRazerPollingCapabilities(deviceId);
-    const profile = config.value.deviceProfiles[deviceId];
-    if (profile) profile.verifiedRatesHz = result.supportedRatesHz;
+    const safelyRestored = Boolean(targetStatus)
+      && result.complete
+      && !result.faulted
+      && !result.possiblyChanged
+      && result.restoredRateHz !== null;
+    if (targetStatus) {
+      targetStatus.supportedRatesHz = result.supportedRatesHz;
+      targetStatus.currentRateHz = result.restoredRateHz ?? targetStatus.currentRateHz;
+      targetStatus.faulted = result.faulted;
+      targetStatus.possiblyChanged = result.possiblyChanged;
+      targetStatus.lastError = safelyRestored ? null : result.stoppedReason;
+    }
+    if (!safelyRestored
+      || !targetStatus
+      || !recordVerifiedModelPreset(config.value, targetStatus, result.supportedRatesHz)) {
+      feedback.value = t('razerPolling.capabilitiesNotRecorded');
+      return;
+    }
     await persistConfig();
-    await refreshDevices();
     toast.success(t('razerPolling.capabilitiesVerified', {
+      model: targetStatus.device.name,
       rate: result.highestConfirmedRateHz ?? '-',
     }));
   } catch (error) {
+    config.value = previousConfig;
     feedback.value = errorMessage(error);
   } finally {
     applying.value = false;
@@ -298,13 +337,15 @@ onMounted(async () => {
         <RazerPollingRateControl
           :statuses="statuses"
           :selected-device-id="selectedDeviceId"
+          :recorded-rates-hz="rateOptions"
+          :model-preset-recorded="selectedHasModelPreset"
           :loading="loading"
           :applying="applying"
           @refresh="refreshDevices"
           @select-device="selectedDeviceId = $event"
           @set-rate="setRate"
           @restore="restore"
-          @verify="verifyCapabilities"
+          @verify="requestCapabilitiesVerification"
         />
 
         <section class="razer-background app-section">
@@ -436,6 +477,46 @@ onMounted(async () => {
       </main>
     </div>
 
+    <v-dialog
+      :model-value="verifyDialogDeviceId !== null"
+      max-width="520"
+      @update:model-value="value => { if (!value) verifyDialogDeviceId = null; }"
+    >
+      <v-card class="razer-verify-dialog">
+        <v-card-item>
+          <template #prepend>
+            <span class="razer-verify-dialog__icon">
+              <v-icon icon="mdi-shield-check-outline" size="22" />
+            </span>
+          </template>
+          <v-card-title>{{ t('razerPolling.verifyCapabilities') }}</v-card-title>
+          <v-card-subtitle v-if="verifyDialogStatus">
+            {{ verifyDialogStatus.device.name }}
+          </v-card-subtitle>
+        </v-card-item>
+        <v-card-text>
+          <p class="razer-verify-dialog__copy">
+            {{ t('razerPolling.verifyCapabilitiesConfirm') }}
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" prepend-icon="mdi-close" @click="verifyDialogDeviceId = null">
+            {{ t('common.cancel') }}
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-check"
+            :disabled="!verifyDialogStatus"
+            @click="verifyCapabilities"
+          >
+            {{ t('common.confirm') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="manualDialog" max-width="560">
       <v-card>
         <v-card-title>{{ t('razerPolling.manualAdd') }}</v-card-title>
@@ -499,6 +580,9 @@ onMounted(async () => {
 .razer-other-games > .app-search-field { margin: 12px 16px; max-width: 360px; }
 .razer-other-row { display: flex; align-items: center; justify-content: space-between; min-height: 54px; gap: 14px; padding: 8px 16px; }
 .razer-empty { margin: 0; padding: 18px 16px; color: rgba(var(--v-theme-on-surface), .5); font-size: 10px; }
+.razer-verify-dialog { border: 1px solid var(--app-border); border-radius: var(--app-radius-md) !important; }
+.razer-verify-dialog__icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: var(--app-radius-sm); color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), .1); }
+.razer-verify-dialog__copy { margin: 0; color: rgba(var(--v-theme-on-surface), .72); font-size: 12px; line-height: 1.65; }
 .razer-manual-form { display: grid; gap: 12px; }
 .razer-manual-files { display: grid; max-height: 180px; overflow-y: auto; }
 .razer-manual-files > div { display: flex; align-items: center; min-width: 0; gap: 8px; border-bottom: 1px solid var(--app-border); }
