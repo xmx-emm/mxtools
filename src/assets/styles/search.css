@@ -2,7 +2,7 @@
  * their component-specific density and validation treatment. */
 :root {
   --mx-search-height: var(--app-control-height-compact, 28px);
-  --mx-search-radius: var(--app-radius-sm, 6px);
+  --mx-search-radius: var(--app-radius-sm, 4px);
 }
 
 .v-theme--light,

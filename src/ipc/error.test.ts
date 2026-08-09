@@ -4,6 +4,7 @@ const i18n = vi.hoisted(() => ({
   te: vi.fn((key: string) => [
     'folderSharing.errors.bad_credentials',
     'apex.gameSettings.errors.fileChanged',
+    'razerPolling.errors.noResponse',
     'windows.errors.explorerRestartFailed',
   ].includes(key)),
   t: vi.fn((key: string, values?: Record<string, unknown>) => {
@@ -73,6 +74,8 @@ describe('IPC error normalization', () => {
       .toBe('apex.gameSettings.errors.fileChanged');
     expect(ipcErrorKey({code: 'windows.explorer_restart_failed', message: 'failed'}))
       .toBe('windows.errors.explorerRestartFailed');
+    expect(ipcErrorKey({code: 'razer_polling.no_response', message: 'no response'}))
+      .toBe('razerPolling.errors.noResponse');
     expect(formatIpcError(known)).toBe('Credentials rejected for alice');
     expect(formatIpcError({code: 'apex_q.operation_failed', message: 'native failure'}))
       .toBe('Command failed: native failure');

@@ -4,7 +4,6 @@ import type {Component} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {tools} from '@/router.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
-import {useCommandPalette} from '@/composables/useCommandPalette.ts';
 
 interface DashboardTool {
   path: string;
@@ -23,18 +22,19 @@ interface ResumeTool extends DashboardTool {
 
 const TOOL_DESCRIPTION_KEYS: Partial<Record<string, string>> = {
   '/game_optimizer': 'gameOptimizer.subtitle',
+  '/razer_polling': 'razerPolling.subtitle',
   '/apex': 'game.apexDescription',
   '/pubg': 'game.pubgDescription',
   '/folder_sharing': 'folderSharing.subtitle',
   '/explorer': 'explorer.commonFoldersSubtitle',
   '/remote_desktop': 'rdp.status.subtitle',
   '/input_method': 'inputMethod.description',
+  '/app_repair': 'appRepair.subtitle',
   '/port_forwarding': 'portForwarding.description',
 };
 
 const {t} = useI18n();
 const settings = useSettingsStore();
-const {open: openCommandPalette} = useCommandPalette();
 
 const toolGroups = computed(() => tools.map((category) => ({
   ...category,
@@ -165,17 +165,6 @@ const primaryResumeTool = computed<ResumeTool>(() => (
               </div>
             </div>
 
-            <button
-              type="button"
-              class="command-trigger mx-search-trigger"
-              :aria-label="t('commandPalette.searchLabel')"
-              aria-keyshortcuts="Control+K Meta+K"
-              @click="openCommandPalette"
-            >
-              <v-icon icon="mdi-magnify" size="20" aria-hidden="true"/>
-              <span>{{ t('commandPalette.searchPlaceholder') }}</span>
-              <kbd aria-hidden="true">Ctrl K</kbd>
-            </button>
           </div>
         </header>
 
@@ -193,7 +182,6 @@ const primaryResumeTool = computed<ResumeTool>(() => (
               v-for="(group, groupIndex) in toolGroups"
               :key="group.path"
               class="tool-group"
-              :style="{animationDelay: `${70 + groupIndex * 65}ms`}"
               :aria-labelledby="`tool-group-${groupIndex}`"
             >
               <RouterLink :to="group.path" class="tool-group__header">
@@ -207,11 +195,10 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 
               <div class="tool-group__list">
                 <RouterLink
-                  v-for="(item, itemIndex) in group.children"
+                  v-for="item in group.children"
                   :key="item.path"
                   :to="item.path"
                   class="tool-row"
-                  :style="{animationDelay: `${135 + groupIndex * 65 + itemIndex * 40}ms`}"
                 >
                   <span class="tool-row__icon" aria-hidden="true">
                     <v-icon v-if="item.icon" :icon="item.icon" size="19"/>
@@ -263,39 +250,19 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 
 .dashboard__content {
   box-sizing: border-box;
-  width: min(100%, 1180px);
+  width: min(100%, var(--app-page-max-width));
   margin: 0 auto;
-  padding: clamp(16px, 2.7vw, 30px);
+  padding: var(--app-page-padding-y) var(--app-page-padding-x) 34px;
 }
 
 .workspace-bar {
-  position: relative;
   display: grid;
-  grid-template-columns: minmax(160px, 0.72fr) minmax(0, 1.6fr);
+  grid-template-columns: minmax(180px, 0.8fr) minmax(280px, 1.2fr);
   align-items: center;
-  gap: 24px;
-  min-height: 96px;
-  padding: 17px 18px;
-  overflow: hidden;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 0.76);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 32px rgba(8, 18, 27, 0.05);
-  backdrop-filter: blur(15px);
-  animation: dashboard-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-}
-
-.workspace-bar::before {
-  position: absolute;
-  top: -1px;
-  left: 18px;
-  width: 112px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgb(var(--v-theme-primary)), transparent);
-  content: '';
-  opacity: 0.75;
+  gap: 28px;
+  min-height: 76px;
+  padding: 2px 2px 18px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .brand-lockup {
@@ -314,9 +281,8 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   height: 38px;
   color: rgb(var(--v-theme-primary));
   border: 1px solid rgba(var(--v-theme-primary), 0.28);
-  border-radius: 8px;
+  border-radius: var(--app-radius-md);
   background: rgba(var(--v-theme-primary), 0.09);
-  box-shadow: inset 0 0 16px rgba(var(--v-theme-primary), 0.06);
 }
 
 .brand-lockup__copy {
@@ -352,11 +318,7 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 .workspace-bar__actions {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(170px, 0.86fr);
-  align-items: end;
   min-width: 0;
-  gap: 12px;
 }
 
 .resume-cluster {
@@ -381,62 +343,33 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 .resume-link--primary {
-  position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
-  min-height: 48px;
+  min-height: var(--app-control-height-field);
   gap: 9px;
   padding: 6px 9px;
-  overflow: hidden;
   border: 1px solid rgba(var(--v-theme-primary), 0.22);
-  border-radius: 8px;
+  border-radius: var(--app-radius-md);
   background: rgba(var(--v-theme-primary), 0.07);
   transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.resume-link--primary::after {
-  position: absolute;
-  right: 9px;
-  bottom: 2px;
-  left: 9px;
-  height: 1px;
-  background: linear-gradient(90deg, rgb(var(--v-theme-primary)), transparent 72%);
-  content: '';
-  opacity: 0;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: opacity 150ms ease, transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  pointer-events: none;
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .resume-link--primary:is(:hover, :focus-visible) {
   border-color: rgba(var(--v-theme-primary), 0.42);
   background: rgba(var(--v-theme-primary), 0.11);
-  box-shadow: 0 8px 22px rgba(var(--v-theme-primary), 0.08);
-  transform: translateY(-1px);
 }
 
 .resume-link--primary:focus-visible {
   border-color: rgba(var(--v-theme-primary), 0.66);
-  box-shadow:
-    0 0 0 2px rgba(var(--v-theme-primary), 0.18),
-    0 8px 22px rgba(var(--v-theme-primary), 0.08);
-}
-
-.resume-link--primary:is(:hover, :focus-visible)::after {
-  opacity: 0.75;
-  transform: scaleX(1);
+  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18);
 }
 
 .resume-link--primary:active {
-  box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.08);
-  transform: translateY(1px) scale(0.988);
-  transition-duration: 70ms;
+  background: rgba(var(--v-theme-primary), 0.14);
 }
 
 .resume-link__icon {
@@ -447,18 +380,13 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   width: 30px;
   height: 30px;
   color: rgb(var(--v-theme-primary));
-  border-radius: 7px;
+  border-radius: var(--app-radius-sm);
   background: rgba(var(--v-theme-primary), 0.1);
-  transition: background-color 170ms ease, transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: background-color var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .resume-link--primary:is(:hover, :focus-visible) .resume-link__icon {
   background: rgba(var(--v-theme-primary), 0.15);
-  transform: translateY(-1px) scale(1.055);
-}
-
-.resume-link--primary:active .resume-link__icon {
-  transform: scale(0.96);
 }
 
 .resume-link__copy {
@@ -493,44 +421,50 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 .tool-row__arrow {
   flex: 0 0 auto;
   color: rgba(var(--v-theme-on-surface), 0.34);
-  transition: color 160ms ease, transform 180ms ease;
+  transition: color var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .resume-link--primary:is(:hover, :focus-visible) .resume-link__arrow,
 .tool-group__header:is(:hover, :focus-visible) .tool-group__arrow,
 .tool-row:is(:hover, :focus-visible) .tool-row__arrow {
   color: rgb(var(--v-theme-primary));
-  transform: translateX(2px);
 }
 
 .resume-cluster__more {
   display: flex;
   align-items: stretch;
-  max-width: 140px;
+  width: min(220px, 100%);
+  min-width: 110px;
   gap: 4px;
 }
 
 .resume-link--compact {
   display: inline-flex;
+  flex: 1 1 110px;
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
+  min-width: var(--app-control-height-action);
+  min-height: var(--app-control-height-field);
   gap: 5px;
   padding: 0 8px;
   color: rgba(var(--v-theme-on-surface), 0.64);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: var(--app-radius-md);
   background: rgba(var(--v-theme-surface), 0.52);
   transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    color var(--app-motion-fast) var(--app-ease-standard),
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .resume-link--compact span {
-  display: none;
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .resume-link--compact:is(:hover, :focus-visible) {
@@ -538,7 +472,6 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   border-color: rgba(var(--v-theme-primary), 0.3);
   background: rgba(var(--v-theme-primary), 0.07);
   box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.08);
-  transform: translateY(-1px);
 }
 
 .resume-link--compact:focus-visible {
@@ -546,130 +479,11 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 .resume-link--compact:active {
-  transform: translateY(1px) scale(0.96);
-  transition-duration: 70ms;
-}
-
-.command-trigger {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  min-height: 48px;
-  gap: 9px;
-  padding: 0 8px 0 12px;
-  overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  font: inherit;
-  border: 1px solid var(--mx-search-border);
-  border-radius: var(--mx-search-radius);
-  background: var(--mx-search-surface);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition:
-    color 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.command-trigger::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -54%;
-  width: 42%;
-  background: linear-gradient(
-    105deg,
-    transparent,
-    rgba(var(--v-theme-primary), 0.16),
-    transparent
-  );
-  content: '';
-  opacity: 0;
-  transform: skewX(-12deg);
-  transition: left 480ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms ease;
-  pointer-events: none;
-}
-
-.command-trigger > * {
-  position: relative;
-  z-index: 1;
-}
-
-.command-trigger > span {
-  flex: 1 1 auto;
-  overflow: hidden;
-  font-size: 12px;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-trigger kbd {
-  flex: 0 0 auto;
-  padding: 3px 6px;
-  color: rgba(var(--v-theme-on-surface), 0.64);
-  font-family: inherit;
-  font-size: 9px;
-  line-height: 1.3;
-  border: 1px solid var(--app-border);
-  border-radius: 5px;
-  background: rgba(var(--v-theme-on-surface), 0.045);
-  box-shadow: 0 1px rgba(var(--v-theme-on-surface), 0.08);
-}
-
-.command-trigger:is(:hover, :focus-visible) {
-  color: rgb(var(--v-theme-on-surface));
-  border-color: var(--mx-search-border-focus);
-  background: var(--mx-search-surface-hover);
-  box-shadow: 0 9px 25px rgba(var(--v-theme-primary), 0.09);
-  transform: translateY(-1px);
-}
-
-.command-trigger:is(:hover, :focus-visible)::after {
-  left: 112%;
-  opacity: 1;
-}
-
-.command-trigger:focus-visible {
-  border-color: var(--mx-search-border-focus);
-  box-shadow:
-    0 0 0 3px var(--mx-search-focus-ring),
-    0 9px 25px rgba(var(--v-theme-primary), 0.09);
-}
-
-.command-trigger > .v-icon,
-.command-trigger kbd {
-  transition: color 170ms ease, border-color 170ms ease, transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.command-trigger:is(:hover, :focus-visible) > .v-icon {
-  color: rgb(var(--v-theme-primary));
-  transform: rotate(-7deg) scale(1.08);
-}
-
-.command-trigger:is(:hover, :focus-visible) kbd {
-  color: rgb(var(--v-theme-primary));
-  border-color: rgba(var(--v-theme-primary), 0.3);
-  transform: translateY(-1px);
-}
-
-.command-trigger:active {
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
-  transform: translateY(1px) scale(0.988);
-  transition-duration: 70ms;
-}
-
-.command-trigger:active > .v-icon,
-.command-trigger:active kbd {
-  transform: scale(0.95);
+  background: rgba(var(--v-theme-primary), 0.12);
 }
 
 .tool-index {
-  margin-top: clamp(20px, 3vw, 30px);
+  margin-top: var(--app-space-6);
 }
 
 .tool-index__heading {
@@ -679,7 +493,6 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   gap: 16px;
   margin-bottom: 12px;
   padding: 0 2px;
-  animation: dashboard-enter 420ms 55ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 
 .tool-index h2 {
@@ -718,58 +531,33 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 .tool-group {
-  position: relative;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 0.69);
-  box-shadow: 0 8px 28px rgba(8, 18, 27, 0.035);
-  animation: dashboard-enter 440ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
-}
-
-.tool-group::before {
-  position: absolute;
-  z-index: 3;
-  top: -1px;
-  left: -28%;
-  width: 38%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgb(var(--v-theme-primary)), transparent);
-  content: '';
-  opacity: 0;
-  transform: translateX(-120%);
+  border-radius: var(--app-radius-md);
+  background: var(--app-layer);
   transition:
-    opacity 100ms ease,
-    transform 520ms cubic-bezier(0.2, 0.75, 0.2, 1);
-  pointer-events: none;
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .tool-group:is(:hover, :focus-within) {
   border-color: rgba(var(--v-theme-primary), 0.22);
-  box-shadow: 0 13px 34px rgba(8, 18, 27, 0.065);
-}
-
-.tool-group:hover {
-  transform: translateY(-2px);
-}
-
-.tool-group:is(:hover, :focus-within)::before {
-  opacity: 0.9;
-  transform: translateX(420%);
+  background: var(--app-layer-raised);
 }
 
 .tool-group__header {
   display: flex;
   align-items: center;
-  min-height: 48px;
+  min-height: var(--app-control-height-field);
   gap: 9px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   color: inherit;
   border-bottom: 1px solid var(--app-border);
   text-decoration: none;
-  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .tool-group__header:is(:hover, :focus-visible) {
@@ -782,30 +570,23 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 
 .tool-group__header:active {
   background: rgba(var(--v-theme-primary), 0.1);
-  transform: translateY(1px);
-  transition-duration: 70ms;
 }
 
 .tool-group__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
+  flex: 0 0 var(--app-control-height-compact);
+  width: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
   color: rgb(var(--v-theme-primary));
-  border-radius: 7px;
+  border-radius: var(--app-radius-sm);
   background: rgba(var(--v-theme-primary), 0.09);
-  transition: background-color 170ms ease, transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: background-color var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .tool-group__header:is(:hover, :focus-visible) .tool-group__icon {
   background: rgba(var(--v-theme-primary), 0.14);
-  transform: translateY(-1px) rotate(-4deg) scale(1.055);
-}
-
-.tool-group__header:active .tool-group__icon {
-  transform: scale(0.96);
 }
 
 .tool-group h3 {
@@ -831,39 +612,20 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 .tool-row {
-  position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
   min-height: 64px;
   gap: 10px;
   padding: 8px;
-  overflow: hidden;
   color: inherit;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--app-radius-sm);
   text-decoration: none;
-  animation: tool-row-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   transition:
-    border-color 170ms ease,
-    background-color 170ms ease,
-    box-shadow 170ms ease,
-    transform 180ms ease;
-}
-
-.tool-row::before {
-  position: absolute;
-  right: 8px;
-  bottom: 2px;
-  left: 8px;
-  height: 1px;
-  background: linear-gradient(90deg, rgb(var(--v-theme-primary)), transparent 74%);
-  content: '';
-  opacity: 0;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: opacity 140ms ease, transform 310ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  pointer-events: none;
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard),
+    box-shadow var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .tool-row + .tool-row {
@@ -875,54 +637,37 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   background: rgba(var(--v-theme-primary), 0.055);
 }
 
-.tool-row:hover {
-  transform: translateX(2px);
-}
-
 .tool-row:focus-visible {
   border-color: rgba(var(--v-theme-primary), 0.48);
   box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.12);
 }
 
-.tool-row:is(:hover, :focus-visible)::before {
-  opacity: 0.72;
-  transform: scaleX(1);
-}
-
 .tool-row:active {
   background: rgba(var(--v-theme-primary), 0.1);
   box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.16);
-  transform: translateX(1px) scale(0.988);
-  transition-duration: 70ms;
 }
 
 .tool-row__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 33px;
-  width: 33px;
-  height: 33px;
+  flex: 0 0 var(--app-control-height-action);
+  width: var(--app-control-height-action);
+  height: var(--app-control-height-action);
   color: rgba(var(--v-theme-on-surface), 0.72);
   border: 1px solid rgba(var(--v-border-color), 0.075);
-  border-radius: 8px;
+  border-radius: var(--app-radius-sm);
   background: rgba(var(--v-theme-on-surface), 0.035);
   transition:
-    color 170ms ease,
-    border-color 170ms ease,
-    background-color 170ms ease,
-    transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    color var(--app-motion-fast) var(--app-ease-standard),
+    border-color var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard);
 }
 
 .tool-row:is(:hover, :focus-visible) .tool-row__icon {
   color: rgb(var(--v-theme-primary));
   border-color: rgba(var(--v-theme-primary), 0.22);
   background: rgba(var(--v-theme-primary), 0.08);
-  transform: translateY(-1px) scale(1.055);
-}
-
-.tool-row:active .tool-row__icon {
-  transform: scale(0.96);
 }
 
 .tool-row__copy {
@@ -956,36 +701,10 @@ const primaryResumeTool = computed<ResumeTool>(() => (
   -webkit-line-clamp: 2;
 }
 
-@keyframes dashboard-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes tool-row-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @media (max-width: 960px) {
   .workspace-bar {
     grid-template-columns: 1fr;
     gap: 14px;
-  }
-
-  .workspace-bar__actions {
-    grid-template-columns: minmax(250px, 1.15fr) minmax(210px, 0.85fr);
   }
 
   .tool-grid {
@@ -994,25 +713,9 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 }
 
 @media (max-width: 700px) {
-  .dashboard__content {
-    padding: 14px;
-  }
-
   .workspace-bar {
     min-height: 0;
-    padding: 14px;
-  }
-
-  .workspace-bar__actions {
-    grid-template-columns: 1fr;
-  }
-
-  .command-trigger {
-    grid-row: 1;
-  }
-
-  .resume-cluster {
-    grid-row: 2;
+    padding-top: 0;
   }
 
   .tool-index {
@@ -1039,7 +742,7 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 
   .resume-cluster__more {
     max-width: none;
-    min-height: 34px;
+    min-height: var(--app-control-height-field);
   }
 
   .resume-link--compact {
@@ -1064,36 +767,19 @@ const primaryResumeTool = computed<ResumeTool>(() => (
     gap: 14px;
   }
 
-  .workspace-bar__actions {
-    grid-template-columns: minmax(220px, 1.15fr) minmax(190px, 0.85fr);
-  }
-
   .tool-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @container workspace (max-width: 620px) {
-  .dashboard__content {
-    padding: 14px;
-  }
-
   .workspace-bar {
     min-height: 0;
-    padding: 14px;
+    padding-top: 0;
   }
 
-  .workspace-bar__actions,
   .tool-grid {
     grid-template-columns: 1fr;
-  }
-
-  .command-trigger {
-    grid-row: 1;
-  }
-
-  .resume-cluster {
-    grid-row: 2;
   }
 
   .tool-index {
@@ -1116,7 +802,7 @@ const primaryResumeTool = computed<ResumeTool>(() => (
 
   .resume-cluster__more {
     max-width: none;
-    min-height: 34px;
+    min-height: var(--app-control-height-field);
   }
 
   .resume-link--compact {
@@ -1129,39 +815,6 @@ const primaryResumeTool = computed<ResumeTool>(() => (
     font-size: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .workspace-bar,
-  .tool-index__heading,
-  .tool-group,
-  .tool-row {
-    animation: none;
-  }
-
-  .resume-link--primary:is(:hover, :focus-visible, :active),
-  .resume-link--compact:is(:hover, :focus-visible, :active),
-  .command-trigger:is(:hover, :focus-visible, :active),
-  .tool-group:hover,
-  .tool-group__header:active,
-  .tool-row:is(:hover, :active),
-  .resume-link--primary:is(:hover, :focus-visible, :active) .resume-link__icon,
-  .resume-link--primary:is(:hover, :focus-visible) .resume-link__arrow,
-  .command-trigger:is(:hover, :focus-visible, :active) > .v-icon,
-  .command-trigger:is(:hover, :focus-visible, :active) kbd,
-  .tool-group__header:is(:hover, :focus-visible, :active) .tool-group__icon,
-  .tool-group__header:is(:hover, :focus-visible) .tool-group__arrow,
-  .tool-row:is(:hover, :focus-visible, :active) .tool-row__icon,
-  .tool-row:is(:hover, :focus-visible) .tool-row__arrow {
-    transform: none;
-  }
-
-  .resume-link--primary::after,
-  .command-trigger::after,
-  .tool-group::before,
-  .tool-row::before {
-    display: none;
   }
 }
 </style>

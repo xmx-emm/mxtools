@@ -40,3 +40,21 @@ describe('global compact icon controls', () => {
     expect(block).toContain('height: var(--app-control-height-compact) !important');
   });
 });
+
+describe('global compact radius contract', () => {
+  it('keeps the small semantic radius at 4 px without changing larger tiers', () => {
+    expect(globalCss).toMatch(/--app-radius-sm:\s*4px;/);
+    expect(globalCss).toMatch(/--app-radius-md:\s*8px;/);
+    expect(globalCss).toMatch(/--app-radius-lg:\s*8px;/);
+  });
+
+  it('lets compact segmented controls inherit the shared small radius', () => {
+    const start = globalCss.indexOf('.game-page-segmented-toggle {');
+    const block = globalCss.slice(start, globalCss.indexOf('}', start) + 1);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(block).toContain('height: var(--game-page-control-height) !important');
+    expect(globalCss).toContain('.game-page-segmented-toggle .v-btn');
+    expect(globalCss).toContain('border-radius: var(--app-radius-sm)');
+  });
+});

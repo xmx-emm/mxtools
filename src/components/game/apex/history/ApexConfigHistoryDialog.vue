@@ -78,8 +78,8 @@ async function restoreSelected() {
             border
             class="game-page-segmented-toggle"
           >
-            <v-btn value="current">{{ t('apex.history.currentPage') }}</v-btn>
-            <v-btn value="all">{{ t('apex.history.all') }}</v-btn>
+            <v-btn value="current" size="small">{{ t('apex.history.currentPage') }}</v-btn>
+            <v-btn value="all" size="small">{{ t('apex.history.all') }}</v-btn>
           </v-btn-toggle>
           <v-spacer/>
           <v-btn
@@ -88,6 +88,7 @@ async function restoreSelected() {
             variant="text"
             :loading="apexStore.is_config_history_loading"
             :title="t('apex.history.refresh')"
+            :aria-label="t('apex.history.refresh')"
             @click="apexStore.load_config_history"
           />
         </div>

@@ -41,7 +41,7 @@ const isFilterSearchActive = computed(
 </script>
 
 <template>
-  <div class="d-flex flex-row align-center flex-nowrap apex-launch-filters">
+  <div class="d-flex flex-row align-center apex-launch-filters">
     <v-text-field
       v-model="localSearch"
       class="mx-search-field apex-filter-search"
@@ -65,8 +65,8 @@ const isFilterSearchActive = computed(
       divided
       :disabled="isFilterSearchActive"
     >
-      <v-btn size="x-small" :value="ApexFilterEnum.normal">{{ t('apex.filterCommon') }}</v-btn>
-      <v-btn size="x-small" :value="ApexFilterEnum.all">{{ t('apex.filterAll') }}</v-btn>
+      <v-btn size="small" :value="ApexFilterEnum.normal">{{ t('apex.filterCommon') }}</v-btn>
+      <v-btn size="small" :value="ApexFilterEnum.all">{{ t('apex.filterAll') }}</v-btn>
     </v-btn-toggle>
   </div>
 </template>
@@ -75,13 +75,26 @@ const isFilterSearchActive = computed(
 .apex-launch-filters {
   gap: 8px;
   padding-bottom: 8px;
+  flex-wrap: wrap !important;
 }
 
 .apex-filter-search {
-  flex: 0 1 auto;
-  min-width: 120px;
+  flex: 1 1 180px;
+  min-width: 0;
   max-width: 280px;
   width: 240px;
+}
+
+@media (max-width: 560px) {
+  .apex-filter-search {
+    flex-basis: 100%;
+    max-width: none;
+    width: 100%;
+  }
+
+  .apex-launch-filters :deep(.v-spacer) {
+    display: none;
+  }
 }
 
 </style>

@@ -1,6 +1,6 @@
 /* MX Tools visual system: quiet Windows utility surfaces with focused motion. */
 :root {
-  --app-radius-sm: 6px;
+  --app-radius-sm: 4px;
   --app-radius-md: 8px;
   --app-radius-lg: 8px;
   --app-space-1: 4px;
@@ -928,6 +928,28 @@ html[data-mx-performance-mode] ::view-transition-new(root) {
   align-self: center;
   height: var(--game-page-control-height);
   line-height: 1;
+}
+
+@media (max-width: 560px) {
+  .game-page-actions {
+    flex-wrap: wrap;
+    align-items: stretch;
+    row-gap: 6px;
+  }
+
+  .game-page-actions > .v-spacer {
+    display: none;
+  }
+
+  .game-page-actions > .v-btn-group {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .game-page-actions > .v-btn-group:last-child {
+    justify-content: flex-end;
+  }
 }
 
 /*!* 设置滚动条轨道的颜色和圆角 *!*/

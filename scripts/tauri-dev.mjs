@@ -1,9 +1,16 @@
+import fs from 'node:fs';
+import http from 'node:http';
 import {spawn, spawnSync} from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 
 const DEV_PORT = 14200;
+const DEV_SERVER_PROOF_FILES = [
+    'package.json',
+    'README.md',
+    'src-tauri/tauri.conf.json',
+];
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PROJECT_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 const TAURI_CLI = path.join(
@@ -58,6 +65,10 @@ export function selectStaleProjectProcessIds(
     const projectMarkers = [
         `${root}\\node_modules\\@tauri-apps\\cli\\`,
         `${root}\\node_modules\\vite\\`,
+        // npm may launch Vite through the local .bin shim. The command line
+        // then contains `node_modules\\.bin\\..\\vite`, so the direct Vite
+        // marker above is not present even though the process is ours.
+        `${root}\\node_modules\\.bin\\`,
         `${root}\\scripts\\tauri-dev.mjs`,
         debugExecutable,
     ];
@@ -157,7 +168,7 @@ function parsePowerShellJson(result, description) {
     return output ? JSON.parse(output) : [];
 }
 
-function queryWindowsProcesses() {
+function queryWindowsProcessesViaWmi() {
     const result = runPowerShell(`
 $ErrorActionPreference = 'Stop'
 @(
@@ -169,7 +180,49 @@ $ErrorActionPreference = 'Stop'
     return Array.isArray(value) ? value : [value];
 }
 
-function queryDevPortOwners() {
+function queryWindowsProcesses() {
+    try {
+        return queryWindowsProcessesViaWmi();
+    } catch (error) {
+        // Some Windows sessions deny WMI access to elevated processes. Keep
+        // the launcher usable with the metadata Get-Process can still expose;
+        // command-line ownership is confirmed by the loopback Vite probe.
+        const fallback = runPowerShell(`
+$ErrorActionPreference = 'SilentlyContinue'
+@(
+    Get-Process |
+        Select-Object Id, ProcessName, Path |
+        ForEach-Object {
+            $name = [string]$_.ProcessName
+            if ($name -notmatch '\\.exe$') {
+                $name = "$name.exe"
+            }
+            [pscustomobject]@{
+                ProcessId = $_.Id
+                ParentProcessId = 0
+                Name = $name
+                ExecutablePath = $_.Path
+                CommandLine = ''
+            }
+        }
+) | ConvertTo-Json -Compress
+`);
+        if (!fallback.error && fallback.status === 0) {
+            try {
+                const value = parsePowerShellJson(fallback, '无法读取 Windows 进程信息');
+                console.warn('[tauri-dev] 无法读取完整 Windows 进程信息，已切换到保守进程列表');
+                return Array.isArray(value) ? value : [value];
+            } catch {
+                // The caller will conservatively treat any port owner as foreign.
+            }
+        }
+
+        console.warn(`[tauri-dev] 无法读取 Windows 进程信息: ${error.message}`);
+        return [];
+    }
+}
+
+function queryDevPortOwnersViaNet() {
     const result = runPowerShell(`
 @(
     Get-NetTCPConnection -LocalPort ${DEV_PORT} -State Listen -ErrorAction SilentlyContinue |
@@ -180,6 +233,104 @@ function queryDevPortOwners() {
     return (Array.isArray(value) ? value : [value])
         .map(Number)
         .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+export function parseNetstatPortOwners(output, port = DEV_PORT) {
+    const pattern = new RegExp(
+        `^\\s*TCP\\s+\\S+:${port}\\s+\\S+\\s+LISTENING\\s+(\\d+)\\s*$`,
+        'i',
+    );
+    return [...new Set(
+        String(output ?? '')
+            .split(/\r?\n/)
+            .map((line) => line.match(pattern)?.[1])
+            .filter(Boolean)
+            .map(Number),
+    )];
+}
+
+function queryDevPortOwners() {
+    let owners = [];
+    let queryError;
+    try {
+        owners = queryDevPortOwnersViaNet();
+    } catch (error) {
+        queryError = error;
+        // Fall through to netstat, which remains available in restricted
+        // sessions where Get-NetTCPConnection hides elevated listeners.
+    }
+    if (owners.length > 0) {
+        return owners;
+    }
+
+    const fallback = runPowerShell('netstat -ano -p tcp');
+    if (!fallback.error && fallback.status === 0) {
+        return parseNetstatPortOwners(fallback.stdout);
+    }
+    if (queryError) {
+        throw queryError;
+    }
+    return owners;
+}
+
+function readLocalDevFile(relativePath) {
+    const localPath = path.join(PROJECT_ROOT, relativePath);
+    let expected;
+    try {
+        expected = fs.readFileSync(localPath, 'utf8');
+    } catch {
+        return Promise.resolve(false);
+    }
+
+    const requestPath = encodeURI(
+        `/@fs/${localPath.replaceAll('\\', '/')}`,
+    );
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = (value) => {
+            if (!settled) {
+                settled = true;
+                resolve(value);
+            }
+        };
+        const request = http.get({
+            hostname: '127.0.0.1',
+            port: DEV_PORT,
+            path: requestPath,
+            headers: {Connection: 'close'},
+        }, (response) => {
+            if (response.statusCode !== 200) {
+                response.resume();
+                finish(false);
+                return;
+            }
+
+            let body = '';
+            response.setEncoding('utf8');
+            response.on('data', (chunk) => {
+                body += chunk;
+                if (body.length > expected.length + 4096) {
+                    request.destroy();
+                    finish(false);
+                }
+            });
+            response.on('end', () => finish(body === expected));
+        });
+        request.setTimeout(1000, () => {
+            request.destroy();
+            finish(false);
+        });
+        request.on('error', () => finish(false));
+    });
+}
+
+async function isCurrentProjectDevServer() {
+    for (const relativePath of DEV_SERVER_PROOF_FILES) {
+        if (!await readLocalDevFile(relativePath)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function stopProcesses(processIds) {
@@ -196,8 +347,16 @@ foreach ($processId in $ids) {
 `, {
         MXTOOLS_STALE_PROCESS_IDS: processIds.join(','),
     });
-    if (result.error || result.status !== 0) {
+    if (result.error) {
         const reason = result.stderr?.trim() || result.error?.message || 'unknown error';
+        throw new Error(`无法停止本项目的残留开发进程: ${reason}`);
+    }
+
+    // Stopping a parent cmd/node process can make PowerShell report a
+    // non-zero status even after every target has exited. The port check is
+    // the authoritative result; only fail when the listener is still present.
+    if (result.status !== 0 && queryDevPortOwners().length > 0) {
+        const reason = result.stderr?.trim() || `exit code ${result.status}`;
         throw new Error(`无法停止本项目的残留开发进程: ${reason}`);
     }
 }
@@ -246,15 +405,34 @@ async function main() {
     }
 
     const processes = queryWindowsProcesses();
-    const staleIds = selectStaleProjectProcessIds(
+    let staleIds = selectStaleProjectProcessIds(
         processes,
         PROJECT_ROOT,
         process.pid,
     );
-    const staleIdSet = new Set(staleIds);
-    const foreignPortOwners = queryDevPortOwners().filter(
+    const portOwners = queryDevPortOwners();
+    let staleIdSet = new Set(staleIds);
+    let foreignPortOwners = portOwners.filter(
         (id) => !staleIdSet.has(id),
     );
+
+    // If WMI hid the command line, prove a single listener is this project's
+    // Vite server from loopback-served project files before treating it as
+    // stale. Multiple listeners remain unresolved and are never auto-ended.
+    if (
+        foreignPortOwners.length === 1
+        && foreignPortOwners[0] !== process.pid
+        && await isCurrentProjectDevServer()
+    ) {
+        staleIds = [...new Set([...staleIds, foreignPortOwners[0]])];
+        staleIdSet = new Set(staleIds);
+        foreignPortOwners = portOwners.filter(
+            (id) => !staleIdSet.has(id),
+        );
+        console.log(
+            `[tauri-dev] 已通过本项目 Vite 文件校验确认端口 ${DEV_PORT} 的残留进程: ${staleIds.at(-1)}`,
+        );
+    }
 
     if (foreignPortOwners.length > 0) {
         throw new Error(

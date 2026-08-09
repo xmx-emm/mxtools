@@ -1,9 +1,3 @@
-import {
-  isRegistered,
-  register,
-  unregister,
-  type ShortcutEvent,
-} from '@tauri-apps/plugin-global-shortcut';
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {
   LogicalPosition,
@@ -23,6 +17,8 @@ import {emit, listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {
   apexQFromLatestScreenshot,
   apexQNormalizePath,
+  getBackgroundRuntime,
+  updateBackgroundRuntimeApexQ,
 } from '@/ipc/commands.ts';
 import type {
   ApexQCaptureResult,
@@ -62,7 +58,6 @@ const CAPTURE_RESULT_EVENT = 'apex-q-capture-result';
 const OVERLAY_SHOW_REQUEST_EVENT = 'apex-q-overlay-show-request';
 const CAPTURE_RESULT_STORAGE_KEY = 'mx-apex-q-capture-result';
 const CAPTURE_RESULT_MAX_AGE_MS = 30_000;
-const HOTKEY_DEBOUNCE_MS = 350;
 const PREFS_SYNC_TIMEOUT_MS = 5_000;
 const OVERLAY_READY_TIMEOUT_MS = 3_000;
 // Only absorb same-tick duplicate calls; a real second capture should reset
@@ -76,14 +71,8 @@ const HOTKEY_RUNTIME_KEY = '__mx_apex_q_hotkey_runtime_v1';
 const CAPTURE_RUNTIME_KEY = '__mx_apex_q_capture_runtime_v1';
 
 type ApexQHotkeyRuntime = {
-  registeredHotkey: string | null;
-  /** true once this app instance has reconciled the native registration. */
-  known: boolean;
-  dispatch: ((event?: ShortcutEvent) => void) | null;
-  /** Keep async registration serialized across Vite HMR module instances. */
+  /** Keep native-config synchronization serialized across Vite HMR instances. */
   hotkeySyncQueue: Promise<void>;
-  /** A native shortcut callback can outlive the module that created it. */
-  captureInFlight: boolean;
 };
 
 function getApexQHotkeyRuntime(): ApexQHotkeyRuntime {
@@ -91,16 +80,11 @@ function getApexQHotkeyRuntime(): ApexQHotkeyRuntime {
     [HOTKEY_RUNTIME_KEY]?: ApexQHotkeyRuntime;
   };
   const runtime = scope[HOTKEY_RUNTIME_KEY] ??= {
-    registeredHotkey: null,
-    known: false,
-    dispatch: null,
     hotkeySyncQueue: Promise.resolve(),
-    captureInFlight: false,
   };
-  // Older HMR instances may have created the runtime before these fields
-  // existed. Initialize them in place so pending work remains shared.
+  // Preserve the queue across HMR so a newer native-config write cannot race
+  // an older WebView module instance.
   runtime.hotkeySyncQueue ??= Promise.resolve();
-  runtime.captureInFlight ??= false;
   return runtime;
 }
 
@@ -123,16 +107,6 @@ function getApexQCaptureRuntime(): ApexQCaptureRuntime {
 
 const captureRuntime = getApexQCaptureRuntime();
 
-// Keep the local alias for the current module, while mirroring it into a
-// stable runtime object so Vite HMR can reconcile registrations created by an
-// earlier module instance.
-let registeredHotkey: string | null = hotkeyRuntime.registeredHotkey;
-
-function setRegisteredHotkey(value: string | null) {
-  registeredHotkey = value;
-  hotkeyRuntime.registeredHotkey = value;
-  hotkeyRuntime.known = true;
-}
 let onResult: ((r: ApexQCaptureResult) => void) | null = null;
 let prefsSyncUnlisten: UnlistenFn | null = null;
 let prefsSyncListenerStarting: Promise<void> | null = null;
@@ -141,9 +115,6 @@ let captureResultListenerStarting: Promise<void> | null = null;
 let overlayShowRequestUnlisten: UnlistenFn | null = null;
 let overlayShowRequestListenerStarting: Promise<void> | null = null;
 let overlayPresentationQueue: Promise<void> = Promise.resolve();
-let lastHotkeyPressedAt = Number.NEGATIVE_INFINITY;
-let lastHotkeyPressedShortcut: string | null = null;
-let captureSequence = 0;
 let prefsSyncSequence = 0;
 let lastOverlayFingerprint: string | null = null;
 let lastOverlayShownAt = 0;
@@ -366,11 +337,6 @@ function claimCaptureOverlay(fingerprint: string): 'claimed' | 'duplicate' | 'no
 
 function ownsApexQHotkey() {
   return getCurrentWindow().label === MAIN_WINDOW_LABEL;
-}
-
-function nextCaptureResultId() {
-  captureSequence = (captureSequence + 1) % 1_000_000;
-  return `${Date.now()}-${captureSequence}`;
 }
 
 function parseCaptureResultEnvelope(value: unknown): CaptureResultEnvelope | null {
@@ -1328,22 +1294,6 @@ export async function showApexQResultOverlay(
   }
 }
 
-async function unregisterCurrent(): Promise<boolean> {
-  registeredHotkey = hotkeyRuntime.registeredHotkey;
-  if (!registeredHotkey) return true;
-  const current = registeredHotkey;
-  try {
-    if (await isRegistered(current)) {
-      await unregister(current);
-    }
-  } catch (e) {
-    console.warn('apex-q unregister hotkey failed', current, e);
-    return false;
-  }
-  setRegisteredHotkey(null);
-  return true;
-}
-
 export async function runApexQCapture(
   prefs?: ApexQPrefs,
   opts?: {requireFresh?: boolean},
@@ -1383,149 +1333,20 @@ export async function runApexQCapture(
   });
 }
 
-async function publishApexQCaptureResult(result: ApexQCaptureResult) {
-  const envelope: CaptureResultEnvelope = {
-    id: nextCaptureResultId(),
-    emittedAt: Date.now(),
-    result,
-  };
-  rememberCaptureEnvelope(envelope);
-  persistCaptureResult(envelope);
-  try {
-    await emit(CAPTURE_RESULT_EVENT, envelope);
-  } catch (e) {
-    // The persisted envelope is a fallback for a window that starts after
-    // the capture; keep hotkey capture successful if event delivery is down.
-    console.warn('apex-q publish capture result failed', e);
-  }
-}
-
-async function onHotkey(event?: ShortcutEvent) {
-  // The plugin emits both Pressed and Released. Only Pressed should trigger a
-  // capture; a short guard also absorbs duplicate Pressed notifications from
-  // keyboard repeat/driver quirks.
-  if (event && event.state !== 'Pressed') return;
-  const shortcut = event?.shortcut ?? registeredHotkey;
-  const now = Date.now();
-  if (
-    shortcut
-    && shortcut === lastHotkeyPressedShortcut
-    && now - lastHotkeyPressedAt < HOTKEY_DEBOUNCE_MS
-  ) {
-    return;
-  }
-  lastHotkeyPressedShortcut = shortcut ?? null;
-  lastHotkeyPressedAt = now;
-  if (hotkeyRuntime.captureInFlight) return;
-  hotkeyRuntime.captureInFlight = true;
-  try {
-    const result = await runApexQCapture(undefined, {requireFresh: true});
-    await publishApexQCaptureResult(result);
-    if (result.theta) {
-      void showApexQResultOverlay(result.theta, {
-        r: result.distanceM ?? result.theta.r,
-        alpha: result.alpha ?? result.theta.alpha,
-      });
-    }
-    try {
-      onResult?.(result);
-    } catch (e) {
-      console.warn('apex-q hotkey result handler failed', e);
-    }
-  } catch (e) {
-    const errorResult: ApexQCaptureResult = {
-      screenshotPath: '',
-      alpha: null,
-      angYaw: null,
-      angRoll: null,
-      distanceM: null,
-      showposText: '',
-      pingText: '',
-      showposPreview: '',
-      pingPreview: '',
-      showposEngine: '',
-      pingEngine: '',
-      showposConfidence: null,
-      pingConfidence: null,
-      theta: null,
-      error: String(e),
-    };
-    await publishApexQCaptureResult(errorResult);
-    try {
-      onResult?.(errorResult);
-    } catch (handlerError) {
-      console.warn('apex-q hotkey error handler failed', handlerError);
-    }
-  } finally {
-    hotkeyRuntime.captureInFlight = false;
-  }
-}
-
-// A native global-shortcut registration can outlive a Vite module instance.
-// Its callback therefore routes through this stable object and always reaches
-// the latest module's handler after HMR.
-hotkeyRuntime.dispatch = onHotkey;
-
-function dispatchApexQHotkey(event?: ShortcutEvent) {
-  hotkeyRuntime.dispatch?.(event);
-}
-
-/** 按偏好注册/注销全局热键。 */
-async function syncApexQHotkeyNow(prefs?: ApexQPrefs) {
-  const p = prefs ?? loadApexQPrefs();
-  const desiredHotkey = p.enabled && p.setupDone && p.hotkey ? p.hotkey : null;
-  registeredHotkey = hotkeyRuntime.registeredHotkey;
-  if (!hotkeyRuntime.known) {
-    try {
-      // An untracked registration can only be a legacy callback from this app
-      // (notably the old locale shortcut). Clear the persisted candidate even
-      // when APEX Q is disabled so a reload cannot leave a stale registration.
-      const candidate = p.hotkey?.trim();
-      if (candidate && await isRegistered(candidate)) await unregister(candidate);
-    } catch (e) {
-      console.warn('apex-q clear untracked hotkey failed', p.hotkey, e);
-      throw e;
-    }
-    setRegisteredHotkey(null);
-  }
-  if (registeredHotkey === desiredHotkey) {
-    hotkeyRuntime.known = true;
-    lastSyncedPrefs = {...p};
-    return;
-  }
-  const previousHotkey = registeredHotkey;
-  if (!(await unregisterCurrent())) {
-    throw new Error('APEX_Q_HOTKEY_UNREGISTER_FAILED');
-  }
-  if (!desiredHotkey) {
-    setRegisteredHotkey(null);
-    lastSyncedPrefs = {...p};
-    return;
-  }
-  try {
-    await register(desiredHotkey, dispatchApexQHotkey);
-    setRegisteredHotkey(desiredHotkey);
-    lastSyncedPrefs = {...p};
-  } catch (e) {
-    console.warn('apex-q register hotkey failed', desiredHotkey, e);
-    // Do not leave the application silently without a working shortcut when
-    // a replacement is rejected (for example because another app owns it).
-    if (previousHotkey) {
-      try {
-        await register(previousHotkey, dispatchApexQHotkey);
-        setRegisteredHotkey(previousHotkey);
-      } catch (rollbackError) {
-        console.warn('apex-q rollback hotkey registration failed', previousHotkey, rollbackError);
-      }
-    }
-    throw e;
-  }
-}
-
 /** 全局热键只能由主窗口持有，避免多个 WebView 重复注册同一快捷键。 */
 export async function syncApexQHotkey(prefs?: ApexQPrefs) {
-  if (!ownsApexQHotkey()) return;
-  const task = hotkeyRuntime.hotkeySyncQueue.then(() => syncApexQHotkeyNow(prefs));
+  const hasTauriRuntime = typeof window !== 'undefined'
+    && Boolean((window as Window & {__TAURI_INTERNALS__?: unknown}).__TAURI_INTERNALS__);
+  if (!hasTauriRuntime) {
+    lastSyncedPrefs = {...(prefs ?? loadApexQPrefs())};
+    return;
+  }
+  const task = hotkeyRuntime.hotkeySyncQueue.then(async () => {
+    const desired = prefs ?? loadApexQPrefs();
+    const snapshot = await getBackgroundRuntime();
+    await updateBackgroundRuntimeApexQ({...snapshot.config.apexQ, ...desired});
+    lastSyncedPrefs = {...desired};
+  });
   hotkeyRuntime.hotkeySyncQueue = task.catch(() => undefined);
   await task;
 }
@@ -1586,7 +1407,6 @@ async function ensureApexQPrefsSyncListener() {
                   hotkey: lastSyncedPrefs.hotkey,
                 }
               : {...current, enabled: false};
-            if (!registeredHotkey && fallback.enabled) fallback.enabled = false;
             saveApexQPrefs(fallback);
             await broadcastApexQPrefs(fallback);
           }
@@ -1676,7 +1496,6 @@ export async function applyApexQPrefs(
           }
         : latest;
       if (ownsPersistedHotkey) {
-        if (!registeredHotkey && rollback.enabled) rollback.enabled = false;
         saveApexQPrefs(rollback);
       }
       Object.assign(prefs, rollback);

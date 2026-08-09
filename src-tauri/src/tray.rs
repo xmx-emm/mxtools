@@ -1,46 +1,42 @@
-//! 系统托盘与「关闭到托盘」行为。
-//! 主窗口可见时不显示托盘；仅在主窗口隐藏时显示。
+//! Native tray and main-window lifecycle coordination.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, Rect, Runtime, WebviewUrl, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+use crate::log_error;
 
 const TRAY_ID: &str = "main";
-const TRAY_TOOLTIP_WINDOW_LABEL: &str = "tray-tooltip";
-const TRAY_TOOLTIP_SHOW_DELAY: Duration = Duration::from_millis(450);
-const TRAY_TOOLTIP_AUTO_HIDE: Duration = Duration::from_millis(2200);
 
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 static BETA_FEATURES_ENABLED: AtomicBool = AtomicBool::new(false);
 static TRAY_ENGLISH: AtomicBool = AtomicBool::new(false);
-// `tray-icon` 在 Windows 上对已经隐藏的图标再次 set_visible(false) 会再次执行
-// NIM_DELETE，并向 stderr 输出 "Error removing system tray icon"。记录状态，只在变化时调用。
-static TRAY_VISIBLE: AtomicBool = AtomicBool::new(true);
-static TRAY_TOOLTIP_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 fn build_tray_menu<R: Runtime>(
     app: &AppHandle<R>,
     english: bool,
     beta_features_enabled: bool,
 ) -> tauri::Result<Menu<R>> {
-    let (show, apex_q, apex_q_adjust, quit) = if english {
+    let (show, apex_q, apex_q_ocr, apex_q_settings, apex_q_adjust, quit) = if english {
         (
             "Show main window",
             "Open APEX Q",
+            "Open APEX Q OCR",
+            "Open APEX Q settings",
             "Adjust APEX Q overlay",
             "Quit",
         )
     } else {
-        ("显示主窗口", "打开 APEX Q", "调整 APEX Q 悬浮窗", "退出")
-    };
-    let (apex_q_ocr, apex_q_settings) = if english {
-        ("Open APEX Q OCR", "Open APEX Q settings")
-    } else {
-        ("打开 APEX Q 识别", "打开 APEX Q 设置")
+        (
+            "显示主窗口",
+            "打开 APEX Q",
+            "打开 APEX Q 识别",
+            "打开 APEX Q 设置",
+            "调整 APEX Q 悬浮窗",
+            "退出",
+        )
     };
     let show_i = MenuItem::with_id(app, "show", show, true, None::<&str>)?;
     let apex_q_i = MenuItem::with_id(app, "apex-q", apex_q, true, None::<&str>)?;
@@ -75,263 +71,73 @@ pub fn close_to_tray_enabled() -> bool {
     CLOSE_TO_TRAY.load(Ordering::SeqCst)
 }
 
-fn set_tray_visible<R: Runtime>(app: &AppHandle<R>, visible: bool) {
-    if !visible {
-        hide_tray_tooltip(app);
-    }
-    if TRAY_VISIBLE.load(Ordering::SeqCst) == visible {
-        return;
-    }
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        if tray.set_visible(visible).is_ok() {
-            TRAY_VISIBLE.store(visible, Ordering::SeqCst);
-        }
+fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Err(error) = crate::background_runtime::ensure_main_window(app) {
+        log_error!("Failed to create or focus the main window: {error}");
     }
 }
 
-/// 主窗口显示 → 隐藏托盘；主窗口隐藏 → 显示托盘。
+/// The native tray remains resident in both interactive and background mode.
 pub fn sync_tray_visibility<R: Runtime>(app: &AppHandle<R>) {
-    let main_visible = app
-        .get_webview_window("main")
-        .and_then(|w| w.is_visible().ok())
-        .unwrap_or(false);
-    set_tray_visible(app, !main_visible);
-}
-
-/// Windows 的 tray-icon 在隐藏状态下直接 Drop 也会重复执行 NIM_DELETE。
-/// 先恢复注册，再立即从 Tauri 资源表移除，可让底层只执行一次有效删除。
-fn remove_tray_for_exit<R: Runtime>(app: &AppHandle<R>) {
-    hide_tray_tooltip(app);
-    let Some(tray) = app.tray_by_id(TRAY_ID) else {
-        return;
-    };
-    if !TRAY_VISIBLE.load(Ordering::SeqCst) {
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_visible(true);
     }
-    TRAY_VISIBLE.store(true, Ordering::SeqCst);
-    drop(tray);
+}
+
+pub(crate) fn remove_tray_for_exit<R: Runtime>(app: &AppHandle<R>) {
     drop(app.remove_tray_by_id(TRAY_ID));
-    TRAY_VISIBLE.store(false, Ordering::SeqCst);
 }
 
-fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
-    hide_tray_tooltip(app);
-    if let Some(win) = app.get_webview_window("main") {
-        let _ = win.show();
-        let _ = win.unminimize();
-        let _ = win.set_focus();
+fn request_apex_q<R: Runtime>(app: &AppHandle<R>, target: &'static str) {
+    if let Err(error) =
+        crate::background_runtime::request_main_window_event(app, "apex-q-open-request", target)
+    {
+        log_error!("Failed to open Apex Q from the tray: {error}");
     }
-    sync_tray_visibility(app);
-}
-
-fn setup_tray_tooltip_window<R: Runtime>(
-    app: &AppHandle<R>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if app.get_webview_window(TRAY_TOOLTIP_WINDOW_LABEL).is_some() {
-        return Ok(());
-    }
-
-    let tooltip = WebviewWindowBuilder::new(
-        app,
-        TRAY_TOOLTIP_WINDOW_LABEL,
-        WebviewUrl::App("tray-tooltip.html".into()),
-    )
-    .title("")
-    .inner_size(132.0, 40.0)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .shadow(false)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .focusable(false)
-    .focused(false)
-    .visible(false)
-    .build()?;
-    tooltip.set_ignore_cursor_events(true)?;
-    Ok(())
-}
-
-fn hide_tray_tooltip<R: Runtime>(app: &AppHandle<R>) {
-    TRAY_TOOLTIP_GENERATION.fetch_add(1, Ordering::SeqCst);
-    hide_tray_tooltip_window(app);
-}
-
-fn hide_tray_tooltip_window<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(tooltip) = app.get_webview_window(TRAY_TOOLTIP_WINDOW_LABEL) {
-        let _ = tooltip.hide();
-    }
-}
-
-fn show_tray_tooltip_now<R: Runtime>(
-    app: &AppHandle<R>,
-    cursor: PhysicalPosition<f64>,
-    rect: Rect,
-) {
-    let Some(tooltip) = app.get_webview_window(TRAY_TOOLTIP_WINDOW_LABEL) else {
-        return;
-    };
-
-    let monitor = app.monitor_from_point(cursor.x, cursor.y).ok().flatten();
-    let scale = monitor
-        .as_ref()
-        .map(|monitor| monitor.scale_factor())
-        .or_else(|| tooltip.scale_factor().ok())
-        .unwrap_or(1.0);
-    let icon_position = rect.position.to_physical::<f64>(scale);
-    let icon_size = rect.size.to_physical::<f64>(scale);
-    let tooltip_size = tooltip.outer_size().unwrap_or_else(|_| {
-        tauri::PhysicalSize::new((132.0 * scale) as u32, (40.0 * scale) as u32)
-    });
-    let tooltip_width = f64::from(tooltip_size.width);
-    let tooltip_height = f64::from(tooltip_size.height);
-    let gap = (6.0 * scale).max(6.0);
-
-    let mut x = icon_position.x + (icon_size.width - tooltip_width) / 2.0;
-    let mut y = icon_position.y - tooltip_height - gap;
-
-    if let Some(monitor) = monitor {
-        let monitor_position = monitor.position();
-        let monitor_size = monitor.size();
-        let left = f64::from(monitor_position.x);
-        let top = f64::from(monitor_position.y);
-        let right = left + f64::from(monitor_size.width);
-        let bottom = top + f64::from(monitor_size.height);
-
-        let mut nearest_edge = 0;
-        let mut nearest_distance = icon_position.y - top;
-        let right_distance = right - icon_position.x - icon_size.width;
-        if right_distance < nearest_distance {
-            nearest_edge = 1;
-            nearest_distance = right_distance;
-        }
-        let bottom_distance = bottom - icon_position.y - icon_size.height;
-        if bottom_distance < nearest_distance {
-            nearest_edge = 2;
-            nearest_distance = bottom_distance;
-        }
-        let left_distance = icon_position.x - left;
-        if left_distance < nearest_distance {
-            nearest_edge = 3;
-        }
-
-        match nearest_edge {
-            0 => y = icon_position.y + icon_size.height + gap,
-            1 => {
-                x = icon_position.x - tooltip_width - gap;
-                y = icon_position.y + (icon_size.height - tooltip_height) / 2.0;
-            }
-            2 => y = icon_position.y - tooltip_height - gap,
-            _ => {
-                x = icon_position.x + icon_size.width + gap;
-                y = icon_position.y + (icon_size.height - tooltip_height) / 2.0;
-            }
-        }
-
-        let margin = (5.0 * scale).max(5.0);
-        x = x.clamp(
-            left + margin,
-            (right - tooltip_width - margin).max(left + margin),
-        );
-        y = y.clamp(
-            top + margin,
-            (bottom - tooltip_height - margin).max(top + margin),
-        );
-    }
-
-    let _ = tooltip.eval("window.applyTrayTooltipTheme?.()");
-    let _ = tooltip.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
-    let _ = tooltip.show();
-}
-
-fn schedule_tray_tooltip<R: Runtime>(
-    app: &AppHandle<R>,
-    cursor: PhysicalPosition<f64>,
-    rect: Rect,
-) {
-    let generation = TRAY_TOOLTIP_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(TRAY_TOOLTIP_SHOW_DELAY).await;
-        if TRAY_TOOLTIP_GENERATION.load(Ordering::SeqCst) != generation {
-            return;
-        }
-        show_tray_tooltip_now(&app, cursor, rect);
-
-        tokio::time::sleep(TRAY_TOOLTIP_AUTO_HIDE).await;
-        if TRAY_TOOLTIP_GENERATION
-            .compare_exchange(
-                generation,
-                generation + 1,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            )
-            .is_ok()
-        {
-            hide_tray_tooltip_window(&app);
-        }
-    });
 }
 
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
-    setup_tray_tooltip_window(app)?;
     let menu = build_tray_menu(app, false, false)?;
-
-    // 默认隐藏：避免正常启动时主窗口尚未 show 前托盘闪一下
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(
             app.default_window_icon()
                 .cloned()
                 .ok_or("missing window icon")?,
         )
+        .tooltip("MxTools")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => {
-                show_main_window(app);
-            }
-            "apex-q" => {
-                // The frontend owns the auxiliary-window lifecycle. Keep tray and
-                // toolbar entry points on the same creation path.
-                let _ = app.emit("apex-q-open-request", "workspace");
-            }
-            "apex-q-ocr" => {
-                let _ = app.emit("apex-q-open-request", "ocr");
-            }
-            "apex-q-settings" => {
-                let _ = app.emit("apex-q-open-request", "settings");
-            }
+            "show" => show_main_window(app),
+            "apex-q" => request_apex_q(app, "workspace"),
+            "apex-q-ocr" => request_apex_q(app, "ocr"),
+            "apex-q-settings" => request_apex_q(app, "settings"),
             "apex-q-adjust" => {
-                let _ = app.emit("apex-q-overlay-adjust-request", ());
+                if let Err(error) = crate::background_runtime::request_main_window_event(
+                    app,
+                    "apex-q-overlay-adjust-request",
+                    (),
+                ) {
+                    log_error!("Failed to open the Apex Q overlay editor: {error}");
+                }
             }
             "quit" => {
-                remove_tray_for_exit(app);
                 app.exit(0);
             }
             _ => {}
         })
-        .on_tray_icon_event(|tray, event| match event {
-            TrayIconEvent::Enter { position, rect, .. } => {
-                schedule_tray_tooltip(tray.app_handle(), position, rect);
-            }
-            TrayIconEvent::Leave { .. } => hide_tray_tooltip(tray.app_handle()),
-            TrayIconEvent::Click {
-                button,
-                button_state,
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
                 ..
-            } => {
-                hide_tray_tooltip(tray.app_handle());
-                if button == MouseButton::Left && button_state == MouseButtonState::Up {
-                    show_main_window(tray.app_handle());
-                }
+            } = event
+            {
+                show_main_window(tray.app_handle());
             }
-            _ => {}
         })
         .build(app)?;
-    TRAY_VISIBLE.store(true, Ordering::SeqCst);
     drop(tray);
-    set_tray_visible(app, false);
-
     Ok(())
 }
 
@@ -353,6 +159,13 @@ pub fn set_tray_locale<R: Runtime>(
     let normalized = locale.trim().to_ascii_lowercase();
     let english = !normalized.starts_with("zh");
     TRAY_ENGLISH.store(english, Ordering::SeqCst);
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = tray.set_tooltip(Some(if english {
+            "MxTools"
+        } else {
+            "萌新工具箱"
+        }));
+    }
     refresh_tray_menu(&app)
 }
 
@@ -381,20 +194,55 @@ pub fn set_tray_beta_features<R: Runtime>(
 
 pub fn handle_close_requested<R: Runtime>(window: &tauri::Window<R>, api: &tauri::CloseRequestApi) {
     let label = window.label();
-    // 琉雀 Q / 关于等子窗口：关闭只隐藏，避免引导中途按 X 把窗口销毁没了
     if label == "apex-q-window" || label == "about-window" {
         api.prevent_close();
         let _ = window.hide();
         return;
     }
-    if label == "main" {
-        api.prevent_close();
-        if close_to_tray_enabled() {
-            let _ = window.hide();
-            sync_tray_visibility(window.app_handle());
-        } else {
-            remove_tray_for_exit(window.app_handle());
-            window.app_handle().exit(0);
+    if label != "main" {
+        return;
+    }
+
+    api.prevent_close();
+    match main_close_disposition(close_to_tray_enabled()) {
+        MainCloseDisposition::RequestBackground => {
+            // The WebView owns dirty editor state. It confirms first and then
+            // calls destroy_main_window; the coordinator and tray stay resident.
+            let _ = window
+                .app_handle()
+                .emit("main-close-to-background-request", ());
         }
+        MainCloseDisposition::ExitApplication => window.app_handle().exit(0),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum MainCloseDisposition {
+    RequestBackground,
+    ExitApplication,
+}
+
+fn main_close_disposition(close_to_tray: bool) -> MainCloseDisposition {
+    if close_to_tray {
+        MainCloseDisposition::RequestBackground
+    } else {
+        MainCloseDisposition::ExitApplication
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn close_to_tray_requests_background_without_exiting() {
+        assert_eq!(
+            main_close_disposition(true),
+            MainCloseDisposition::RequestBackground
+        );
+        assert_eq!(
+            main_close_disposition(false),
+            MainCloseDisposition::ExitApplication
+        );
     }
 }

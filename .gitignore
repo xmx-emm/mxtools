@@ -6,7 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-2
 
 node_modules
 dist
@@ -32,3 +31,11 @@ components.d.ts
 
 # Local agent visual-QA artifact
 /design-qa.md
+/.codex/
+/.codex-redesign/
+
+# Generated patch-test artifacts
+.codex-v4-patchgen-*/
+.codex-v4-patchtest-*/
+.codex-v4-verified-patchtest-*/
+/mxtools-web-v4-*.patch

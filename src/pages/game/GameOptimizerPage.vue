@@ -28,6 +28,10 @@ interface SettingsEntry {
   icon: string;
 }
 
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 const {t, te, locale} = useI18n();
 const toast = useToast();
 
@@ -185,6 +189,7 @@ function translatedError(value: unknown): string {
 }
 
 async function scan() {
+  if (!isTauriRuntime) return;
   loading.value = true;
   scanError.value = '';
   try {
@@ -201,6 +206,7 @@ async function scan() {
 }
 
 async function chooseGame() {
+  if (!isTauriRuntime) return;
   try {
     const path = await open({
       multiple: false,
@@ -208,6 +214,7 @@ async function chooseGame() {
     });
     if (typeof path === 'string') {
       gamePath.value = path;
+      localStorage.setItem('mx-game-optimizer-path', path);
       await scan();
     }
   } catch (error) {
@@ -217,10 +224,12 @@ async function chooseGame() {
 
 async function clearGame() {
   gamePath.value = null;
+  localStorage.removeItem('mx-game-optimizer-path');
   await scan();
 }
 
 async function runBenchmark() {
+  if (!isTauriRuntime) return;
   testing.value = true;
   try {
     benchmark.value = await benchmarkGameNetwork({host: benchmarkHost.value, count: 8});
@@ -236,6 +245,7 @@ async function runBenchmark() {
 }
 
 async function applySelected() {
+  if (!isTauriRuntime) return;
   const actions = selectedActions.value;
   if (!actions.length || applying.value) return;
 
@@ -263,6 +273,7 @@ async function applySelected() {
 }
 
 async function openSettings(uri: string) {
+  if (!isTauriRuntime) return;
   try {
     await openMsSettingsPage({uri});
   } catch (error) {
@@ -271,34 +282,41 @@ async function openSettings(uri: string) {
 }
 
 onMounted(() => {
-  void scan();
+  const storedPath = localStorage.getItem('mx-game-optimizer-path');
+  if (storedPath) gamePath.value = storedPath;
+  if (isTauriRuntime) void scan();
 });
 </script>
 
 <template>
-  <main class="optimizer page-content">
-    <header class="toolbar">
-      <div class="toolbar__copy">
-        <h1>
+  <div class="app-page game-optimizer-page">
+    <header class="app-page__header optimizer-header">
+      <div class="app-page__heading">
+        <div class="app-page__eyebrow">{{ t('game.eyebrow') }}</div>
+        <h1 class="app-page__title optimizer-header__title">
           {{ t('gameOptimizer.title') }}
-          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
         </h1>
-        <p>{{ t('gameOptimizer.subtitle') }}</p>
+        <p class="app-page__subtitle">{{ t('gameOptimizer.subtitle') }}</p>
       </div>
-      <div class="toolbar__actions">
+      <div class="optimizer-header__actions">
         <v-tooltip :text="t('gameOptimizer.rescan')" location="bottom">
           <template #activator="{props}">
             <v-btn
               v-bind="props"
+              class="mx-compact-icon-button"
               icon="mdi-refresh"
+              size="small"
               variant="text"
               :loading="loading"
               :disabled="applying"
+              :aria-label="t('gameOptimizer.rescan')"
               @click="scan"
             />
           </template>
         </v-tooltip>
         <v-btn
+          class="optimizer-compact-action"
+          size="small"
           variant="tonal"
           prepend-icon="mdi-file-search-outline"
           :disabled="loading || applying"
@@ -309,308 +327,369 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="summary" :aria-label="t('gameOptimizer.environmentScore')">
-      <div class="score">
-        <v-progress-circular
-          :model-value="evaluation ? score : 0"
-          :color="scoreColor"
-          :size="100"
-          :width="9"
+    <div class="app-page__scroll">
+      <main class="app-page__content optimizer-content">
+        <section
+          class="optimizer-overview"
+          :aria-label="t('gameOptimizer.environmentScore')"
+          :aria-busy="loading"
+          aria-live="polite"
         >
-          <strong>{{ scoreText }}</strong>
-        </v-progress-circular>
-        <span>{{ t('gameOptimizer.environmentScore') }}</span>
-      </div>
-
-      <div class="stats">
-        <div>
-          <b>{{ evaluation?.warningCount ?? '-' }}</b>
-          <span>{{ t('gameOptimizer.pending') }}</span>
-        </div>
-        <div>
-          <b>{{ evaluation?.passCount ?? '-' }}</b>
-          <span>{{ t('gameOptimizer.passed') }}</span>
-        </div>
-        <div>
-          <b>{{ evaluation?.actionableCount ?? '-' }}</b>
-          <span>{{ t('gameOptimizer.fixable') }}</span>
-        </div>
-      </div>
-
-      <div v-if="gamePath" class="selected-game">
-        <v-icon icon="mdi-controller" size="18" />
-        <span :title="gamePath">{{ selectedGameName }}</span>
-        <v-tooltip :text="t('gameOptimizer.clearGame')" location="bottom">
-          <template #activator="{props}">
-            <v-btn
-              v-bind="props"
-              icon="mdi-close"
-              size="x-small"
-              variant="text"
-              :disabled="loading || applying"
-              @click="clearGame"
-            />
-          </template>
-        </v-tooltip>
-      </div>
-    </section>
-
-    <v-alert
-      v-if="scanError && !evaluation"
-      class="scan-error"
-      type="error"
-      variant="tonal"
-      density="compact"
-    >
-      <div class="scan-error__content">
-        <span>{{ scanError }}</span>
-        <v-btn size="small" variant="text" @click="scan">
-          {{ t('gameOptimizer.rescan') }}
-        </v-btn>
-      </div>
-    </v-alert>
-
-    <section class="network">
-      <div class="network__content">
-        <div class="network__heading">
-          <h2>{{ t('gameOptimizer.network.title') }}</h2>
-          <span>{{ t('gameOptimizer.network.target', {host: benchmarkHost}) }}</span>
-        </div>
-        <div class="network__metrics">
-          <div>
-            <span>{{ t('gameOptimizer.network.ping') }}</span>
-            <b>{{ formatMetric(benchmark?.averageMs ?? null) }} ms</b>
+          <div class="optimizer-score">
+            <v-progress-circular
+              :model-value="evaluation ? score : 0"
+              :color="scoreColor"
+              :size="84"
+              :width="7"
+            >
+              <strong>{{ scoreText }}</strong>
+            </v-progress-circular>
+            <span>{{ t('gameOptimizer.environmentScore') }}</span>
           </div>
-          <div>
-            <span>{{ t('gameOptimizer.network.jitter') }}</span>
-            <b>{{ formatMetric(benchmark?.jitterMs ?? null) }} ms</b>
-          </div>
-          <div>
-            <span>{{ t('gameOptimizer.network.loss') }}</span>
-            <b>{{ benchmark ? formatMetric(benchmark.lossPercent) : '-' }}%</b>
-          </div>
-          <div>
-            <span>{{ t('gameOptimizer.network.link') }}</span>
-            <b>{{ linkLabel }}</b>
-          </div>
-        </div>
-      </div>
-      <v-btn
-        size="small"
-        variant="outlined"
-        :loading="testing"
-        :disabled="loading"
-        prepend-icon="mdi-lan-check"
-        @click="runBenchmark"
-      >
-        {{ t('gameOptimizer.network.run') }}
-      </v-btn>
-    </section>
 
-    <v-tabs v-model="tab" density="compact" class="tabs">
-      <v-tab value="all">{{ t('gameOptimizer.tabs.all') }}</v-tab>
-      <v-tab value="warning">{{ t('gameOptimizer.tabs.warning') }}</v-tab>
-      <v-tab value="pass">{{ t('gameOptimizer.tabs.pass') }}</v-tab>
-    </v-tabs>
+          <dl class="optimizer-stats">
+            <div>
+              <dt>{{ t('gameOptimizer.pending') }}</dt>
+              <dd>{{ evaluation?.warningCount ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('gameOptimizer.passed') }}</dt>
+              <dd>{{ evaluation?.passCount ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('gameOptimizer.fixable') }}</dt>
+              <dd>{{ evaluation?.actionableCount ?? '-' }}</dd>
+            </div>
+          </dl>
 
-    <div v-if="loading && !evaluation" class="initial-loading">
-      <v-skeleton-loader type="list-item-two-line@6" />
-    </div>
-    <v-progress-linear v-else-if="loading" indeterminate color="primary" class="scan-progress" />
-
-    <template v-if="evaluation">
-      <section v-for="group in groupedChecks" :key="group.category" class="check-group">
-        <h2>{{ t(`gameOptimizer.categories.${group.category}`) }}</h2>
-        <div v-for="item in group.checks" :key="item.id" class="check-row">
-          <div class="check-row__select">
-            <v-checkbox
-              v-if="item.actionId && item.status === 'warning'"
-              v-model="selected"
-              :value="item.actionId"
-              density="compact"
-              hide-details
-              :aria-label="title(item)"
-            />
-          </div>
-          <v-tooltip :text="statusText(item.status)" location="bottom">
-            <template #activator="{props}">
-              <v-icon
-                v-bind="props"
-                :icon="statusIcons[item.status]"
-                :color="statusColors[item.status]"
-                size="20"
-                :aria-label="statusText(item.status)"
-              />
-            </template>
-          </v-tooltip>
-          <div class="check-row__copy">
-            <b>{{ title(item) }}</b>
-            <span>{{ detail(item) }}</span>
-          </div>
-          <div class="check-row__action">
-            <v-tooltip v-if="item.settingsUri" :text="t('gameOptimizer.openSettings')">
+          <div v-if="gamePath" class="optimizer-selected-game">
+            <v-icon icon="mdi-controller" size="18" aria-hidden="true" />
+            <span :title="gamePath">{{ selectedGameName }}</span>
+            <v-tooltip :text="t('gameOptimizer.clearGame')" location="bottom">
               <template #activator="{props}">
                 <v-btn
                   v-bind="props"
-                  icon="mdi-open-in-new"
-                  size="x-small"
+                  class="mx-compact-icon-button"
+                  icon="mdi-close"
+                  size="small"
                   variant="text"
-                  @click="openSettings(item.settingsUri)"
+                  :disabled="loading || applying"
+                  :aria-label="t('gameOptimizer.clearGame')"
+                  @click="clearGame"
                 />
               </template>
             </v-tooltip>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div v-if="groupedChecks.length === 0" class="empty-filter">
-        {{ t('gameOptimizer.noChecks') }}
-      </div>
+        <v-alert
+          v-if="scanError && !evaluation"
+          class="scan-error"
+          type="error"
+          variant="tonal"
+          density="compact"
+        >
+          <div class="scan-error__content">
+            <span>{{ scanError }}</span>
+            <v-btn class="optimizer-compact-action" size="small" variant="text" @click="scan">
+              {{ t('gameOptimizer.rescan') }}
+            </v-btn>
+          </div>
+        </v-alert>
 
-      <div v-if="unavailableLabels.length" class="notice">
-        <v-icon icon="mdi-information-outline" size="18" />
-        <span>{{ t('gameOptimizer.unavailable', {items: unavailableLabels.join(t('gameOptimizer.listSeparator'))}) }}</span>
-      </div>
-    </template>
-
-    <footer class="actions">
-      <v-menu>
-        <template #activator="{props}">
-          <v-btn v-bind="props" variant="text" prepend-icon="mdi-cog-outline" append-icon="mdi-chevron-down">
-            {{ t('gameOptimizer.settings.title') }}
-          </v-btn>
-        </template>
-        <v-list density="compact">
-          <v-list-item
-            v-for="entry in settingsEntries"
-            :key="entry.key"
-            @click="openSettings(entry.uri)"
+        <section class="optimizer-network" aria-labelledby="optimizer-network-title">
+          <div class="network__content">
+            <div class="network__heading">
+              <h2 id="optimizer-network-title">{{ t('gameOptimizer.network.title') }}</h2>
+              <span>{{ t('gameOptimizer.network.target', {host: benchmarkHost}) }}</span>
+            </div>
+            <div class="network__metrics">
+              <div>
+                <span>{{ t('gameOptimizer.network.ping') }}</span>
+                <b>{{ formatMetric(benchmark?.averageMs ?? null) }} ms</b>
+              </div>
+              <div>
+                <span>{{ t('gameOptimizer.network.jitter') }}</span>
+                <b>{{ formatMetric(benchmark?.jitterMs ?? null) }} ms</b>
+              </div>
+              <div>
+                <span>{{ t('gameOptimizer.network.loss') }}</span>
+                <b>{{ benchmark ? formatMetric(benchmark.lossPercent) : '-' }}%</b>
+              </div>
+              <div>
+                <span>{{ t('gameOptimizer.network.link') }}</span>
+                <b>{{ linkLabel }}</b>
+              </div>
+            </div>
+          </div>
+          <v-btn
+            class="optimizer-compact-action"
+            size="small"
+            variant="outlined"
+            :loading="testing"
+            :disabled="loading"
+            prepend-icon="mdi-lan-check"
+            @click="runBenchmark"
           >
-            <template #prepend>
-              <v-icon :icon="entry.icon" />
-            </template>
-            <v-list-item-title>{{ t(`gameOptimizer.settings.${entry.key}`) }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-      <v-btn
-        color="primary"
-        :disabled="selectedActions.length === 0 || applying"
-        :loading="applying"
-        prepend-icon="mdi-auto-fix"
-        @click="applySelected"
-      >
-        {{ t('gameOptimizer.applySelected', {count: selectedActions.length}) }}
-      </v-btn>
+            {{ t('gameOptimizer.network.run') }}
+          </v-btn>
+        </section>
+
+        <v-tabs v-model="tab" density="compact" color="primary" class="optimizer-tabs">
+          <v-tab value="all">
+            {{ t('gameOptimizer.tabs.all') }}
+            <span class="optimizer-tab-count">{{ evaluation?.checks.length ?? 0 }}</span>
+          </v-tab>
+          <v-tab value="warning">
+            {{ t('gameOptimizer.tabs.warning') }}
+            <span class="optimizer-tab-count">{{ evaluation?.warningCount ?? 0 }}</span>
+          </v-tab>
+          <v-tab value="pass">
+            {{ t('gameOptimizer.tabs.pass') }}
+            <span class="optimizer-tab-count">{{ evaluation?.passCount ?? 0 }}</span>
+          </v-tab>
+        </v-tabs>
+
+        <div v-if="loading && !evaluation" class="initial-loading">
+          <v-skeleton-loader type="list-item-two-line@6" />
+        </div>
+        <v-progress-linear v-else-if="loading" indeterminate color="primary" class="scan-progress" />
+
+        <template v-if="evaluation">
+          <section
+            v-for="group in groupedChecks"
+            :key="group.category"
+            class="check-group"
+            :aria-labelledby="`optimizer-group-${group.category}`"
+          >
+            <h2 :id="`optimizer-group-${group.category}`">
+              {{ t(`gameOptimizer.categories.${group.category}`) }}
+            </h2>
+            <div v-for="item in group.checks" :key="item.id" class="check-row">
+              <div class="check-row__select">
+                <v-checkbox
+                  v-if="item.actionId && item.status === 'warning'"
+                  v-model="selected"
+                  :value="item.actionId"
+                  density="compact"
+                  hide-details
+                  :aria-label="title(item)"
+                />
+              </div>
+              <v-tooltip :text="statusText(item.status)" location="bottom">
+                <template #activator="{props}">
+                  <v-icon
+                    v-bind="props"
+                    :icon="statusIcons[item.status]"
+                    :color="statusColors[item.status]"
+                    size="20"
+                    :aria-label="statusText(item.status)"
+                  />
+                </template>
+              </v-tooltip>
+              <div class="check-row__copy">
+                <b>{{ title(item) }}</b>
+                <span>{{ detail(item) }}</span>
+              </div>
+              <div class="check-row__action">
+                <v-tooltip v-if="item.settingsUri" :text="t('gameOptimizer.openSettings')">
+                  <template #activator="{props}">
+                    <v-btn
+                      v-bind="props"
+                      class="mx-compact-icon-button"
+                      icon="mdi-open-in-new"
+                      size="small"
+                      variant="text"
+                      :aria-label="t('gameOptimizer.openSettings')"
+                      @click="openSettings(item.settingsUri)"
+                    />
+                  </template>
+                </v-tooltip>
+              </div>
+            </div>
+          </section>
+
+          <div v-if="groupedChecks.length === 0" class="empty-filter">
+            {{ t('gameOptimizer.noChecks') }}
+          </div>
+
+          <div v-if="unavailableLabels.length" class="notice">
+            <v-icon icon="mdi-information-outline" size="18" aria-hidden="true" />
+            <span>{{ t('gameOptimizer.unavailable', {items: unavailableLabels.join(t('gameOptimizer.listSeparator'))}) }}</span>
+          </div>
+        </template>
+
+      </main>
+    </div>
+
+    <footer class="optimizer-actions">
+      <div class="optimizer-actions__inner">
+        <v-menu>
+          <template #activator="{props}">
+            <v-btn
+              v-bind="props"
+              class="optimizer-footer-action"
+              size="small"
+              variant="text"
+              prepend-icon="mdi-cog-outline"
+              append-icon="mdi-chevron-down"
+            >
+              {{ t('gameOptimizer.settings.title') }}
+            </v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item
+              v-for="entry in settingsEntries"
+              :key="entry.key"
+              @click="openSettings(entry.uri)"
+            >
+              <template #prepend>
+                <v-icon :icon="entry.icon" />
+              </template>
+              <v-list-item-title>{{ t(`gameOptimizer.settings.${entry.key}`) }}</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+        <v-btn
+          class="optimizer-footer-action"
+          size="small"
+          color="primary"
+          :disabled="selectedActions.length === 0 || applying"
+          :loading="applying"
+          prepend-icon="mdi-auto-fix"
+          @click="applySelected"
+        >
+          {{ t('gameOptimizer.applySelected', {count: selectedActions.length}) }}
+        </v-btn>
+      </div>
     </footer>
-  </main>
+  </div>
 </template>
 
 <style scoped>
-.optimizer {
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
+.game-optimizer-page {
   color: rgba(var(--v-theme-on-surface), 0.9);
   letter-spacing: 0;
 }
 
-.toolbar {
+.optimizer-header__title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.toolbar__copy {
-  min-width: 0;
-}
-
-.toolbar__copy h1 {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 650;
-  letter-spacing: 0;
 }
 
-.toolbar__copy p {
-  margin: 3px 0 0;
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 0.78rem;
-}
-
-.toolbar__actions {
+.optimizer-header__actions {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 6px;
+  gap: var(--app-space-2);
 }
 
-.summary,
-.network {
-  border: 1px solid rgba(var(--v-border-color), 0.14);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 0.5);
+.optimizer-compact-action.v-btn {
+  min-height: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  padding-inline: 10px !important;
+  border-radius: var(--app-radius-sm) !important;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-.summary {
+.optimizer-content {
+  padding-bottom: var(--app-space-6);
+}
+
+.optimizer-overview {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(240px, 1fr) auto;
   align-items: center;
-  gap: 28px;
-  min-height: 132px;
-  padding: 14px 16px;
+  min-width: 0;
+  min-height: 112px;
+  gap: var(--app-space-6);
+  padding: 4px 8px 18px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.score {
+.optimizer-score {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 172px;
+  min-width: 0;
+  gap: var(--app-space-3);
 }
 
-.score strong {
-  font-size: 1.4rem;
+.optimizer-score strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.score span,
-.stats span {
+.optimizer-score > span,
+.optimizer-stats dt {
   display: block;
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
-.stats {
+.optimizer-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(58px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  min-width: 0;
+  gap: 0;
+  margin: 0;
+  padding: 0;
 }
 
-.stats b {
-  display: block;
-  font-size: 1.1rem;
+.optimizer-stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 20px;
+  border-left: 1px solid var(--app-border);
 }
 
-.selected-game {
+.optimizer-stats dt {
+  order: 2;
+}
+
+.optimizer-stats dd {
+  order: 1;
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-size: 17px;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.optimizer-selected-game {
   display: flex;
   align-items: center;
   justify-self: end;
-  gap: 6px;
+  min-height: var(--app-control-height-action);
   min-width: 0;
   max-width: 100%;
+  gap: 7px;
+  padding-left: 10px;
   color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.76rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-layer-muted);
+  font-size: 11px;
 }
 
-.selected-game span {
+.optimizer-selected-game > span {
   min-width: 0;
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.optimizer-selected-game > .v-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
 }
 
 .scan-error {
@@ -625,22 +704,28 @@ onMounted(() => {
   width: 100%;
 }
 
-.network {
+.scan-error__content .v-btn {
+  flex: 0 0 auto;
+}
+
+.optimizer-network {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  min-height: 90px;
-  margin-top: 12px;
-  padding: 12px 16px;
+  min-width: 0;
+  gap: var(--app-space-4);
+  margin-top: var(--app-space-5);
+  padding: 0 8px 18px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.network h2,
+.optimizer-network h2,
 .check-group h2 {
   margin: 0;
-  font-size: 0.84rem;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 680;
   letter-spacing: 0;
+  line-height: 1.4;
 }
 
 .network__heading {
@@ -652,18 +737,26 @@ onMounted(() => {
 
 .network__heading span {
   color: rgba(var(--v-theme-on-surface), 0.48);
-  font-size: 0.68rem;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .network__metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr));
-  gap: 16px;
-  margin-top: 8px;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  min-width: 0;
+  gap: 0;
+  margin-top: 10px;
 }
 
 .network__metrics div {
   min-width: 0;
+  padding-right: 14px;
+}
+
+.network__metrics div + div {
+  padding-left: 14px;
+  border-left: 1px solid var(--app-border);
 }
 
 .network__metrics span,
@@ -676,22 +769,65 @@ onMounted(() => {
 
 .network__metrics span {
   color: rgba(var(--v-theme-on-surface), 0.52);
-  font-size: 0.7rem;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .network__metrics b {
   margin-top: 2px;
-  font-size: 0.78rem;
-  font-weight: 620;
+  color: rgba(var(--v-theme-on-surface), 0.88);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 
-.tabs {
-  margin-top: 12px;
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
+.optimizer-tabs {
+  min-height: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
+  margin-top: var(--app-space-5);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.optimizer-tabs :deep(.v-slide-group__container),
+.optimizer-tabs :deep(.v-slide-group__content),
+.optimizer-tabs :deep(.v-tab) {
+  min-height: var(--app-control-height-compact);
+  height: var(--app-control-height-compact);
+}
+
+.optimizer-tabs :deep(.v-tab) {
+  min-width: 0;
+  gap: 6px;
+  padding-inline: 10px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.optimizer-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding-inline: 4px;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  border-radius: 4px;
+  background: var(--app-layer-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.optimizer-tabs :deep(.v-tab--selected) .optimizer-tab-count {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
 .initial-loading {
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .scan-progress {
@@ -699,21 +835,33 @@ onMounted(() => {
 }
 
 .check-group {
-  margin-top: 16px;
+  margin-top: var(--app-space-5);
 }
 
 .check-group h2 {
-  margin-bottom: 5px;
+  margin-bottom: 7px;
+  padding-inline: 8px;
   color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
 .check-row {
   display: grid;
-  grid-template-columns: 32px 24px minmax(0, 1fr) 32px;
+  grid-template-columns: 28px 22px minmax(0, 1fr) 28px;
   align-items: center;
-  gap: 6px;
-  min-height: 52px;
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.08);
+  min-width: 0;
+  min-height: 58px;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--app-border);
+  transition: background-color var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.check-group > .check-row:nth-child(2) {
+  border-top: 1px solid var(--app-border);
+}
+
+.check-row:is(:hover, :focus-within) {
+  background: var(--app-hover);
 }
 
 .check-row__select,
@@ -721,8 +869,17 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  min-width: 32px;
+  width: 28px;
+  min-width: 28px;
+}
+
+.check-row__select :deep(.v-input) {
+  --v-input-control-height: var(--app-control-height-compact);
+  flex: 0 0 var(--app-control-height-compact);
+}
+
+.check-row__select :deep(.v-selection-control) {
+  min-height: var(--app-control-height-compact);
 }
 
 .check-row__copy {
@@ -732,83 +889,116 @@ onMounted(() => {
   min-width: 0;
 }
 
-.check-row__copy b,
-.check-row__copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .check-row__copy b {
-  font-size: 0.81rem;
-  font-weight: 620;
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .check-row__copy span {
   color: rgba(var(--v-theme-on-surface), 0.57);
-  font-size: 0.73rem;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.check-row__action .v-btn {
+  opacity: 0.58;
+  transition:
+    color var(--app-motion-fast) var(--app-ease-standard),
+    opacity var(--app-motion-fast) var(--app-ease-standard),
+    background-color var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.check-row:is(:hover, :focus-within) .check-row__action .v-btn {
+  color: rgb(var(--v-theme-primary));
+  opacity: 1;
 }
 
 .empty-filter {
   padding: 28px 8px;
   color: rgba(var(--v-theme-on-surface), 0.5);
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 12px;
 }
 
 .notice {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 14px;
-  padding: 10px;
-  border-radius: 6px;
-  background: rgba(var(--v-theme-primary), 0.06);
+  margin-top: var(--app-space-5);
+  padding: 12px 8px;
+  border-top: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border);
   color: rgba(var(--v-theme-on-surface), 0.65);
-  font-size: 0.75rem;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
-.actions {
-  position: sticky;
-  bottom: -12px;
-  z-index: 2;
+.notice .v-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: rgb(var(--v-theme-primary));
+}
+
+.optimizer-actions {
+  z-index: 3;
+  flex: 0 0 auto;
+  border-top: 1px solid var(--app-border);
+  background: rgba(var(--v-theme-background), 0.9);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.optimizer-actions__inner {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin: 20px -12px -12px;
-  padding: 10px 12px 12px;
-  border-top: 1px solid rgba(var(--v-border-color), 0.1);
-  background: rgb(var(--v-theme-surface));
+  width: min(100%, var(--app-page-max-width));
+  min-height: 52px;
+  gap: var(--app-space-2);
+  margin: 0 auto;
+  padding: 10px var(--app-page-padding-x);
+  box-sizing: border-box;
 }
 
-@media (max-width: 760px) {
-  .toolbar {
+.optimizer-footer-action.v-btn {
+  min-height: var(--app-control-height-action) !important;
+  height: var(--app-control-height-action) !important;
+  border-radius: var(--app-radius-sm) !important;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@container workspace (max-width: 720px) {
+  .optimizer-header {
     align-items: flex-start;
     flex-wrap: wrap;
   }
 
-  .toolbar__actions {
+  .optimizer-header__actions {
     width: 100%;
     justify-content: flex-end;
   }
 
-  .summary {
+  .optimizer-overview {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 18px;
   }
 
-  .selected-game {
+  .optimizer-selected-game {
     grid-column: 1 / -1;
     justify-self: stretch;
   }
 
-  .network {
+  .optimizer-network {
     grid-template-columns: 1fr;
     align-items: start;
   }
 
-  .network > .v-btn {
+  .optimizer-network > .v-btn {
     justify-self: end;
   }
 
@@ -816,44 +1006,76 @@ onMounted(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .check-row__copy span {
-    overflow: visible;
-    white-space: normal;
+  .network__metrics div {
+    padding: 7px 12px 7px 0;
+  }
+
+  .network__metrics div:nth-child(even) {
+    padding-left: 12px;
+    border-left: 1px solid var(--app-border);
+  }
+
+  .network__metrics div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .network__metrics div:nth-child(n + 3) {
+    border-top: 1px solid var(--app-border);
+  }
+
+  .optimizer-actions__inner {
+    padding-inline: 16px;
   }
 }
 
 @media (max-width: 480px) {
-  .toolbar__actions {
+  .optimizer-header__actions {
     justify-content: stretch;
   }
 
-  .toolbar__actions > .v-btn:last-child {
+  .optimizer-header__actions > .v-btn:last-child {
     flex: 1;
   }
 
-  .summary {
+  .optimizer-overview {
     grid-template-columns: 1fr;
   }
 
-  .score {
-    justify-self: center;
+  .optimizer-score {
+    justify-self: start;
   }
 
-  .stats {
+  .optimizer-stats {
     width: 100%;
   }
 
-  .selected-game {
+  .optimizer-stats > div {
+    padding-inline: 12px;
+  }
+
+  .optimizer-stats > div:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .optimizer-selected-game {
     grid-column: auto;
   }
 
-  .actions {
+  .optimizer-actions__inner {
     align-items: stretch;
     flex-direction: column-reverse;
+    min-height: 0;
   }
 
-  .actions > .v-btn {
+  .optimizer-actions__inner .v-btn {
     width: 100%;
+  }
+}
+
+@media (hover: none) {
+  .check-row__action .v-btn {
+    opacity: 1;
   }
 }
 </style>

@@ -9,7 +9,10 @@ import {
   type ApexQWindowTarget,
 } from '@/types/apex_q.ts';
 import {
+  emitApexLaunchRepairAccount,
   emitApexQuickPresetAccount,
+  latestApexLaunchRepairAccount,
+  rememberApexLaunchRepairAccount,
   rememberApexQuickPresetAccount,
 } from '@/utils/game/apex_config_events.ts';
 
@@ -17,6 +20,7 @@ const APEX_Q_WIN_REV_KEY = 'mx-apex-q-win-rev';
 /** 无边框标题栏版本：旧带系统装饰的窗口需销毁重建 */
 const APEX_Q_WIN_REV = 'undecorated-v2';
 type OpenWebWindowOptions = Omit<WebviewOptions, 'x' | 'y' | 'width' | 'height'> & WindowOptions;
+export type RepairToolTarget = 'store' | 'onedrive' | 'icon-cache' | 'network' | 'apex-launch';
 const pendingWindowCreates = new Map<string, Promise<void>>();
 let apexQRevisionPromise: Promise<void> | null = null;
 let apexQRevisionEnsured = false;
@@ -197,9 +201,93 @@ async function openApexQuickPresetWindow(accountKey: string | null = null) {
   await emitApexQuickPresetAccount(accountKey).catch(() => undefined);
 }
 
+async function openRepairToolWindow(
+  target: RepairToolTarget,
+  accountKey?: string | null,
+) {
+  const definitions: Record<RepairToolTarget, {
+    route: string;
+    width: number;
+    height: number;
+    minWidth: number;
+    minHeight: number;
+    titleKey: string;
+  }> = {
+    store: {
+      route: 'repair-store',
+      width: 780,
+      height: 680,
+      minWidth: 680,
+      minHeight: 540,
+      titleKey: 'appRepair.targets.store',
+    },
+    onedrive: {
+      route: 'repair-onedrive',
+      width: 780,
+      height: 680,
+      minWidth: 680,
+      minHeight: 540,
+      titleKey: 'appRepair.targets.onedrive',
+    },
+    'icon-cache': {
+      route: 'repair-icon-cache',
+      width: 680,
+      height: 520,
+      minWidth: 580,
+      minHeight: 440,
+      titleKey: 'appRepair.targets.iconCache',
+    },
+    network: {
+      route: 'repair-network',
+      width: 860,
+      height: 720,
+      minWidth: 720,
+      minHeight: 560,
+      titleKey: 'appRepair.targets.network',
+    },
+    'apex-launch': {
+      route: 'repair-apex-launch',
+      width: 920,
+      height: 760,
+      minWidth: 760,
+      minHeight: 600,
+      titleKey: 'appRepair.targets.apexLaunch',
+    },
+  };
+  const definition = definitions[target];
+  const repairAccountKey = target === 'apex-launch'
+    ? (accountKey ?? latestApexLaunchRepairAccount())
+    : null;
+  if (target === 'apex-launch' && repairAccountKey) {
+    rememberApexLaunchRepairAccount(repairAccountKey);
+  }
+  const query = repairAccountKey ? `?account=${encodeURIComponent(repairAccountKey)}` : '';
+  await openWebWindow(definition.route, {
+    url: `#/${definition.route}${query}`,
+    width: definition.width,
+    height: definition.height,
+    minWidth: definition.minWidth,
+    minHeight: definition.minHeight,
+    title: target === 'icon-cache'
+      ? String(i18n.global.t('windows.iconRepair.windowTitle'))
+      : target === 'apex-launch'
+        ? String(i18n.global.t('apexLaunchRepair.windowTitle'))
+      : String(i18n.global.t('appRepair.windowTitle', {
+        target: i18n.global.t(definition.titleKey),
+      })),
+    decorations: false,
+    center: true,
+    preventOverflow: true,
+  });
+  if (target === 'apex-launch') {
+    await emitApexLaunchRepairAccount(repairAccountKey).catch(() => undefined);
+  }
+}
+
 export {
   openWebWindow,
   openAboutWindow,
   openApexQWindow,
   openApexQuickPresetWindow,
+  openRepairToolWindow,
 };

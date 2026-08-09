@@ -5,7 +5,14 @@
  *
  * 若用户已带有具体 hash(如 #/dashboard)，则不覆盖，保留其选择。
  */
-const RESTORE_EXCLUDED_PATH_PREFIXES = ['/about'] as const;
+const RESTORE_EXCLUDED_PATH_PREFIXES = [
+  '/about',
+  '/repair-store',
+  '/repair-onedrive',
+  '/repair-icon-cache',
+  '/repair-network',
+  '/repair-apex-launch',
+] as const;
 
 /** 本次 bootstrap 是否在 import router 之前把 hash 写成了 lastRoute(供 router 跳过重复的 replace) */
 let didAlignHashThisBootstrap = false;

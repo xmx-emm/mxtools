@@ -84,11 +84,6 @@ export type ApexQPrefs = {
   hotkey: string;
   delayMs: number;
   enabled: boolean;
-  autostart: boolean;
-  /** 关闭主窗口时进托盘，而不是退出 */
-  closeToTray: boolean;
-  /** 仅开机自启时启动不弹主窗口，直接托盘（手动启动始终显示） */
-  startInTray: boolean;
   /** 结果悬浮窗自动消失秒数；0 表示不自动消失 */
   overlayHideSec: number;
   /** 小窗口面板不透明度 0.15–1 */
@@ -219,9 +214,6 @@ export function defaultApexQPrefs(): ApexQPrefs {
     hotkey: DEFAULT_APEX_Q_HOTKEY,
     delayMs: DEFAULT_APEX_Q_DELAY_MS,
     enabled: false,
-    autostart: false,
-    closeToTray: false,
-    startInTray: false,
     overlayHideSec: DEFAULT_OVERLAY_HIDE_SEC,
     overlayOpacity: DEFAULT_OVERLAY_OPACITY,
     overlayX: null,
@@ -249,7 +241,10 @@ export function loadApexQPrefs(): ApexQPrefs {
   try {
     const raw = localStorage.getItem(APEX_Q_STORAGE_KEY);
     if (!raw) return defaultApexQPrefs();
-    const parsed = JSON.parse(raw) as Partial<ApexQPrefs>;
+    const parsed = JSON.parse(raw) as Partial<ApexQPrefs> & Record<string, unknown>;
+    delete parsed.autostart;
+    delete parsed.closeToTray;
+    delete parsed.startInTray;
     const prefs = {...defaultApexQPrefs(), ...parsed};
     // 旧默认 showpos ROI（整块四行）→ 迁到只框 ang 行
     const s = prefs.showposRoi;
@@ -306,5 +301,9 @@ export function resetApexQOverlayGeometry(prefs: ApexQPrefs): ApexQPrefs {
 }
 
 export function saveApexQPrefs(prefs: ApexQPrefs) {
-  localStorage.setItem(APEX_Q_STORAGE_KEY, JSON.stringify(prefs));
+  const clean = {...prefs} as ApexQPrefs & Record<string, unknown>;
+  delete clean.autostart;
+  delete clean.closeToTray;
+  delete clean.startInTray;
+  localStorage.setItem(APEX_Q_STORAGE_KEY, JSON.stringify(clean));
 }

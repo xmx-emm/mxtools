@@ -216,24 +216,43 @@ fn wait_for_shell(session_id: u32, timeout: Duration) -> bool {
 
 #[cfg(windows)]
 fn ensure_explorer_running(session_id: u32) -> IpcResult<()> {
-    if shell_is_ready_in_session(session_id) {
+    ensure_shell_running(
+        || shell_is_ready_in_session(session_id),
+        || wait_for_shell(session_id, Duration::from_secs(8)),
+        || {
+            Command::new("explorer.exe").spawn().map_err(|error| {
+                windows_error("explorer_restart_failed", error.to_string())
+                    .with_detail("recoveryCommand", "explorer.exe")
+            })?;
+
+            if wait_for_shell(session_id, Duration::from_secs(8)) {
+                Ok(())
+            } else {
+                Err(windows_error(
+                    "explorer_restart_failed",
+                    "Explorer did not become ready before the timeout",
+                )
+                .with_detail("recoveryCommand", "explorer.exe"))
+            }
+        },
+    )
+}
+
+fn ensure_shell_running<IsReady, WaitForAutomaticRestart, StartFallback>(
+    is_ready: IsReady,
+    wait_for_automatic_restart: WaitForAutomaticRestart,
+    start_fallback: StartFallback,
+) -> IpcResult<()>
+where
+    IsReady: FnOnce() -> bool,
+    WaitForAutomaticRestart: FnOnce() -> bool,
+    StartFallback: FnOnce() -> IpcResult<()>,
+{
+    if is_ready() || wait_for_automatic_restart() {
         return Ok(());
     }
 
-    Command::new("explorer.exe").spawn().map_err(|error| {
-        windows_error("explorer_restart_failed", error.to_string())
-            .with_detail("recoveryCommand", "explorer.exe")
-    })?;
-
-    if wait_for_shell(session_id, Duration::from_secs(8)) {
-        Ok(())
-    } else {
-        Err(windows_error(
-            "explorer_restart_failed",
-            "Explorer did not become ready before the timeout",
-        )
-        .with_detail("recoveryCommand", "explorer.exe"))
-    }
+    start_fallback()
 }
 
 fn run_repair_workflow<Stop, Clear, Restart>(
@@ -351,5 +370,21 @@ mod tests {
 
         assert!(restart_called.load(Ordering::SeqCst));
         assert_eq!(result.unwrap_err().code, "windows.explorer_restart_failed");
+    }
+
+    #[test]
+    fn automatic_shell_restart_skips_manual_explorer_launch() {
+        let fallback_called = AtomicBool::new(false);
+        ensure_shell_running(
+            || false,
+            || true,
+            || {
+                fallback_called.store(true, Ordering::SeqCst);
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert!(!fallback_called.load(Ordering::SeqCst));
     }
 }

@@ -2,6 +2,7 @@
 import type {ApexQDialogController} from '@/composables/apex_q/useApexQDialogController.ts';
 import ShortcutInput from '@/components/settings/ShortcutInput.vue';
 import ApexQOcrEnginePanel from '@/components/game/apex/apex_q/ApexQOcrEnginePanel.vue';
+import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
 const {controller} = defineProps<{controller: ApexQDialogController}>();
 const {AUTHOR_GITHUB, AUTHOR_VIDEO, applySteamUser, calibrateOpen, checkOcr, deleteOcrPack, downloadOcr, flushScheduledPrefsPersist, folderMode, loadSteamDirs, ocrCheckFailed, ocrChecking, ocrDownloadFile, ocrDownloadMirror, ocrDownloadPercent, ocrDownloading, ocrStatus, onEnabledChange, onFolderModeChange, onFolderPathBlur, onOcrEngineChange, openOcrSettings, openUrl, persist, pickFolder, prefs, resetOverlayPosition, schedulePrefsPersist, selectedSteamUserId, settingsStore, steamSelectItems, t, wizardStep, wizardSteps} = controller;
 </script>
@@ -213,20 +214,7 @@ const {AUTHOR_GITHUB, AUTHOR_VIDEO, applySteamUser, calibrateOpen, checkOcr, del
             <div class="apex-q-bg-options mt-2">
               <div class="text-subtitle-2 mb-1">{{ t('apex.apexQ.backgroundSection') }}</div>
               <p class="text-medium-emphasis text-caption mb-1">{{ t('apex.apexQ.backgroundGlobalHint') }}</p>
-              <v-checkbox
-                :model-value="settingsStore.autostart"
-                density="compact"
-                :label="t('settings.autostart')"
-                hide-details
-                @update:model-value="settingsStore.setAutostart"
-              />
-              <v-checkbox
-                :model-value="settingsStore.startInTray"
-                density="compact"
-                :label="t('settings.startInTray')"
-                hide-details
-                @update:model-value="settingsStore.setStartInTray"
-              />
+              <BackgroundAutostartSwitch compact />
               <v-checkbox
                 :model-value="settingsStore.closeToTray"
                 density="compact"

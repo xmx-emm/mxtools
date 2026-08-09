@@ -1,4 +1,7 @@
 export type {Ipv, PortForwarding} from './network.ts';
+export type * from './network_repair.ts';
+export type * from './razer_polling.ts';
+export type * from './apex_launch_repair.ts';
 export type {SteamUser, SteamLaunchOptionsImpl} from './steam.ts';
 export {isSteamLaunchOptionsImpl} from './steam.ts';
 export type {EaDesktopUser} from './ea.ts';

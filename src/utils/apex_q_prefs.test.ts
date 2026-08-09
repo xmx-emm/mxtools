@@ -57,7 +57,7 @@ describe('applyApexQPrefs', () => {
     staleCaller.enabled = true;
     const latest = defaultApexQPrefs();
     latest.overlayOpacity = 0.83;
-    latest.closeToTray = true;
+    latest.usageConfirmed = true;
     saveApexQPrefs(latest);
 
     const {applyApexQPrefs} = await import('@/utils/apex_q.ts');
@@ -66,10 +66,10 @@ describe('applyApexQPrefs', () => {
     expect(loadApexQPrefs()).toMatchObject({
       enabled: true,
       overlayOpacity: 0.83,
-      closeToTray: true,
+      usageConfirmed: true,
     });
     expect(staleCaller.overlayOpacity).toBe(0.83);
-    expect(staleCaller.closeToTray).toBe(true);
+    expect(staleCaller.usageConfirmed).toBe(true);
   });
 
   it('changes overlay geometry only for an explicit placement save', async () => {

@@ -302,6 +302,7 @@ const maxMemDisplayProxy = computed({
                 density="compact"
                 class="flex-shrink-0"
                 :title="t('pubgLaunchOptions.ui.openLogsFolder')"
+                :aria-label="t('pubgLaunchOptions.ui.openLogsFolder')"
                 @click.stop="openPubgLogsFolder"
               >
                 <v-icon size="20">mdi-folder-outline</v-icon>
@@ -328,6 +329,7 @@ const maxMemDisplayProxy = computed({
                   density="compact"
                   icon
                   :title="pubg_store.skip_intro_movies_disabled ? t('pubgLaunchOptions.ui.restoreIntroTip') : t('pubgLaunchOptions.ui.disableIntroTip')"
+                  :aria-label="pubg_store.skip_intro_movies_disabled ? t('pubgLaunchOptions.ui.restoreIntroTip') : t('pubgLaunchOptions.ui.disableIntroTip')"
                   @click.stop="toggleSkipIntroMovies"
                 >
                   <v-icon size="20">
@@ -381,7 +383,8 @@ const maxMemDisplayProxy = computed({
 }
 
 .parameter_info_active {
-  color: #4caf50;
+  color: rgb(var(--v-theme-primary));
+  font-weight: 500;
 }
 
 .input_inline_label {
@@ -456,5 +459,40 @@ const maxMemDisplayProxy = computed({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.launch-option-expand-body {
+  min-width: 0;
+  align-items: center;
+}
+
+.launch-option-expand-body :deep(.game-page-segmented-toggle) {
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+@media (max-width: 760px) {
+  .launch-option-expand-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px !important;
+  }
+
+  .launch-option-expand-body :deep(.game-page-segmented-toggle) {
+    align-self: flex-start;
+  }
+
+  .parameter_info {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .preset_tail {
+    min-width: 0;
+    justify-content: flex-start;
+  }
 }
 </style>

@@ -1,13 +1,19 @@
 mod app_info;
+mod app_repair;
+mod background_coordinator;
+mod background_runtime;
 mod backups;
 mod elevated;
 mod folder_sharing;
 mod game;
 mod game_optimizer;
+mod game_scan;
 mod input_method;
 mod ipc_error;
 mod logger;
+mod network_repair;
 mod port_forwarding;
+mod razer_polling;
 mod rdp;
 mod registry;
 mod stdio_tee;
@@ -22,6 +28,16 @@ mod windows_shell;
 use tauri::Manager;
 
 use crate::app_info::get_app_info;
+use crate::app_repair::{diagnose_app_repair_check, repair_app_issues};
+use crate::background_coordinator::BackgroundCoordinator;
+#[cfg(all(windows, debug_assertions))]
+use crate::background_runtime::BackgroundRuntimeStore;
+use crate::background_runtime::{
+    background_runtime_configure, background_runtime_get, background_runtime_main_window_ready,
+    background_runtime_set_autostart, background_runtime_set_beta_features,
+    background_runtime_set_locale, background_runtime_update_apex_q,
+    background_runtime_update_razer, destroy_main_window, ensure_main_window, LaunchMode,
+};
 use crate::backups::{
     backups_explorer_registry, backups_port_forwarding, backups_port_forwarding_default_path,
     check_backups_explorer_registry, explorer_folder, explorer_registry_path, load_port_forwarding,
@@ -45,6 +61,9 @@ use crate::game::apex_history::{
     list_apex_config_history, mutate_apex_config, reset_apex_to_game_defaults,
     restore_apex_config_history,
 };
+use crate::game::apex_launch_repair::{
+    diagnose_apex_launch_repair_check, repair_apex_launch_issues,
+};
 use crate::game::apex_q::{
     apex_q_compute_theta, apex_q_default_rois, apex_q_from_latest_screenshot,
     apex_q_latest_screenshot, apex_q_list_recent_screenshots, apex_q_list_steam_screenshot_dirs,
@@ -65,6 +84,7 @@ use crate::game::{
     thoroughly_kill_ea_desktop, thoroughly_kill_steam,
 };
 use crate::game_optimizer::{apply_game_optimizer, benchmark_game_network, scan_game_optimizer};
+use crate::game_scan::scan_installed_games;
 use crate::input_method::{
     add_input_method, add_us_keyboard, disable_chs_simplified_traditional_hotkey,
     export_wubi_user_phrases, get_available_input_methods, get_input_methods,
@@ -73,9 +93,14 @@ use crate::input_method::{
     restore_wubi_system_lexicon,
 };
 use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_log};
+use crate::network_repair::{diagnose_network_repair_check, repair_network};
 use crate::port_forwarding::{
     create_multiple_port_forwarding, del_port_forwarding, get_port_forwarding,
     reset_port_forwarding, set_port_forwarding,
+};
+use crate::razer_polling::{
+    razer_polling_configure, razer_polling_probe, razer_polling_restore, razer_polling_set_rate,
+    razer_polling_status, razer_polling_verify_capabilities,
 };
 use crate::rdp::{
     add_rdp_user, check_remote_port, connect_rdp, export_rdp_file, get_rdp_enabled, get_rdp_port,
@@ -100,12 +125,6 @@ use crate::user::{
     rename_windows_user,
 };
 use crate::windows_shell::repair_windows_icon_cache;
-
-fn open_external_url_in_browser(url: &str) {
-    if url.starts_with("http://") || url.starts_with("https://") {
-        let _ = tauri_plugin_opener::open_url(url, None::<&str>);
-    }
-}
 
 /// INTENTIONAL (product requirement): DevTools must remain available in
 /// **release** builds for field debugging. Triggered from the frontend
@@ -167,7 +186,16 @@ pub fn run() {
     #[cfg(not(debug_assertions))]
     windows_tool::utils::log::set_verbose(false);
     logger::init_log_path();
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        // This must stay first: a second process delegates to the resident
+        // background coordinator before any other plugin can initialize.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if LaunchMode::from_args(args.iter().map(String::as_str)) == LaunchMode::Interactive {
+                if let Err(error) = ensure_main_window(app) {
+                    log_error!("Failed to show the main window for a second instance: {error}");
+                }
+            }
+        }))
         .plugin(tauri_plugin_pinia::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -181,15 +209,18 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             init_ort_dylib_path(app.handle());
-            let window_config = app.config().app.windows[0].clone();
-            let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?
-                .on_new_window(|url, _features| {
-                    open_external_url_in_browser(url.as_str());
-                    tauri::webview::NewWindowResponse::Deny
-                })
-                .build()?;
+            #[cfg(all(windows, debug_assertions))]
+            {
+                let _ = crate::background_runtime::cleanup_current_debug_autostart_registration();
+                BackgroundRuntimeStore::from_app(app.handle())
+                    .and_then(|store| store.enforce_current_build_invariants().map(|_| ()))
+                    .map_err(|error| error.to_string())?;
+            }
             setup_tray(app.handle())?;
-            let _ = window;
+            BackgroundCoordinator::start(app.handle()).map_err(|error| error.to_string())?;
+            if LaunchMode::current() == LaunchMode::Interactive {
+                ensure_main_window(app.handle()).map_err(|error| error.to_string())?;
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -212,6 +243,15 @@ pub fn run() {
             //App
             get_app_info,
             is_launched_from_autostart,
+            background_runtime_get,
+            background_runtime_main_window_ready,
+            background_runtime_set_autostart,
+            background_runtime_set_beta_features,
+            background_runtime_set_locale,
+            background_runtime_update_apex_q,
+            background_runtime_update_razer,
+            background_runtime_configure,
+            destroy_main_window,
             //System
             system_info,
             system_total_memory_mb,
@@ -219,6 +259,10 @@ pub fn run() {
             read_utf8_file,
             write_utf8_file,
             repair_windows_icon_cache,
+            diagnose_app_repair_check,
+            repair_app_issues,
+            diagnose_network_repair_check,
+            repair_network,
             // folder sharing
             list_local_shares,
             list_local_share_access,
@@ -283,6 +327,14 @@ pub fn run() {
             scan_game_optimizer,
             apply_game_optimizer,
             benchmark_game_network,
+            scan_installed_games,
+            // Razer polling rate
+            razer_polling_probe,
+            razer_polling_status,
+            razer_polling_configure,
+            razer_polling_set_rate,
+            razer_polling_restore,
+            razer_polling_verify_capabilities,
             //steam
             get_steam_users,
             thoroughly_kill_steam,
@@ -328,6 +380,8 @@ pub fn run() {
             list_apex_config_history,
             restore_apex_config_history,
             reset_apex_to_game_defaults,
+            diagnose_apex_launch_repair_check,
+            repair_apex_launch_issues,
             mutate_apex_config,
             get_ea_desktop_users,
             get_apex_launch_option_ea,
@@ -361,6 +415,12 @@ pub fn run() {
             load_rdp_connections,
             export_rdp_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            BackgroundCoordinator::shutdown_and_restore(app);
+        }
+    });
 }

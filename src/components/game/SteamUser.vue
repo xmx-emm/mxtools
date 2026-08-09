@@ -6,7 +6,7 @@ import {steamAvatarUrl} from '@/utils/game/steam.ts';
 
 withDefaults(
   defineProps<{ accountHint?: string }>(),
-  { accountHint: 'Steam id 578080' },
+  { accountHint: '' },
 );
 
 const emits = defineEmits(['update_user']);
@@ -45,13 +45,18 @@ const activeAvatarSrc = computed(() => steamAvatarUrl(gameStore.active_steam_use
       </v-list-item>
     </v-list>
     <template v-slot:activator="{ props }">
-      <div style="display: flex; align-items: end; justify-content: start;">
+      <div class="steam-user-trigger">
         <v-btn
           icon
+          size="small"
+          density="compact"
+          variant="text"
+          class="steam-user-avatar"
           v-bind="props"
-          :title="gameStore.active_steam_user?.name"
+          :title="gameStore.active_steam_user?.name || t('steam.emptyUserList')"
+          :aria-label="gameStore.active_steam_user?.name || t('steam.emptyUserList')"
         >
-          <v-avatar size="large">
+          <v-avatar size="32">
             <v-img
               v-if="activeAvatarSrc"
               :src="activeAvatarSrc"
@@ -62,14 +67,19 @@ const activeAvatarSrc = computed(() => steamAvatarUrl(gameStore.active_steam_use
           </v-avatar>
         </v-btn>
         <div class="launcher-user-text">
-          <v-tooltip :text="accountHint">
-            <template #activator="{ props: tipProps }">
-              <span v-bind="tipProps" class="d-inline-flex align-center">
-                <v-icon icon="mdi-steam" size="small" color="primary" />
-              </span>
-            </template>
-          </v-tooltip>
-          <div v-bind="props" class="text-body-2">{{ gameStore.active_steam_user?.name }}</div>
+          <div class="steam-user-name-row">
+            <v-tooltip v-if="accountHint" :text="accountHint">
+              <template #activator="{ props: tipProps }">
+                <span v-bind="tipProps" class="steam-user-provider" :aria-label="accountHint">
+                  <v-icon icon="mdi-steam" size="small" color="primary" />
+                </span>
+              </template>
+            </v-tooltip>
+            <v-icon v-else icon="mdi-steam" size="small" color="primary" />
+            <span v-bind="props" class="text-body-2 launcher-user-name">
+              {{ gameStore.active_steam_user?.name || t('steam.emptyUserList') }}
+            </span>
+          </div>
         </div>
       </div>
     </template>
@@ -77,11 +87,54 @@ const activeAvatarSrc = computed(() => steamAvatarUrl(gameStore.active_steam_use
 </template>
 
 <style scoped>
+.steam-user-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.steam-user-avatar {
+  flex: 0 0 32px;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+}
+
+.steam-user-avatar :deep(.v-btn__content) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .launcher-user-text {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
   margin-inline-start: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.steam-user-name-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 5px;
+}
+
+.steam-user-provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.launcher-user-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

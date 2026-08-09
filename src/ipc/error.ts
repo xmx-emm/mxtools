@@ -16,6 +16,9 @@ function toSnakeCase(value: string): string {
 
 function commandDomain(command: string): string {
   if (command.startsWith('apex_q_')) return 'apex_q';
+  if (command.includes('apex_launch_repair') || command === 'repair_apex_launch_issues') {
+    return 'apex_launch_repair';
+  }
   if (command.includes('folder_sharing') || command.includes('share') || command.startsWith('close_smb')) {
     return 'folder_sharing';
   }
@@ -26,6 +29,9 @@ function commandDomain(command: string): string {
   if (command.includes('apex')) return 'apex';
   if (command.includes('pubg')) return 'pubg';
   if (command.includes('game_optimizer') || command.includes('game_network')) return 'game_optimizer';
+  if (command.includes('razer_polling')) return 'razer_polling';
+  if (command.includes('app_repair') || command === 'repair_app_issues') return 'app_repair';
+  if (command.includes('network_repair') || command === 'repair_network') return 'network_repair';
   if (command.includes('port_forwarding')) return 'port_forwarding';
   if (command.includes('windows_user')) return 'windows_user';
   if (command.includes('windows_icon_cache')) return 'windows';
@@ -141,6 +147,14 @@ export function ipcErrorKey(error: unknown): string | null {
     candidates.push(`portForwarding.errors.${camelCase(reason)}`);
   } else if (domain === 'game_optimizer') {
     candidates.push(`gameOptimizer.errors.${camelCase(reason)}`);
+  } else if (domain === 'razer_polling') {
+    candidates.push(`razerPolling.errors.${camelCase(reason)}`);
+  } else if (domain === 'app_repair') {
+    candidates.push(`appRepair.errors.${camelCase(reason)}`);
+  } else if (domain === 'network_repair') {
+    candidates.push(`networkRepair.errors.${camelCase(reason)}`);
+  } else if (domain === 'apex_launch_repair') {
+    candidates.push(`apexLaunchRepair.errors.${camelCase(reason)}`);
   } else if (domain === 'rdp') {
     candidates.push(`rdp.errors.${camelCase(reason)}`);
   } else if (domain === 'pubg') {

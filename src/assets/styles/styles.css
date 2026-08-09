@@ -1,6 +1,6 @@
 
 .error_color {
-  color: palevioletred;
+  color: rgb(var(--v-theme-error));
 }
 
 .apex_image_heigh{

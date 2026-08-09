@@ -107,7 +107,7 @@ watch(activeIndex, () => {
             v-for="(item, i) in previewItems"
             :key="i"
             :value="i"
-            size="x-small"
+            size="small"
           >
             {{ t(item.labelKey) }}
           </v-btn>

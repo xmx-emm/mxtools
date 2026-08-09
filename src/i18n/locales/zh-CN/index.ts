@@ -5,6 +5,7 @@ import {apexConfigMessages} from './apex-config.ts';
 import {apexLaunchMessages} from './apex-launch.ts';
 import {pubgMessages} from './pubg.ts';
 import {gameOptimizerMessages} from './game-optimizer.ts';
+import {razerPollingMessages} from './razer-polling.ts';
 
 export const zhCN = {
   ...appMessages,
@@ -14,6 +15,7 @@ export const zhCN = {
   ...apexLaunchMessages,
   ...pubgMessages,
   ...gameOptimizerMessages,
+  ...razerPollingMessages,
 };
 
 export default zhCN;

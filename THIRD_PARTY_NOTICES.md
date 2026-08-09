@@ -44,8 +44,18 @@ license texts required by those dependencies. The external local path crate
 
 ## Names, trademarks, and media
 
-Names and logos such as Apex Legends, EA, Steam, PUBG, Windows, Alipay, and
-WeChat belong to their respective owners. References are descriptive and do
-not imply affiliation or endorsement. Screenshots, videos, QR-code branding,
-and other third-party media remain subject to their owners' rights and any
-applicable platform terms.
+All copyright, trademark, and other intellectual property rights in icons and
+logos of other software, games, platforms, and brands displayed by MxTools
+remain with their respective owners. Their display solely identifies the
+corresponding product or service and does not imply affiliation, authorization,
+sponsorship, or endorsement. Screenshots, videos, QR-code branding, and other
+third-party media remain subject to their owners' rights and any applicable
+platform terms.
+
+The Razer triple-headed snake icon displayed by MxTools is sourced from
+<https://assets2.razerzone.com/images/razer-legal/razer-logo-icon.png>.
+Razer's trademark use guidelines are available at
+<https://www.razer.com/legal/trademark-use-guidelines>.
+RAZER is the trademark or registered trademark of Razer Inc. All copyright,
+trademark, and other intellectual property rights in the icon remain with
+Razer Inc.

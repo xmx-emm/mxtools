@@ -160,7 +160,9 @@ function scheduleHide(hideSec: number) {
   clearHideTimer();
   if (hideSec <= 0 || editing.value || isAdjusting.value) return;
   hideTimer = setTimeout(() => {
-    void closeOverlay();
+    // Timed overlays release their WebView/WebView2 resources completely.
+    // hideSec=0 intentionally keeps the existing never-hide behavior.
+    void getCurrentWindow().destroy();
   }, hideSec * 1000);
 }
 

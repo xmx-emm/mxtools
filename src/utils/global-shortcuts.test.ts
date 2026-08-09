@@ -10,8 +10,10 @@ const mocks = vi.hoisted(() => ({
     ensureShortcutDefaults: vi.fn(),
     setLocale: vi.fn(),
   },
+  backgroundRuntime: {
+    setLocale: vi.fn(),
+  },
   setAppLocale: vi.fn(),
-  setTrayLocale: vi.fn(),
   loadApexQPrefs: vi.fn(),
   isRegistered: vi.fn(),
   unregister: vi.fn(),
@@ -22,6 +24,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/stores/settings.ts', () => ({
   DEFAULT_TOGGLE_LOCALE_SHORTCUT: 'Ctrl+Alt+Z',
   useSettingsStore: () => mocks.settings,
+}));
+
+vi.mock('@/stores/background_runtime.ts', () => ({
+  useBackgroundRuntimeStore: () => mocks.backgroundRuntime,
 }));
 
 vi.mock('@/types/apex_q.ts', () => ({
@@ -39,10 +45,6 @@ vi.mock('@tauri-apps/plugin-global-shortcut', () => ({
 
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => mocks.currentWindow,
-}));
-
-vi.mock('@/ipc/commands.ts', () => ({
-  setTrayLocale: mocks.setTrayLocale,
 }));
 
 vi.mock('@/utils/shortcut-recording.ts', () => ({
@@ -72,11 +74,15 @@ describe('locale shortcut cleanup', () => {
     mocks.isRegistered.mockResolvedValue(true);
     mocks.unregister.mockResolvedValue(undefined);
     mocks.setAppLocale.mockResolvedValue(true);
-    mocks.setTrayLocale.mockResolvedValue(undefined);
+    mocks.backgroundRuntime.setLocale.mockResolvedValue(undefined);
+    mocks.settings.setLocale.mockImplementation((locale: string) => {
+      mocks.settings.locale = locale;
+    });
     mocks.addEventListener.mockImplementation((type, listener) => {
       if (type === 'keydown') mocks.keydownHandler = listener as (event: KeyboardEvent) => void;
     });
     vi.stubGlobal('window', {addEventListener: mocks.addEventListener});
+    vi.stubGlobal('document', {documentElement: {lang: 'zh-CN'}});
   });
 
   it('does not unregister an enabled, configured APEX Q hotkey', async () => {
@@ -169,5 +175,33 @@ describe('locale shortcut cleanup', () => {
 
     expect(mocks.settings.setLocale).toHaveBeenCalledWith('en-US');
     expect(mocks.setAppLocale).toHaveBeenCalledWith('en-US');
+    await vi.waitFor(() => {
+      expect(mocks.backgroundRuntime.setLocale).toHaveBeenCalledWith('en-US');
+    });
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('restores Pinia, i18n, and document metadata when native locale persistence fails', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mocks.backgroundRuntime.setLocale.mockRejectedValue(new Error('locale write failed'));
+    const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
+    await applyLocaleToggleShortcut();
+
+    mocks.keydownHandler?.({
+      repeat: false,
+      target: null,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent);
+
+    await vi.waitFor(() => {
+      expect(mocks.settings.setLocale).toHaveBeenLastCalledWith('zh-CN');
+      expect(mocks.setAppLocale).toHaveBeenLastCalledWith('zh-CN');
+    });
+    expect(mocks.settings.locale).toBe('zh-CN');
+    expect(document.documentElement.lang).toBe('zh-CN');
+    expect(mocks.settings.setLocale.mock.calls.map(([locale]) => locale)).toEqual(['en-US', 'zh-CN']);
+    expect(mocks.setAppLocale.mock.calls.map(([locale]) => locale)).toEqual(['en-US', 'zh-CN']);
+    warning.mockRestore();
   });
 });

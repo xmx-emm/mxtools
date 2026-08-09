@@ -4,9 +4,11 @@ export type ApexExternalConfigScope = 'launch' | 'video' | 'gameSettings';
 
 export const APEX_CONFIG_CHANGED_EVENT = 'mx-apex-config-changed';
 export const APEX_QUICK_PRESET_ACCOUNT_EVENT = 'mx-apex-quick-preset-account';
+export const APEX_LAUNCH_REPAIR_ACCOUNT_EVENT = 'mx-apex-launch-repair-account';
 const APEX_CONFIG_CHANGE_STORAGE_KEY = 'mx-apex-config-change-v1';
 const APEX_CONFIG_CHANGE_SEEN_KEY = 'mx-apex-config-change-seen-v1';
 const APEX_QUICK_PRESET_ACCOUNT_STORAGE_KEY = 'mx-apex-quick-preset-account-v1';
+const APEX_LAUNCH_REPAIR_ACCOUNT_STORAGE_KEY = 'mx-apex-launch-repair-account-v1';
 
 export interface ApexConfigChangedPayload {
   scopes: ApexExternalConfigScope[]
@@ -14,6 +16,10 @@ export interface ApexConfigChangedPayload {
 }
 
 export interface ApexQuickPresetAccountPayload {
+  accountKey: string | null
+}
+
+export interface ApexLaunchRepairAccountPayload {
   accountKey: string | null
 }
 
@@ -96,6 +102,42 @@ export function listenApexQuickPresetAccount(
   return listen<ApexQuickPresetAccountPayload>(APEX_QUICK_PRESET_ACCOUNT_EVENT, event => {
     void Promise.resolve(handler(event.payload)).catch(error => {
       console.warn('synchronize Apex quick preset account failed', error);
+    });
+  });
+}
+
+export function emitApexLaunchRepairAccount(accountKey: string | null): Promise<void> {
+  rememberApexLaunchRepairAccount(accountKey);
+  return emit(APEX_LAUNCH_REPAIR_ACCOUNT_EVENT, {
+    accountKey,
+  } satisfies ApexLaunchRepairAccountPayload);
+}
+
+export function rememberApexLaunchRepairAccount(accountKey: string | null) {
+  try {
+    localStorage.setItem(APEX_LAUNCH_REPAIR_ACCOUNT_STORAGE_KEY, JSON.stringify({accountKey}));
+  } catch {
+    // The route query and live event remain available when storage is unavailable.
+  }
+}
+
+export function latestApexLaunchRepairAccount(): string | null {
+  try {
+    const raw = localStorage.getItem(APEX_LAUNCH_REPAIR_ACCOUNT_STORAGE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw) as {accountKey?: unknown};
+    return typeof payload.accountKey === 'string' ? payload.accountKey : null;
+  } catch {
+    return null;
+  }
+}
+
+export function listenApexLaunchRepairAccount(
+  handler: (payload: ApexLaunchRepairAccountPayload) => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen<ApexLaunchRepairAccountPayload>(APEX_LAUNCH_REPAIR_ACCOUNT_EVENT, event => {
+    void Promise.resolve(handler(event.payload)).catch(error => {
+      console.warn('synchronize Apex launch repair account failed', error);
     });
   });
 }

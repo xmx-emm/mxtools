@@ -10,6 +10,7 @@ import {
 import {
   applyWindowBehavior,
   loadWindowBehaviorPrefs,
+  migrateLegacyAutostart,
   migrateApexQWindowBehaviorIfNeeded,
   type WindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
@@ -41,12 +42,8 @@ export const useSettingsStore = defineStore('settings', {
     /** 是否显示并启用仍在测试中的功能 */
     betaFeaturesEnabled: false,
     performanceMode: false,
-    /** 开机自启 */
-    autostart: false,
     /** 关闭窗口时最小化到托盘（否则退出） */
     closeToTray: false,
-    /** 启动时进入托盘（不显示主窗口） */
-    startInTray: false,
   }),
   getters: {
     /** 旧持久化数据可能缺少该字段，回落到默认应用内快捷键 */
@@ -55,9 +52,7 @@ export const useSettingsStore = defineStore('settings', {
     },
     windowBehavior(state): WindowBehaviorPrefs {
       return {
-        autostart: state.autostart,
         closeToTray: state.closeToTray,
-        startInTray: state.startInTray,
       };
     },
   },
@@ -104,30 +99,21 @@ export const useSettingsStore = defineStore('settings', {
     setPerformanceMode(v: boolean | null) {
       this.performanceMode = v ?? false;
     },
-    setAutostart(v: boolean | null) {
-      this.autostart = v ?? false;
-      void applyWindowBehavior(this.windowBehavior);
-    },
     setCloseToTray(v: boolean | null) {
       this.closeToTray = v ?? false;
-      void applyWindowBehavior(this.windowBehavior);
-    },
-    setStartInTray(v: boolean | null) {
-      this.startInTray = v ?? false;
       void applyWindowBehavior(this.windowBehavior);
     },
     /** 从 localStorage / 旧琉雀 Q prefs 对齐，并同步系统托盘与自启 */
     async syncWindowBehaviorFromStorage() {
       const early = loadWindowBehaviorPrefs();
       const migrated = migrateApexQWindowBehaviorIfNeeded({
-        autostart: this.autostart || early.autostart,
+        autostart: early.autostart,
         closeToTray: this.closeToTray || early.closeToTray,
-        startInTray: this.startInTray || early.startInTray,
+        startInTray: early.startInTray,
       });
-      this.autostart = migrated.autostart;
       this.closeToTray = migrated.closeToTray;
-      this.startInTray = migrated.startInTray;
-      await applyWindowBehavior(migrated);
+      await applyWindowBehavior({closeToTray: migrated.closeToTray});
+      await migrateLegacyAutostart(migrated.autostart).catch(() => undefined);
     },
     /** 补齐旧版本持久化中缺失的快捷键字段；顺带丢掉已废弃的全局开关字段 */
     ensureShortcutDefaults() {
@@ -145,6 +131,8 @@ export const useSettingsStore = defineStore('settings', {
       }
       // 旧持久化可能仍带 globalShortcutsEnabled；从 state 上删掉避免继续同步
       const anyState = this as unknown as Record<string, unknown>;
+      delete anyState.autostart;
+      delete anyState.startInTray;
       if ('globalShortcutsEnabled' in anyState) {
         delete anyState.globalShortcutsEnabled;
       }

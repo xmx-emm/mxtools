@@ -23,7 +23,7 @@ import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExpo
 import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
 import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
 import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
-import {openApexQWindow} from '@/utils/windows.ts';
+import {openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
@@ -43,6 +43,10 @@ import {
   pendingApexConfigChange,
   type ApexExternalConfigScope,
 } from '@/utils/game/apex_config_events.ts';
+
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
 
 const { t } = useI18n();
 const toast = useToast();
@@ -81,6 +85,7 @@ const pending_external_scopes = new Set<ApexExternalConfigScope>();
 const pending_defaults_refreshing = ref(false);
 
 async function refresh_external_config(scopes: ApexExternalConfigScope[]) {
+  if (!isTauriRuntime) return;
   for (const scope of scopes) pending_external_scopes.add(scope);
   if (external_config_refresh) return external_config_refresh;
   external_config_refresh = (async () => {
@@ -144,6 +149,7 @@ async function refresh_pending_external_config() {
 }
 
 async function refresh_running_for_active_account() {
+  if (!isTauriRuntime) return;
   const acc = apex_store.active_apex_account;
   if (!acc) return;
   if (acc.kind === 'steam') {
@@ -154,6 +160,7 @@ async function refresh_running_for_active_account() {
 }
 
 async function refresh_pending_defaults() {
+  if (!isTauriRuntime) return;
   if (!apex_store.reset_pending_scopes.length || pending_defaults_refreshing.value) return;
   pending_defaults_refreshing.value = true;
   try {
@@ -186,6 +193,12 @@ function on_visibility_change() {
 }
 
 onMounted(async () => {
+  if (!isTauriRuntime) {
+    page_bootstrapped = true;
+    if (apex_store.is_video_config_page) visited_video_tab.value = true;
+    if (apex_store.is_game_settings_page) visited_game_settings_tab.value = true;
+    return;
+  }
   await startTauriStoreOnce('apex', () => apex_store.$tauri.start());
   unlisten_config_changed = await listenApexConfigChanged(async ({scopes, revision}) => {
     try {
@@ -236,7 +249,7 @@ onMounted(async () => {
 watch(
   () => apex_store.launcher_selection_key,
   async (key, prevKey) => {
-    if (!page_bootstrapped || prevKey == null || key === prevKey) return;
+    if (!isTauriRuntime || !page_bootstrapped || prevKey == null || key === prevKey) return;
     await refresh_running_for_active_account();
     if (apex_store.is_launch_page) {
       apex_store.start_launch();
@@ -250,13 +263,13 @@ watch(
     if (!page_bootstrapped || prev === undefined) return;
     if (page === ApexPageTypeEnum.video_config) {
       visited_video_tab.value = true;
-      apex_store.start_video_config();
+      if (isTauriRuntime) apex_store.start_video_config();
     } else if (page === ApexPageTypeEnum.game_settings) {
       visited_game_settings_tab.value = true;
-      apex_store.start_game_settings();
+      if (isTauriRuntime) apex_store.start_game_settings();
     } else {
       visited_launch_tab.value = true;
-      apex_store.start_launch();
+      if (isTauriRuntime) apex_store.start_launch();
     }
   },
 );
@@ -270,6 +283,7 @@ onUnmounted(() => {
 });
 
 async function reload_apex_launch_options() {
+  if (!isTauriRuntime) return;
   if (launch_refresh_loading.value) return;
   launch_refresh_loading.value = true;
   try {
@@ -280,6 +294,7 @@ async function reload_apex_launch_options() {
 }
 
 async function reload_apex_video_config() {
+  if (!isTauriRuntime) return;
   if (video_refresh_loading.value) return;
   video_refresh_loading.value = true;
   try {
@@ -290,6 +305,7 @@ async function reload_apex_video_config() {
 }
 
 async function reload_apex_game_settings() {
+  if (!isTauriRuntime) return;
   if (game_settings_refresh_loading.value) return;
   game_settings_refresh_loading.value = true;
   try {
@@ -300,6 +316,7 @@ async function reload_apex_game_settings() {
 }
 
 async function open_launch_config_folder() {
+  if (!isTauriRuntime) return;
   const acc = apex_store.active_apex_account;
   if (!acc) {
     toast.warning(t('apex.noLauncherAccount'));
@@ -317,6 +334,7 @@ async function open_launch_config_folder() {
 }
 
 async function open_video_config_folder() {
+  if (!isTauriRuntime) return;
   try {
     await openApexVideoConfigFolder();
   } catch (e) {
@@ -325,6 +343,7 @@ async function open_video_config_folder() {
 }
 
 async function open_game_settings_folder() {
+  if (!isTauriRuntime) return;
   const path = apex_store.game_settings_report?.settings.path;
   if (!path) return;
   try {
@@ -340,11 +359,26 @@ function on_page_type_change(value: ApexPageTypeEnum | null) {
   }
 }
 
+function on_user_update() {
+  if (!isTauriRuntime) return;
+  if (apex_store.is_launch_page) apex_store.start_launch();
+  else if (apex_store.is_video_config_page) apex_store.start_video_config();
+  else apex_store.start_game_settings();
+}
+
 function open_quick_preset() {
+  if (!isTauriRuntime) return;
   apex_store.open_quick_preset_window();
 }
 
+function open_launch_repair() {
+  if (!isTauriRuntime) return;
+  void openRepairToolWindow('apex-launch', apex_store.launcher_selection_key)
+    .catch((error) => toast.error(String(error)));
+}
+
 function open_apex_q() {
+  if (!isTauriRuntime) return;
   void openApexQWindow().catch((error) => toast.error(String(error)));
 }
 
@@ -353,6 +387,7 @@ function open_config_export() {
 }
 
 async function open_config_import() {
+  if (!isTauriRuntime) return;
   try {
     let defaultPath: string | undefined;
     try {
@@ -387,62 +422,79 @@ async function open_config_import() {
     <div class="apex-page-toolbar game-page-toolbar">
       <ApexLauncherUser
         class="apex-page-toolbar-user"
-        @update_user="apex_store.is_launch_page ? apex_store.start_launch() : apex_store.is_video_config_page ? apex_store.start_video_config() : apex_store.start_game_settings()"
+        @update_user="on_user_update"
       />
       <div class="apex-page-toolbar-controls">
-        <div class="apex-toolbar-control-slot">
-          <v-btn
-            size="small"
-            variant="text"
-            density="compact"
-            class="apex-preset-btn"
-            :title="t('apex.pagePresetTip')"
-            @click="open_quick_preset"
-          >
-            <v-icon icon="mdi-lightning-bolt-outline" size="small" />
-          </v-btn>
+        <div class="apex-toolbar-utility-actions">
+          <div class="apex-toolbar-control-slot">
+            <v-btn
+              icon="mdi-auto-fix"
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.launchRepairTip')"
+              :aria-label="t('apex.launchRepairTip')"
+              @click="open_launch_repair"
+            />
+          </div>
+          <div class="apex-toolbar-control-slot">
+            <v-btn
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.pagePresetTip')"
+              :aria-label="t('apex.pagePresetTip')"
+              @click="open_quick_preset"
+            >
+              <v-icon icon="mdi-lightning-bolt-outline" size="small" />
+            </v-btn>
+          </div>
+          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
+            <v-btn
+              icon="mdi-angle-acute"
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.apexQ.toolbarTip')"
+              :aria-label="t('apex.apexQ.toolbarTip')"
+              @click="open_apex_q"
+            />
+            <span
+              class="mx-beta-badge apex-q-beta-badge"
+              :title="t('settings.betaFeaturesHint')"
+            >{{ t('common.beta') }}</span>
+          </div>
+          <div class="apex-toolbar-control-slot">
+            <v-btn
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.configSnapshot.exportTip')"
+              :aria-label="t('apex.configSnapshot.exportTip')"
+              @click="open_config_export"
+            >
+              <v-icon icon="mdi-application-export" size="small" />
+            </v-btn>
+          </div>
+          <div class="apex-toolbar-control-slot">
+            <v-btn
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.configSnapshot.importTip')"
+              :aria-label="t('apex.configSnapshot.importTip')"
+              @click="open_config_import"
+            >
+              <v-icon icon="mdi-application-import" size="small" />
+            </v-btn>
+          </div>
         </div>
-        <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
-          <v-btn
-            icon="mdi-angle-acute"
-            size="small"
-            variant="text"
-            density="compact"
-            class="apex-preset-btn"
-            :title="t('apex.apexQ.toolbarTip')"
-            :aria-label="t('apex.apexQ.toolbarTip')"
-            @click="open_apex_q"
-          />
-          <span
-            class="mx-beta-badge apex-q-beta-badge"
-            :title="t('settings.betaFeaturesHint')"
-          >{{ t('common.beta') }}</span>
-        </div>
-        <div class="apex-toolbar-control-slot">
-          <v-btn
-            size="small"
-            variant="text"
-            density="compact"
-            class="apex-preset-btn"
-            :title="t('apex.configSnapshot.exportTip')"
-            @click="open_config_export"
-          >
-            <v-icon icon="mdi-application-export" size="small" />
-          </v-btn>
-        </div>
-        <div class="apex-toolbar-control-slot">
-          <v-btn
-            size="small"
-            variant="text"
-            density="compact"
-            class="apex-preset-btn"
-            :title="t('apex.configSnapshot.importTip')"
-            @click="open_config_import"
-          >
-            <v-icon icon="mdi-application-import" size="small" />
-          </v-btn>
-        </div>
-        <div class="apex-toolbar-control-slot">
+        <div class="apex-page-switcher" role="region" :aria-label="t('apex.pageSwitcherLabel')">
           <v-btn-toggle
             :model-value="apex_store.page_type"
             @update:model-value="on_page_type_change"
@@ -520,11 +572,13 @@ async function open_config_import() {
           <v-btn
             icon="mdi-history"
             :title="t('apex.history.open')"
+            :aria-label="t('apex.history.open')"
             @click="apex_store.open_config_history_dialog()"
           />
           <v-btn
             icon="mdi-restore-alert"
             :title="t('apex.history.resetTitle')"
+            :aria-label="t('apex.history.resetTitle')"
             @click="apex_store.open_reset_defaults_dialog()"
           />
         </v-btn-group>
@@ -542,8 +596,8 @@ async function open_config_import() {
             @click="reload_apex_video_config"
             @contextmenu="open_video_config_folder"
           />
-          <v-btn icon="mdi-history" :title="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
-          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
+          <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
+          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -559,8 +613,8 @@ async function open_config_import() {
             @click="reload_apex_game_settings"
             @contextmenu="open_game_settings_folder"
           />
-          <v-btn icon="mdi-history" :title="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
-          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
+          <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
+          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -631,6 +685,24 @@ async function open_config_import() {
   margin-left: auto;
 }
 
+.apex-toolbar-utility-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.apex-page-switcher {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.apex-page-switcher :deep(.apex-page-type-toggle) {
+  width: max-content;
+}
+
 .apex-toolbar-control-slot {
   position: relative;
   display: flex;
@@ -695,6 +767,39 @@ async function open_config_import() {
 
 .apex-page-type-toggle :deep(.v-btn__content) {
   padding-inline: 2px;
+}
+
+@media (max-width: 840px) {
+  .apex-page-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .apex-page-toolbar-user {
+    flex-basis: 100%;
+  }
+
+  .apex-page-toolbar-controls {
+    width: 100%;
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .apex-page-switcher {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .apex-page-toolbar-controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .apex-page-switcher {
+    flex-basis: 100%;
+    width: 100%;
+  }
 }
 
 .apex-tab-panel {

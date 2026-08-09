@@ -8,16 +8,15 @@ import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {useSettingsStore} from '@/stores/settings.ts';
 import {useDebugStore} from '@/stores/debug.ts';
 import {useUiStyleStore} from '@/stores/style.ts';
-import {getLogFolderPath, setTrayBetaFeatures, setTrayLocale} from '@/ipc/commands.ts';
+import {getLogFolderPath} from '@/ipc/commands.ts';
 import {openAboutWindow} from '@/utils/windows.ts';
 import FeedbackErrorDialog from '@/components/settings/FeedbackErrorDialog.vue';
 import ClearPersistedDataDialog from '@/components/settings/ClearPersistedDataDialog.vue';
 import ThemeColorPicker from '@/components/settings/ThemeColorPicker.vue';
 import ShortcutInput from '@/components/settings/ShortcutInput.vue';
+import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
 import type {LocaleCode} from '@/utils/locale.ts';
-import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
-import {setAppLocale} from '@/i18n/i18n.ts';
-import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT} from '@/utils/global-shortcuts.ts';
+import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT, setSynchronizedAppLocale} from '@/utils/global-shortcuts.ts';
 import {
   APEX_Q_PREFS_CHANGED_EVENT,
   DEFAULT_APEX_Q_HOTKEY,
@@ -25,23 +24,31 @@ import {
   type ApexQPrefs,
 } from '@/types/apex_q.ts';
 import {applyApexQPrefs, bootstrapApexQFromStorage, syncApexQHotkey} from '@/utils/apex_q.ts';
+import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 
-type SettingsTab = 'general' | 'shortcuts' | 'about';
+type SettingsTab = 'general' | 'appearance' | 'shortcuts' | 'about';
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
 
 const {t} = useI18n();
 const settingsStore = useSettingsStore();
 const debugStore = useDebugStore();
 const uiStore = useUiStyleStore();
 const toast = useToast();
-const currentWindowLabel = getCurrentWindow().label;
+const backgroundRuntime = useBackgroundRuntimeStore();
+const currentWindowLabel = isTauriRuntime ? getCurrentWindow().label : 'browser-preview';
 let unlistenApexQPrefs: UnlistenFn | null = null;
 
 const activeTab = ref<SettingsTab>('general');
 const editTheme = ref(uiStore.theme);
 const apexQPrefs = reactive<ApexQPrefs>(loadApexQPrefs());
+const localeApplying = ref(false);
 
 const tabs = computed(() => [
   {id: 'general' as const, title: t('settings.tabGeneral'), icon: 'mdi-tune-variant'},
+  {id: 'appearance' as const, title: t('settings.appearance'), icon: 'mdi-palette-outline'},
   {id: 'shortcuts' as const, title: t('settings.tabShortcuts'), icon: 'mdi-keyboard-outline'},
   {id: 'about' as const, title: t('settings.tabAbout'), icon: 'mdi-information-outline'},
 ]);
@@ -57,12 +64,16 @@ const localeItems = computed(() => [
 ]);
 
 async function applyLocale(locale: LocaleCode) {
-  settingsStore.setLocale(locale);
-  const resolved = resolveLocale(locale);
-  const activated = await setAppLocale(resolved);
-  if (!activated) return;
-  applyDocumentLocale(locale);
-  void setTrayLocale(resolved).catch((e) => console.warn('sync tray locale failed', e));
+  if (localeApplying.value || locale === settingsStore.locale) return;
+  localeApplying.value = true;
+  try {
+    await setSynchronizedAppLocale(locale);
+  } catch (error) {
+    console.warn('sync app locale failed', error);
+    toast.error(String(error));
+  } finally {
+    localeApplying.value = false;
+  }
 }
 
 async function openLogFolder() {
@@ -99,10 +110,16 @@ function onPerformanceMode(v: boolean | null) {
 
 async function onBetaFeaturesEnabled(v: boolean | null) {
   const enabled = v ?? false;
-  settingsStore.setBetaFeaturesEnabled(enabled);
-  await setTrayBetaFeatures(enabled).catch((error) => {
-    console.warn('sync tray beta features failed', error);
-  });
+  const previous = settingsStore.betaFeaturesEnabled;
+  try {
+    await backgroundRuntime.setBetaFeatures(enabled);
+    settingsStore.setBetaFeaturesEnabled(enabled);
+  } catch (error) {
+    console.warn('sync native beta features failed', error);
+    settingsStore.setBetaFeaturesEnabled(previous);
+    toast.error(String(error));
+    return;
+  }
   try {
     if (enabled) {
       await bootstrapApexQFromStorage();
@@ -167,6 +184,7 @@ watch(activeTab, (tab) => {
 });
 
 onMounted(async () => {
+  if (!isTauriRuntime) return;
   unlistenApexQPrefs = await listen<{source?: unknown}>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
     if (event.payload?.source !== currentWindowLabel) {
       Object.assign(apexQPrefs, loadApexQPrefs());
@@ -226,27 +244,7 @@ onUnmounted(() => {
               </div>
             </header>
             <div class="settings-rows">
-              <label class="setting-row">
-                <span><strong>{{ t('settings.autostart') }}</strong></span>
-                <v-switch
-                  :model-value="settingsStore.autostart"
-                  hide-details
-                  color="primary"
-                  @update:model-value="settingsStore.setAutostart"
-                />
-              </label>
-              <label class="setting-row">
-                <span>
-                  <strong>{{ t('settings.startInTray') }}</strong>
-                  <small>{{ t('settings.startInTrayHint') }}</small>
-                </span>
-                <v-switch
-                  :model-value="settingsStore.startInTray"
-                  hide-details
-                  color="primary"
-                  @update:model-value="settingsStore.setStartInTray"
-                />
-              </label>
+              <BackgroundAutostartSwitch />
               <label class="setting-row">
                 <span>
                   <strong>{{ t('settings.closeToTray') }}</strong>
@@ -257,6 +255,15 @@ onUnmounted(() => {
                   hide-details
                   color="primary"
                   @update:model-value="settingsStore.setCloseToTray"
+                />
+              </label>
+              <label class="setting-row">
+                <span><strong>{{ t('settings.restoreLastPage') }}</strong></span>
+                <v-switch
+                  :model-value="settingsStore.restoreLastRoute"
+                  hide-details
+                  color="primary"
+                  @update:model-value="settingsStore.setRestoreLastRoute"
                 />
               </label>
             </div>
@@ -271,15 +278,6 @@ onUnmounted(() => {
               </div>
             </header>
             <div class="settings-rows">
-              <label class="setting-row">
-                <span><strong>{{ t('settings.restoreLastPage') }}</strong></span>
-                <v-switch
-                  :model-value="settingsStore.restoreLastRoute"
-                  hide-details
-                  color="primary"
-                  @update:model-value="settingsStore.setRestoreLastRoute"
-                />
-              </label>
               <label class="setting-row">
                 <span>
                   <strong>{{ t('settings.performanceMode') }}</strong>
@@ -319,7 +317,16 @@ onUnmounted(() => {
             </div>
           </section>
 
-          <section class="app-section settings-section settings-appearance">
+        </div>
+
+        <div
+          v-show="activeTab === 'appearance'"
+          id="settings-panel-appearance"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-appearance"
+        >
+          <section class="app-section settings-section">
             <header class="settings-section-header">
               <span class="settings-section-icon"><v-icon icon="mdi-palette-outline" size="18"/></span>
               <div>
@@ -334,6 +341,8 @@ onUnmounted(() => {
                 :label="t('settings.language')"
                 item-title="title"
                 item-value="value"
+                :loading="localeApplying"
+                :disabled="localeApplying"
                 @update:model-value="applyLocale"
               />
               <v-select
@@ -502,7 +511,6 @@ onUnmounted(() => {
   gap: 14px;
 }
 .settings-general-grid .app-section + .app-section { margin-top: 0; }
-.settings-appearance { grid-column: 1 / -1; }
 .settings-section { overflow: hidden; }
 .settings-section-header {
   display: flex;
@@ -586,7 +594,6 @@ onUnmounted(() => {
 @media (max-width: 820px) {
   .settings-header { align-items: flex-start; flex-direction: column; }
   .settings-general-grid { grid-template-columns: 1fr; }
-  .settings-appearance { grid-column: auto; }
   .shortcut-row { grid-template-columns: 42px minmax(0, 1fr) auto; }
   .shortcut-row > :last-child { grid-column: 2 / -1; justify-self: start; }
 }

@@ -106,7 +106,8 @@ function selectAccount(acc: ApexLauncherAccount) {
         <v-btn
           icon
           v-bind="props"
-          :title="apex_store.active_apex_account?.user.name"
+          :title="apex_store.active_apex_account?.user.name ?? t('apex.noLauncherAccount')"
+          :aria-label="apex_store.active_apex_account?.user.name ?? t('apex.noLauncherAccount')"
         >
           <v-avatar size="large">
             <v-img
@@ -145,8 +146,12 @@ function selectAccount(acc: ApexLauncherAccount) {
               color="medium-emphasis"
             />
           </span>
-          <div v-bind="props" class="launcher-user-name text-body-2">
-            {{ apex_store.active_apex_account?.user.name ?? '—' }}
+          <div
+            v-bind="props"
+            class="launcher-user-name text-body-2"
+            :class="{'launcher-user-name--empty': !apex_store.active_apex_account}"
+          >
+            {{ apex_store.active_apex_account?.user.name ?? t('apex.noLauncherAccount') }}
           </div>
         </div>
       </div>
@@ -175,5 +180,10 @@ function selectAccount(acc: ApexLauncherAccount) {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.launcher-user-name--empty {
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.75rem !important;
 }
 </style>

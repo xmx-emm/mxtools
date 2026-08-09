@@ -83,7 +83,7 @@ const {openCommandPalette} = useCommandPalette();
     gap: 10px 16px;
   }
 
-  :global(.app-page__header > *:last-child) {
+  :global(.app-page__header > *:last-child:not(:first-child)) {
     margin-left: auto;
   }
 

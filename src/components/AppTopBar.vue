@@ -10,6 +10,10 @@ import {useStateStore} from '@/stores/state.ts';
 import {createRafScheduler} from '@/utils/raf.ts';
 import appIconUrl from '../../src-tauri/icons/32x32.png';
 
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 const props = withDefaults(
   defineProps<{
     /** 左侧显示的窗口名称；主窗口可不传 */
@@ -44,6 +48,7 @@ const resolvedTitle = computed(() => props.title || routeTitle.value);
 const commandTitle = computed(() => `${t('commandPalette.title')} (Ctrl+K)`);
 
 async function update_window_state() {
+  if (!isTauriRuntime) return;
   try {
     is_maximized.value = await WebviewWindow.getCurrent().isMaximized();
   } catch (e) {
@@ -57,17 +62,20 @@ const resizeStateScheduler = createRafScheduler(() => {
 
 function close_window() {
   if (props.closeDisabled) return;
+  if (!isTauriRuntime) return;
   const window = WebviewWindow.getCurrent();
   window.close();
 }
 
 function minimize_window() {
+  if (!isTauriRuntime) return;
   const window = WebviewWindow.getCurrent();
   window.minimize();
   void update_window_state();
 }
 
 async function switch_window() {
+  if (!isTauriRuntime) return;
   const window = WebviewWindow.getCurrent();
   await window.toggleMaximize();
   await update_window_state();
@@ -81,6 +89,7 @@ const icon = computed(() => {
 let unlistenResize: (() => void) | null = null;
 
 onMounted(async () => {
+  if (!isTauriRuntime) return;
   void update_window_state();
   unlistenResize = await WebviewWindow.getCurrent().listen(TauriEvent.WINDOW_RESIZED, () => {
     // 拖拽改窗体尺寸时事件极密；合并到每帧最多一次 IPC
@@ -382,5 +391,18 @@ onUnmounted(() => {
 .title-bar-actions .title-bar-btn.title-bar-btn-close:hover:not(:disabled) {
   background-color: rgb(232, 17, 35);
   color: rgb(255, 255, 255);
+}
+
+@media (max-width: 520px) {
+  .title-bar-command {
+    max-width: none;
+    flex: 0 0 auto;
+    gap: 4px;
+    padding-inline: 5px;
+  }
+
+  .title-bar-command-label {
+    display: none;
+  }
 }
 </style>

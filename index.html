@@ -28,6 +28,13 @@
                 s.setProperty('--splash-primary', accent.p || accent.g1);
                 s.setProperty('--splash-shadow', accent.s || 'rgba(218,41,42,0.27)');
             }
+
+            document.addEventListener('contextmenu', function(event) {
+                var splash = document.getElementById('splash');
+                if (splash && event.target && splash.contains(event.target)) {
+                    event.preventDefault();
+                }
+            }, true);
         })();
     </script>
     <style>
@@ -68,7 +75,10 @@
             -webkit-font-smoothing: antialiased;
             z-index: 99999;
             transition: opacity .3s ease;
+            user-select: none;
         }
+
+        #splash * { pointer-events: none; }
 
         #splash.splash-hidden {
             opacity: 0;
@@ -81,6 +91,7 @@
             justify-content: center;
             width: 56px;
             height: 56px;
+            flex: 0 0 56px;
             border-radius: 8px;
             background: linear-gradient(135deg, var(--splash-g1) 0%, var(--splash-g2) 100%);
             box-shadow: 0 8px 24px var(--splash-shadow);
@@ -94,8 +105,14 @@
         }
 
         #splash-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 20px;
+            height: 20px;
             font-size: 16px;
             font-weight: 600;
+            line-height: 20px;
             letter-spacing: 0;
             opacity: 0;
             animation: splash-fade-in .4s ease .2s forwards;
@@ -104,6 +121,7 @@
         #splash-bar-track {
             width: 120px;
             height: 3px;
+            flex: 0 0 3px;
             border-radius: 2px;
             background: color-mix(in srgb, var(--splash-primary) 12%, transparent);
             overflow: hidden;
@@ -154,7 +172,7 @@
     </style>
 </head>
 <body>
-<div id="splash">
+<div id="splash" data-tauri-drag-region="true">
     <div id="splash-logo">
         <svg viewBox="0 0 24 24"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7 7 7 0 0 1-7 7Z"/></svg>
     </div>

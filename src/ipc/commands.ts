@@ -30,6 +30,12 @@ import type {
   NetworkBenchmark,
 } from '@/types/game_optimizer.ts';
 import type {
+  RazerPollingApplyResult,
+  RazerPollingCapabilityResult,
+  RazerPollingConfig,
+  RazerPollingStatus,
+} from '@/types/razer_polling.ts';
+import type {
   LocalShare,
   MappedDrive,
   NetworkDevice,
@@ -46,6 +52,27 @@ import type {
   ShareMutationRequest,
   SmbActivity,
 } from '@/types/folder_sharing.ts';
+import type {
+  AppRepairActionResult,
+  AppRepairCheckResult,
+  AppRepairTarget,
+} from '@/types/app_repair.ts';
+import type {
+  NetworkRepairActionResult,
+  NetworkRepairCheck,
+} from '@/types/network_repair.ts';
+import type {
+  ApexLaunchRepairActionResult,
+  ApexLaunchRepairCheckResult,
+  ApexLaunchRepairTarget,
+} from '@/types/apex_launch_repair.ts';
+import type {
+  BackgroundRuntimeConfig,
+  BackgroundRuntimeRazerUpdate,
+  BackgroundRuntimeSnapshot,
+  RazerBackgroundConfig,
+} from '@/types/background_runtime.ts';
+import type {InstalledGameScanReport} from '@/types/game_scan.ts';
 
 /** Typed wrapper around Tauri `invoke`. */
 export async function ipcInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -56,6 +83,52 @@ export async function ipcInvoke<T>(cmd: string, args?: Record<string, unknown>):
     console.error('Tauri IPC command failed', {command: cmd, payload, error});
     throw new IpcCommandError(cmd, payload, error);
   }
+}
+
+export function getBackgroundRuntime(): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_get');
+}
+
+export function setBackgroundRuntimeAutostart(enabled: boolean): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_set_autostart', {enabled});
+}
+
+export function configureBackgroundRuntime(config: BackgroundRuntimeConfig): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_configure', {config});
+}
+
+export function updateBackgroundRuntimeApexQ(
+  apexQ: BackgroundRuntimeConfig['apexQ'],
+): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_update_apex_q', {apexQ});
+}
+
+export function setBackgroundRuntimeBetaFeatures(enabled: boolean): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_set_beta_features', {enabled});
+}
+
+export function updateBackgroundRuntimeRazer(
+  razer: RazerBackgroundConfig,
+): Promise<BackgroundRuntimeRazerUpdate> {
+  return ipcInvoke<BackgroundRuntimeRazerUpdate>('background_runtime_update_razer', {razer});
+}
+
+export function setBackgroundRuntimeLocale(
+  locale: BackgroundRuntimeConfig['locale'],
+): Promise<BackgroundRuntimeSnapshot> {
+  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_set_locale', {locale});
+}
+
+export function destroyMainWindow(): Promise<boolean> {
+  return ipcInvoke<boolean>('destroy_main_window');
+}
+
+export function markBackgroundMainWindowReady(): Promise<void> {
+  return ipcInvoke<void>('background_runtime_main_window_ready');
+}
+
+export function scanInstalledGames(): Promise<InstalledGameScanReport> {
+  return ipcInvoke<InstalledGameScanReport>('scan_installed_games');
 }
 
 // ── elevated ──────────────────────────────────────────────
@@ -87,6 +160,70 @@ export function benchmarkGameNetwork(args: {
   count?: number;
 }): Promise<NetworkBenchmark> {
   return ipcInvoke<NetworkBenchmark>('benchmark_game_network', args);
+}
+
+// ── Razer polling rate ───────────────────────────────────
+
+export function probeRazerPolling(): Promise<RazerPollingStatus[]> {
+  return ipcInvoke<RazerPollingStatus[]>('razer_polling_probe');
+}
+
+export function getRazerPollingStatus(): Promise<RazerPollingStatus[]> {
+  return ipcInvoke<RazerPollingStatus[]>('razer_polling_status');
+}
+
+export function configureRazerPolling(config: RazerPollingConfig): Promise<RazerPollingStatus[]> {
+  return ipcInvoke<RazerPollingStatus[]>('razer_polling_configure', {config});
+}
+
+export function setRazerPollingRate(deviceId: string, rateHz: number): Promise<RazerPollingApplyResult> {
+  return ipcInvoke<RazerPollingApplyResult>('razer_polling_set_rate', {deviceId, rateHz});
+}
+
+export function restoreRazerPollingRate(deviceId: string): Promise<RazerPollingApplyResult> {
+  return ipcInvoke<RazerPollingApplyResult>('razer_polling_restore', {deviceId});
+}
+
+export function verifyRazerPollingCapabilities(deviceId: string): Promise<RazerPollingCapabilityResult> {
+  return ipcInvoke<RazerPollingCapabilityResult>('razer_polling_verify_capabilities', {deviceId});
+}
+
+// ── Windows app repair ───────────────────────────────────
+
+export function diagnoseAppRepairCheck(args: {
+  target: AppRepairTarget;
+  checkId: string;
+}): Promise<AppRepairCheckResult> {
+  return ipcInvoke<AppRepairCheckResult>('diagnose_app_repair_check', args);
+}
+
+export function repairAppIssues(args: {
+  target: AppRepairTarget;
+  actions: string[];
+}): Promise<AppRepairActionResult[]> {
+  return ipcInvoke<AppRepairActionResult[]>('repair_app_issues', args);
+}
+
+export function diagnoseNetworkRepairCheck(checkId: string): Promise<NetworkRepairCheck> {
+  return ipcInvoke<NetworkRepairCheck>('diagnose_network_repair_check', {checkId});
+}
+
+export function diagnoseApexLaunchRepairCheck(args: {
+  target: ApexLaunchRepairTarget;
+  checkId: string;
+}): Promise<ApexLaunchRepairCheckResult> {
+  return ipcInvoke<ApexLaunchRepairCheckResult>('diagnose_apex_launch_repair_check', args);
+}
+
+export function repairApexLaunchIssues(args: {
+  target: ApexLaunchRepairTarget;
+  actions: string[];
+}): Promise<ApexLaunchRepairActionResult[]> {
+  return ipcInvoke<ApexLaunchRepairActionResult[]>('repair_apex_launch_issues', args);
+}
+
+export function repairNetwork(actions: string[]): Promise<NetworkRepairActionResult[]> {
+  return ipcInvoke<NetworkRepairActionResult[]>('repair_network', {request: {actions}});
 }
 
 // ── folder sharing ───────────────────────────────────────

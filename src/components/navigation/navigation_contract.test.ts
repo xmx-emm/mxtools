@@ -70,6 +70,13 @@ describe('shared navigation visual contract', () => {
     expect(navigation).not.toContain('@click="router.push(\'/settings\')"');
   });
 
+  it('keeps Beta guidance separate from the tool name', () => {
+    expect(navigation).toContain(':text="$t(item.nameKey)"');
+    expect(navigation).toContain(':title="$t(item.nameKey)"');
+    expect(navigation).not.toContain("`${$t(item.nameKey)} · ${$t('settings.betaFeaturesHint')}`");
+    expect(navigation).toContain(":class=\"{'nav-child-item--beta': item.beta}\"");
+  });
+
   it('smoothly aligns the home hit area with its visible border', () => {
     expect(navigation).toMatch(
       /\.nav-brand-mark \{[^}]*width: 40px;[^}]*height: 40px;[^}]*box-sizing: border-box;/s,

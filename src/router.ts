@@ -10,9 +10,24 @@ import {
   openAboutWindow,
   openApexQWindow,
   openApexQuickPresetWindow,
+  openRepairToolWindow,
 } from '@/utils/windows.ts';
 import {consumeRestoreHashAlignedForRouter} from '@/utils/restore-last-route-hash.ts';
 import PUBGIcon from '@/components/icons/PUBGIcon.vue';
+import RazerIcon from '@/components/icons/RazerIcon.vue';
+
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
+function getTauriCurrentWindow() {
+  if (!isTauriRuntime) return null;
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
 
 const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
@@ -24,11 +39,15 @@ const GamePage = () => import('./pages/GamePage.vue');
 const WindowsPage = () => import('./pages/WindowsPage.vue');
 const ApexPage = () => import('./pages/game/ApexPage.vue');
 const GameOptimizerPage = () => import('./pages/game/GameOptimizerPage.vue');
+const RazerPollingPage = () => import('./pages/game/RazerPollingPage.vue');
 
 const ExplorerPage = () => import('./pages/windows/ExplorerPage.vue');
 const RemoteDesktopPage = () => import('./pages/windows/RemoteDesktopPage.vue');
 const InputMethodPage = () => import('./pages/windows/InputMethodPage.vue');
 const FolderSharingPage = () => import('./pages/windows/FolderSharingPage.vue');
+const AppRepairPage = () => import('./pages/windows/AppRepairPage.vue');
+const NetworkRepairPage = () => import('./pages/windows/NetworkRepairPage.vue');
+const ApexLaunchRepairPage = () => import('./pages/game/ApexLaunchRepairPage.vue');
 const DashboardView = () => import('./views/DashboardView.vue');
 const Error404View = () => import('./views/Error404View.vue');
 const ServerPage = () => import('./pages/ServerPage.vue');
@@ -41,7 +60,20 @@ export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = [
   '/apex-q-overlay',
   '/apex-q',
   '/apex-quick-preset',
+  '/repair-store',
+  '/repair-onedrive',
+  '/repair-icon-cache',
+  '/repair-network',
+  '/repair-apex-launch',
 ];
+
+const REPAIR_TOOL_ROUTE_TARGETS = {
+  '/repair-store': 'store',
+  '/repair-onedrive': 'onedrive',
+  '/repair-icon-cache': 'icon-cache',
+  '/repair-network': 'network',
+  '/repair-apex-launch': 'apex-launch',
+} as const;
 
 /** 侧栏「工具」子项元数据：路由、文案 key、图标等，供导航与 `router.ts` 内工具表共用 */
 export interface ToolChild {
@@ -52,6 +84,15 @@ export interface ToolChild {
   icon?: string;
   iconComponent?: Component;
   beta?: boolean;
+  searchChildren?: readonly ToolSearchChild[];
+}
+
+export interface ToolSearchChild {
+  path: string;
+  name: string;
+  nameKey: string;
+  icon?: string;
+  iconComponent?: Component;
 }
 
 const game_tools: ToolChild[] = [
@@ -61,7 +102,6 @@ const game_tools: ToolChild[] = [
     nameKey: 'nav.gameOptimizer',
     component: GameOptimizerPage,
     icon: 'mdi-speedometer',
-    beta: true,
   },
   {
     path: '/apex',
@@ -76,9 +116,56 @@ const game_tools: ToolChild[] = [
     nameKey: 'nav.pubg',
     component: PubgPage,
     iconComponent: markRaw(PUBGIcon)
-  }
+  },
+  {
+    path: '/razer_polling',
+    name: 'RazerPolling',
+    nameKey: 'nav.razerPolling',
+    component: RazerPollingPage,
+    iconComponent: markRaw(RazerIcon),
+    beta: true,
+  },
 ];
 const windows_tools: ToolChild[] = [
+  {
+    path: '/app_repair',
+    name: 'App Repair',
+    nameKey: 'nav.appRepair',
+    component: AppRepairPage,
+    icon: 'mdi-auto-fix',
+    searchChildren: [
+      {
+        path: '/repair-store',
+        name: 'Microsoft Store Repair',
+        nameKey: 'appRepair.targets.store',
+        icon: 'mdi-store-outline',
+      },
+      {
+        path: '/repair-onedrive',
+        name: 'OneDrive Repair',
+        nameKey: 'appRepair.targets.onedrive',
+        icon: 'mdi-microsoft-onedrive',
+      },
+      {
+        path: '/repair-icon-cache',
+        name: 'Blank Icon Repair',
+        nameKey: 'appRepair.targets.iconCache',
+        icon: 'mdi-image-refresh-outline',
+      },
+      {
+        path: '/repair-network',
+        name: 'Network Repair',
+        nameKey: 'appRepair.targets.network',
+        icon: 'mdi-lan-connect',
+      },
+      {
+        path: '/repair-apex-launch',
+        name: 'Apex Launch Repair',
+        nameKey: 'appRepair.targets.apexLaunch',
+        icon: 'mdi-auto-fix',
+      },
+    ],
+  },
   { path: '/folder_sharing', name: 'Folder Sharing', nameKey: 'nav.folderSharing', component: FolderSharingPage, icon: 'mdi-lan-connect', beta: true },
   { path: '/explorer', name: 'Explorer', nameKey: 'nav.explorer', component: ExplorerPage, icon: 'mdi-folder-outline' },
   { path: '/remote_desktop', name: 'RemoteDesktop', nameKey: 'nav.remoteDesktop', component: RemoteDesktopPage, icon: 'mdi-remote-desktop', beta: true },
@@ -136,6 +223,15 @@ const routes = [
   { path: '/apex-q', component: ApexQWindowView },
   { path: '/apex-quick-preset', component: ApexQuickPresetWindowView },
   { path: '/apex-q-overlay', component: ApexQOverlayView },
+  { path: '/repair-store', component: AppRepairPage, meta: {repairToolTarget: 'store'} },
+  { path: '/repair-onedrive', component: AppRepairPage, meta: {repairToolTarget: 'onedrive'} },
+  { path: '/repair-icon-cache', component: AppRepairPage, meta: {repairToolTarget: 'icon-cache'} },
+  { path: '/repair-network', component: NetworkRepairPage, meta: {repairToolTarget: 'network'} },
+  {
+    path: '/repair-apex-launch',
+    component: ApexLaunchRepairPage,
+    meta: {repairToolTarget: 'apex-launch'},
+  },
 
   // 404
   { path: '/404', name: '404', component: Error404View, hidden: true, meta: { title: '404' } },
@@ -299,10 +395,26 @@ router.beforeEach(async (to, from, next) => {
     next({path: betaToolCategory.path, replace: true});
     return;
   }
+
+  const repairToolTarget = REPAIR_TOOL_ROUTE_TARGETS[
+    toPathOnly as keyof typeof REPAIR_TOOL_ROUTE_TARGETS
+  ];
+  if (repairToolTarget) {
+    const win = getTauriCurrentWindow();
+    if (win?.label === 'main') {
+      void openRepairToolWindow(repairToolTarget)
+        .catch((error) => console.warn('open repair tool window failed', error));
+      next(false);
+      return;
+    }
+    next();
+    return;
+  }
+
   // 主窗口不渲染 /about，改为打开独立关于窗口并取消本次导航
   if (toPathOnly === '/about') {
-    const win = getCurrentWindow();
-    if (win.label === 'main') {
+    const win = getTauriCurrentWindow();
+    if (win?.label === 'main') {
       openAboutWindow();
       next(false);
       return;
@@ -311,8 +423,8 @@ router.beforeEach(async (to, from, next) => {
 
   // 主窗口不渲染 APEX Q 设置页，改为独立窗口
   if (toPathOnly === '/apex-q') {
-    const win = getCurrentWindow();
-    if (win.label === 'main') {
+    const win = getTauriCurrentWindow();
+    if (win?.label === 'main') {
       if (!settings.betaFeaturesEnabled) {
         next(false);
         return;
@@ -324,8 +436,8 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (toPathOnly === '/apex-quick-preset') {
-    const win = getCurrentWindow();
-    if (win.label === 'main') {
+    const win = getTauriCurrentWindow();
+    if (win?.label === 'main') {
       void openApexQuickPresetWindow()
         .catch((error) => console.warn('open apex quick preset route failed', error));
       next(false);
@@ -346,8 +458,8 @@ router.beforeEach(async (to, from, next) => {
     settings.restoreLastRoute &&
     settings.lastRoute
   ) {
-    const win = getCurrentWindow();
-    if (win.label === 'main' && !isRestoreLastRoute) {
+    const win = getTauriCurrentWindow();
+    if (win?.label === 'main' && !isRestoreLastRoute) {
       if (consumeRestoreHashAlignedForRouter()) {
         isRestoreLastRoute = true;
         next();

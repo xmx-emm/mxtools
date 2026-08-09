@@ -6,6 +6,7 @@ import {useRoute} from 'vue-router';
 import ToolCategoryHome from '@/components/navigation/ToolCategoryHome.vue';
 import ApexLegendsIcon from '@/components/icons/ApexLegendsIcon.vue';
 import PUBGIcon from '@/components/icons/PUBGIcon.vue';
+import RazerIcon from '@/components/icons/RazerIcon.vue';
 import {useSettingsStore} from '@/stores/settings.ts';
 
 const { t } = useI18n();
@@ -19,7 +20,6 @@ const gameItems = computed(() => ([
     title: t('game.optimizerTitle'),
     description: t('game.optimizerDescription'),
     action: t('game.openTool'),
-    badge: t('common.beta'),
     icon: 'mdi-speedometer',
     features: [
       t('game.optimizerFeatureScan'),
@@ -49,7 +49,23 @@ const gameItems = computed(() => ([
     iconComponent: PUBGIcon,
     features: [t('game.featureLaunch'), t('game.featurePerformance'), t('game.featurePreset')],
   },
-]).filter(item => item.path !== '/game_optimizer' || settingsStore.betaFeaturesEnabled));
+  {
+    path: '/razer_polling',
+    title: t('game.razerPollingTitle'),
+    description: t('game.razerPollingDescription'),
+    action: t('game.openTool'),
+    iconComponent: RazerIcon,
+    beta: {
+      label: t('common.beta'),
+      hint: t('settings.betaFeaturesHint'),
+    },
+    features: [
+      t('game.razerPollingFeatureManual'),
+      t('game.razerPollingFeatureAuto'),
+      t('game.razerPollingFeatureVerified'),
+    ],
+  },
+].filter(item => item.path !== '/razer_polling' || settingsStore.betaFeaturesEnabled)));
 
 const gameGuides = computed(() => [
   {title: t('game.guideAccount'), description: t('game.guideAccountDesc'), icon: 'mdi-account-check'},

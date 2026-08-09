@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {ApexQDialogController} from '@/composables/apex_q/useApexQDialogController.ts';
+import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
 const {controller} = defineProps<{controller: ApexQDialogController}>();
 const {mainTab, settingsStore, t} = controller;
 </script>
@@ -23,34 +24,7 @@ const {mainTab, settingsStore, t} = controller;
                 </div>
               </header>
               <section class="apex-q-section apex-q-settings-list">
-                <div class="apex-q-setting-row">
-                  <div>
-                    <strong>{{ t('settings.autostart') }}</strong>
-                    <span>{{ t('apex.apexQ.autostartHint') }}</span>
-                  </div>
-                <v-switch
-                  :model-value="settingsStore.autostart"
-                    color="primary"
-                  density="compact"
-                    inset
-                  hide-details
-                  @update:model-value="settingsStore.setAutostart"
-                />
-                </div>
-                <div class="apex-q-setting-row">
-                  <div>
-                    <strong>{{ t('settings.startInTray') }}</strong>
-                    <span>{{ t('settings.startInTrayHint') }}</span>
-                  </div>
-                <v-switch
-                  :model-value="settingsStore.startInTray"
-                    color="primary"
-                  density="compact"
-                    inset
-                  hide-details
-                  @update:model-value="settingsStore.setStartInTray"
-                />
-                </div>
+                <BackgroundAutostartSwitch compact />
                 <div class="apex-q-setting-row">
                   <div>
                     <strong>{{ t('settings.closeToTray') }}</strong>

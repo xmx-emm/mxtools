@@ -3,39 +3,67 @@ import {
   DEFAULT_TOGGLE_LOCALE_SHORTCUT,
   useSettingsStore,
 } from '@/stores/settings.ts';
+import type {LocaleCode} from '@/utils/locale.ts';
 import {loadApexQPrefs} from '@/types/apex_q.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
+import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 import {
   isRegistered as isShortcutRegistered,
   unregister as unregisterGlobalShortcut,
 } from '@tauri-apps/plugin-global-shortcut';
 import {isShortcutRecording} from '@/utils/shortcut-recording.ts';
 import {isTypingTarget, matchesAccelerator} from '@/utils/shortcut-keys.ts';
-import {setTrayLocale} from '@/ipc/commands.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 
 export {DEFAULT_TOGGLE_LOCALE_SHORTCUT};
 
 let appListenerBound = false;
+let localeTransitionQueue: Promise<unknown> = Promise.resolve();
 
 function normalizeShortcut(value: string | null | undefined) {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
+async function runLocaleTransition(locale: LocaleCode): Promise<boolean> {
+  const settings = useSettingsStore();
+  const backgroundRuntime = useBackgroundRuntimeStore();
+  const previousLocale = settings.locale;
+  settings.setLocale(locale);
+
+  try {
+    const activated = await setAppLocale(resolveLocale(locale));
+    if (!activated) {
+      settings.setLocale(previousLocale);
+      return false;
+    }
+    applyDocumentLocale(locale);
+    await backgroundRuntime.setLocale(locale);
+    return true;
+  } catch (error) {
+    settings.setLocale(previousLocale);
+    try {
+      const restored = await setAppLocale(resolveLocale(previousLocale));
+      if (restored) applyDocumentLocale(previousLocale);
+    } catch (rollbackError) {
+      console.warn('failed to restore app locale:', rollbackError);
+    }
+    throw error;
+  }
+}
+
+export function setSynchronizedAppLocale(locale: LocaleCode): Promise<boolean> {
+  const transition = localeTransitionQueue.then(() => runLocaleTransition(locale));
+  localeTransitionQueue = transition.then(() => undefined, () => undefined);
+  return transition;
 }
 
 function toggleLocale() {
   const settings = useSettingsStore();
   const currentLocale = resolveLocale(settings.locale);
   const nextLocale = currentLocale === 'zh-CN' ? 'en-US' : 'zh-CN';
-  settings.setLocale(nextLocale);
-  void setAppLocale(nextLocale)
-    .then((activated) => {
-      if (!activated) return;
-      applyDocumentLocale(nextLocale);
-      return setTrayLocale(nextLocale);
-    })
-    .catch((err) => {
-      console.warn('failed to sync app locale:', err);
-    });
+  void setSynchronizedAppLocale(nextLocale).catch((error) => {
+    console.warn('failed to sync app locale:', error);
+  });
 }
 
 function onAppKeyDown(e: KeyboardEvent) {

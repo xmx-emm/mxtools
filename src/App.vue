@@ -4,6 +4,10 @@ import {nextTick, onBeforeUnmount, onMounted, watch} from 'vue';
 import {useStateStore} from '@/stores/state.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
 
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 const ui = useUiStyleStore();
 const settings = useSettingsStore();
 let stopSystemThemeListener: (() => void) | undefined;
@@ -27,7 +31,11 @@ watch(() => settings.performanceMode, (enabled) => {
 
 onMounted(() => {
   stopSystemThemeListener = ui.watchSystemTheme();
-  useStateStore().updateState();
+  if (isTauriRuntime) {
+    void useStateStore().updateState().catch((error) => {
+      console.warn('update state failed', error);
+    });
+  }
   nextTick(() => {
     const elapsed = Date.now() - (window.__splashStart ?? 0);
     const remaining = Math.max(0, SPLASH_MIN_MS - elapsed);

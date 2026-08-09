@@ -15,7 +15,7 @@ import {tools} from '@/router.ts';
 import {useCommandPalette} from '@/composables/useCommandPalette.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
 
-type CommandKind = 'home' | 'settings' | 'category' | 'tool';
+type CommandKind = 'home' | 'settings' | 'category' | 'tool' | 'subtool';
 
 interface CommandItem {
   id: string;
@@ -122,6 +122,25 @@ const commandItems = computed<CommandItem[]>(() => {
         beta: child.beta,
         aliases: [child.name, child.nameKey, category.name, categoryLabel],
       });
+
+      for (const searchChild of child.searchChildren ?? []) {
+        addItem({
+          path: searchChild.path,
+          label: t(searchChild.nameKey),
+          meta: t('commandPalette.subtoolInTool', {tool: t(child.nameKey)}),
+          kind: 'subtool',
+          icon: searchChild.icon,
+          iconComponent: searchChild.iconComponent,
+          aliases: [
+            searchChild.name,
+            searchChild.nameKey,
+            child.name,
+            child.nameKey,
+            category.name,
+            categoryLabel,
+          ],
+        });
+      }
     }
   }
 
@@ -257,6 +276,10 @@ async function navigate(item: CommandItem | undefined) {
   if (!item) return;
   close();
   await router.push(item.path);
+  if (item.kind === 'subtool') {
+    recordRecentPath(item.path);
+    return;
+  }
   // Record the resolved route so category shortcuts follow any remembered-child redirect.
   recordRecentPath(router.currentRoute.value.path);
 }

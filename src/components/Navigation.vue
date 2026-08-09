@@ -361,7 +361,7 @@ onMounted(() => {
               <v-tooltip
                 v-for="item in activeTool.children"
                 :key="item.path"
-                :text="item.beta ? `${$t(item.nameKey)} · ${$t('settings.betaFeaturesHint')}` : $t(item.nameKey)"
+                :text="$t(item.nameKey)"
                 location="end"
                 :disabled="secondaryLabelsVisible"
                 open-delay="300"
@@ -369,7 +369,7 @@ onMounted(() => {
                 <template #activator="{ props: tipProps }">
                   <v-list-item
                     v-bind="tipProps"
-                    :title="item.beta ? `${$t(item.nameKey)} · ${$t('settings.betaFeaturesHint')}` : $t(item.nameKey)"
+                    :title="$t(item.nameKey)"
                     :value="item.path"
                     :prepend-icon="item?.iconComponent ? undefined : item.icon"
                     @click="router.push(item?.path ?? '/')"

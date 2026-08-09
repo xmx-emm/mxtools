@@ -91,21 +91,28 @@ onBeforeUnmount(() => {
     />
     <div class="quick-preset-window-body">
       <ApexQuickPresetDialog v-if="ready" :key="presetSession"/>
-      <v-alert
-        v-else-if="error"
-        type="error"
-        variant="tonal"
-        class="ma-4"
-        :text="error"
-      >
-        <template #append>
-          <v-btn size="small" variant="text" @click="initialize()">
-            {{ t('apexQuickPreset.retry') }}
-          </v-btn>
-        </template>
-      </v-alert>
-      <div v-else class="quick-preset-window-loading">
-        <v-progress-circular indeterminate color="primary"/>
+      <div v-else-if="error" class="quick-preset-window-state">
+        <v-alert
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="quick-preset-window-error"
+          :text="error"
+        >
+          <template #append>
+            <v-btn
+              class="quick-preset-window-retry"
+              variant="text"
+              prepend-icon="mdi-refresh"
+              @click="initialize()"
+            >
+              {{ t('apexQuickPreset.retry') }}
+            </v-btn>
+          </template>
+        </v-alert>
+      </div>
+      <div v-else class="quick-preset-window-state quick-preset-window-loading">
+        <v-progress-circular indeterminate color="primary" :size="24" :width="2"/>
       </div>
     </div>
     <ApexSteamManualDownloadMilesLanguage
@@ -126,16 +133,60 @@ onBeforeUnmount(() => {
   flex-flow: column;
   height: 100vh;
   overflow: hidden;
-  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  background: rgb(var(--v-theme-background));
+  letter-spacing: 0;
 }
+
 .quick-preset-window-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 18px 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.quick-preset-window-body > * {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
 }
+
+.quick-preset-window-state {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-layer-raised);
+}
+
+.quick-preset-window-error {
+  width: 100%;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.quick-preset-window-retry.v-btn {
+  min-height: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  padding-inline: 8px !important;
+  border-radius: var(--app-radius-sm) !important;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .quick-preset-window-loading {
   display: grid;
-  height: 100%;
   place-items: center;
+}
+
+@media (max-width: 640px) {
+  .quick-preset-window-body {
+    padding: 10px;
+  }
 }
 </style>

@@ -117,12 +117,14 @@ onMounted(load);
           hide-details
           clearable
           :placeholder="t('explorer.contextMenu.scopeAll')"
-          class="scope-field"
+          :aria-label="t('explorer.contextMenu.scopeAll')"
+          class="mx-compact-field scope-field"
         />
         <v-btn
           variant="tonal"
-          rounded="lg"
+          class="context-menu-refresh-action"
           prepend-icon="mdi-refresh"
+          :aria-label="t('common.refresh')"
           :loading="loading"
           :disabled="loading"
           @click="load"
@@ -205,6 +207,13 @@ onMounted(load);
 .scope-field {
   flex: 0 1 160px;
   min-width: 140px;
+}
+
+.context-menu-refresh-action.v-btn {
+  min-height: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  border-radius: var(--app-radius-sm);
+  padding-inline: 12px;
 }
 
 .key-name {
