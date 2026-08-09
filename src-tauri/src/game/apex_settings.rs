@@ -189,7 +189,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "sound_volume_voice" => Some(Number(0.0, 2.0)),
             "voice_mixer_volume" | "voice_scale" => Some(Number(0.0, 1.0)),
             "ui_layout_mode" => Some(Enum(BOOL)),
-            "VoiceChatMode" => Some(Enum(ZERO_TO_TWO)),
+            "VoiceChatMode" | "miles_channels" => Some(Enum(ZERO_TO_TWO)),
             _ if indexed_suffix(key, "mouse_zoomed_sensitivity_scalar_", 7) => {
                 Some(Number(0.1, 10.0))
             }
@@ -279,7 +279,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "sprint_view_shake_style"
             | "ziprail_roll_strength" => Some(Number(0.0, 1.0)),
             "hud_setting_pingAlpha" => Some(NumberEnum(PING_ALPHA)),
-            "voice_quiet_threshold" => Some(Number(0.0, 4000.0)),
+            "voice_quiet_threshold" => Some(Number(0.0, 32767.0)),
             "net_netGraph2" => Some(Enum(BOOL)),
             "gamepad_aim_speed" => Some(Integer(0, 7)),
             _ => None,
@@ -1400,10 +1400,20 @@ mod tests {
         assert!(
             validate_value(ConfigFile::Profile, "voice_quiet_threshold", "1932.638062").is_ok()
         );
+        assert!(
+            validate_value(ConfigFile::Profile, "voice_quiet_threshold", "32767.000000").is_ok()
+        );
+        assert!(
+            validate_value(ConfigFile::Profile, "voice_quiet_threshold", "32767.000001").is_err()
+        );
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "0").is_ok());
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "1").is_ok());
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_ok());
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "3").is_err());
+        assert!(validate_value(ConfigFile::Settings, "miles_channels", "0").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "miles_channels", "1").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "miles_channels", "2").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "miles_channels", "3").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "0").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "1").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "2").is_ok());

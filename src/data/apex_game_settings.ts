@@ -50,7 +50,7 @@ const bool = (
 // Still deliberately absent until a future live-game pass captures every option
 // and all coupled writes: hud_setting_showMeter (a separate legacy key, not the
 // Chinese "health and ammo popup" row), gamepad_aim_speed_ads_0..7,
-// gamepad_use_per_scope_ads_settings, miles_channels, miles_mix + dialogue_cat_*,
+// gamepad_use_per_scope_ads_settings, miles_mix + dialogue_cat_*,
 // sound_num_speakers, and all gamepad_custom_* / advanced-look controls. The
 // runtime-confirmed meanings for the editable keys below are recorded in the
 // locale descriptions and docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md.
@@ -193,6 +193,9 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     options: boolOptions,
   }),
   bool('controllerInvert', 'profile', 'joy_inverty', 'controller'),
+  field('audioOutputConfiguration', 'settings', 'miles_channels', 'audio', 'enum', {
+    options: describedOptions('audioOutputConfiguration', ['0', 'deviceDefault'], ['1', 'mono'], ['2', 'stereo']),
+  }),
   field('sfxVolume', 'profile', 'sound_volume_sfx', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('dialogueVolume', 'profile', 'sound_volume_dialogue', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('gameMusicVolume', 'profile', 'sound_volume_music_game', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
@@ -202,7 +205,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('voiceEnabled', 'profile', 'voice_enabled', 'audio'),
   bool('voiceMute', 'settings', 'voice_mixer_mute', 'audio'),
   field('voiceInputVolume', 'settings', 'voice_mixer_volume', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
-  field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 4000, step: 1}),
+  field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 32767, step: 1}),
   field('voiceChatRecordMode', 'settings', 'VoiceChatMode', 'audio', 'enum', {
     options: describedOptions('voiceChatRecordMode', ['0', 'pushToTalk'], ['1', 'openMic'], ['2', 'toggle']),
   }),

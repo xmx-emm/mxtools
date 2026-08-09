@@ -100,9 +100,13 @@ noncommercial mirrors and public modified versions are allowed.
   `hud_setting_damageTextStyle` (`0/1/2/3` = off/stacking/floating/both).
   Controller vibration is `joy_rumble` (`0/1/2` = off/default/advanced), PS5
   trigger effects use `ps5_trig_enable` (`0/1`), and voice chat record mode uses
-  `VoiceChatMode` (`0/1/2` = push-to-talk/open mic/toggle). The audio channel
-  selector uses `miles_channels` with observed values `0/1/2`, but its labels
-  remain unverified; `miles_mix` and its `dialogue_cat_*` writes remain partial.
+  `VoiceChatMode` (`0/1/2` = push-to-talk/open mic/toggle). The open-mic threshold
+  `voice_quiet_threshold` spans `0..32767` and preserves decimal values written
+  by the in-game slider. The audio channel selector uses `miles_channels`
+  (`0/1/2` = device default/mono/stereo). The parenthesized format shown after
+  Device default is generated from the current output device and system settings,
+  so it is not a fixed label. `miles_mix` and its `dialogue_cat_*` writes remain
+  partial.
   Mouse ADS sensitivity mirrors one value across all eight per-optic scalar
   keys, while per-optic mode disables the general editor and exposes those keys
   independently. Controller preset values follow the runtime-observed menu

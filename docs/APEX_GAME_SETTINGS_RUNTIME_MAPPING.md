@@ -33,15 +33,18 @@ prevents option values from being inferred from menu order alone.
 | Controller vibration | `joy_rumble` | Off / Default / Advanced | `0` / `1` / `2` |
 | PS5 adaptive trigger effects | `ps5_trig_enable` | Off / On | `0` / `1` |
 | Voice chat record mode | `VoiceChatMode` | Push-to-talk / Open mic / Toggle | `0` / `1` / `2` |
-`voice_quiet_threshold` is stored as a decimal value in the observed range, so
-it must not be validated as an integer even though the in-game control is
-presented as a slider.
+| Output configuration | `miles_channels` | Device default / Mono / Stereo | `0` / `1` / `2` |
+The open-mic recording threshold `voice_quiet_threshold` spans `0` through
+`32767`. The in-game slider writes decimal values such as `1581.249390` and
+`17218.048828`, so validation must preserve finite fractional values rather than
+requiring integers.
 
-The audio-channel selector writes `miles_channels` with values `0`, `1`, or
-`2`; the labels for those three choices were not captured and remain
-intentionally unlabelled in the catalog until another runtime pass confirms
-them. This is the actual key for the in-game selector; `sound_num_speakers`
-values seen in older snapshots are not the selector mapping.
+The audio-channel selector writes `miles_channels`. The in-game label for value
+`0` starts with "Device default", but its parenthesized suffix is resolved from
+the active output device and system configuration. For example, the observed
+device displayed "Device default (Stereo)"; "Stereo" is not a fixed part of
+that option label. This is the actual key for the in-game selector;
+`sound_num_speakers` values seen in older snapshots are not this selector.
 
 Changing jetpack/glide control in-game also sets
 `toggle_on_jump_to_deactivate_changed` to `1`; MxTools mirrors that coupled
@@ -140,7 +143,6 @@ complete ranges, steps, dependencies, and right-click tips were not verified:
 
 | UI setting | Config key | Confirmed observation | Missing evidence |
 | --- | --- | --- | --- |
-| Audio channels | `miles_channels` | The in-game selector writes `0`, `1`, or `2` | Labels for the three options |
 | ADS look sensitivity | `gamepad_aim_speed_ads_0…7` | Labels are Same / Very low / Low / Default / High / Very high / Super high / Ultra high / Extreme with values `-1…7`; optic labels are 1x, 2x, 3x, 4x, 6x, 8x, 10x, and Seer passive | Whether general ADS writes one key or all eight, and the exact per-optic enable key |
 | Audio mix | `miles_mix` plus `dialogue_cat_*` companions | Menu labels are Original / Focused; watcher saw `1 → 0`, and the final file contained `1` with changed dialogue-category values | Which value belongs to each label and the complete coupled writes |
 
