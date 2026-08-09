@@ -43,8 +43,26 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'reticleColor')).toMatchObject({
       file: 'profile', key: 'reticle_color', section: 'gameplay', control: 'rgb',
     });
+    expect(ApexGameSettingsData.find(field => field.id === 'reticleDamageFeedback')).toMatchObject({
+      file: 'profile', key: 'damage_indicator_style_pilot', control: 'enum',
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'incomingDamageFeedback')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'damageTextStyle')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2', '3',
+    ]);
     expect(ApexGameSettingsData.find(field => field.id === 'jetpackGlideControl')?.options).toEqual([
       expect.objectContaining({value: '0'}), expect.objectContaining({value: '1'}),
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'mantleBoostActivation')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2', '3',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'mantleBoostUi')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2', '3',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'healthAmmoPopup')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2',
     ]);
     expect(ApexGameSettingsData.find(field => field.id === 'healthAmmoVoice')?.options).toEqual([
       expect.objectContaining({value: '0'}), expect.objectContaining({value: '1'}),
@@ -72,20 +90,26 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'controllerTriggerThreshold')?.options?.map(option => option.value)).toEqual([
       '0', '30', '64', '128', '255',
     ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerVibration')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'ps5AdaptiveTriggers')).toMatchObject({
+      file: 'profile', key: 'ps5_trig_enable', control: 'toggle',
+    });
     expect(ApexGameSettingsData.find(field => field.id === 'autoMuteCommunications')?.options?.map(option => option.value)).toEqual([
       '1', '0', '-1',
     ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'voiceChatRecordMode')?.options?.map(option => option.value)).toEqual([
+      '0', '1', '2',
+    ]);
+    expect(ApexGameSettingsData.find(field => field.id === 'pingOpacity')?.options?.map(option => option.value)).toEqual([
+      '0.500000', '1.000000',
+    ]);
 
     const keys = ApexGameSettingsData.map(field => field.key);
-    expect(keys).not.toContain('damage_indicator_style_pilot');
     expect(keys).not.toContain('gamepad_aim_speed_ads_0');
-    expect(keys).not.toContain('joy_rumble');
     expect(keys).not.toContain('sound_num_speakers');
-    expect(keys).not.toContain('VoiceChatMode');
     expect(keys).not.toContain('hud_setting_showMeter');
-    expect(keys).not.toContain('hud_setting_pingAlpha');
-    expect(keys).not.toContain('mantle_boost_input_setting');
-    expect(keys).not.toContain('mantle_boost_ui_setting');
   });
 });
 

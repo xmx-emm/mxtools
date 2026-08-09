@@ -26,6 +26,9 @@ export const apexConfigMessages = {
       none: 'None', nonFriends: 'Non-friends', everyone: 'Everyone', limited: 'Limited',
       compact: 'Compact', single: 'Single', automatic: 'Automatic', minimum: 'Minimum', medium: 'Medium', maximum: 'Maximum',
       reticleX: 'Reticle X', reticleXShield: 'X reticle with shield icon', killer: 'Killer', all: 'All',
+      twoD: '2D', threeD: '3D', both: 'Both', stacking: 'Stacking', floating: 'Floating',
+      jump: 'Jump', crouch: 'Crouch', movementAbility: 'Movement ability', hiddenPrompts: 'Hide prompts',
+      faded: 'Faded', advanced: 'Advanced', openMic: 'Open mic', pushToTalk: 'Push to talk', full: 'Full',
       redBlind: 'Protanopia', greenBlind: 'Deuteranopia', blueBlind: 'Tritanopia',
       normal: 'Normal', large: 'Large', extraLarge: 'Extra large',
       buttonJumper: 'Button Jumper', buttonPuncher: 'Button Puncher', evolved: 'Evolved', grenadier: 'Grenadier', ninja: 'Ninja',
@@ -68,6 +71,22 @@ export const apexConfigMessages = {
           reticleXShield: 'Show an X on the reticle and use an icon to indicate shield level.',
         },
       },
+      incomingDamageFeedback: {
+        name: 'Incoming damage feedback',
+        description: 'Choose whether incoming damage indicators are rendered in 2D, 3D, or both projections.',
+        options: {
+          twoD: 'Show the 2D damage indicator.', threeD: 'Show the 3D damage indicator.',
+          both: 'Show both 2D and 3D damage indicators.',
+        },
+      },
+      damageTextStyle: {
+        name: 'Damage numbers',
+        description: 'Choose whether damage numbers are hidden, stacked into one readout, floating over each hit, or shown using both styles.',
+        options: {
+          off: 'Hide damage numbers.', stacking: 'Combine damage into a stacked readout.',
+          floating: 'Show a separate floating number for each hit.', both: 'Show stacked and floating damage numbers.',
+        },
+      },
       reticleColor: {name: 'Reticle color', description: 'Default mode is stored as an empty value; custom mode uses three R, G, and B integers from 0 to 255.'},
       laserSightCustom: {name: 'Laser sight', description: 'Use the default or currently saved custom laser-sight color.'},
       chainHeal: {
@@ -93,6 +112,22 @@ export const apexConfigMessages = {
           toggle: 'Keep jetpack/glide active until SPACE is pressed again.',
         },
       },
+      mantleBoostActivation: {
+        name: 'Mantle boost activation',
+        description: 'Choose which input activates the mantle boost while climbing.',
+        options: {
+          off: 'Disable mantle boost activation.', jump: 'Activate mantle boost with Jump.',
+          crouch: 'Activate mantle boost with Crouch.', movementAbility: 'Activate mantle boost with Movement ability.',
+        },
+      },
+      mantleBoostUi: {
+        name: 'Mantle boost prompts',
+        description: 'Control how much mantle boost guidance appears on screen.',
+        options: {
+          off: 'Hide mantle boost guidance.', minimum: 'Show only the minimum guidance.',
+          hiddenPrompts: 'Hide the prompts while retaining the setting.', full: 'Show the complete guidance.',
+        },
+      },
       holdToSprint: {name: 'Sprint control', description: 'Choose whether sprint uses a press or hold input.'},
       stickySprint: {
         name: 'Always sprint', description: 'Choose whether moving forward always keeps you sprinting.',
@@ -105,6 +140,13 @@ export const apexConfigMessages = {
       autoCycleEmpty: {name: 'Auto-cycle weapon on empty', description: 'Automatically switch to the next primary weapon when ammo is depleted.'},
       abilityFovScaling: {name: 'Disable ability FOV scaling', description: 'Disable ability animations from changing the field of view.'},
       lowAmmoWarning: {name: 'Low-ammo warning', description: 'Set the low-ammo warning level.'},
+      healthAmmoPopup: {
+        name: 'Health and ammo popup',
+        description: 'Choose how the health and ammo status popup is shown when the game detects that you need supplies.',
+        options: {
+          off: 'Do not show the popup.', limited: 'Show the popup only in limited situations.', on: 'Show the popup whenever it is needed.',
+        },
+      },
       viewShake: {name: 'View shake', description: 'Control sprint and movement camera shake.'},
       nvidiaLowLatency: {name: 'NVIDIA low latency', description: 'Use the in-game NVIDIA low-latency path when supported by the driver and GPU.'},
       nvidiaLowLatencyBoost: {name: 'NVIDIA low-latency boost', description: 'Enable the NVIDIA low-latency boost mode.'},
@@ -168,6 +210,14 @@ export const apexConfigMessages = {
       controllerLookDeadzone: {name: 'Look deadzone', description: 'Prevents drift; smaller is precise.'},
       controllerMoveDeadzone: {name: 'Movement deadzone', description: 'Prevents movement drift.'},
       controllerTriggerThreshold: {name: 'Trigger deadzone', description: 'Trigger sensitivity.'},
+      controllerVibration: {
+        name: 'Controller vibration',
+        description: 'Choose the controller rumble profile.',
+        options: {
+          off: 'Disable controller vibration.', default: 'Use the default vibration profile.', advanced: 'Use the advanced vibration profile.',
+        },
+      },
+      ps5AdaptiveTriggers: {name: 'PS5 adaptive triggers', description: 'Enable or disable resistance effects on supported DualSense triggers.'},
       controllerToggleAds: {name: 'Aim button', description: 'ADS button behavior.'},
       controllerToggleCrouch: {name: 'Crouch button', description: 'Crouch button behavior.'},
       controllerSurvivalSlot: {
@@ -181,6 +231,15 @@ export const apexConfigMessages = {
       voiceEnabled: {name: 'Enable voice chat', description: 'Enable in-game voice communication.'}, voiceMute: {name: 'Mute voice chat', description: 'Mute voice input or output.'},
       voiceInputVolume: {name: 'Microphone volume', description: 'Voice input volume.'},
       voiceActivationThreshold: {name: 'Open mic record threshold', description: 'Volume required to transmit.'},
+      voiceChatRecordMode: {
+        name: 'Voice chat record mode',
+        description: 'Choose how Apex starts and stops transmitting your microphone.',
+        options: {
+          pushToTalk: 'Transmit only while the push-to-talk key is held.',
+          openMic: 'Transmit automatically when the microphone passes the threshold.',
+          toggle: 'Press the voice key to toggle transmission on or off.',
+        },
+      },
       subtitles: {name: 'Subtitles', description: 'Show dialogue subtitles.'}, subtitleSize: {name: 'Subtitle size', description: 'Adjust subtitle text size.'},
       healthAmmoVoice: {
         name: 'Health and ammo voice', description: 'Choose whether your Legend calls out when ammo or healing is needed.',
@@ -190,9 +249,13 @@ export const apexConfigMessages = {
         },
       },
       colorblindMode: {name: 'Colorblind mode', description: 'Change team and enemy identification colors to make them easier to distinguish.\n\nProtanopia: red-green compensation.\nDeuteranopia: red-green compensation.\nTritanopia: blue-yellow compensation.'},
-      damageTextStyle: {name: 'Damage numbers', description: 'Set how damage numbers are displayed. Full option labels are awaiting confirmation.'},
       rotateMinimap: {name: 'Minimap rotation', description: 'Choose whether the minimap rotates with the direction you face. When disabled, north stays at the top.'},
       buttonHints: {name: 'Button hints', description: 'Continuously show weapon and ability button hints on the HUD.'},
+      pingOpacity: {
+        name: 'Ping opacity',
+        description: 'Choose whether ping markers use their default opacity or appear faded.',
+        options: {faded: 'Use a faded, more transparent ping marker.', default: 'Use the default ping opacity.'},
+      },
       enemyHealthBar: {name: 'Enemy health bar', description: 'Show enemy health bars.'},
       enemyHighlight: {name: 'Enemy highlighting', description: 'Highlight up to five enemies within 30 meters.'},
       hopUpPopup: {name: 'Hop-up popup', description: 'Choose whether the hop-up popup UI appears when a hop-up is attached to a weapon.'},

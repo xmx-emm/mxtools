@@ -47,16 +47,23 @@ const bool = (
   section: ApexGameSettingDefinition['section'],
 ) => field(id, file, key, section, 'toggle', {options: boolOptions});
 
-// Deliberately absent from the editable catalog until a future live-game pass
-// captures every option and all coupled writes. Do not infer values from menu
-// order. Gameplay: damage_indicator_style_pilot, hud_setting_showMeter,
-// hud_setting_pingAlpha, mantle_boost_input_setting, mantle_boost_ui_setting.
-// Controller: gamepad_aim_speed_ads_0..7, gamepad_use_per_scope_ads_settings,
-// joy_rumble, the PS5 adaptive-trigger setting whose key was not observed, and
-// all gamepad_custom_* / advanced-look controls. Audio:
-// sound_num_speakers, miles_mix + dialogue_cat_*, and VoiceChatMode.
-// See docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md for the evidence and retest list.
+// Still deliberately absent until a future live-game pass captures every option
+// and all coupled writes: hud_setting_showMeter (a separate legacy key, not the
+// Chinese "health and ammo popup" row), gamepad_aim_speed_ads_0..7,
+// gamepad_use_per_scope_ads_settings, miles_channels, miles_mix + dialogue_cat_*,
+// sound_num_speakers, and all gamepad_custom_* / advanced-look controls. The
+// runtime-confirmed meanings for the editable keys below are recorded in the
+// locale descriptions and docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md.
 const ApexGameSettings: ApexGameSettingDefinition[] = [
+  field('reticleDamageFeedback', 'profile', 'damage_indicator_style_pilot', 'gameplay', 'enum', {
+    options: describedOptions('reticleDamageFeedback', ['0', 'off'], ['1', 'reticleX'], ['2', 'reticleXShield']),
+  }),
+  field('incomingDamageFeedback', 'profile', 'hud_setting_damageIndicatorStyle', 'gameplay', 'enum', {
+    options: describedOptions('incomingDamageFeedback', ['0', 'twoD'], ['1', 'threeD'], ['2', 'both']),
+  }),
+  field('damageTextStyle', 'profile', 'hud_setting_damageTextStyle', 'gameplay', 'enum', {
+    options: describedOptions('damageTextStyle', ['0', 'off'], ['1', 'stacking'], ['2', 'floating'], ['3', 'both']),
+  }),
   field('reticleColor', 'profile', 'reticle_color', 'gameplay', 'rgb'),
   field('laserSightCustom', 'profile', 'laserSightColorCustomized', 'gameplay', 'enum', {
     options: options(['0', 'default'], ['1', 'custom']),
@@ -78,6 +85,17 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('autoSprint', 'profile', 'player_setting_autosprint', 'gameplay'),
   field('jetpackGlideControl', 'profile', 'toggle_on_jump_to_deactivate', 'gameplay', 'enum', {
     options: describedOptions('jetpackGlideControl', ['0', 'hold'], ['1', 'toggle']),
+  }),
+  field('mantleBoostActivation', 'profile', 'mantle_boost_input_setting', 'gameplay', 'enum', {
+    options: describedOptions('mantleBoostActivation',
+      ['0', 'off'], ['1', 'jump'], ['2', 'crouch'], ['3', 'movementAbility']),
+  }),
+  field('mantleBoostUi', 'profile', 'mantle_boost_ui_setting', 'gameplay', 'enum', {
+    options: describedOptions('mantleBoostUi',
+      ['0', 'off'], ['1', 'minimum'], ['2', 'hiddenPrompts'], ['3', 'full']),
+  }),
+  field('healthAmmoPopup', 'profile', 'player_setting_lowammo_setting', 'gameplay', 'enum', {
+    options: describedOptions('healthAmmoPopup', ['0', 'off'], ['1', 'limited'], ['2', 'on']),
   }),
   field('interactionPromptStyle', 'profile', 'player_use_prompt_enabled', 'gameplay', 'enum', {
     options: options(['0', 'compact'], ['1', 'default']),
@@ -161,6 +179,10 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   field('controllerTriggerThreshold', 'profile', 'gamepad_trigger_threshold', 'controller', 'enum', {
     options: options(['0', 'none'], ['30', 'default'], ['64', 'medium'], ['128', 'high'], ['255', 'highest']),
   }),
+  field('controllerVibration', 'profile', 'joy_rumble', 'controller', 'enum', {
+    options: describedOptions('controllerVibration', ['0', 'off'], ['1', 'default'], ['2', 'advanced']),
+  }),
+  bool('ps5AdaptiveTriggers', 'profile', 'ps5_trig_enable', 'controller'),
   field('controllerToggleAds', 'profile', 'gamepad_toggle_ads', 'controller', 'enum', {
     options: options(['0', 'hold'], ['1', 'toggle']),
   }),
@@ -181,11 +203,20 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('voiceMute', 'settings', 'voice_mixer_mute', 'audio'),
   field('voiceInputVolume', 'settings', 'voice_mixer_volume', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 4000, step: 1}),
+  field('voiceChatRecordMode', 'settings', 'VoiceChatMode', 'audio', 'enum', {
+    options: describedOptions('voiceChatRecordMode', ['0', 'pushToTalk'], ['1', 'openMic'], ['2', 'toggle']),
+  }),
 
   bool('buttonHints', 'profile', 'hud_setting_showButtonHints', 'hud'),
   bool('hopUpPopup', 'profile', 'hud_setting_showHopUpPopUp', 'hud'),
   bool('obituary', 'profile', 'hud_setting_showObituary', 'hud'),
   bool('rotateMinimap', 'profile', 'hud_setting_minimapRotate', 'hud'),
+  field('pingOpacity', 'profile', 'hud_setting_pingAlpha', 'hud', 'enum', {
+    // Apex writes this scalar with six fractional digits in profile.cfg.
+    // Keep the canonical UI values aligned with that representation while the
+    // native validator accepts equivalent decimal spellings from older files.
+    options: describedOptions('pingOpacity', ['0.500000', 'faded'], ['1.000000', 'default']),
+  }),
   field('arsenalMapIcons', 'profile', 'player_setting_arsenals_maphudidentifiers', 'hud', 'enum', {
     options: describedOptions('arsenalMapIcons', ['0', 'minimum'], ['1', 'medium'], ['2', 'maximum']),
   }),

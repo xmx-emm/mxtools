@@ -26,6 +26,9 @@ export const apexConfigMessages = {
       none: '无', nonFriends: '非好友', everyone: '所有人', limited: '受限',
       compact: '缩略', single: '单次', automatic: '自动', minimum: '最低', medium: '中等', maximum: '最多',
       reticleX: '准星 X', reticleXShield: '带图标的 X 型准星', killer: '击杀者', all: '全部',
+      twoD: '2D', threeD: '3D', both: '两者', stacking: '叠加', floating: '浮动',
+      jump: '跳跃', crouch: '下蹲', movementAbility: '移动能力', hiddenPrompts: '隐藏提示',
+      faded: '淡化', advanced: '高级', openMic: '开放麦', pushToTalk: '按下说话', full: '完整',
       redBlind: '红色盲', greenBlind: '绿色盲', blueBlind: '蓝色盲',
       normal: '正常', large: '大', extraLarge: '超大',
       buttonJumper: '后置跳跃', buttonPuncher: '连击狂人', evolved: '改进型', grenadier: '掷弹兵', ninja: '忍者',
@@ -68,6 +71,21 @@ export const apexConfigMessages = {
           reticleXShield: '在准星上显示一个 X 型，并用图标显示护盾等级。',
         },
       },
+      incomingDamageFeedback: {
+        name: '受到伤害反馈',
+        description: '选择受到伤害时使用 2D、3D 或两种投影方式显示伤害提示。',
+        options: {
+          twoD: '显示 2D 伤害提示。', threeD: '显示 3D 伤害提示。', both: '同时显示 2D 和 3D 伤害提示。',
+        },
+      },
+      damageTextStyle: {
+        name: '伤害数字',
+        description: '选择隐藏伤害数字、将数字叠加成一个读数、逐次浮动显示，或同时使用两种方式。',
+        options: {
+          off: '隐藏伤害数字。', stacking: '将伤害合并为叠加读数。',
+          floating: '每次命中显示单独的浮动数字。', both: '同时显示叠加和浮动伤害数字。',
+        },
+      },
       reticleColor: {name: '准星颜色', description: '默认模式在配置中保存为空值；自定义模式使用 0–255 范围内的 R、G、B 三个整数。'},
       laserSightCustom: {name: '激光瞄准镜', description: '选择默认或当前已保存的自定义激光瞄准镜颜色。'},
       chainHeal: {
@@ -93,6 +111,22 @@ export const apexConfigMessages = {
           toggle: '启用后持续使用喷气背包/滑翔，直到再次按下 SPACE。',
         },
       },
+      mantleBoostActivation: {
+        name: '翻越加速触发方式',
+        description: '选择攀爬时使用哪种输入触发翻越加速。',
+        options: {
+          off: '关闭翻越加速。', jump: '使用跳跃触发翻越加速。',
+          crouch: '使用下蹲触发翻越加速。', movementAbility: '使用移动能力触发翻越加速。',
+        },
+      },
+      mantleBoostUi: {
+        name: '翻越加速提示',
+        description: '控制屏幕上显示多少翻越加速引导信息。',
+        options: {
+          off: '隐藏翻越加速引导。', minimum: '仅显示最低限度的引导。',
+          hiddenPrompts: '隐藏提示，但保留该设置。', full: '显示完整引导。',
+        },
+      },
       holdToSprint: {name: '疾跑控制', description: '决定按下还是按住冲刺键来进行疾跑。'},
       stickySprint: {
         name: '始终疾跑', description: '决定向前移动时是否始终保持疾跑状态。',
@@ -105,6 +139,13 @@ export const apexConfigMessages = {
       autoCycleEmpty: {name: '弹药耗尽后武器自动切换', description: '弹药耗尽后自动切换至下一个主武器。'},
       abilityFovScaling: {name: '禁用技能 FOV 缩放', description: '禁用技能动画对视野范围的缩放。'},
       lowAmmoWarning: {name: '低弹药提示', description: '设置低弹药警告的显示级别。'},
+      healthAmmoPopup: {
+        name: '生命值和弹药弹出窗口',
+        description: '选择游戏检测到你需要补给时，生命值和弹药状态弹出窗口的显示方式。',
+        options: {
+          off: '不显示弹出窗口。', limited: '仅在有限情况下显示弹出窗口。', on: '需要时显示弹出窗口。',
+        },
+      },
       viewShake: {name: '视角晃动', description: '控制冲刺和移动时的视角晃动强度。'},
       nvidiaLowLatency: {name: 'NVIDIA 低延迟', description: '使用游戏内 NVIDIA 低延迟路径；需结合驱动和 GPU 支持判断。'},
       nvidiaLowLatencyBoost: {name: 'NVIDIA 低延迟增强', description: '启用 NVIDIA 低延迟增强模式。'},
@@ -168,6 +209,14 @@ export const apexConfigMessages = {
       controllerLookDeadzone: {name: '视角盲区', description: '防止视角漂移；越小越精准。'},
       controllerMoveDeadzone: {name: '移动盲区', description: '防止未触碰摇杆时移动偏移。'},
       controllerTriggerThreshold: {name: '扳机键盲区', description: '扳机灵敏度。'},
+      controllerVibration: {
+        name: '控制器震动',
+        description: '选择控制器震动反馈档位。',
+        options: {
+          off: '关闭控制器震动。', default: '使用默认震动档位。', advanced: '使用高级震动档位。',
+        },
+      },
+      ps5AdaptiveTriggers: {name: 'PS5 自适应扳机', description: '启用或关闭兼容 DualSense 扳机的阻力反馈效果。'},
       controllerToggleAds: {name: '瞄准按钮', description: 'ADS 按钮行为。'},
       controllerToggleCrouch: {name: '下蹲按钮', description: '下蹲按钮行为。'},
       controllerSurvivalSlot: {
@@ -181,6 +230,15 @@ export const apexConfigMessages = {
       voiceEnabled: {name: '启用语音聊天', description: '启用游戏语音通信。'}, voiceMute: {name: '静音语音聊天', description: '暂时静音语音输入或输出。'},
       voiceInputVolume: {name: '麦克风音量', description: '语音输入音量。'},
       voiceActivationThreshold: {name: '开放式麦克风录音阈值', description: '自动发送语音所需音量。'},
+      voiceChatRecordMode: {
+        name: '语音聊天录音模式',
+        description: '选择 Apex 何时开始和停止发送麦克风声音。',
+        options: {
+          pushToTalk: '仅在按住按键说话键时发送。',
+          openMic: '麦克风音量超过阈值时自动发送。',
+          toggle: '按下语音键切换发送状态。',
+        },
+      },
       subtitles: {name: '字幕', description: '显示对话字幕。'}, subtitleSize: {name: '字幕大小', description: '调整字幕文字的大小。'},
       healthAmmoVoice: {
         name: '生命值和弹药语音', description: '决定传奇在需要弹药或治疗时是否呼喊。',
@@ -190,9 +248,13 @@ export const apexConfigMessages = {
         },
       },
       colorblindMode: {name: '色盲模式', description: '修改敌友识别色选项以方便区分敌我。\n\n红色盲：红绿色差补偿。\n绿色盲：红绿色差补偿。\n蓝色盲：蓝黄色差补偿。'},
-      damageTextStyle: {name: '伤害数字', description: '设置伤害数字的显示方式。完整档位名称待确认。'},
       rotateMinimap: {name: '小地图旋转', description: '控制小地图是否跟随你所面向的方向旋转。关闭时，小地图的上方将固定为北方。'},
       buttonHints: {name: '按钮提示', description: '在抬头显示上持续显示武器与技能的按钮提示。'},
+      pingOpacity: {
+        name: '标记不透明度',
+        description: '选择标记使用默认不透明度，还是显示为淡化状态。',
+        options: {faded: '使用更淡、更透明的标记。', default: '使用默认标记不透明度。'},
+      },
       enemyHealthBar: {name: '敌方血条', description: '显示敌人的生命值条。'},
       enemyHighlight: {name: '敌人高亮显示', description: '在 30 米范围内高亮显示 5 个敌人。'},
       hopUpPopup: {name: '即用配件弹出窗口', description: '决定是否要在将即用配件附挂至武器时显示即用配件弹出窗口 UI 元素。'},

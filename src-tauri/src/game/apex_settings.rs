@@ -50,6 +50,7 @@ enum ValueRule {
     Bool,
     Integer(i64, i64),
     Number(f64, f64),
+    NumberEnum(&'static [f64]),
     Enum(&'static [&'static str]),
     RgbOrDefault,
 }
@@ -157,6 +158,7 @@ const ZERO_TO_THREE: &[&str] = &["0", "1", "2", "3"];
 const ZERO_TO_SIX: &[&str] = &["0", "1", "2", "3", "4", "5", "6"];
 const COMMS_FILTER: &[&str] = &["-1", "0", "1"];
 const TRIGGER_THRESHOLDS: &[&str] = &["0", "30", "64", "128", "255"];
+const PING_ALPHA: &[f64] = &[0.5, 1.0];
 
 fn indexed_suffix(key: &str, prefix: &str, max: u8) -> bool {
     key.strip_prefix(prefix)
@@ -187,6 +189,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "sound_volume_voice" => Some(Number(0.0, 2.0)),
             "voice_mixer_volume" | "voice_scale" => Some(Number(0.0, 1.0)),
             "ui_layout_mode" => Some(Enum(BOOL)),
+            "VoiceChatMode" => Some(Enum(ZERO_TO_TWO)),
             _ if indexed_suffix(key, "mouse_zoomed_sensitivity_scalar_", 7) => {
                 Some(Number(0.1, 10.0))
             }
@@ -230,6 +233,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "m_invert_pitch"
             | "party_color_enabled"
             | "pin_opt_in"
+            | "ps5_trig_enable"
             | "player_setting_autosprint"
             | "player_setting_damage_closes_deathbox_menu"
             | "player_setting_holdtosprint"
@@ -244,12 +248,19 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "cc_text_size"
             | "gamepad_deadzone_index_look"
             | "gamepad_use_type"
+            | "damage_indicator_style_pilot"
+            | "hud_setting_damageIndicatorStyle"
+            | "joy_rumble"
             | "hud_setting_chainHeal"
             | "hud_setting_streamerMode"
             | "hudchat_visibility"
             | "player_setting_arsenals_maphudidentifiers"
             | "player_setting_gamestateawareness_callouts"
+            | "player_setting_lowammo_setting"
             | "player_setting_tutorialization" => Some(Enum(ZERO_TO_TWO)),
+            "hud_setting_damageTextStyle"
+            | "mantle_boost_input_setting"
+            | "mantle_boost_ui_setting" => Some(Enum(ZERO_TO_THREE)),
             "gamepad_deadzone_index_move" => Some(Enum(ONE_TO_TWO)),
             "cl_comms_filter" => Some(Enum(COMMS_FILTER)),
             "colorblind_mode" | "gamepad_stick_layout" => Some(Enum(ZERO_TO_THREE)),
@@ -267,6 +278,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "sound_volume_sfx_observer"
             | "sprint_view_shake_style"
             | "ziprail_roll_strength" => Some(Number(0.0, 1.0)),
+            "hud_setting_pingAlpha" => Some(NumberEnum(PING_ALPHA)),
             "voice_quiet_threshold" => Some(Number(0.0, 4000.0)),
             "net_netGraph2" => Some(Enum(BOOL)),
             "gamepad_aim_speed" => Some(Integer(0, 7)),
@@ -289,6 +301,9 @@ fn validate_value(file: ConfigFile, key: &str, value: &str) -> Result<(), String
         ValueRule::Number(min, max) => value
             .parse::<f64>()
             .is_ok_and(|number| number.is_finite() && number >= min && number <= max),
+        ValueRule::NumberEnum(values) => value
+            .parse::<f64>()
+            .is_ok_and(|number| number.is_finite() && values.contains(&number)),
         ValueRule::Enum(values) => values.contains(&value),
         ValueRule::RgbOrDefault => {
             value.is_empty()
@@ -1385,13 +1400,41 @@ mod tests {
         assert!(
             validate_value(ConfigFile::Profile, "voice_quiet_threshold", "1932.638062").is_ok()
         );
-        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_err());
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "0").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "1").is_ok());
+        assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "2").is_ok());
         assert!(validate_value(ConfigFile::Settings, "VoiceChatMode", "3").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "0").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "1").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_deadzone_index_move", "2").is_ok());
         assert!(validate_value(ConfigFile::Profile, "net_netGraph2", "2").is_err());
-        assert!(validate_value(ConfigFile::Profile, "hud_setting_pingAlpha", "0").is_err());
+        for (key, valid, invalid) in [
+            ("damage_indicator_style_pilot", "2", "3"),
+            ("hud_setting_damageIndicatorStyle", "2", "3"),
+            ("hud_setting_damageTextStyle", "3", "4"),
+            ("joy_rumble", "2", "3"),
+            ("mantle_boost_input_setting", "3", "4"),
+            ("mantle_boost_ui_setting", "3", "4"),
+            ("player_setting_lowammo_setting", "2", "3"),
+        ] {
+            assert!(
+                validate_value(ConfigFile::Profile, key, valid).is_ok(),
+                "{key}={valid}"
+            );
+            assert!(
+                validate_value(ConfigFile::Profile, key, invalid).is_err(),
+                "{key}={invalid}"
+            );
+        }
+        assert!(validate_value(ConfigFile::Profile, "ps5_trig_enable", "0").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "ps5_trig_enable", "1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "ps5_trig_enable", "2").is_err());
+        for value in ["0.5", "1.0", "0.500000", "1.000000"] {
+            assert!(validate_value(ConfigFile::Profile, "hud_setting_pingAlpha", value).is_ok());
+        }
+        for value in ["0", "0.75", "1.1", "NaN"] {
+            assert!(validate_value(ConfigFile::Profile, "hud_setting_pingAlpha", value).is_err());
+        }
         assert!(validate_value(ConfigFile::Profile, "player_setting_tutorialization", "2").is_ok());
         assert!(validate_value(
             ConfigFile::Profile,

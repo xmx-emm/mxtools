@@ -1,8 +1,8 @@
 # APEX Game Settings Runtime Mapping
 
 This file records mappings observed from the live EA build of Apex Legends on
-2026-07-29 and 2026-07-30. It supplements the screenshots and prevents option values from
-being inferred from menu order alone.
+2026-07-29, 2026-07-30, and 2026-08-09. It supplements the screenshots and
+prevents option values from being inferred from menu order alone.
 
 ## Confirmed mappings
 
@@ -14,6 +14,13 @@ being inferred from menu order alone.
 | Jetpack/glide control | `toggle_on_jump_to_deactivate` | Hold / Toggle | `0` / `1` |
 | Subtitle size | `cc_text_size` | Normal / Large / Extra large | `0` / `1` / `2` |
 | Health and ammo voice | `player_setting_gamestateawareness_callouts` | Off / Limited / On | `0` / `1` / `2` |
+| Mantle boost activation | `mantle_boost_input_setting` | Off / Jump / Crouch / Movement ability | `0` / `1` / `2` / `3` |
+| Mantle boost UI prompts | `mantle_boost_ui_setting` | Off / Minimum / Hidden prompts / Full | `0` / `1` / `2` / `3` |
+| Low-health/ammo popup | `player_setting_lowammo_setting` | Off / Limited / On | `0` / `1` / `2` |
+| Ping opacity | `hud_setting_pingAlpha` | Default / Faded | `1.0` / `0.5` |
+| Pilot damage indicator | `damage_indicator_style_pilot` | Off / X / X + shield | `0` / `1` / `2` |
+| Damage indicator projection | `hud_setting_damageIndicatorStyle` | 2D / 3D / Both | `0` / `1` / `2` |
+| Damage text display | `hud_setting_damageTextStyle` | Off / Stacking / Floating / Both | `0` / `1` / `2` / `3` |
 | Auto-mute communications | `cl_comms_filter` | None / Non-friends / Everyone | `1` / `0` / `-1` |
 | Controller preset | `gamepad_button_layout` | Default / Button Jumper / Button Puncher / Evolved / Grenadier / Ninja / Custom | `0` / `1` / `2` / `3` / `4` / `5` / `6` |
 | Stick layout | `gamepad_stick_layout` | Default / Southpaw / Legacy / Legacy Southpaw | `0` / `1` / `2` / `3` |
@@ -23,9 +30,18 @@ being inferred from menu order alone.
 | Movement deadzone | `gamepad_deadzone_index_move` | Small / Large | `1` / `2` |
 | Interact/reload button | `gamepad_use_type` | Tap use/hold reload / Hold use/tap reload / Tap use and reload | `0` / `1` / `2` |
 | Trigger deadzone | `gamepad_trigger_threshold` | None / Default / Medium / High / Highest | `0` / `30` / `64` / `128` / `255` |
+| Controller vibration | `joy_rumble` | Off / Default / Advanced | `0` / `1` / `2` |
+| PS5 adaptive trigger effects | `ps5_trig_enable` | Off / On | `0` / `1` |
+| Voice chat record mode | `VoiceChatMode` | Push-to-talk / Open mic / Toggle | `0` / `1` / `2` |
 `voice_quiet_threshold` is stored as a decimal value in the observed range, so
 it must not be validated as an integer even though the in-game control is
 presented as a slider.
+
+The audio-channel selector writes `miles_channels` with values `0`, `1`, or
+`2`; the labels for those three choices were not captured and remain
+intentionally unlabelled in the catalog until another runtime pass confirms
+them. This is the actual key for the in-game selector; `sound_num_speakers`
+values seen in older snapshots are not the selector mapping.
 
 Changing jetpack/glide control in-game also sets
 `toggle_on_jump_to_deactivate_changed` to `1`; MxTools mirrors that coupled
@@ -84,8 +100,9 @@ The same transaction removes `MOUSE2` from `+toggle_zoom`, assigns `MOUSE2` to
 `+forward`, and assigns `MWHEELDOWN` to `+jump`. It preserves the other slot for
 each action and still enforces the two-slot/global-conflict rules.
 
-`hud_setting_pingAlpha` remains excluded from this preset because the stored
-value for the in-game “Transparent” option has not been verified.
+`hud_setting_pingAlpha` remains excluded from this preset because it is a HUD
+preference rather than a launch optimization; its confirmed values are
+documented in the mapping table above.
 
 ## Machine-local settings excluded from snapshots
 
@@ -123,16 +140,8 @@ complete ranges, steps, dependencies, and right-click tips were not verified:
 
 | UI setting | Config key | Confirmed observation | Missing evidence |
 | --- | --- | --- | --- |
-| Mantle boost activation | `mantle_boost_input_setting` | Jump was stored as `1`; a later unidentified option wrote `0` | Crouch, movement ability, and off values |
-| Mantle boost UI | `mantle_boost_ui_setting` | Full was stored as `3`; a later unidentified option wrote `0` | Hidden prompts, minimum, and off values |
-| Health/ammo popup | `hud_setting_showMeter` | On was stored as `1` | Off and limited values |
-| Ping opacity | `hud_setting_pingAlpha` | Default was stored as `1.0` | Transparent value |
-| Damage feedback | `damage_indicator_style_pilot` | Runtime watcher observed stored value `0`, contradicting the previous `1/2/3` catalog | Full option-to-value mapping |
+| Audio channels | `miles_channels` | The in-game selector writes `0`, `1`, or `2` | Labels for the three options |
 | ADS look sensitivity | `gamepad_aim_speed_ads_0…7` | Labels are Same / Very low / Low / Default / High / Very high / Super high / Ultra high / Extreme with values `-1…7`; optic labels are 1x, 2x, 3x, 4x, 6x, 8x, 10x, and Seer passive | Whether general ADS writes one key or all eight, and the exact per-optic enable key |
-| Audio channels | `sound_num_speakers` | Existing config values include `0/2/4/6/8`, but this session did not observe every in-game option write | Complete option-to-value mapping |
-| Controller vibration | `joy_rumble` | Menu labels are Off / Default / Advanced; the final file contained `2` | Complete option-to-value mapping observed while changing each option |
-| PS5 adaptive triggers | unknown | The in-game tip confirms this is a PS5 trigger-effect toggle | Config key and stored values |
-| Voice chat record mode | `VoiceChatMode` | Menu labels are Push to talk / Open mic / Toggle; the final file contained `2` | Complete option-to-value mapping observed while changing each option |
 | Audio mix | `miles_mix` plus `dialogue_cat_*` companions | Menu labels are Original / Focused; watcher saw `1 → 0`, and the final file contained `1` with changed dialogue-category values | Which value belongs to each label and the complete coupled writes |
 
 The raw watcher log for this session is stored outside the repository in the

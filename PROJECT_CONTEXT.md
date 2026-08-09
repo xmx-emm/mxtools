@@ -89,7 +89,21 @@ noncommercial mirrors and public modified versions are allowed.
   companion `toggle_on_jump_to_deactivate_changed=1` marker when jetpack/glide
   control is explicitly changed. The evidence table and intentionally deferred
   values are recorded in `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`. General
-  mouse ADS sensitivity mirrors one value across all eight per-optic scalar
+  live-confirmed mappings include mantle boost activation
+  `mantle_boost_input_setting` (`0/1/2/3` = off/jump/crouch/movement ability),
+  mantle boost prompts `mantle_boost_ui_setting` (`0/1/2/3` = off/minimum/
+  hidden prompts/full), the health/ammo popup `player_setting_lowammo_setting`
+  (`0/1/2` = off/limited/on), ping opacity `hud_setting_pingAlpha` (`1.0/0.5` =
+  default/faded), pilot damage feedback `damage_indicator_style_pilot`
+  (`0/1/2` = off/X/X+shield), incoming damage projection
+  `hud_setting_damageIndicatorStyle` (`0/1/2` = 2D/3D/both), and damage text
+  `hud_setting_damageTextStyle` (`0/1/2/3` = off/stacking/floating/both).
+  Controller vibration is `joy_rumble` (`0/1/2` = off/default/advanced), PS5
+  trigger effects use `ps5_trig_enable` (`0/1`), and voice chat record mode uses
+  `VoiceChatMode` (`0/1/2` = push-to-talk/open mic/toggle). The audio channel
+  selector uses `miles_channels` with observed values `0/1/2`, but its labels
+  remain unverified; `miles_mix` and its `dialogue_cat_*` writes remain partial.
+  Mouse ADS sensitivity mirrors one value across all eight per-optic scalar
   keys, while per-optic mode disables the general editor and exposes those keys
   independently. Controller preset values follow the runtime-observed menu
   order from `0` through `6`; controller stick layouts similarly map Default,
@@ -99,10 +113,9 @@ noncommercial mirrors and public modified versions are allowed.
   controller ADS sensitivity adds a `-1` value meaning “same as look sensitivity”.
   Controller response curve is `0` through `4`; look deadzone is `0` through
   `2`, while movement deadzone intentionally exposes only stored values `1`
-  and `2`. Controller ADS/per-optic storage, audio-channel, vibration,
-  voice-record-mode, and audio-mix enumeration, plus damage-feedback values,
-  remain read-only because current runtime evidence is incomplete or conflicts
-  with the previous catalog. Advanced Look Controls are
+  and `2`. Controller ADS/per-optic storage and audio-mix enumeration remain
+  read-only because current runtime evidence is incomplete. Advanced Look
+  Controls are
   recorded for reference but intentionally
   remain read-only until their full ranges, steps, dependencies, and tips are
   verified as one group.
