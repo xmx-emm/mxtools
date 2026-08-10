@@ -49,9 +49,8 @@ const bool = (
 
 // Still deliberately absent until a future live-game pass captures every option
 // and all coupled writes: hud_setting_showMeter (a separate legacy key, not the
-// Chinese "health and ammo popup" row), gamepad_aim_speed_ads_0..7,
-// gamepad_use_per_scope_ads_settings, miles_mix + dialogue_cat_*,
-// sound_num_speakers, and all gamepad_custom_* / advanced-look controls. The
+// Chinese "health and ammo popup" row), sound_num_speakers, and all
+// gamepad_custom_* / advanced-look controls. The
 // runtime-confirmed meanings for the editable keys below are recorded in the
 // locale descriptions and docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md.
 const ApexGameSettings: ApexGameSettingDefinition[] = [
@@ -121,7 +120,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     max: 10,
     step: 0.05,
     readKey: 'mouse_zoomed_sensitivity_scalar_0',
-    writeKeys: Array.from({length: 8}, (_, index) => `mouse_zoomed_sensitivity_scalar_${index}`),
+    writeKeys: ['mouse_zoomed_sensitivity_scalar_0'],
     disabledWhen: {file: 'settings', key: 'mouse_use_per_scope_sensitivity_scalars', value: '1'},
   }),
   bool('perScopeMouse', 'settings', 'mouse_use_per_scope_sensitivity_scalars', 'aiming'),
@@ -149,6 +148,30 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
       ['4', 'veryHigh'], ['5', 'superHigh'], ['6', 'ultraHigh'], ['7', 'extreme'],
     ),
   }),
+  field('controllerAdsSensitivity', 'profile', 'gamepad_ads_sensitivity', 'controller', 'enum', {
+    options: options(
+      ['-1', 'same'], ['0', 'veryLow'], ['1', 'low'], ['2', 'preset'], ['3', 'high'],
+      ['4', 'veryHigh'], ['5', 'superHigh'], ['6', 'ultraHigh'], ['7', 'extreme'],
+    ),
+    readKey: 'gamepad_aim_speed_ads_0',
+    writeKeys: ['gamepad_aim_speed_ads_0'],
+    disabledWhen: {file: 'profile', key: 'gamepad_use_per_scope_ads_settings', value: '1'},
+  }),
+  bool('perScopeControllerAds', 'profile', 'gamepad_use_per_scope_ads_settings', 'controller'),
+  ...Array.from({length: 8}, (_, index) => field(
+    `controllerAdsScope${index}`,
+    'profile',
+    `gamepad_aim_speed_ads_${index}`,
+    'controller',
+    'enum',
+    {
+      options: options(
+        ['-1', 'default'], ['0', 'veryLow'], ['1', 'low'], ['2', 'preset'], ['3', 'high'],
+        ['4', 'veryHigh'], ['5', 'superHigh'], ['6', 'ultraHigh'], ['7', 'extreme'],
+      ),
+      disabledWhen: {file: 'profile', key: 'gamepad_use_per_scope_ads_settings', value: '0'},
+    },
+  )),
   field('controllerButtonLayout', 'profile', 'gamepad_button_layout', 'controller', 'enum', {
     options: describedOptions('controllerButtonLayout',
       ['0', 'default'], ['1', 'buttonJumper'], ['2', 'buttonPuncher'], ['3', 'evolved'],
@@ -196,6 +219,9 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   field('audioOutputConfiguration', 'settings', 'miles_channels', 'audio', 'enum', {
     options: describedOptions('audioOutputConfiguration', ['0', 'deviceDefault'], ['1', 'mono'], ['2', 'stereo']),
   }),
+  field('audioMix', 'profile', 'miles_mix', 'audio', 'enum', {
+    options: describedOptions('audioMix', ['0', 'original'], ['1', 'focused']),
+  }),
   field('sfxVolume', 'profile', 'sound_volume_sfx', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('dialogueVolume', 'profile', 'sound_volume_dialogue', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('gameMusicVolume', 'profile', 'sound_volume_music_game', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
@@ -205,7 +231,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('voiceEnabled', 'profile', 'voice_enabled', 'audio'),
   bool('voiceMute', 'settings', 'voice_mixer_mute', 'audio'),
   field('voiceInputVolume', 'settings', 'voice_mixer_volume', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
-  field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 32767, step: 1}),
+  field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 32767, step: 0.01}),
   field('voiceChatRecordMode', 'settings', 'VoiceChatMode', 'audio', 'enum', {
     options: describedOptions('voiceChatRecordMode', ['0', 'pushToTalk'], ['1', 'openMic'], ['2', 'toggle']),
   }),
@@ -218,7 +244,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     // Apex writes this scalar with six fractional digits in profile.cfg.
     // Keep the canonical UI values aligned with that representation while the
     // native validator accepts equivalent decimal spellings from older files.
-    options: describedOptions('pingOpacity', ['0.500000', 'faded'], ['1.000000', 'default']),
+    options: describedOptions('pingOpacity', ['0.500000', 'transparent'], ['1.000000', 'default']),
   }),
   field('arsenalMapIcons', 'profile', 'player_setting_arsenals_maphudidentifiers', 'hud', 'enum', {
     options: describedOptions('arsenalMapIcons', ['0', 'minimum'], ['1', 'medium'], ['2', 'maximum']),

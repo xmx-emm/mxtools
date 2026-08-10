@@ -12,7 +12,10 @@ import type {
   ApexGameSettingsFile,
   ApexGameSettingsSection,
 } from '@/types/apex_game_settings.ts';
-import {findApexBindingConflict} from '@/utils/game/apex_game_settings.ts';
+import {
+  findApexBindingConflict,
+  matchingApexGameSettingOptionValue,
+} from '@/utils/game/apex_game_settings.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexBindingSelect from './ApexBindingSelect.vue';
@@ -98,6 +101,7 @@ function setValue(field: ApexGameSettingDefinition, value: string) {
 
 function storageKeyLabel(field: ApexGameSettingDefinition): string {
   if (field.writeKeys?.length) {
+    if (field.writeKeys.length === 1) return field.writeKeys[0];
     return `${field.writeKeys[0]}…${field.writeKeys[field.writeKeys.length - 1]}`;
   }
   return field.readKey ?? field.key;
@@ -106,8 +110,10 @@ function storageKeyLabel(field: ApexGameSettingDefinition): string {
 function isDisabled(field: ApexGameSettingDefinition): boolean {
   if (settingsBusy.value) return true;
   const dependency = field.disabledWhen;
-  return !!dependency
-    && apex_store.game_settings_values[dependency.file][dependency.key] === dependency.value;
+  if (!dependency) return false;
+  const dependencyValue = apex_store.game_settings_values[dependency.file][dependency.key];
+  if (dependencyValue !== '0' && dependencyValue !== '1') return true;
+  return dependencyValue === dependency.value;
 }
 
 function showSettingTip(field: ApexGameSettingDefinition) {
@@ -229,6 +235,11 @@ function enumItems(field: ApexGameSettingDefinition) {
   }));
 }
 
+function enumValueFor(field: ApexGameSettingDefinition): string {
+  const value = valueFor(field);
+  return matchingApexGameSettingOptionValue(field, value) ?? value;
+}
+
 </script>
 
 <template>
@@ -339,7 +350,7 @@ function enumItems(field: ApexGameSettingDefinition) {
               />
               <div v-else-if="field.control === 'enum'" class="setting-enum-scroll">
                 <v-btn-toggle
-                  :model-value="valueFor(field)"
+                  :model-value="enumValueFor(field)"
                   mandatory
                   density="compact"
                   color="primary"

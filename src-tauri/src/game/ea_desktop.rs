@@ -13,6 +13,7 @@ pub(crate) fn read_ea_launch_options(ea_user_id: &str) -> Result<String, String>
 }
 
 pub(crate) fn write_ea_launch_options(ea_user_id: &str, value: &str) -> Result<(), String> {
+    crate::game::apex::validate_launch_options(value)?;
     ea::set_apex_launch_option_ea(ea_user_id, value)
 }
 
@@ -43,6 +44,7 @@ pub async fn set_apex_launch_option_ea(
     transaction_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
+        crate::game::apex::validate_launch_options(&launch_option)?;
         let _guard = lock_history()?;
         let current = read_ea_launch_options(&ea_user_id)?;
         if current == launch_option {

@@ -270,9 +270,9 @@ noncommercial mirrors and public modified versions are allowed.
   ability), mantle boost prompts `mantle_boost_ui_setting` (`0/1/2/3` =
   off/minimum/hidden prompts/full), the health/ammo popup
   `player_setting_lowammo_setting` (`0/1/2` = off/limited/on), ping opacity
-  `hud_setting_pingAlpha` (`1.0/0.5` = default/faded), pilot damage indicator
-  `damage_indicator_style_pilot` (`0/1/2` = off/X/X+shield), damage indicator
-  projection `hud_setting_damageIndicatorStyle` (`0/1/2` = 2D/3D/both), and
+  `hud_setting_pingAlpha` (`1.0/0.5` = default/transparent). Pilot damage
+  indicator `damage_indicator_style_pilot` (`0/1/2` = off/X/X+shield), damage
+  indicator projection `hud_setting_damageIndicatorStyle` (`0/1/2` = 2D/3D/both), and
   damage text `hud_setting_damageTextStyle` (`0/1/2/3` = off/stacking/floating/
   both). Controller vibration is `joy_rumble` (`0/1/2` = off/default/advanced),
   PS5 trigger effects use `ps5_trig_enable` (`0/1`), and voice chat record mode
@@ -281,20 +281,23 @@ noncommercial mirrors and public modified versions are allowed.
   values written by the in-game slider. The audio
   channel selector uses `miles_channels` (`0/1/2` = device default/mono/stereo).
   The parenthesized format shown after Device default is generated from the
-  current output device and system settings, so it is not a fixed label.
-  `miles_mix` and its `dialogue_cat_*` companion writes remain partial.
-  Mouse ADS sensitivity mirrors one value across all eight per-optic scalar
-  keys, while per-optic mode disables the general editor and exposes those keys
-  independently. Controller preset values follow the runtime-observed menu
-  order from `0` through `6`; controller stick layouts similarly map Default,
+  current output device and system settings, so it is not a fixed label. Audio
+  mix uses profile key `miles_mix` (`0/1` = original/focused) and does not
+  rewrite `dialogue_cat_*`. General mouse ADS writes only
+  `mouse_zoomed_sensitivity_scalar_0`; per-optic mode disables the general
+  editor and exposes `_0..7` independently. Controller preset values follow
+  the runtime-observed menu order from `0` through `6`; controller stick
+  layouts similarly map Default,
   Southpaw, Legacy, and Legacy Southpaw to `0` through `3`. Trigger deadzone is
   a five-value enum (`0/30/64/128/255`), not a percentage slider, and controller
-  look sensitivity is an eight-label enum stored as `0` through `7`. General
-  controller ADS sensitivity adds a `-1` value meaning “same as look sensitivity”.
-  Controller response curve is `0` through `4`; look deadzone is `0` through
-  `2`, while movement deadzone intentionally exposes only stored values `1`
-  and `2`. Controller ADS/per-optic storage and audio-mix enumeration remain
-  read-only because current runtime evidence is incomplete. Advanced Look
+  look sensitivity is an eight-label enum stored as `0` through `7`.
+  Controller ADS storage uses `gamepad_aim_speed_ads_0..7` plus the
+  `gamepad_use_per_scope_ads_settings` toggle. The general selector writes only
+  `_0`; per-optic mode maps `_0..7` to 1x, 2x, 3x, 4x, 6x, 8x, 10x, and Seer
+  passive. All selectors accept `-1..7`; `-1` is Same for general ADS and
+  Default per optic. Controller response curve is `0` through `4`; look
+  deadzone is `0` through `2`, while movement deadzone intentionally exposes
+  only stored values `1` and `2`. Advanced Look
   Controls are
   recorded for reference but intentionally
   remain read-only until their full ranges, steps, dependencies, and tips are
@@ -442,14 +445,19 @@ noncommercial mirrors and public modified versions are allowed.
   paired, rejects duplicate or third slots, and validates global input
   uniqueness before writing. The quick preset updates those same contexts in
   place and uses the same transaction to set the confirmed gameplay/HUD/
-  accessibility optimizations and the MOUSE2/MWHEEL binding layout. Unverified
-  transparent ping opacity remains deferred.
+  accessibility optimizations and the MOUSE2/MWHEEL binding layout. Ping
+  opacity remains excluded because it is a user-facing HUD preference.
 - Apex configuration snapshots use the version-1 JSON shape while export and
   import controls classify backend-supported keys into other game settings,
   keyboard/mouse aiming and sensitivity, controller settings and sensitivity,
   and bindings. Export loads only selected sources; import starts from the last
   clean disk report rather than an unsaved draft, and binding import reconciles
-  the complete selected two-slot topology with create/update/delete mutations.
+  the complete selected two-slot topology with create/update/delete mutations,
+  including an explicit empty binding list that clears all editable bindings.
+  Empty launch options remain a real import value, while empty video blocks are
+  omitted and unchanged imports report a no-op instead of success. Snapshot
+  parsing rejects launch-option control characters and invalid values for known
+  game-setting keys before calling native mutation APIs.
 - Snapshot import/export always excludes machine-local audio endpoint IDs
   `miles_output_device` and `voice_input_device`; the dialogs state this
   explicitly so device selections are not transferred to another computer. It
@@ -466,10 +474,21 @@ noncommercial mirrors and public modified versions are allowed.
   fingerprinted and imported once without being removed; a migration marker is
   written before internal backups can be mistaken for later legacy imports, and
   transient backup read errors do not write that marker.
-- Apex video mutations accept only canonical ASCII `setting.*` keys and reject
-  quoted or control-character keys and values before no-op detection. Parsed
-  video keys are normalized without outer quotes so unchanged values remain
-  true no-ops.
+- Apex video mutations accept only the keys owned by
+  `src/data/apex_video_config.ts`, with key-specific enum, integer, and finite
+  numeric ranges enforced in Rust. Unknown `setting.*`, including
+  `setting.configversion`, and quoted or control-character keys and values are
+  rejected before no-op detection. Parsed video keys are normalized without
+  outer quotes so unchanged values remain true no-ops. Steam, EA, and unified
+  launch-option writes reject control characters before history is mutated.
+  Runtime capture confirms adaptive-resolution/VSync coupling, restricts Map
+  Detail to the current Low=`1` and High=`2` menu values, keeps
+  `shadow_maxdynamic` outside Point Light Shadow Detail, and exposes only the
+  current Low/Medium/High Effects Detail tuples. Laser custom colors use
+  `R + (G << 8) + (B << 16)`. Legacy or non-menu keys such as
+  `hud_setting_showMeter`, `sound_num_speakers`, volumetric fog, and ADS depth
+  feather remain outside normal game-setting ownership; the runtime mapping
+  document records the exact evidence.
 - Apex-only reset clears launch options for the selected account and removes
   `videoconfig.txt`, `settings.cfg`, and `profile.cfg` after recording history.
   The frontend then waits for Apex to regenerate defaults and checks again on
@@ -559,6 +578,9 @@ noncommercial mirrors and public modified versions are allowed.
 - Do not run reset or restore smoke tests against a user's real Steam/EA Apex
   configuration without explicit authorization; backend tests must use
   isolated temporary files.
+- Do not automate, control, or navigate the live Apex client for runtime
+  mapping. Any future in-game selection must be performed manually by the user;
+  tooling may only take read-only before/after config copies and compare them.
 - Do not run Microsoft Store reset/re-registration, OneDrive reset/install, or
   service-changing Application Repair smoke tests on the host without explicit
   authorization. Browser visual QA must use deterministic mocked IPC; source

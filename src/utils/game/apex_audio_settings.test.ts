@@ -10,8 +10,20 @@ describe('Apex audio settings catalog', () => {
 
   it('keeps the observed open-mic threshold range and precision', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'voiceActivationThreshold')).toMatchObject({
-      file: 'profile', key: 'voice_quiet_threshold', min: 0, max: 32767, step: 1,
+      file: 'profile', key: 'voice_quiet_threshold', min: 0, max: 32767, step: 0.01,
     });
+  });
+
+  it('maps the confirmed audio mix without companion writes', () => {
+    const field = ApexGameSettingsData.find(item => item.id === 'audioMix');
+    expect(field).toMatchObject({
+      file: 'profile', key: 'miles_mix', control: 'enum',
+      options: [
+        {value: '0', labelKey: 'apexGameSettings.options.original'},
+        {value: '1', labelKey: 'apexGameSettings.options.focused'},
+      ],
+    });
+    expect(field?.writeKeys).toBeUndefined();
   });
 
   it('maps each output configuration value to its stable label and description', () => {

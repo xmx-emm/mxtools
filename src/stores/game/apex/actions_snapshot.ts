@@ -363,6 +363,12 @@ export const apexSnapshotActions = {
       toast.warning('apex.configSnapshot.errors.nothingSelected');
       return false;
     }
+    const importableVideoConfig = selection.importVideoConfig && snapshot.videoConfig
+      ? omitApexGameManagedVideoConfig(snapshot.videoConfig)
+      : null;
+    const hasImportableVideoConfig = Boolean(
+      importableVideoConfig && Object.keys(importableVideoConfig).length > 0,
+    );
 
     if (selection.importLaunchOptions && snapshot.launchOptions) {
       if (!this.active_apex_account) {
@@ -380,7 +386,7 @@ export const apexSnapshotActions = {
       }
     }
 
-    if ((selection.importVideoConfig && snapshot.videoConfig)
+    if (hasImportableVideoConfig
       || ((selection.importGameSettings || selection.importAiming
         || selection.importController || selection.importBindings) && snapshot.gameSettings)) {
       const running = await apexIsRunning();
@@ -396,15 +402,14 @@ export const apexSnapshotActions = {
         // Launch validation uses the candidate snapshot text directly.  Do
         // not force a second read of the current launcher value here.
         launchOptions: false,
-        videoConfig: selection.importVideoConfig && Boolean(snapshot.videoConfig),
+        videoConfig: hasImportableVideoConfig,
         gameSettings: selection.importGameSettings && Boolean(snapshot.gameSettings),
         aiming: selection.importAiming && Boolean(snapshot.gameSettings),
         controller: selection.importController && Boolean(snapshot.gameSettings),
         bindings: selection.importBindings && Boolean(snapshot.gameSettings),
       });
       let videoUpdates: Record<string, string> = {};
-      if (selection.importVideoConfig && snapshot.videoConfig) {
-        const importableVideoConfig = omitApexGameManagedVideoConfig(snapshot.videoConfig);
+      if (hasImportableVideoConfig && importableVideoConfig) {
         if (selection.videoSelectMode === 'all') {
           videoUpdates = importableVideoConfig;
         } else {
@@ -482,7 +487,7 @@ export const apexSnapshotActions = {
       const result = await mutateApexConfig({request: {
         source: 'import',
         transactionId,
-        launcher: launchOptions && account ? toApexLauncherRef(account) : null,
+        launcher: launchOptions !== null && account ? toApexLauncherRef(account) : null,
         launchOptions,
         videoUpdates,
         gameSettings,
@@ -494,7 +499,7 @@ export const apexSnapshotActions = {
         this.launch_loaded_for_key = this.launcher_selection_key;
         this.launch_load_status = 'ready';
       }
-      if (selection.importVideoConfig && snapshot.videoConfig) {
+      if (hasImportableVideoConfig) {
         const values = result.videoConfig
           ? normalizeVideoConfigMap(result.videoConfig)
           : {...this.video_config_values, ...videoUpdates};
@@ -514,6 +519,10 @@ export const apexSnapshotActions = {
         adoptApexGameSettingsReport(this, result.gameSettingsReport);
       }
 
+      if (result.changedScopes.length === 0) {
+        toast.info('apex.configSnapshot.noChanges');
+        return false;
+      }
       toast.success('toast.importApexConfigSnapshotSuccess');
       return true;
     } catch (err) {

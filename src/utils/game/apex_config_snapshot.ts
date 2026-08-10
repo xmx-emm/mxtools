@@ -15,6 +15,7 @@ import type {
   ApexBindingSnapshot,
   ApexGameSettingsSnapshot,
 } from '@/types/apex_game_settings.ts';
+import {isValidApexGameSettingValue} from '@/utils/game/apex_game_settings.ts';
 
 export class ApexConfigSnapshotParseError extends Error {
   constructor(message: string) {
@@ -80,6 +81,12 @@ function emptySettingsGroup(): Pick<ApexGameSettingsSnapshot, 'settings' | 'prof
   return {settings: {}, profile: {}};
 }
 
+function hasGameSettingsSnapshotContent(snapshot: ApexGameSettingsSnapshot): boolean {
+  return Object.keys(snapshot.settings).length > 0
+    || Object.keys(snapshot.profile).length > 0
+    || snapshot.bindings !== undefined;
+}
+
 /** Split known aiming and controller values from the remaining game settings. */
 export function splitApexGameSettingsSnapshot(
   snapshot: ApexGameSettingsSnapshot,
@@ -123,6 +130,24 @@ function isPlainStringRecord(value: unknown): value is Record<string, string> {
     }
   }
   return true;
+}
+
+export function isValidApexLaunchOptions(value: string): boolean {
+  return !Array.from(value).some(character => {
+    const code = character.charCodeAt(0);
+    return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+  });
+}
+
+function validateGameSettingRecord(
+  file: 'settings' | 'profile',
+  value: Record<string, string>,
+): void {
+  if (Object.entries(value).some(([key, item]) => (
+    !isValidApexGameSettingValue(ApexGameSettingsData, file, key, item)
+  ))) {
+    throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidGameSettings');
+  }
 }
 
 /**
@@ -213,11 +238,16 @@ export function buildApexConfigSnapshot(input: {
   };
 
   if (selection.launchOptions) {
-    snapshot.launchOptions = {raw: input.launchOptionsRaw ?? ''};
+    const raw = input.launchOptionsRaw ?? '';
+    if (!isValidApexLaunchOptions(raw)) {
+      throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidLaunchOptions');
+    }
+    snapshot.launchOptions = {raw};
   }
   if (selection.videoConfig) {
-    snapshot.videoConfig = omitApexGameManagedVideoConfig(input.videoConfig ?? {});
-    validateVideoConfigRecord(snapshot.videoConfig);
+    const videoConfig = omitApexGameManagedVideoConfig(input.videoConfig ?? {});
+    validateVideoConfigRecord(videoConfig);
+    if (Object.keys(videoConfig).length > 0) snapshot.videoConfig = videoConfig;
   }
   if (selection.gameSettings || selection.aiming || selection.controller || selection.bindings) {
     const selectedGroups: ApexConfigSnapshotSettingsGroup[] = [];
@@ -228,13 +258,19 @@ export function buildApexConfigSnapshot(input: {
       input.gameSettings ?? {settings: {}, profile: {}},
       selectedGroups,
     );
-    snapshot.gameSettings = {
+    validateGameSettingRecord('settings', selectedSettings.settings);
+    validateGameSettingRecord('profile', selectedSettings.profile);
+    const gameSettings: ApexGameSettingsSnapshot = {
       settings: selectedSettings.settings,
       profile: selectedSettings.profile,
       ...(selection.bindings
         ? {bindings: (input.gameSettings?.bindings ?? []).map(binding => ({...binding}))}
         : {}),
     };
+    if (hasGameSettingsSnapshotContent(gameSettings)) snapshot.gameSettings = gameSettings;
+  }
+  if (!snapshot.launchOptions && !snapshot.videoConfig && !snapshot.gameSettings) {
+    throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.emptySnapshot');
   }
   return snapshot;
 }
@@ -277,7 +313,7 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
       throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidLaunchOptions');
     }
     const raw = (lo as Record<string, unknown>).raw;
-    if (typeof raw !== 'string') {
+    if (typeof raw !== 'string' || !isValidApexLaunchOptions(raw)) {
       throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidLaunchOptions');
     }
     snapshot.launchOptions = {raw};
@@ -288,7 +324,8 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
       throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidVideoConfig');
     }
     validateVideoConfigRecord(obj.videoConfig);
-    snapshot.videoConfig = omitApexGameManagedVideoConfig(obj.videoConfig);
+    const videoConfig = omitApexGameManagedVideoConfig(obj.videoConfig);
+    if (Object.keys(videoConfig).length > 0) snapshot.videoConfig = videoConfig;
   }
 
   if ('gameSettings' in obj && obj.gameSettings !== undefined) {
@@ -306,6 +343,8 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
     const gameProfile = Object.fromEntries(
       Object.entries(game.profile).filter(([key]) => !isMachineLocalGameSetting('profile', key)),
     );
+    validateGameSettingRecord('settings', gameSettings);
+    validateGameSettingRecord('profile', gameProfile);
     let bindings: ApexGameSettingsSnapshot['bindings'];
     if (game.bindings !== undefined) {
       if (!Array.isArray(game.bindings) || !game.bindings.every(isApexBindingSnapshot)) {
@@ -324,11 +363,14 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
       }
       bindings = game.bindings.map(binding => ({...binding}));
     }
-    snapshot.gameSettings = {
+    const parsedGameSettings: ApexGameSettingsSnapshot = {
       settings: {...gameSettings},
       profile: {...gameProfile},
-      ...(bindings ? {bindings} : {}),
+      ...(bindings !== undefined ? {bindings} : {}),
     };
+    if (hasGameSettingsSnapshotContent(parsedGameSettings)) {
+      snapshot.gameSettings = parsedGameSettings;
+    }
   }
 
   if (!snapshot.launchOptions && !snapshot.videoConfig && !snapshot.gameSettings) {

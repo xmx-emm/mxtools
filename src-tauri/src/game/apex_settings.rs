@@ -209,6 +209,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "gamepad_toggle_ads"
             | "gamepad_toggle_survivalSlot_to_weaponInspect"
             | "gamepad_togglecrouch_hold"
+            | "gamepad_use_per_scope_ads_settings"
             | "hud_setting_accessibleChat"
             | "hud_setting_adsDof"
             | "hud_setting_anonymousMode"
@@ -271,6 +272,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "cl_fovScale" => Some(Number(1.0, 1.7)),
             "cl_safearea" => Some(Number(0.0, 1.0)),
             "gameCursor_Velocity" => Some(Number(100.0, 5000.0)),
+            "miles_mix" => Some(Enum(BOOL)),
             "sound_volume_dialogue"
             | "sound_volume_music_game"
             | "sound_volume_music_lobby"
@@ -282,6 +284,14 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "voice_quiet_threshold" => Some(Number(0.0, 32767.0)),
             "net_netGraph2" => Some(Enum(BOOL)),
             "gamepad_aim_speed" => Some(Integer(0, 7)),
+            "gamepad_aim_speed_ads_0"
+            | "gamepad_aim_speed_ads_1"
+            | "gamepad_aim_speed_ads_2"
+            | "gamepad_aim_speed_ads_3"
+            | "gamepad_aim_speed_ads_4"
+            | "gamepad_aim_speed_ads_5"
+            | "gamepad_aim_speed_ads_6"
+            | "gamepad_aim_speed_ads_7" => Some(Integer(-1, 7)),
             _ => None,
         },
     }
@@ -1390,9 +1400,16 @@ mod tests {
         assert!(validate_value(ConfigFile::Profile, "gamepad_button_layout", "7").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "7").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed", "8").is_err());
-        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "-1").is_err());
-        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "7").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "-1").is_ok());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "7").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_0", "8").is_err());
+        assert!(validate_value(ConfigFile::Profile, "gamepad_aim_speed_ads_7", "-1").is_ok());
+        assert!(validate_value(
+            ConfigFile::Profile,
+            "gamepad_use_per_scope_ads_settings",
+            "1"
+        )
+        .is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "4").is_ok());
         assert!(validate_value(ConfigFile::Profile, "gamepad_look_curve", "5").is_err());
         assert!(validate_value(ConfigFile::Profile, "gamepad_trigger_threshold", "255").is_ok());

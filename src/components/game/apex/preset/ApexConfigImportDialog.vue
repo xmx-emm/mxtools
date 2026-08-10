@@ -38,7 +38,7 @@ const selected_video_ids = ref<string[]>([]);
 const snapshot = computed(() => apex_store.config_import_snapshot);
 
 const has_launch = computed(() => !!snapshot.value?.launchOptions);
-const has_video = computed(() => !!snapshot.value?.videoConfig);
+const has_video = computed(() => Object.keys(snapshot.value?.videoConfig ?? {}).length > 0);
 const game_setting_groups = computed(() => {
   if (!snapshot.value?.gameSettings) return null;
   return splitApexGameSettingsSnapshot(snapshot.value.gameSettings);
@@ -46,7 +46,7 @@ const game_setting_groups = computed(() => {
 const has_game_settings = computed(() => has_group_values('gameSettings'));
 const has_aiming = computed(() => has_group_values('aiming'));
 const has_controller = computed(() => has_group_values('controller'));
-const has_bindings = computed(() => !!snapshot.value?.gameSettings?.bindings?.length);
+const has_bindings = computed(() => snapshot.value?.gameSettings?.bindings !== undefined);
 
 function has_group_values(group: 'gameSettings' | 'aiming' | 'controller'): boolean {
   const values = game_setting_groups.value?.[group];

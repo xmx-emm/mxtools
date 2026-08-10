@@ -43,7 +43,15 @@ pub(crate) fn read_steam_launch_options(id: usize) -> Result<String, String> {
     get_apex_launch_options_by_steam_user_id(id)
 }
 
+pub(crate) fn validate_launch_options(value: &str) -> Result<(), String> {
+    if value.chars().any(char::is_control) {
+        return Err("apex.errors.invalidLaunchOptions".to_string());
+    }
+    Ok(())
+}
+
 pub(crate) fn write_steam_launch_options(id: usize, value: &str) -> Result<(), String> {
+    validate_launch_options(value)?;
     set_apex_launch_options_by_steam_user_id(id, value)
 }
 
@@ -62,6 +70,62 @@ pub(crate) fn read_video_config_sync() -> Result<HashMap<String, String>, String
 pub(crate) fn patch_video_config_sync(updates: &HashMap<String, String>) -> Result<(), String> {
     validate_video_updates(updates)?;
     patch_apex_videoconfig(updates).map(|_| ())
+}
+
+#[derive(Debug, Clone, Copy)]
+enum VideoValueRule {
+    Enum(&'static [&'static str]),
+    Integer(i64, i64),
+    Number(f64, f64),
+}
+
+const VIDEO_BOOL: &[&str] = &["0", "1"];
+const VIDEO_ANTIALIAS: &[&str] = &["0", "12"];
+
+fn video_value_rule(key: &str) -> Option<VideoValueRule> {
+    use VideoValueRule::*;
+    match key {
+        "setting.fullscreen"
+        | "setting.nowindowborder"
+        | "setting.dvs_enable"
+        | "setting.dvs_supersample_enable"
+        | "setting.dynamic_streaming_budget"
+        | "setting.mat_mip_linear"
+        | "setting.r_createmodeldecals"
+        | "setting.csm_enabled"
+        | "setting.shadow_enable"
+        | "setting.volumetric_lighting"
+        | "setting.volumetric_fog"
+        | "setting.new_shadow_settings"
+        | "setting.mat_depthfeather_enable"
+        | "setting.cl_gib_allow"
+        | "setting.cl_ragdoll_self_collision" => Some(Enum(VIDEO_BOOL)),
+        "setting.mat_antialias_mode" => Some(Enum(VIDEO_ANTIALIAS)),
+        "setting.defaultres" | "setting.last_display_width" => Some(Integer(512, 7680)),
+        "setting.defaultresheight" | "setting.last_display_height" => Some(Integer(128, 4320)),
+        "setting.mat_vsync_mode" => Some(Integer(0, 4)),
+        "setting.mat_backbuffer_count" => Some(Integer(1, 2)),
+        "setting.dvs_gpuframetime_min" | "setting.dvs_gpuframetime_max" => {
+            Some(Integer(0, 500_000))
+        }
+        "setting.stream_memory" => Some(Integer(0, 9_999_999)),
+        "setting.mat_picmip"
+        | "setting.csm_coverage"
+        | "setting.shadow_depth_upres_factor_max"
+        | "setting.ssao_quality"
+        | "setting.particle_cpu_level" => Some(Integer(0, 4)),
+        "setting.map_detail_level" => Some(Integer(1, 2)),
+        "setting.mat_forceaniso" => Some(Integer(0, 16)),
+        "setting.r_decals" => Some(Integer(0, 512)),
+        "setting.csm_cascade_res" | "setting.shadow_depth_dimen_min" => Some(Integer(0, 4096)),
+        "setting.shadow_maxdynamic" | "setting.cl_ragdoll_maxcount" => Some(Integer(0, 32)),
+        "setting.cl_particle_fallback_base" => Some(Integer(0, 8)),
+        "setting.gamma" => Some(Number(0.5, 3.0)),
+        "setting.r_lod_switch_scale" => Some(Number(0.0, 4.0)),
+        "setting.fadeDistScale" => Some(Number(0.0, 2.0)),
+        "setting.cl_particle_fallback_multiplier" => Some(Number(0.0, 8.0)),
+        _ => None,
+    }
 }
 
 pub(crate) fn validate_video_updates(updates: &HashMap<String, String>) -> Result<(), String> {
@@ -83,10 +147,25 @@ pub(crate) fn validate_video_updates(updates: &HashMap<String, String>) -> Resul
         {
             return Err(format!("apex.errors.invalidVideoConfigKey: {key}"));
         }
+        let rule = video_value_rule(key)
+            .ok_or_else(|| format!("apex.errors.invalidVideoConfigKey: {key}"))?;
         if value
             .chars()
             .any(|character| character == '"' || character.is_control())
         {
+            return Err(format!("apex.errors.invalidVideoConfigValue: {key}"));
+        }
+        let valid = value.trim() == value
+            && match rule {
+                VideoValueRule::Enum(values) => values.contains(&value.as_str()),
+                VideoValueRule::Integer(min, max) => value
+                    .parse::<i64>()
+                    .is_ok_and(|number| number >= min && number <= max),
+                VideoValueRule::Number(min, max) => value
+                    .parse::<f64>()
+                    .is_ok_and(|number| number.is_finite() && number >= min && number <= max),
+            };
+        if !valid {
             return Err(format!("apex.errors.invalidVideoConfigValue: {key}"));
         }
     }
@@ -130,6 +209,7 @@ pub async fn set_apex_launch_option(
     transaction_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
+        validate_launch_options(&launch_option)?;
         let _guard = lock_history()?;
         let current = read_steam_launch_options(id)?;
         if current == launch_option {
@@ -336,8 +416,8 @@ pub async fn set_apex_video_config(
     transaction_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
-        let _guard = lock_history()?;
         validate_video_updates(&updates)?;
+        let _guard = lock_history()?;
         let current = read_video_config_sync()?;
         let changed = updates
             .iter()

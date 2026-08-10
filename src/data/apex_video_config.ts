@@ -233,12 +233,14 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     step: 0.05,
   },
 
-  // 自适应分辨率：开关 + 帧时间上下限/超采样(与 mat_vsync_mode 双缓冲存在依赖，暂无确切档位映射)
+  // 自适应分辨率：目标非 0 时启用并写入帧时间上下限，同时禁用“双缓冲”垂直同步选项。
+  // 当前游戏菜单未写入 setting.dvs_supersample_enable。
   // 0   "setting.dvs_enable"		"0"  "setting.dvs_gpuframetime_min"		"38000"  "setting.dvs_gpuframetime_max"		"39200"
   // 2  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"475000"  "setting.dvs_gpuframetime_max"		"490000"
   // 10   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"95000"  "setting.dvs_gpuframetime_max"		"98000"
   // 25   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"38000"  "setting.dvs_gpuframetime_max"		"39200"
   // 50  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"19000"  "setting.dvs_gpuframetime_max"		"19600"
+  // 60  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"15834"  "setting.dvs_gpuframetime_max"		"16333"
   // 75   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"12668"  "setting.dvs_gpuframetime_max"		"13067"
   // 100   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"9500"  "setting.dvs_gpuframetime_max"		"9800"
   {
@@ -431,7 +433,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
   },
 
-  // 地图详情：0 超低(预设外) / 低 1 / 高 2   实测0 无效?
+  // 地图详情：当前游戏菜单仅提供低 1 / 高 2。
   {
     identifier: 'group.mapDetailLevel',
     name: 'apexVideoConfig.mapDetailLevel.name',
@@ -443,7 +445,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
       { label: 'apexVideoConfig.options.high', values: { 'setting.map_detail_level': '2' } },
     ],
     fields: [
-      { identifier: 'setting.map_detail_level', valueType: 'integer', min: 0, max: 4, step: 1 },
+      { identifier: 'setting.map_detail_level', valueType: 'integer', min: 1, max: 2, step: 1 },
     ],
   },
 
@@ -513,8 +515,8 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
   },
 
-  // 点光源阴影细节：shadow_enable + shadow_depth_dimen_min + shadow_depth_upres_factor_max + shadow_maxdynamic 联动
-  // 禁用 / 低 / 高 / 非常高 / 超高(低档 shadow_maxdynamic 原表缺失，按 0 处理)
+  // 点光源阴影细节仅联动 shadow_enable + shadow_depth_dimen_min + shadow_depth_upres_factor_max。
+  // shadow_maxdynamic 与 new_shadow_settings 在所有档位切换中均保持不变。
   {
     identifier: 'group.shadowDetail',
     name: 'apexVideoConfig.shadowDetail.name',
@@ -527,8 +529,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         values: {
           'setting.shadow_enable': '0',
           'setting.shadow_depth_dimen_min': '0',
-          'setting.shadow_depth_upres_factor_max': '0',
-          'setting.shadow_maxdynamic': '0'
+          'setting.shadow_depth_upres_factor_max': '0'
         }
       },
       {
@@ -536,8 +537,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         values: {
           'setting.shadow_enable': '1',
           'setting.shadow_depth_dimen_min': '128',
-          'setting.shadow_depth_upres_factor_max': '2',
-          'setting.shadow_maxdynamic': '0'
+          'setting.shadow_depth_upres_factor_max': '2'
         }
       },
       {
@@ -545,8 +545,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         values: {
           'setting.shadow_enable': '1',
           'setting.shadow_depth_dimen_min': '256',
-          'setting.shadow_depth_upres_factor_max': '2',
-          'setting.shadow_maxdynamic': '4'
+          'setting.shadow_depth_upres_factor_max': '2'
         }
       },
       {
@@ -554,8 +553,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         values: {
           'setting.shadow_enable': '1',
           'setting.shadow_depth_dimen_min': '256',
-          'setting.shadow_depth_upres_factor_max': '3',
-          'setting.shadow_maxdynamic': '4'
+          'setting.shadow_depth_upres_factor_max': '3'
         }
       },
       {
@@ -563,8 +561,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         values: {
           'setting.shadow_enable': '1',
           'setting.shadow_depth_dimen_min': '512',
-          'setting.shadow_depth_upres_factor_max': '3',
-          'setting.shadow_maxdynamic': '4'
+          'setting.shadow_depth_upres_factor_max': '3'
         }
       },
     ],
@@ -584,14 +581,18 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         max: 4,
         step: 1,
       },
-      {
-        identifier: 'setting.shadow_maxdynamic',
-        valueType: 'integer',
-        min: 0,
-        max: 32,
-        step: 1,
-      },
     ],
+  },
+  {
+    identifier: 'setting.shadow_maxdynamic',
+    name: 'apexVideoConfig.shadowMaxdynamic.name',
+    description: 'apexVideoConfig.shadowMaxdynamic.description',
+    valueType: 'integer',
+    min: 0,
+    max: 32,
+    step: 1,
+    hide_in_normal_filter: true,
+    not_in_game_settings: true,
   },
 
   // 环境光遮蔽：关 0 / 低 1 / 中 2 / 高 3 / 超高 4
@@ -648,7 +649,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     not_in_game_settings: true,
   },
 
-  // 特效细节：particle_cpu_level + cl_particle_fallback_base + cl_particle_fallback_multiplier 联动
+  // 特效细节：游戏内仅有低 0/3/2、中 1/0/1.75、高 2/0/1 三个联动档位。
   {
     identifier: 'group.particleDetail',
     name: 'apexVideoConfig.particleDetail.name',
@@ -656,14 +657,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     valueType: 'enum',
     tip: ApexVideoParticleDetailTip,
     options: [
-      {
-        label: 'apexVideoConfig.options.ultraLow',
-        values: {
-          'setting.particle_cpu_level': '2',
-          'setting.cl_particle_fallback_base': '3',
-          'setting.cl_particle_fallback_multiplier': '2'
-        }, outOfPreset: true
-      },
       {
         label: 'apexVideoConfig.options.low',
         values: {

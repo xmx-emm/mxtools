@@ -1,7 +1,70 @@
 import type {
   ApexBinding,
   ApexGameSettingDefinition,
+  ApexGameSettingsFile,
 } from '@/types/apex_game_settings.ts';
+
+const DECIMAL_SETTING_VALUE = /^-?\d+(?:\.\d+)?$/;
+const UNSIGNED_INTEGER_SETTING_VALUE = /^\d+$/;
+
+function fieldOwnsStorageKey(field: ApexGameSettingDefinition, key: string): boolean {
+  return field.key === key
+    || field.readKey === key
+    || field.writeKeys?.includes(key) === true;
+}
+
+export function matchingApexGameSettingOptionValue(
+  field: ApexGameSettingDefinition,
+  value: string,
+): string | null {
+  const exact = field.options?.find(option => option.value === value);
+  if (exact) return exact.value;
+  if (field.key !== 'hud_setting_pingAlpha' || !DECIMAL_SETTING_VALUE.test(value)) {
+    return null;
+  }
+  const valueNumber = Number(value);
+  return field.options?.find(option => (
+    DECIMAL_SETTING_VALUE.test(option.value)
+    && Number(option.value) === valueNumber
+  ))?.value ?? null;
+}
+
+/** Validate a known stored setting value without rejecting forward-compatible unknown keys. */
+export function isValidApexGameSettingValue(
+  fields: readonly ApexGameSettingDefinition[],
+  file: ApexGameSettingsFile,
+  key: string,
+  value: string,
+): boolean {
+  const definitions = fields.filter(field => (
+    field.file === file && fieldOwnsStorageKey(field, key)
+  ));
+  if (definitions.length === 0) return true;
+  if (Array.from(value).some(character => {
+    const code = character.charCodeAt(0);
+    return character === '"' || code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+  })) return false;
+
+  return definitions.some(field => {
+    if (field.control === 'number') {
+      if (!DECIMAL_SETTING_VALUE.test(value)) return false;
+      const number = Number(value);
+      return Number.isFinite(number)
+        && (field.min === undefined || number >= field.min)
+        && (field.max === undefined || number <= field.max);
+    }
+    if (field.control === 'rgb') {
+      if (!value) return true;
+      const channels = value.split(/\s+/);
+      return channels.length === 3 && channels.every(channel => {
+        if (!UNSIGNED_INTEGER_SETTING_VALUE.test(channel)) return false;
+        const number = Number(channel);
+        return Number.isInteger(number) && number >= 0 && number <= 255;
+      });
+    }
+    return matchingApexGameSettingOptionValue(field, value) !== null;
+  });
+}
 
 /** Return the existing binding that would collide with a proposed input. */
 export function findApexBindingConflict(

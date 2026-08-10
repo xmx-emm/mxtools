@@ -1069,6 +1069,9 @@ fn restore_impl(
     let _guard = lock_history()?;
     let dir = history_dir(app)?;
     let target = load_entry_by_id(&dir, &request.entry_id)?;
+    if let Some(value) = target.launch_options.as_deref() {
+        apex::validate_launch_options(value)?;
+    }
     if let Some(target_launcher) = &target.launcher {
         if !request
             .launcher
@@ -1253,6 +1256,10 @@ fn mutate_impl(
     app: &tauri::AppHandle,
     request: ApexConfigMutationRequest,
 ) -> Result<ApexConfigMutationResult, String> {
+    if let Some(value) = request.launch_options.as_deref() {
+        apex::validate_launch_options(value)?;
+    }
+    apex::validate_video_updates(&request.video_updates)?;
     let _guard = lock_history()?;
 
     let current_launch = match (&request.launcher, &request.launch_options) {
@@ -1266,7 +1273,6 @@ fn mutate_impl(
         .zip(current_launch.as_ref())
         .is_some_and(|(next, current)| next != current);
 
-    apex::validate_video_updates(&request.video_updates)?;
     let current_video_values = if request.video_updates.is_empty() {
         None
     } else {

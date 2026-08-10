@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed} from 'vue';
+import {ref} from 'vue';
 
 const props = withDefaults(defineProps<{
   modelValue: number | string
@@ -16,24 +16,53 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: number): void
 }>();
 
-const value_proxy = computed({
-  get: () => props.modelValue,
-  set: (value: number | string) => {
-    emit('update:modelValue', Number(value));
+const invalid = ref(false);
+
+function numericBound(value: number | string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function validNumber(raw: string): number | null {
+  if (!raw.trim()) return null;
+  const number = Number(raw);
+  if (!Number.isFinite(number)) return null;
+  const min = numericBound(props.min);
+  const max = numericBound(props.max);
+  if ((min !== null && number < min) || (max !== null && number > max)) return null;
+  return number;
+}
+
+function onInput(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const number = validNumber(target.value);
+  invalid.value = number === null;
+  if (number !== null) emit('update:modelValue', number);
+}
+
+function onBlur(event: FocusEvent) {
+  const target = event.target as HTMLInputElement;
+  if (validNumber(target.value) === null) {
+    target.value = String(props.modelValue);
   }
-});
+  invalid.value = false;
+}
 </script>
 
 <template>
   <input
-    v-model.number="value_proxy"
+    :value="modelValue"
     type="number"
     :step="step"
     :min="min"
     :max="max"
     :aria-label="ariaLabel"
+    :aria-invalid="invalid || undefined"
     :disabled="disabled"
     class="apex_number_input"
+    @input="onInput"
+    @blur="onBlur"
     @click.stop=""
     @mousedown.stop=""
     @mouseup.stop=""
@@ -67,6 +96,10 @@ const value_proxy = computed({
 .apex_number_input:focus-visible {
   border-color: rgba(var(--v-theme-primary), 0.78);
   box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.14);
+}
+
+.apex_number_input[aria-invalid="true"] {
+  border-color: rgb(var(--v-theme-error));
 }
 
 .apex_number_input:disabled {

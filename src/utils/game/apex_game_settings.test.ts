@@ -75,7 +75,7 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'mouseAdsMultiplier')).toMatchObject({
       key: 'mouse_ads_multiplier',
       readKey: 'mouse_zoomed_sensitivity_scalar_0',
-      writeKeys: Array.from({length: 8}, (_, index) => `mouse_zoomed_sensitivity_scalar_${index}`),
+      writeKeys: ['mouse_zoomed_sensitivity_scalar_0'],
       disabledWhen: {file: 'settings', key: 'mouse_use_per_scope_sensitivity_scalars', value: '1'},
     });
     expect(ApexGameSettingsData.find(field => field.id === 'mouseScope0')).toMatchObject({
@@ -96,6 +96,17 @@ describe('Apex game settings catalog', () => {
     expect(ApexGameSettingsData.find(field => field.id === 'ps5AdaptiveTriggers')).toMatchObject({
       file: 'profile', key: 'ps5_trig_enable', control: 'toggle',
     });
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerAdsSensitivity')).toMatchObject({
+      file: 'profile',
+      readKey: 'gamepad_aim_speed_ads_0',
+      writeKeys: ['gamepad_aim_speed_ads_0'],
+      disabledWhen: {file: 'profile', key: 'gamepad_use_per_scope_ads_settings', value: '1'},
+    });
+    expect(ApexGameSettingsData.find(field => field.id === 'controllerAdsScope7')).toMatchObject({
+      file: 'profile',
+      key: 'gamepad_aim_speed_ads_7',
+      disabledWhen: {file: 'profile', key: 'gamepad_use_per_scope_ads_settings', value: '0'},
+    });
     expect(ApexGameSettingsData.find(field => field.id === 'autoMuteCommunications')?.options?.map(option => option.value)).toEqual([
       '1', '0', '-1',
     ]);
@@ -104,7 +115,7 @@ describe('Apex game settings catalog', () => {
     ]);
 
     const keys = ApexGameSettingsData.map(field => field.key);
-    expect(keys).not.toContain('gamepad_aim_speed_ads_0');
+    expect(keys).toContain('gamepad_aim_speed_ads_0');
     expect(keys).not.toContain('sound_num_speakers');
     expect(keys).not.toContain('hud_setting_showMeter');
   });
