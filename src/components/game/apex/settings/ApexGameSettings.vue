@@ -109,11 +109,15 @@ function storageKeyLabel(field: ApexGameSettingDefinition): string {
 
 function isDisabled(field: ApexGameSettingDefinition): boolean {
   if (settingsBusy.value) return true;
-  const dependency = field.disabledWhen;
-  if (!dependency) return false;
-  const dependencyValue = apex_store.game_settings_values[dependency.file][dependency.key];
-  if (dependencyValue !== '0' && dependencyValue !== '1') return true;
-  return dependencyValue === dependency.value;
+  if (!field.disabledWhen) return false;
+  const dependencies = Array.isArray(field.disabledWhen)
+    ? field.disabledWhen
+    : [field.disabledWhen];
+  return dependencies.some((dependency) => {
+    const dependencyValue = apex_store.game_settings_values[dependency.file][dependency.key];
+    if (dependencyValue !== '0' && dependencyValue !== '1') return true;
+    return dependencyValue === dependency.value;
+  });
 }
 
 function showSettingTip(field: ApexGameSettingDefinition) {

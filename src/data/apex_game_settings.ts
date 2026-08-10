@@ -1,5 +1,6 @@
 import type {
   ApexGameSettingDefinition,
+  ApexGameSettingDependency,
   ApexGameSettingOption,
   ApexGameSettingsSection,
 } from '@/types/apex_game_settings.ts';
@@ -47,10 +48,22 @@ const bool = (
   section: ApexGameSettingDefinition['section'],
 ) => field(id, file, key, section, 'toggle', {options: boolOptions});
 
-// Still deliberately absent until a future live-game pass captures every option
-// and all coupled writes: hud_setting_showMeter (a separate legacy key, not the
-// Chinese "health and ammo popup" row), sound_num_speakers, and all
-// gamepad_custom_* / advanced-look controls. The
+const profileDependency = (key: string, value: string): ApexGameSettingDependency => ({
+  file: 'profile', key, value,
+});
+
+const alcDisabled = profileDependency('gamepad_custom_enabled', '0');
+const alcPerOpticDisabled = [
+  alcDisabled,
+  profileDependency('gamepad_use_per_scope_sensitivity_scalars', '0'),
+];
+
+// Still deliberately absent because no current visible menu owner was confirmed:
+// hud_setting_showMeter (a separate legacy key, not the Chinese "health and
+// ammo popup" row), sound_num_speakers, and unowned gamepad_custom_* internals.
+// The runtime-confirmed advanced-look controls below intentionally exclude
+// assist_style, custom_pilot/custom_titan, and the four high/low-power scope
+// aim-assist keys. The
 // runtime-confirmed meanings for the editable keys below are recorded in the
 // locale descriptions and docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md.
 const ApexGameSettings: ApexGameSettingDefinition[] = [
@@ -216,6 +229,72 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     options: boolOptions,
   }),
   bool('controllerInvert', 'profile', 'joy_inverty', 'controller'),
+  bool('alcEnabled', 'profile', 'gamepad_custom_enabled', 'controller'),
+  field('alcDeadzone', 'profile', 'gamepad_custom_deadzone_in', 'controller', 'number', {
+    min: 0, max: 0.5, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcOuterThreshold', 'profile', 'gamepad_custom_deadzone_out', 'controller', 'number', {
+    min: 0.01, max: 0.3, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcResponseCurve', 'profile', 'gamepad_custom_curve', 'controller', 'number', {
+    min: 0, max: 30, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcPerOpticEnabled', 'profile', 'gamepad_use_per_scope_sensitivity_scalars', 'controller', 'toggle', {
+    options: boolOptions,
+    disabledWhen: alcDisabled,
+  }),
+  ...Array.from({length: 8}, (_, index) => field(
+    `alcScope${index}`,
+    'profile',
+    `gamepad_ads_advanced_sensitivity_scalar_${index}`,
+    'controller',
+    'number',
+    {min: 0.2, max: 10, step: 0.01, disabledWhen: alcPerOpticDisabled},
+  )),
+  field('alcHipYaw', 'profile', 'gamepad_custom_hip_yaw', 'controller', 'number', {
+    min: 0, max: 500, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcHipPitch', 'profile', 'gamepad_custom_hip_pitch', 'controller', 'number', {
+    min: 0, max: 500, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcHipExtraYaw', 'profile', 'gamepad_custom_hip_turn_yaw', 'controller', 'number', {
+    min: 0, max: 250, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcHipExtraPitch', 'profile', 'gamepad_custom_hip_turn_pitch', 'controller', 'number', {
+    min: 0, max: 250, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcHipRampTime', 'profile', 'gamepad_custom_hip_turn_time', 'controller', 'number', {
+    min: 0, max: 1, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcHipRampDelay', 'profile', 'gamepad_custom_hip_turn_delay', 'controller', 'number', {
+    min: 0, max: 1, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsYaw', 'profile', 'gamepad_custom_ads_yaw', 'controller', 'number', {
+    min: 0, max: 500, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsPitch', 'profile', 'gamepad_custom_ads_pitch', 'controller', 'number', {
+    min: 0, max: 500, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsExtraYaw', 'profile', 'gamepad_custom_ads_turn_yaw', 'controller', 'number', {
+    min: 0, max: 250, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsExtraPitch', 'profile', 'gamepad_custom_ads_turn_pitch', 'controller', 'number', {
+    min: 0, max: 250, step: 1, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsRampTime', 'profile', 'gamepad_custom_ads_turn_time', 'controller', 'number', {
+    min: 0, max: 1, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcAdsRampDelay', 'profile', 'gamepad_custom_ads_turn_delay', 'controller', 'number', {
+    min: 0, max: 1, step: 0.01, disabledWhen: alcDisabled,
+  }),
+  field('alcTargetCompensation', 'profile', 'gamepad_custom_assist_on', 'controller', 'toggle', {
+    options: boolOptions,
+    disabledWhen: alcDisabled,
+  }),
+  field('alcMeleeTargetCompensation', 'profile', 'gamepad_aim_assist_melee', 'controller', 'toggle', {
+    options: boolOptions,
+    disabledWhen: [alcDisabled, profileDependency('gamepad_custom_assist_on', '0')],
+  }),
   field('audioOutputConfiguration', 'settings', 'miles_channels', 'audio', 'enum', {
     options: describedOptions('audioOutputConfiguration', ['0', 'deviceDefault'], ['1', 'mono'], ['2', 'stereo']),
   }),

@@ -87,7 +87,7 @@ export interface ApexGameSettingDefinition {
   max?: number;
   step?: number;
   options?: ApexGameSettingOption[];
-  disabledWhen?: ApexGameSettingDependency;
+  disabledWhen?: ApexGameSettingDependency | ApexGameSettingDependency[];
   readKey?: string;
   writeKeys?: string[];
 }

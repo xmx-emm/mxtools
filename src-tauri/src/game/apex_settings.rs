@@ -200,16 +200,15 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "closecaption"
             | "CrossPlay_user_optin"
             | "fov_disableAbilityScaling"
-            | "gamepad_aim_assist_ads_high_power_scopes"
-            | "gamepad_aim_assist_ads_low_power_scopes"
-            | "gamepad_aim_assist_hip_high_power_scopes"
-            | "gamepad_aim_assist_hip_low_power_scopes"
             | "gamepad_aim_assist_melee"
             | "gamepad_buttons_are_southpaw"
+            | "gamepad_custom_assist_on"
+            | "gamepad_custom_enabled"
             | "gamepad_toggle_ads"
             | "gamepad_toggle_survivalSlot_to_weaponInspect"
             | "gamepad_togglecrouch_hold"
             | "gamepad_use_per_scope_ads_settings"
+            | "gamepad_use_per_scope_sensitivity_scalars"
             | "hud_setting_accessibleChat"
             | "hud_setting_adsDof"
             | "hud_setting_anonymousMode"
@@ -292,6 +291,24 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "gamepad_aim_speed_ads_5"
             | "gamepad_aim_speed_ads_6"
             | "gamepad_aim_speed_ads_7" => Some(Integer(-1, 7)),
+            "gamepad_custom_deadzone_in" => Some(Number(0.0, 0.5)),
+            "gamepad_custom_deadzone_out" => Some(Number(0.01, 0.3)),
+            "gamepad_custom_curve" => Some(Number(0.0, 30.0)),
+            "gamepad_custom_hip_yaw"
+            | "gamepad_custom_hip_pitch"
+            | "gamepad_custom_ads_yaw"
+            | "gamepad_custom_ads_pitch" => Some(Number(0.0, 500.0)),
+            "gamepad_custom_hip_turn_yaw"
+            | "gamepad_custom_hip_turn_pitch"
+            | "gamepad_custom_ads_turn_yaw"
+            | "gamepad_custom_ads_turn_pitch" => Some(Number(0.0, 250.0)),
+            "gamepad_custom_hip_turn_time"
+            | "gamepad_custom_hip_turn_delay"
+            | "gamepad_custom_ads_turn_time"
+            | "gamepad_custom_ads_turn_delay" => Some(Number(0.0, 1.0)),
+            _ if indexed_suffix(key, "gamepad_ads_advanced_sensitivity_scalar_", 7) => {
+                Some(Number(0.2, 10.0))
+            }
             _ => None,
         },
     }

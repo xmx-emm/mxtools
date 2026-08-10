@@ -1,8 +1,9 @@
 # APEX Game Settings Runtime Mapping
 
 This file records mappings observed from the live EA build of Apex Legends on
-2026-07-29, 2026-07-30, 2026-08-09, and 2026-08-10. It supplements the screenshots and
-prevents option values from being inferred from menu order alone.
+2026-07-29, 2026-07-30, 2026-08-09, 2026-08-10, and 2026-08-11. It supplements
+the screenshots and prevents option values from being inferred from menu order
+alone.
 
 ## Confirmed mappings
 
@@ -155,24 +156,55 @@ No separate, verified Apex key for another “audio input device” selector was
 observed in this session. Do not add or transfer one by name inference; record
 its exact key first during a future runtime pass.
 
-## Recorded only: advanced look controls
+## Advanced Look Controls
 
-The following in-game controller settings are recorded from the Advanced Look
-Controls screen but intentionally remain outside the editable catalog. Their
-complete ranges, steps, dependencies, and right-click tips were not verified:
+The Advanced Look Controls master switch is `gamepad_custom_enabled` (`0/1`).
+When it is off, the other confirmed ALC editors are disabled. The basic control
+ranges are:
 
-- Custom look controls
-- Deadzone
-- Outer threshold
-- Response curve
-- Per-optic settings
-- Yaw speed and pitch speed
-- Turning extra yaw and pitch
-- Turning ramp-up time and delay
-- ADS yaw speed and pitch speed
-- ADS turning extra yaw and pitch
-- ADS turning ramp-up time and delay
-- Target compensation and melee target compensation
+| UI setting | Config key | Stored range |
+| --- | --- | --- |
+| Deadzone | `gamepad_custom_deadzone_in` | `0..0.5` (0%–50%) |
+| Outer threshold | `gamepad_custom_deadzone_out` | `0.01..0.3` (1%–30%) |
+| Response curve | `gamepad_custom_curve` | `0..30` |
+
+Percentage slider selections may store nearby finite floats; for example, a
+displayed 15% deadzone produced `0.151475`.
+
+The ALC per-optic switch is
+`gamepad_use_per_scope_sensitivity_scalars` (`0/1`). Toggling it does not
+initialize or overwrite any scalar. The eight independent scalar keys are
+`gamepad_ads_advanced_sensitivity_scalar_0..7`; they map to 1x, 2x, 3x, 4x,
+6x, 8x, 10x, and Seer passive in that order. Each accepts `0.2..10`. The menu
+slider can store nearby finite floats instead of the displayed decimal; for
+example, a displayed `2.0` produced values including `1.960322`, `1.986595`,
+and `2.012869`. Each scalar editor is disabled when either the ALC master or
+the ALC per-optic switch is off.
+
+The movement controls map as follows:
+
+| UI setting | Config key | Stored range |
+| --- | --- | --- |
+| Yaw speed | `gamepad_custom_hip_yaw` | `0..500` |
+| Pitch speed | `gamepad_custom_hip_pitch` | `0..500` |
+| Turning extra yaw | `gamepad_custom_hip_turn_yaw` | `0..250` |
+| Turning extra pitch | `gamepad_custom_hip_turn_pitch` | `0..250` |
+| Turning ramp-up time | `gamepad_custom_hip_turn_time` | `0..1` (0%–100%) |
+| Turning ramp-up delay | `gamepad_custom_hip_turn_delay` | `0..1` (0%–100%) |
+| ADS yaw speed | `gamepad_custom_ads_yaw` | `0..500` |
+| ADS pitch speed | `gamepad_custom_ads_pitch` | `0..500` |
+| ADS turning extra yaw | `gamepad_custom_ads_turn_yaw` | `0..250` |
+| ADS turning extra pitch | `gamepad_custom_ads_turn_pitch` | `0..250` |
+| ADS turning ramp-up time | `gamepad_custom_ads_turn_time` | `0..1` (0%–100%) |
+| ADS turning ramp-up delay | `gamepad_custom_ads_turn_delay` | `0..1` (0%–100%) |
+
+Target compensation is `gamepad_custom_assist_on` (`0/1`), and melee target
+compensation is `gamepad_aim_assist_melee` (`0/1`). Turning target
+compensation off disables the melee control. That transition did not change
+`gamepad_custom_assist_style` or the four high/low-power scope aim-assist keys.
+Those five keys, together with `gamepad_custom_pilot` and
+`gamepad_custom_titan`, have no confirmed visible menu ownership and remain
+outside the editable catalog.
 
 ## Current-menu ownership exclusions
 

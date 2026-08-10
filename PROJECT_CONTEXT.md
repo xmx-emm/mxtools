@@ -297,11 +297,16 @@ noncommercial mirrors and public modified versions are allowed.
   passive. All selectors accept `-1..7`; `-1` is Same for general ADS and
   Default per optic. Controller response curve is `0` through `4`; look
   deadzone is `0` through `2`, while movement deadzone intentionally exposes
-  only stored values `1` and `2`. Advanced Look
-  Controls are
-  recorded for reference but intentionally
-  remain read-only until their full ranges, steps, dependencies, and tips are
-  verified as one group.
+  only stored values `1` and `2`. Advanced Look Controls expose their confirmed
+  master, basic, per-optic, hip, ADS, target-compensation, and melee-compensation
+  keys. The ALC master disables all subordinate controls; the ALC per-optic
+  switch additionally gates eight `0.2..10` scalar slots mapped to 1x, 2x, 3x,
+  4x, 6x, 8x, 10x, and Seer passive; target compensation gates melee target
+  compensation. Confirmed numeric ranges are documented in
+  `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`. `gamepad_custom_assist_style`,
+  `gamepad_custom_pilot`, `gamepad_custom_titan`, and the four high/low-power
+  scope aim-assist keys remain read-only because no visible menu owner was
+  confirmed.
 - Apex history and configuration transactions are implemented by
   `src-tauri/src/game/apex_history.rs`, exposed through typed wrappers in
   `src/ipc/commands.ts`, and adopted by `src/stores/game/apex/actions_history.ts`.
