@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n';
-import {openPath} from '@tauri-apps/plugin-opener';
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {sleep} from '@/utils/time.ts';
 import {ref} from 'vue';
 import {useToast} from 'vue-toastification';
@@ -15,7 +15,7 @@ const apex_store = useApexStore();
 async function start_apex() {
   is_launching.value = true;
   try {
-    await openPath(apex_store.open_apex_url);
+    await openUrl(apex_store.open_apex_url);
     toast.info(t('apex.startApex'));
     await sleep(2000);
   } catch (e) {

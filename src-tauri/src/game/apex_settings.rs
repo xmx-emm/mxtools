@@ -188,7 +188,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "mouse_sensitivity" => Some(Number(0.01, 20.0)),
             "sound_volume_voice" => Some(Number(0.0, 2.0)),
             "voice_mixer_volume" | "voice_scale" => Some(Number(0.0, 1.0)),
-            "ui_layout_mode" => Some(Enum(BOOL)),
+            "ui_layout_mode" => Some(Enum(ZERO_TO_TWO)),
             "VoiceChatMode" | "miles_channels" => Some(Enum(ZERO_TO_TWO)),
             _ if indexed_suffix(key, "mouse_zoomed_sensitivity_scalar_", 7) => {
                 Some(Number(0.1, 10.0))
@@ -197,6 +197,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
         },
         ConfigFile::Profile => match key {
             "cl_deathhints_enabled"
+            | "cl_anim_always_play_nonlobby_sfx"
             | "closecaption"
             | "CrossPlay_user_optin"
             | "fov_disableAbilityScaling"
@@ -213,6 +214,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "hud_setting_adsDof"
             | "hud_setting_anonymousMode"
             | "hud_setting_compactOverHeadNames"
+            | "hud_setting_energyAmmoDisplay"
             | "hud_setting_minimapRotate"
             | "hud_setting_pingDoubleTapEnemy"
             | "hud_setting_showButtonHints"
@@ -245,6 +247,12 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "toggle_on_jump_to_deactivate"
             | "voice_enabled"
             | "weapon_setting_autocycle_on_empty" => Some(Bool),
+            "dialogue_cat_host_flavor"
+            | "dialogue_cat_host_important"
+            | "dialogue_cat_legend_flavor"
+            | "dialogue_cat_legend_important"
+            | "dialogue_cat_ping_flavor"
+            | "dialogue_cat_ping_important" => Some(Enum(BOOL)),
             "cc_text_size"
             | "gamepad_deadzone_index_look"
             | "gamepad_use_type"
@@ -265,12 +273,13 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "cl_comms_filter" => Some(Enum(COMMS_FILTER)),
             "colorblind_mode" | "gamepad_stick_layout" => Some(Enum(ZERO_TO_THREE)),
             "gamepad_button_layout" => Some(Enum(ZERO_TO_SIX)),
+            "laserSightColor" => Some(Integer(0, 16_777_215)),
             "reticle_color" => Some(RgbOrDefault),
             "gamepad_look_curve" => Some(Integer(0, 4)),
             "gamepad_trigger_threshold" => Some(Enum(TRIGGER_THRESHOLDS)),
             "cl_fovScale" => Some(Number(1.0, 1.7)),
             "cl_safearea" => Some(Number(0.0, 1.0)),
-            "gameCursor_Velocity" => Some(Number(100.0, 5000.0)),
+            "gameCursor_Velocity" => Some(Number(1300.0, 4300.0)),
             "miles_mix" => Some(Enum(BOOL)),
             "sound_volume_dialogue"
             | "sound_volume_music_game"
@@ -471,9 +480,52 @@ fn editable_binding(command: &str, input: &str) -> bool {
             | "+zoom"
             | "+toggle_zoom"
             | "+weaponCycle"
+            | "+weaponcycle"
             | "+dodge"
             | "+ping"
             | "jpeg"
+            | "ping_specific_type ATTACK"
+            | "ping_specific_type REGROUP"
+            | "ping_specific_type ENEMY_AUDIO"
+            | "ping_specific_type AVOID"
+            | "ping_specific_type AREA_VISITED"
+            | "ping_specific_type WATCHING"
+            | "ping_specific_type GOING"
+            | "ping_specific_type LOOTING"
+            | "ping_specific_type DEFENDING"
+            | "screenshotDevNet"
+            | "screenshotDevNet_noRPROF"
+            | "in_spec_mode"
+            | "in_spec_altitude_lock"
+            | "in_spec_teamplayer1"
+            | "in_spec_teamplayer2"
+            | "in_spec_teamplayer3"
+            | "in_spec_next"
+            | "in_spec_prev"
+            | "in_spec_next_team"
+            | "in_spec_prev_team"
+            | "in_spec_closest_player"
+            | "in_spec_closest_enemy"
+            | "in_spec_kill_leader"
+            | "in_spec_last_attacker"
+            | "in_spec_insert_annotation"
+            | "in_spec_toggle_smoothcam"
+            | "in_spec_toggle_map_teamnames"
+            | "in_spec_toggle_obituary"
+            | "in_spec_chasecam_zoom_out"
+            | "in_spec_chasecam_zoom_in"
+            | "in_spec_toggle_ui"
+            | "in_spec_toggle_freecam"
+            | "in_spec_toggle_chasecam_lock"
+            | "toggle_obs_player_tags"
+            | "toggle_obs_highlight"
+            | "toggleconsole"
+            | "ingamemenu_activate"
+            | "miles_insert_bug_marker"
+            | "toggle_obs_ring_survey"
+            | "roamingcam_togglerollmode"
+            | "+spectatorRollClockwise"
+            | "+spectatorRollCounterClockwise"
     )
 }
 
@@ -572,6 +624,10 @@ fn valid_binding_input(input: &str) -> bool {
             | "KP_MINUS"
             | "KP_PLUS"
             | "KP_DEL"
+            | "KP_INS"
+            | "KP_ENTER"
+            | "NUMLOCK"
+            | "SCROLLLOCK"
             | "F1"
             | "F2"
             | "F3"
@@ -1534,6 +1590,10 @@ mod tests {
             "+scriptCommand6",
             "+toggle_zoom",
             "+weaponCycle",
+            "+weaponcycle",
+            "ping_specific_type ATTACK",
+            "in_spec_altitude_lock",
+            "toggleconsole",
             "jpeg",
         ] {
             assert!(editable_binding(command, "F2"), "{command}");
@@ -1545,6 +1605,10 @@ mod tests {
         assert!(!valid_binding_input("A_BUTTON"));
         assert!(!valid_binding_input("w;quit"));
         assert!(valid_binding_input("MOUSE4"));
+        assert!(valid_binding_input("KP_INS"));
+        assert!(valid_binding_input("KP_ENTER"));
+        assert!(valid_binding_input("NUMLOCK"));
+        assert!(valid_binding_input("SCROLLLOCK"));
         assert!(valid_binding_input("w"));
     }
 

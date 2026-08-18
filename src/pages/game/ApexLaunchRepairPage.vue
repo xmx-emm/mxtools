@@ -2,7 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import type {UnlistenFn} from '@tauri-apps/api/event';
-import {openPath, openUrl} from '@tauri-apps/plugin-opener';
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {useRoute} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
@@ -381,9 +381,9 @@ async function openExternalDestination() {
   if (!action || !target.value) return;
   try {
     if (action === 'open_game_repair' && target.value.launcher === 'steam') {
-      await openPath('steam://validate/1172470');
+      await openUrl('steam://validate/1172470');
     } else if (action === 'open_launcher_cache' && target.value.launcher === 'steam') {
-      await openPath('steam://open/settings/downloads');
+      await openUrl('steam://open/settings/downloads');
     } else {
       const url = action === 'open_runtime_help'
         ? 'https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist'

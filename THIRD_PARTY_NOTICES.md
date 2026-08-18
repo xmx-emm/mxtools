@@ -52,6 +52,14 @@ sponsorship, or endorsement. Screenshots, videos, QR-code branding, and other
 third-party media remain subject to their owners' rights and any applicable
 platform terms.
 
+The Apex Legends preview images under `src/assets/images/apex/`, including the
+laser-sight preview background re-encoded from the `ui.rpak` UI image
+`rui/menu/laser_options/laser_example_1`, are derived from Apex Legends game
+content. Apex Legends and its assets are the property of Electronic Arts Inc.
+and Respawn Entertainment. They are displayed solely to identify and preview
+the corresponding in-game settings and are not covered by the root MxTools
+license.
+
 The Razer triple-headed snake icon displayed by MxTools is sourced from
 <https://assets2.razerzone.com/images/razer-legal/razer-logo-icon.png>.
 Razer's trademark use guidelines are available at

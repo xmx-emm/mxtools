@@ -23,6 +23,16 @@ const describedOptions = (
   descriptionKey: `apexGameSettings.fields.${fieldId}.options.${label}`,
 }));
 
+const linkedOptions = (
+  fieldId: string,
+  ...items: [string, string, Record<string, string>][]
+): ApexGameSettingOption[] => items.map(([value, label, values]) => ({
+  value,
+  labelKey: `apexGameSettings.options.${label}`,
+  descriptionKey: `apexGameSettings.fields.${fieldId}.options.${label}`,
+  values,
+}));
+
 const field = (
   id: string,
   file: ApexGameSettingDefinition['file'],
@@ -79,6 +89,9 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   field('reticleColor', 'profile', 'reticle_color', 'gameplay', 'rgb'),
   field('laserSightCustom', 'profile', 'laserSightColorCustomized', 'gameplay', 'enum', {
     options: options(['0', 'default'], ['1', 'custom']),
+  }),
+  field('laserSightColor', 'profile', 'laserSightColor', 'gameplay', 'packed-rgb', {
+    disabledWhen: {file: 'profile', key: 'laserSightColorCustomized', value: '0'},
   }),
   bool('enemyHealthBar', 'profile', 'hud_setting_showEnemyHealthBar', 'gameplay'),
   bool('enemyHighlight', 'profile', 'hud_setting_showEnemyHighlight', 'gameplay'),
@@ -229,6 +242,9 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     options: boolOptions,
   }),
   bool('controllerInvert', 'profile', 'joy_inverty', 'controller'),
+  field('menuCursorVelocity', 'profile', 'gameCursor_Velocity', 'controller', 'number', {
+    min: 1300, max: 4300, step: 1,
+  }),
   bool('alcEnabled', 'profile', 'gamepad_custom_enabled', 'controller'),
   field('alcDeadzone', 'profile', 'gamepad_custom_deadzone_in', 'controller', 'number', {
     min: 0, max: 0.5, step: 0.01, disabledWhen: alcDisabled,
@@ -301,21 +317,49 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   field('audioMix', 'profile', 'miles_mix', 'audio', 'enum', {
     options: describedOptions('audioMix', ['0', 'original'], ['1', 'focused']),
   }),
+  field('spectatorGameVolume', 'profile', 'sound_volume_sfx_observer', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('sfxVolume', 'profile', 'sound_volume_sfx', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('dialogueVolume', 'profile', 'sound_volume_dialogue', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('gameMusicVolume', 'profile', 'sound_volume_music_game', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('lobbyMusicVolume', 'profile', 'sound_volume_music_lobby', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
+  field('legendDialogue', 'profile', 'dialogue_cat_legend_flavor', 'audio', 'enum', {
+    readKey: 'dialogue_cat_legend_flavor',
+    writeKeys: ['dialogue_cat_legend_flavor', 'dialogue_cat_legend_important'],
+    options: linkedOptions('legendDialogue',
+      ['none', 'none', {dialogue_cat_legend_flavor: '0', dialogue_cat_legend_important: '0'}],
+      ['important', 'importantOnly', {dialogue_cat_legend_flavor: '0', dialogue_cat_legend_important: '1'}],
+      ['all', 'all', {dialogue_cat_legend_flavor: '1', dialogue_cat_legend_important: '1'}]),
+  }),
+  field('pingDialogue', 'profile', 'dialogue_cat_ping_flavor', 'audio', 'enum', {
+    readKey: 'dialogue_cat_ping_flavor',
+    writeKeys: ['dialogue_cat_ping_flavor', 'dialogue_cat_ping_important'],
+    options: linkedOptions('pingDialogue',
+      ['none', 'none', {dialogue_cat_ping_flavor: '0', dialogue_cat_ping_important: '0'}],
+      ['important', 'importantOnly', {dialogue_cat_ping_flavor: '0', dialogue_cat_ping_important: '1'}],
+      ['all', 'all', {dialogue_cat_ping_flavor: '1', dialogue_cat_ping_important: '1'}]),
+  }),
+  field('broadcastDialogue', 'profile', 'dialogue_cat_host_flavor', 'audio', 'enum', {
+    readKey: 'dialogue_cat_host_flavor',
+    writeKeys: ['dialogue_cat_host_flavor', 'dialogue_cat_host_important'],
+    options: linkedOptions('broadcastDialogue',
+      ['none', 'none', {dialogue_cat_host_flavor: '0', dialogue_cat_host_important: '0'}],
+      ['important', 'importantOnly', {dialogue_cat_host_flavor: '0', dialogue_cat_host_important: '1'}],
+      ['all', 'all', {dialogue_cat_host_flavor: '1', dialogue_cat_host_important: '1'}]),
+  }),
+  bool('emotePreviewSound', 'profile', 'cl_anim_always_play_nonlobby_sfx', 'audio'),
   field('voiceVolume', 'settings', 'sound_volume_voice', 'audio', 'number', {min: 0, max: 2, step: 0.01}),
   bool('soundWithoutFocus', 'profile', 'sound_without_focus', 'audio'),
-  bool('voiceEnabled', 'profile', 'voice_enabled', 'audio'),
-  bool('voiceMute', 'settings', 'voice_mixer_mute', 'audio'),
-  field('voiceInputVolume', 'settings', 'voice_mixer_volume', 'audio', 'number', {min: 0, max: 1, step: 0.01}),
   field('voiceActivationThreshold', 'profile', 'voice_quiet_threshold', 'audio', 'number', {min: 0, max: 32767, step: 0.01}),
   field('voiceChatRecordMode', 'settings', 'VoiceChatMode', 'audio', 'enum', {
     options: describedOptions('voiceChatRecordMode', ['0', 'pushToTalk'], ['1', 'openMic'], ['2', 'toggle']),
   }),
 
   bool('buttonHints', 'profile', 'hud_setting_showButtonHints', 'hud'),
+  field('uiMode', 'settings', 'ui_layout_mode', 'hud', 'enum', {
+    options: describedOptions('uiMode', ['0', 'automatic'], ['1', 'compact'], ['2', 'full']),
+  }),
+  bool('energyAmmoDisplay', 'profile', 'hud_setting_energyAmmoDisplay', 'hud'),
+  bool('showMedals', 'profile', 'hud_setting_showMedals', 'hud'),
   bool('hopUpPopup', 'profile', 'hud_setting_showHopUpPopUp', 'hud'),
   bool('obituary', 'profile', 'hud_setting_showObituary', 'hud'),
   bool('rotateMinimap', 'profile', 'hud_setting_minimapRotate', 'hud'),
@@ -347,6 +391,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     options: describedOptions('healthAmmoVoice', ['0', 'off'], ['1', 'limited'], ['2', 'on']),
   }),
   bool('textToSpeech', 'profile', 'hudchat_play_text_to_speech', 'accessibility'),
+  bool('speechToText', 'profile', 'speechtotext_enabled', 'accessibility'),
 
   field('autoMuteCommunications', 'profile', 'cl_comms_filter', 'privacy', 'enum', {
     options: options(['1', 'none'], ['0', 'nonFriends'], ['-1', 'everyone']),
@@ -362,27 +407,90 @@ export const apexGameSettingsSections: ApexGameSettingsSection[] = [
   'gameplay', 'aiming', 'bindings', 'controller', 'audio', 'hud', 'accessibility', 'privacy', 'unknown',
 ];
 
+// Runtime, machine-local, telemetry, cache, and legacy keys that have been
+// reviewed and deliberately do not belong in the current editable menu.
+export const apexGameSettingsReviewIgnoredKeys = new Set([
+  'settings:cc_linger_time',
+  'settings:cc_predisplay_time',
+  'settings:func_break_max_pieces',
+  'settings:hdr_screenshot_directory',
+  'settings:lookspring',
+  'settings:lookstrafe',
+  'settings:miles_dumpuploadtime',
+  'settings:miles_output_device',
+  'settings:name',
+  'settings:sound_num_speakers',
+  'settings:sv_specaccelerate',
+  'settings:sv_specnoclip',
+  'settings:sv_specspeed',
+  'settings:sv_voiceenable',
+  'settings:voice_forcemicrecord',
+  'settings:voice_input_device',
+  'settings:voice_mixer_boost',
+  'settings:voice_mixer_mute',
+  'settings:voice_mixer_volume',
+  'settings:voice_modenable',
+  'settings:voice_scale',
+  'settings:voice_vox',
+  'profile:communicationBlock_time_to_unblock',
+  'profile:eula_version_accepted',
+  'profile:first_time_player_state',
+  'profile:gamepad_aim_assist_ads_high_power_scopes',
+  'profile:gamepad_aim_assist_ads_low_power_scopes',
+  'profile:gamepad_aim_assist_hip_high_power_scopes',
+  'profile:gamepad_aim_assist_hip_low_power_scopes',
+  'profile:gamepad_buttons_are_southpaw',
+  'profile:gamepad_custom_assist_style',
+  'profile:gamepad_custom_pilot',
+  'profile:gamepad_custom_titan',
+  'profile:gamma_adjusted',
+  'profile:hud_setting_showMeter',
+  'profile:intro_viewed',
+  'profile:localClientPlayerCachedLevel',
+  'profile:menu_was_multiplayer_played_last',
+  'profile:miles_language',
+  'profile:mp_player_level',
+  'profile:noise_filter_scale',
+  'profile:pin_telemetry_report_date',
+  'profile:speechtotext_disable_time',
+  'profile:voice_enabled',
+  'profile:xlog_tls_allow_vip_upload',
+]);
+
 export const apexBindingCommandLabels: Record<string, string> = {
   weaponSelectPrimary0: 'weapon1', weaponSelectPrimary1: 'weapon2', weaponSelectPrimary2: 'holster',
   '+scriptCommand4': 'useSelectedMedical', '+scriptCommand3': 'toggleFireMode', '+scriptcommand3': 'toggleFireMode',
-  '+scriptCommand5': 'characterUtility', '+scriptCommand6': 'survivalItem', '+dodge': 'movementAbility',
+  '+scriptCommand5': 'characterUtility', '+scriptCommand6': 'survivalItem', '+scriptCommand7': 'scriptCommand7', '+dodge': 'movementAbility',
   '+moveleft': 'moveLeft', '+moveright': 'moveRight',
   '+forward': 'moveForward', '+backward': 'moveBack', '+toggle_duck': 'toggleCrouch',
   '+duck': 'holdCrouch', '+speed': 'sprintToggleZoom', '+jump': 'jump', '+use; +use_long': 'interact',
   '+use_alt': 'otherInteract', '+reload': 'reload', '+attack': 'attack', '+zoom': 'holdAim',
-  '+toggle_zoom': 'toggleAim', '+weaponCycle': 'cycleWeapon', '+melee': 'melee', '+ping': 'ping',
-  'ping_specific_type ENEMY': 'enemyPing', toggle_inventory: 'inventory', toggle_map: 'map',
+  '+toggle_zoom': 'toggleAim', '+weaponCycle': 'cycleWeapon', '+weaponcycle': 'cycleWeapon', '+melee': 'melee', '+ping': 'ping',
+  'ping_specific_type ENEMY': 'enemyPing', 'ping_specific_type ATTACK': 'pingAttack', 'ping_specific_type REGROUP': 'pingRegroup',
+  'ping_specific_type ENEMY_AUDIO': 'pingEnemyAudio', 'ping_specific_type AVOID': 'pingAvoid',
+  'ping_specific_type AREA_VISITED': 'pingAreaVisited', 'ping_specific_type WATCHING': 'pingWatching',
+  'ping_specific_type GOING': 'pingGoing', 'ping_specific_type LOOTING': 'pingLooting',
+  'ping_specific_type DEFENDING': 'pingDefending', toggle_inventory: 'inventory', toggle_map: 'map',
   weapon_inspect: 'inspect', weaponSelectOrdnance: 'grenade', '+offhand1': 'tactical',
   '+offhand4': 'ultimate', '+pushtotalk': 'voiceChat', say_team: 'teamChat', chat_wheel: 'legendWheel',
   'use_consumable HEALTH_SMALL': 'syringe', 'use_consumable HEALTH_LARGE': 'medKit',
   'use_consumable SHIELD_SMALL': 'shieldCell', 'use_consumable SHIELD_LARGE': 'shieldBattery',
   'use_consumable PHOENIX_KIT': 'phoenixKit', jpeg: 'screenshot', screenshotDevNet: 'screenshot',
   screenshotDevNet_noRPROF: 'screenshot', in_spec_mode: 'privateMatchObserver',
-  in_spec_teamplayer1: 'spectatePlayer1', in_spec_teamplayer2: 'spectatePlayer2',
+  in_spec_altitude_lock: 'spectateAltitudeLock', in_spec_teamplayer1: 'spectatePlayer1', in_spec_teamplayer2: 'spectatePlayer2',
   in_spec_teamplayer3: 'spectatePlayer3', in_spec_next: 'spectateNextPlayer',
-  in_spec_prev: 'spectatePreviousPlayer', in_spec_next_team: 'spectateNextTeam',
+  in_spec_prev: 'spectatePreviousPlayer', in_spec_next_team: 'spectateNextTeam', in_spec_last_attacker: 'spectateLastAttacker',
   in_spec_prev_team: 'spectatePreviousTeam', in_spec_closest_player: 'spectateClosestPlayer',
   in_spec_closest_enemy: 'spectateClosestEnemy', in_spec_kill_leader: 'spectateKillLeader',
+  in_spec_insert_annotation: 'spectateInsertAnnotation', in_spec_toggle_smoothcam: 'spectateSmoothCamera',
+  in_spec_toggle_map_teamnames: 'spectateMapTeamNames', in_spec_toggle_obituary: 'spectateObituary',
+  in_spec_chasecam_zoom_out: 'spectateChasecamZoomOut', in_spec_chasecam_zoom_in: 'spectateChasecamZoomIn',
+  in_spec_toggle_ui: 'spectateToggleUi', in_spec_toggle_freecam: 'spectateFreecam',
+  in_spec_toggle_chasecam_lock: 'spectateChasecamLock', toggle_obs_player_tags: 'observerPlayerTags',
+  toggle_obs_highlight: 'observerHighlight', toggleconsole: 'toggleConsole',
+  ingamemenu_activate: 'ingameMenu', miles_insert_bug_marker: 'milesBugMarker', toggle_obs_ring_survey: 'observerRingSurvey',
+  roamingcam_togglerollmode: 'spectatorRollMode', '+spectatorRollClockwise': 'spectatorRollClockwise',
+  '+spectatorRollCounterClockwise': 'spectatorRollCounterClockwise',
 };
 
 export default ApexGameSettings;

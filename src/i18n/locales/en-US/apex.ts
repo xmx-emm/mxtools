@@ -443,6 +443,8 @@ export const apexMessages = {
       openConsoleTitle: 'Open Steam console',
       openConsoleSubtitle: 'Download the required Apex Miles voice pack via the Steam console',
       openConsoleBtn: 'Open console',
+      openDepotPage: 'Open the SteamDB depot page',
+      openFailed: 'Could not open Steam or the external page: {message}',
       downloadDepotTitle: 'Download depot',
       enterCode: 'Enter command',
       copied: 'Copied',

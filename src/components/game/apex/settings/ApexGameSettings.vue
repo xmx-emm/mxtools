@@ -20,6 +20,7 @@ import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexBindingSelect from './ApexBindingSelect.vue';
 import ApexGameSettingTip from './ApexGameSettingTip.vue';
+import ApexLaserSightColorInput from './ApexLaserSightColorInput.vue';
 import ApexRgbIntegerInput from './ApexRgbIntegerInput.vue';
 
 const apex_store = useApexStore();
@@ -319,7 +320,10 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
           v-for="field in visibleFields"
           :key="field.id"
           class="setting-row game-page-row-tip-host"
-          :class="{'setting-row--disabled': isDisabled(field)}"
+          :class="{
+            'setting-row--disabled': isDisabled(field),
+            'setting-row--wide-control': field.control === 'packed-rgb',
+          }"
           :title="t('apexLaunchOptions.ui.rightClickTip')"
           @contextmenu.prevent="showSettingTip(field)"
         >
@@ -378,6 +382,13 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
               </div>
               <ApexRgbIntegerInput
                 v-else-if="field.control === 'rgb'"
+                :model-value="valueFor(field)"
+                :label="t(field.labelKey)"
+                :disabled="isDisabled(field)"
+                @update:model-value="setValue(field, $event)"
+              />
+              <ApexLaserSightColorInput
+                v-else-if="field.control === 'packed-rgb'"
                 :model-value="valueFor(field)"
                 :label="t(field.labelKey)"
                 :disabled="isDisabled(field)"
@@ -586,6 +597,18 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
 .binding-slots-scroll::-webkit-scrollbar { display: none; }
 .binding-slots { display: grid; grid-template-columns: repeat(2, minmax(112px, 150px)); gap: 6px; min-width: 230px; }
 .empty-state { display: grid; min-height: 160px; place-items: center; font-size: 13px; }
+@media (max-width: 980px) {
+  .setting-row--wide-control :deep(.v-list-item__content) { grid-column: 1 / -1; grid-row: 1; }
+  .setting-row--wide-control :deep(.v-list-item__append) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    padding-top: 6px;
+    padding-inline-start: 0;
+    justify-content: flex-start;
+  }
+  .setting-row--wide-control .setting-row-append { width: 100%; }
+}
 @media (max-width: 760px) {
   .settings-toolbar { flex-wrap: wrap; }
   .settings-sections-shell { flex-basis: 100%; order: 2; }

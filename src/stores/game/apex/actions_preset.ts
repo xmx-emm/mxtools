@@ -3,6 +3,7 @@ import {
   ASPECT_LETTERBOX_MIN_DEFAULT,
   ASPECT_LETTERBOX_THRESHOLD,
   findGraphicsQualityPreset,
+  QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY,
   quickPresetGameSettingToggles,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
@@ -69,7 +70,6 @@ function setPresetBindingInput(
     if (!binding.input || binding.input.toUpperCase() !== normalizedInput) continue;
     if (binding.editable
       && sameBindingCommand(binding.command, command)
-      && !binding.heldCommand
       && binding.context === context) continue;
     if (!binding.editable) {
       throw new Error(`apex.gameSettings.errors.bindingConflict: ${input}`);
@@ -85,7 +85,6 @@ function setPresetBindingInput(
   const actionBindings = store.game_settings_bindings.filter(binding => (
     binding.editable
     && sameBindingCommand(binding.command, command)
-    && !binding.heldCommand
   ));
   const target = actionBindings.find(binding => binding.context === context);
   if (target) {
@@ -118,6 +117,7 @@ function prepareQuickPresetGameSettings(
     }
   }
 
+  if (!enabledOptions[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]) return;
   clearPresetBindingInput(store, '+toggle_zoom', ['MOUSE2']);
   clearPresetBindingInput(store, '+weaponCycle', ['MWHEELUP', 'MWHEELDOWN']);
   setPresetBindingInput(store, '+zoom', 'MOUSE2', 1);

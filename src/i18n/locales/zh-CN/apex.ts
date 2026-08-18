@@ -438,6 +438,8 @@ export const apexMessages = {
       openConsoleTitle: '打开 Steam 控制台',
       openConsoleSubtitle: '通过 Steam 控制台下载所需的 Apex 语音包',
       openConsoleBtn: '打开控制台',
+      openDepotPage: '打开 SteamDB Depot 页面',
+      openFailed: '无法打开 Steam 或外部页面：{message}',
       downloadDepotTitle: '下载 Depot',
       enterCode: '输入代码',
       copied: '已复制',

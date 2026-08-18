@@ -16,14 +16,10 @@ function translateText(text: string): string {
   if (i18n.global.te(text)) {
     return String(i18n.global.t(text));
   }
-  // 支持「i18n key + 换行 + 详情」：仅翻译首行 key，保留后续原文
-  const nl = text.indexOf('\n');
-  if (nl > 0) {
-    const head = text.slice(0, nl);
-    const rest = text.slice(nl + 1);
-    if (i18n.global.te(head)) {
-      return `${String(i18n.global.t(head))}\n${rest}`;
-    }
+  // Translate each line so a translated summary can carry a structured
+  // backend error such as `key: detail` without exposing the raw key.
+  if (text.includes('\n')) {
+    return text.split('\n').map(line => translateText(line)).join('\n');
   }
   // 支持「i18n key: detail」（后端 Rust 常用）
   const colon = text.match(/^([A-Za-z0-9_.]+)(?::\s*(.*))?$/s);

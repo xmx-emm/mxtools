@@ -61,7 +61,7 @@ async function addItem(id: string) {
     <template v-else>
       <div class="add-list">
         <article v-for="item in visibleItems" :key="item.id" class="add-row">
-          <span class="add-row-icon"><v-icon icon="mdi-keyboard-plus-outline" size="17"/></span>
+          <span class="add-row-icon"><v-icon icon="mdi-keyboard-outline" size="17"/></span>
           <div class="add-row-copy">
             <strong>{{ inputMethodDisplayName(item, locale) }}</strong>
             <span>{{ t(inputMethodKindKey(item)) }}</span>

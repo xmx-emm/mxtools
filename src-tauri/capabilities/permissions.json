@@ -33,7 +33,14 @@
       "identifier": "opener:allow-open-url",
       "allow": [
         { "url": "https://*" },
-        { "url": "http://*" }
+        { "url": "http://*" },
+        { "url": "steam://rungameid/*" },
+        { "url": "steam://validate/*" },
+        { "url": "steam://open/settings/downloads" },
+        { "url": "steam://nav/console" },
+        { "url": "steam://openurl/https://store.steampowered.com/app/2250040/Crosshair_V2/" },
+        { "url": "ms-windows-store://pdp[?]productid=9ncndwxq7c66" },
+        { "url": "ms-windows-store://pdp[?]productid=9nmfcl2gxn1c" }
       ]
     },
     "dialog:default",

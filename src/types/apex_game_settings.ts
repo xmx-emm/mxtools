@@ -61,7 +61,7 @@ export type ApexGameSettingsSection =
   | 'interface'
   | 'unknown';
 
-export type ApexGameSettingControl = 'toggle' | 'number' | 'enum' | 'rgb';
+export type ApexGameSettingControl = 'toggle' | 'number' | 'enum' | 'rgb' | 'packed-rgb';
 
 export interface ApexGameSettingOption {
   value: string;

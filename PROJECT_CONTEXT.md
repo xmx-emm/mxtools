@@ -28,11 +28,34 @@ noncommercial mirrors and public modified versions are allowed.
   normalizes native failures as `IpcCommandError`.
 - Native IPC errors: `src-tauri/src/ipc_error.rs` defines the serialized
   `domain.reason` contract used by every fallible Tauri command.
+- Online account (Beta): `src-tauri/src/online/` signs into apex.0w0.online
+  through a browser device-authorization flow. All HTTP runs in Rust reqwest
+  (`MXTOOLS_ONLINE_API_BASE` overrides the API base for development); the
+  `deviceCode` never enters the WebView, and tokens are stored only in the
+  Windows Credential Manager (`MxTools/OnlineAccount`) with automatic refresh
+  and self-healing logout when the refresh token dies. The Beta-gated
+  Settings "Online account" section
+  (`src/components/settings/OnlineAccountSection.vue`) owns the login dialog:
+  it opens the verification URL externally, polls with slow-down handling,
+  cancels the pending login when the dialog closes, and keeps browser preview
+  free of native IPC. Error codes use the `online_auth.*` domain.
+- Online presets (Beta): `src-tauri/src/online/presets.rs` passes the
+  apex.0w0.online `/presets` API through as JSON (`online_presets.*` error
+  codes). Browsing and the counting "use" call are anonymous; publish,
+  comment, and report reuse the stored login. The Apex toolbar's Beta-gated
+  cloud entry opens
+  `src/components/game/apex/preset/ApexOnlinePresetsDialog.vue`: "use"
+  fetches the payload, parses it with `parseApexConfigSnapshot`, and lands in
+  the existing import preview plus `mutate_apex_config` transaction so online
+  presets stay per-item selectable and undoable; publish reuses
+  `build_config_snapshot` with the export selection set, so machine-local
+  audio device keys stay excluded.
 - Locale resources: mirrored domain modules under
   `src/i18n/locales/{zh-CN,en-US}/`; `src/i18n/i18n.ts` loads and caches only
-  the active locale. `src/i18n/locale-key-parity.test.ts` enforces locale-key
-  parity and requires textual Apex video preset labels to resolve in both
-  locales.
+  the active locale. `tests/src/i18n/locale-key-parity.test.ts` enforces
+  locale-key parity and requires textual Apex video preset labels to resolve in
+  both locales. The shared toast filter in `src/toast.ts` translates structured
+  `i18n.key: detail` errors on every line of a multiline notification.
 - Shared desktop UI sizing is defined in `src/assets/styles/search.css` and
   `src/assets/styles/global.css`: compact tool controls are 28 px, dialog
   actions are 32 px, and standard form fields are 40 px. Apex tabs, filters,
@@ -44,6 +67,12 @@ noncommercial mirrors and public modified versions are allowed.
   `src/icons/mdi-icons.ts`, the application's SVG icon resolver. UI changes
   audit every icon name in the affected component family against that registry
   because an unknown name otherwise renders without its declared icon.
+- External application protocol actions use the opener URL API and the Tauri
+  capability allows only the exact Steam `rungameid`, `validate`,
+  downloads-settings, console, and Crosshair V2 store URI families plus the two
+  Microsoft Store product URIs used by the app. The Steam voice-pack guide
+  awaits protocol and clipboard operations before advancing or reporting
+  success, and its commands remain keyboard reachable.
 - `AppTopBar` keeps the command trigger's icon, `Ctrl+K` keycap, and accessible
   name at narrow widths; below 520 px it hides only the visible text label.
 - The Settings page exposes General, Appearance & language, Shortcuts, and About
@@ -134,8 +163,9 @@ noncommercial mirrors and public modified versions are allowed.
   Tauri single-instance bridge; an installed Release `--autostart` launch keeps
   the native tray and coordinator alive without creating the main WebView, and
   a manual second launch focuses or recreates that WebView. Closing the main
-  window confirms dirty Apex/PUBG edits before destroying the WebView and
-  returning to the same minimal resident runtime. Release-only autostart is
+  window uses an application-styled Vuetify dialog to confirm dirty Apex/PUBG
+  edits before destroying the WebView and returning to the same minimal
+  resident runtime. Release-only autostart is
   registered and read back through the Tauri autostart plugin; Debug builds use
   `background-runtime.dev.json`, clear only a matching stale Debug Run entry,
   and expose autostart as unsupported. `background-runtime.json` is the atomic
@@ -164,7 +194,9 @@ noncommercial mirrors and public modified versions are allowed.
   spacing stays compact. Navigation icon hover uses a centered scale animation
   with no positional translation and respects reduced-motion preferences.
   The primary home entry interpolates its frame from 40 px to 54 px with the
-  live expansion progress, then uses the shared snap easing after release.
+  live expansion progress, then uses the shared snap easing after release. Its
+  primary-color frame background is active only on `/dashboard`; other routes
+  retain the neutral brand frame.
   Route changes that add or remove secondary navigation animate the panel and
   resize handle as one clipped width shell so main content never jumps sideways.
   Expanded widths are measured from the rendered labels
@@ -197,9 +229,10 @@ noncommercial mirrors and public modified versions are allowed.
   WebView replaces affected local drafts only after every requested scope
   reloads successfully, and retries unseen revisions on focus. In browser-only
   preview, Apex skips native persisted-store startup, account refresh, event and
-  focus listeners, and file/window actions while retaining a truthful editable
-  visual shell; its launcher trigger presents a localized empty-account state
-  instead of an ambiguous placeholder.
+  focus listeners, and file/window actions while retaining an editable visual
+  shell. The known game-setting catalog remains visible without native config
+  values so browser review is not reduced to an empty list; the launcher trigger
+  still presents a localized empty-account state instead of an ambiguous placeholder.
 - The Apex page toolbar keeps the account selector in its first row and the
   utility/page controls in its second row at 840 px and below. At 560 px and
   below, the page switcher occupies its own horizontally reachable row. Every
@@ -226,25 +259,67 @@ noncommercial mirrors and public modified versions are allowed.
   initialization is latest-request-wins and never assumes the main WebView's
   Pinia memory is available. The `apex-quick-preset-window` label must remain in
   the shared Tauri capability so its event listeners and title-bar window APIs
-  can initialize. Its plain fixed-height shell contains one framed, flat
-  workbench: only the settings canvas scrolls, while 32 px cancel/apply commands
-  stay fixed at the bottom. Environment metrics use a responsive definition list,
+  can initialize. Its plain fixed-height shell contains one full-bleed, flat
+  workbench: only the settings canvas scrolls, while the environment metrics
+  remain sticky at its top and 32 px cancel/apply commands stay fixed at the
+  bottom. The workbench fills the full window body without an outer gutter.
+  Environment metrics use a compact responsive definition list without a
+  separate section title,
   and aspect/graphics segmented choices keep their 28 px single-row geometry in
   a horizontal reachability region rather than wrapping or clipping localized
-  labels. Repeated row-level help actions in quick presets and the Apex
+  labels. Resolution output sits on the aspect-preset row, and the selected
+  graphics description sits on the graphics-button row; both remain single-line
+  summaries instead of adding vertical rows. The resolution/aspect and graphics controls form one continuous
+  collapsible group without internal divider lines. Fixed MOUSE2/MWHEELUP/
+  MWHEELDOWN binding optimizations are a default-on selectable option and are
+  omitted entirely when unchecked. Their summary uses aligned operation and
+  localized key columns, with the operation first. Preset matching keeps
+  editable bindings that have adjacent `bind_held` lines eligible for updates.
+  The quick-preset workbench
+  does not show a separate ping-opacity exclusion warning. Repeated row-level help actions in
+  quick presets and the Apex
   game-setting catalog share a 28 px hit target and stay visually quiet until
   their row is hovered or keyboard-focused, with a persistent low-emphasis
   affordance on touch-only input.
+  Its footer keeps Select all on the far left; that command enables every
+  selectable resolution, graphics, launch, video, game-setting, reticle, and
+  binding optimization, while Cancel and Apply remain grouped on the right.
+  Browser preview routes the Apex toolbar entry to the same page in the current
+  tab, skips native window/account initialization, and renders the complete
+  workbench with local 1920x1080/144 Hz display data while keeping apply
+  disabled.
 - Apex startup repair runs in the independent `/repair-apex-launch` WebView and
   is opened either from the Repair Tools game group or the icon immediately
   before Quick Preset on the Apex toolbar. It restores the selected Steam/EA
   account through route query, local storage, and a live event. The window starts
   idle, runs ten native diagnostics sequentially only after Start check, keeps an
   old report visible during static rechecks, and defaults every batch action to
-  unchecked. Its plain fixed-height shell contains one framed workbench: the
+  unchecked. Browser preview routes the Apex toolbar entry to this page in the
+  current tab, skips native account/window listeners, and leaves diagnostics in
+  a local interactive preview: Start check advances through all ten items before
+  showing mixed pass/info/warning results, and selected preview repairs produce
+  a local success summary without native IPC.
+  Its plain fixed-height shell contains one full-bleed workbench: the
   compact account and live-status bands plus the 32 px command footer stay
-  visible while only the flat divided check list scrolls. Pending rows show each
-  description once, result details wrap, and batch actions remain unframed
+  visible while only the flat divided check list scrolls. The workbench fills
+  the full window body without an outer gutter. Pending rows show each
+  description once across the full content width below the title/status row,
+  result details wrap, and the footer guidance remains a single horizontally
+  reachable line beside its action group. Batch actions use explicit checkbox,
+  copy, and badge columns so Vuetify's internal control grid area cannot create
+  implicit tracks or collapse text into a narrow column. Summary and check rows
+  use compact vertical spacing; subtitles are smaller and lower contrast, while
+  the summary badge and every check status share one 88 px right-side alignment
+  column. Check statuses are an independent, vertically centered third column
+  with fixed icon/text tracks, so every status label starts at the same x
+  position. Checks with actions keep the status centered against the title and
+  subtitle block rather than the expanded action height; action rows span the
+  copy and status columns, and their permission badges reuse the same 88 px
+  right-side axis while shrinking to content width and aligning to its right
+  edge. Fixed header/footer regions reserve the same 6 px
+  gutter as the scrollable check list. Pending checks use intrinsic content
+  height instead of reserving space for a result detail that does not exist yet.
+  Batch actions remain unframed
   divided rows within their owning check. `src-tauri/src/game/apex_launch_repair.rs` owns install discovery,
   local log classification, the action allowlist, cache boundaries, the repair
   mutex, and one-UAC administrator batching. Launcher validation/cache work stays
@@ -258,10 +333,22 @@ noncommercial mirrors and public modified versions are allowed.
   controls move below their copy, enum and binding reachability preserves two
   fixed slots, and unknown values remain read-only with full text available by
   keyboard. Known setting rows share a reusable right-click tip dialog;
-  colorblind tips render the palette for the currently stored mode.
+  colorblind tips render the stored mode palette, reticle-color tips render the
+  current RGB crosshair, and the laser-sight color tip renders the extracted
+  scene with the currently stored custom beam color. The shared overlay content
+  centers each intrinsic-width tip card in both the main Apex page and the quick
+  preset window rather than leaving it aligned to the overlay's left edge.
   Runtime-observed special encodings include an empty `reticle_color` for the
-  default reticle, three decimal RGB integers for a custom reticle,
-  `cl_comms_filter` values `1/0/-1` for none/non-friends/everyone, and the
+  default reticle, three decimal RGB integers for a custom reticle, and the
+  packed `laserSightColor` integer `R | (G << 8) | (B << 16)` for the custom
+  laser color. Both rows share one default/custom color editor with a color
+  swatch and byte-channel RGB inputs; only their storage encoders differ. The
+  laser color tip owns the 800 x 438 JPEG re-encode of the 1170 x 640 Apex
+  training-scene background extracted from `ui.rpak` and repeats the shared
+  editor below it; edits update the preview immediately. Because the source
+  image contains no laser, the tip overlays a local CSS beam and impact glow
+  using the currently edited RGB value. Other special encodings
+  include `cl_comms_filter` values `1/0/-1` for none/non-friends/everyone, and the
   companion `toggle_on_jump_to_deactivate_changed=1` marker when jetpack/glide
   control is explicitly changed. The evidence table and intentionally deferred
   values are recorded in `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`. General
@@ -283,7 +370,35 @@ noncommercial mirrors and public modified versions are allowed.
   The parenthesized format shown after Device default is generated from the
   current output device and system settings, so it is not a fixed label. Audio
   mix uses profile key `miles_mix` (`0/1` = original/focused) and does not
-  rewrite `dialogue_cat_*`. General mouse ADS writes only
+  rewrite `dialogue_cat_*`. Spectator game volume uses
+  `sound_volume_sfx_observer`; the five visible audio sliders store continuous
+  values near `0..1`, while incoming voice-chat volume uses `0..2` for its
+  `0..200` UI range. Legend, ping, and broadcast dialogue each map None,
+  Important only, and All to paired `*_flavor` / `*_important` values `0/0`,
+  `0/1`, and `1/1`. Emote preview action sound uses
+  `cl_anim_always_play_nonlobby_sfx` (`0/1`). Input and output endpoint IDs stay
+  machine-local; the current menu has no microphone-volume, voice-enable, or
+  voice-mute row. Master volume is the video-config key
+  `setting.sound_volume`, with UI `0..100` stored as a continuous value near
+  `0..1`.
+  Incoming text-to-speech and voice-to-chat-text use
+  `hudchat_play_text_to_speech` and `speechtotext_enabled` (`0/1`); EA exposes
+  their in-game menu rows only in English, so other locales may retain the keys
+  without showing the controls.
+  The read-only Review later section filters a curated set of already-reviewed
+  runtime, machine-local, telemetry, cache, and legacy keys; it retains only
+  unresolved keys that may still correspond to a current visible menu item.
+  Controller menu cursor speed is `gameCursor_Velocity`, with confirmed
+  unlabeled-slider endpoints `1300..4300` and continuous intermediate values.
+  Energy-ammo and medal display toggles use `hud_setting_energyAmmoDisplay` and
+  `hud_setting_showMedals` (`0/1`). UI mode uses `ui_layout_mode` with
+  `0/1/2` for Automatic, Compact, and Full. A full-settings sweep also observed
+  `dialogue_cat_weapon_flavor` changing and
+  `setting.shadow_maxdynamic` changing `0->4`; those exact menu ownerships stay
+  in Review later pending isolated evidence. Firing-range controls did not
+  produce dedicated local keys, and solo custom-match runtime mapping remains
+  pending because a match could not start.
+  General mouse ADS writes only
   `mouse_zoomed_sensitivity_scalar_0`; per-optic mode disables the general
   editor and exposes `_0..7` independently. Controller preset values follow
   the runtime-observed menu order from `0` through `6`; controller stick
@@ -451,7 +566,16 @@ noncommercial mirrors and public modified versions are allowed.
   uniqueness before writing. The quick preset updates those same contexts in
   place and uses the same transaction to set the confirmed gameplay/HUD/
   accessibility optimizations and the MOUSE2/MWHEEL binding layout. Ping
-  opacity remains excluded because it is a user-facing HUD preference.
+  opacity remains excluded because it is a user-facing HUD preference. The
+  editor's known command catalog also includes capture and observer commands;
+  `+scriptCommand7` has a localized generic label because its runtime action
+  meaning is not confirmed. The observed Apex settings file also contains
+  lowercase `+weaponcycle`, spectator utility commands, and numbered controller
+  `+ability`/`+ability_held` pairs; keyboard/mouse commands are editable while
+  controller-button inputs remain read-only. The observed marking command
+  variants and spectator roll/ring commands are included in the same catalog.
+  Keyboard capture accepts the observed `KP_INS`, `KP_ENTER`, `NUMLOCK`, and
+  `SCROLLLOCK` names, including their keyboard-event mappings.
 - Apex configuration snapshots use the version-1 JSON shape while export and
   import controls classify backend-supported keys into other game settings,
   keyboard/mouse aiming and sensitivity, controller settings and sensitivity,
@@ -459,6 +583,9 @@ noncommercial mirrors and public modified versions are allowed.
   clean disk report rather than an unsaved draft, and binding import reconciles
   the complete selected two-slot topology with create/update/delete mutations,
   including an explicit empty binding list that clears all editable bindings.
+  Export save dialogs default to the local-date-and-time filename
+  `apex-config-snapshot-YYYY-MM-DD-HH-mm-ss.json`; the snapshot schema and
+  import compatibility are unchanged.
   Empty launch options remain a real import value, while empty video blocks are
   omitted and unchanged imports report a no-op instead of success. Snapshot
   parsing rejects launch-option control characters and invalid values for known
@@ -468,9 +595,13 @@ noncommercial mirrors and public modified versions are allowed.
   explicitly so device selections are not transferred to another computer. It
   also excludes the Apex-managed video key `setting.configversion` in both
   directions.
-- Snapshot Vitest automation covers version rejection, serialized export
-  filtering, and keyboard/mouse versus controller import isolation; the
-  frontend CI job runs it through the existing `npm test` gate.
+- Snapshot Vitest automation covers timestamped export-to-import round trips,
+  version rejection, serialized export filtering, and keyboard/mouse versus
+  controller import isolation; the frontend CI job runs it through the existing
+  `npm test` gate. All standalone tests live under the root `tests/` directory:
+  Vitest files use mirrored `tests/src/...` and `tests/scripts/...` paths, while
+  external Rust unit modules use `tests/rust/src-tauri/...` and are mounted by
+  minimal test-only `include!` blocks in their owning modules.
 - Apex history is stored under Tauri
   `app_data_dir/apex-history/v1` with raw bytes, missing-file state, read-only
   attributes, SHA-256 checksums, versioned metadata, and 30 entries per stream.
@@ -501,7 +632,18 @@ noncommercial mirrors and public modified versions are allowed.
   history restore records the current state first so the restore is undoable.
 - Remote Desktop performs one page-level `loadAll` operation. Initial loading
   uses a contained overlay; later refreshes preserve existing card geometry and
-  animate one fixed refresh affordance instead of replacing each card body.
+  animate one fixed refresh affordance instead of replacing each card body. The
+  page separates this-PC hosting from outbound connections. Local account
+  discovery uses SID-backed `Get-LocalUser` data to distinguish Local,
+  Microsoft, domain, and Entra sources, identify current/administrator access,
+  and avoid presenting Microsoft accounts as locally manageable users. A
+  dedicated-account action creates a standard local user and grants the built-in
+  Remote Desktop Users group by SID in one operation, rolling back the new user
+  if the grant fails and reporting a distinct error if rollback also fails.
+  Saved outbound connections remain schema-compatible and
+  store only a generated username: prompt, `.\local`,
+  `MicrosoftAccount\email`, or domain/organization identity. Password entry
+  remains in Windows credential UI and is never added to connection settings.
 - The repair-tools catalog opens blank-icon and network repair in their own
   windows. All four catalog children are indexed as direct command-search
   results and open through the same dedicated-window routes. Blank-icon repair
@@ -551,6 +693,12 @@ noncommercial mirrors and public modified versions are allowed.
   unwrapped executable remains an internal build artifact. Per-release evidence
   and remaining manual checks are recorded under
   `docs/RELEASE_CHECKLIST_<version>.md`.
+- Version `0.0.6` remains an unreleased candidate until its manual acceptance,
+  tag, and publication exist. With no Authenticode budget, external EXE/NSIS
+  artifacts remain explicitly unsigned and must not be presented as a trusted
+  publisher build. A free SignPath Foundation application or a future Store-
+  signed MSIX are the zero-fixed-cost signing paths; the current Store EXE route
+  still requires a trusted Authenticode signature.
 
 - `npm.cmd run "tauri dev"` uses `scripts/tauri-dev.mjs` as a Windows
   single-instance development launcher. It removes only process trees proven
@@ -566,12 +714,14 @@ noncommercial mirrors and public modified versions are allowed.
   broadly reformat it.
 - Tauri runtime APIs are not available in browser-only tests; keep core
   placement and preference behavior testable with mocks.
-- New or changed test-only code belongs in dedicated frontend `*.test.*` files or
-  external Rust test modules, not production modules. Feature coverage uses a
+- New or changed standalone frontend, script, and Rust test code belongs under
+  the root `tests/` directory. Frontend and script tests mirror production paths;
+  external Rust unit modules live under `tests/rust/` and are included from
+  their owning modules when private access is required. Feature coverage uses a
   focused test file instead of expanding an omnibus test; existing broad tests
   are migrated when their covered behavior changes, not through unrelated bulk
   churn. Apex audio mapping coverage lives in
-  `src/utils/game/apex_audio_settings.test.ts`.
+  `tests/src/utils/game/apex_audio_settings.test.ts`.
 - Keep user-facing data labels as locale keys rather than embedding Chinese or
   English strings in configuration arrays. Numeric values, units, and product
   names may remain literal.
@@ -651,9 +801,10 @@ noncommercial mirrors and public modified versions are allowed.
   Release UI checks should include the real desktop app at 100% and 125% display
   scaling, especially search controls, segmented buttons, loading states, and
   icon-only buttons.
-- Steam account switching, input-method installation, RDP/firewall changes, SMB
-  integration, and mixed-DPI APEX Q placement still require controlled Windows
-  machine smoke tests before a public release.
+- Steam account switching, input-method installation, RDP/firewall changes,
+  Microsoft-account source detection, dedicated RDP account creation/rollback,
+  SMB integration, and mixed-DPI APEX Q placement still require controlled
+  Windows machine smoke tests before a public release.
 - Microsoft Store package registration/reset, UAC-batched service recovery,
   OneDrive reset/restart, and post-reboot `CldFlt` verification still require a
   controlled Windows machine smoke test before release.
@@ -707,8 +858,9 @@ graph TD
   HistoryIPC --> HistoryEngine["Rust History Mutex and Rollback"]
   HistoryEngine --> HistoryDisk["app_data_dir/apex-history/v1"]
   HistoryEngine --> ApexFiles["Launch Options and Apex Config Files"]
-  RDPPage["Remote Desktop Page Refresh"] --> RDPStore["RDP Store"]
-  RDPPage --> UserStore["Windows User Store / Latest Request Wins"]
+  RDPPage["Remote Desktop Host / Client Workspace"] --> RDPStore["RDP Store / One Page Refresh"]
+  RDPPage --> RDPAccounts["SID-backed Account Source / Access Setup"]
+  RDPAccounts --> UserStore["Windows User Store / Latest Request Wins"]
   RDPStore --> IPC
   UserStore --> IPC
   RepairCatalog["Repair Tools Catalog"] --> AppRepairPage["Store / OneDrive Independent Windows"]

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {openPath} from '@tauri-apps/plugin-opener';
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {sleep} from '@/utils/time.ts';
 import {ref} from 'vue';
 import {useI18n} from 'vue-i18n';
@@ -12,7 +12,7 @@ const {t} = useI18n();
 async function start_pubg() {
   is_launching.value = true;
   try {
-    await openPath('steam://rungameid/578080');
+    await openUrl('steam://rungameid/578080');
     toast.info(t('pubg.startPubg'));
     await sleep(2000);
   } catch (error) {
