@@ -27,8 +27,8 @@
     <th>微信赞赏码</th>
   </tr>
   <tr>
-    <td align="center"><img src="src/assets/images/sponsor/alipay.png" alt="支付宝赞助码" height="360"></td>
-    <td align="center"><img src="src/assets/images/sponsor/wechat.png" alt="微信赞赏码" height="360"></td>
+    <td align="center"><img src="src/assets/images/sponsor/alipay.webp" alt="支付宝赞助码" height="360"></td>
+    <td align="center"><img src="src/assets/images/sponsor/wechat.webp" alt="微信赞赏码" height="360"></td>
   </tr>
 </table>
 
