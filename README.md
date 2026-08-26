@@ -137,11 +137,6 @@ VITE_APP_VERSION=0.0.3
 1. 在 IDE 中对 Vuetify 变量放行：Settings → Editor → Inspections → CSS → **Unresolved custom property**,忽略模式增加 `--v-theme-`*(或降低该检查级别).
 2. 按需关闭/降级该检查.
 
-## 其它链接(资源占位等)
-
-- [Imgloc 图床](https://imgloc.com/)
-- [Picsum Photos](https://picsum.photos)
-
 ## 版本信息所在文件
 
 - `src-tauri/Cargo.toml`
