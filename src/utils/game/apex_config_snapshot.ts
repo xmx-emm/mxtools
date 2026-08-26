@@ -42,6 +42,16 @@ export const APEX_GAME_MANAGED_VIDEO_CONFIG_KEYS = new Set([
   'setting.configversion',
 ]);
 
+export function apexConfigSnapshotFilename(date = new Date()): string {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `apex-config-snapshot-${year}-${month}-${day}-${hours}-${minutes}-${seconds}.json`;
+}
+
 export function omitApexGameManagedVideoConfig(
   value: Record<string, string>,
 ): Record<string, string> {

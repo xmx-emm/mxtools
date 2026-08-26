@@ -165,7 +165,9 @@ noncommercial mirrors and public modified versions are allowed.
   a manual second launch focuses or recreates that WebView. Closing the main
   window uses an application-styled Vuetify dialog to confirm dirty Apex/PUBG
   edits before destroying the WebView and returning to the same minimal
-  resident runtime. Release-only autostart is
+  resident runtime. Other destructive or privileged prompts share
+  `src/components/common/AppConfirmationDialog.vue` through
+  `src/utils/app_confirmation.ts`, mounted once from `App.vue`. Release-only autostart is
   registered and read back through the Tauri autostart plugin; Debug builds use
   `background-runtime.dev.json`, clear only a matching stale Debug Run entry,
   and expose autostart as unsupported. `background-runtime.json` is the atomic
@@ -428,7 +430,8 @@ noncommercial mirrors and public modified versions are allowed.
   Internal history is separate from the public snapshot format.
 - Remote Desktop coordination lives in `src/pages/windows/RemoteDesktopPage.vue`,
   `src/stores/rdp.ts`, and `src/stores/windows_user.ts`. The page owns one stable
-  refresh state; Windows user loading is latest-request-wins.
+  refresh state and composes `RdpStatus`, `RdpAccessAccounts`, `RdpConnections`,
+  and `RdpPortCheck`; Windows user loading is latest-request-wins.
 - Windows repair tools live in `src/pages/windows/AppRepairPage.vue` and
   `src-tauri/src/app_repair.rs`. `/app_repair` is a grouped catalog with separate
   Microsoft Store, OneDrive, blank-icon, network, and Apex launch entries. Each
@@ -601,7 +604,8 @@ noncommercial mirrors and public modified versions are allowed.
   `npm test` gate. All standalone tests live under the root `tests/` directory:
   Vitest files use mirrored `tests/src/...` and `tests/scripts/...` paths, while
   external Rust unit modules use `tests/rust/src-tauri/...` and are mounted by
-  minimal test-only `include!` blocks in their owning modules.
+  minimal test-only `include!` blocks placed after every other item in their
+  owning modules so clippy `items_after_test_module` stays clean.
 - Apex history is stored under Tauri
   `app_data_dir/apex-history/v1` with raw bytes, missing-file state, read-only
   attributes, SHA-256 checksums, versioned metadata, and 30 entries per stream.
@@ -717,7 +721,7 @@ noncommercial mirrors and public modified versions are allowed.
 - New or changed standalone frontend, script, and Rust test code belongs under
   the root `tests/` directory. Frontend and script tests mirror production paths;
   external Rust unit modules live under `tests/rust/` and are included from
-  their owning modules when private access is required. Feature coverage uses a
+  the end of their owning modules when private access is required. Feature coverage uses a
   focused test file instead of expanding an omnibus test; existing broad tests
   are migrated when their covered behavior changes, not through unrelated bulk
   churn. Apex audio mapping coverage lives in

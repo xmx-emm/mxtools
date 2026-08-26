@@ -48,7 +48,7 @@ import {settleStartupTask, type StartupTaskResult} from '@/utils/startup.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
 import {openApexQWindow} from '@/utils/windows.ts';
 import {loadApexQPrefs, saveApexQPrefs} from '@/types/apex_q.ts';
-import {confirm} from '@tauri-apps/plugin-dialog';
+import {confirm} from '@/utils/app_confirmation.ts';
 
 type TauriRuntimeWindow = Window & {
   __TAURI_INTERNALS__?: unknown;
@@ -144,6 +144,7 @@ async function installMainCloseCoordinator() {
         const accepted = await confirm(i18n.global.t('settings.closeWithPendingChanges'), {
           title: i18n.global.t('settings.closeWithPendingChangesTitle'),
           kind: 'warning',
+          confirmText: i18n.global.t('settings.discardAndContinueInBackground'),
         });
         if (!accepted) return;
       }

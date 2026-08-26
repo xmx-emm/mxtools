@@ -121,6 +121,7 @@ fn video_value_rule(key: &str) -> Option<VideoValueRule> {
         "setting.shadow_maxdynamic" | "setting.cl_ragdoll_maxcount" => Some(Integer(0, 32)),
         "setting.cl_particle_fallback_base" => Some(Integer(0, 8)),
         "setting.gamma" => Some(Number(0.5, 3.0)),
+        "setting.sound_volume" => Some(Number(0.0, 1.0)),
         "setting.r_lod_switch_scale" => Some(Number(0.0, 4.0)),
         "setting.fadeDistScale" => Some(Number(0.0, 2.0)),
         "setting.cl_particle_fallback_multiplier" => Some(Number(0.0, 8.0)),

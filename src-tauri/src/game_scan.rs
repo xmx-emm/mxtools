@@ -2137,15 +2137,9 @@ mod tests {
         assert_eq!(epic.status, GameScanSourceStatus::Partial);
         assert_eq!(epic.game_count, 1);
         assert_eq!(epic.errors.len(), 1);
-        assert!(report
-            .sources
-            .iter()
-            .filter(|source| {
-                source.source != GameSource::Epic
-                    && source.status != GameScanSourceStatus::NotInstalled
-            })
-            .next()
-            .is_none());
+        assert!(!report.sources.iter().any(|source| {
+            source.source != GameSource::Epic && source.status != GameScanSourceStatus::NotInstalled
+        }));
     }
 
     #[test]

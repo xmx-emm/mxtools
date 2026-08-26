@@ -33,7 +33,7 @@ RDP、防火墙或端口转发状态。
 
 - [ ] **步骤**：Steam 运行中点 Apply → 等待关闭对话框出现 → 再点强制关闭或等自行退出；快速连点 Apply。
 - [ ] **预期**：成功 toast **一次**；`set_pubg_launch_option` 只成功一次。
-- **代码预检**：`applyGeneration` / `shouldRunApply`；`PubgApply` 有 `is_setting_launch_option`；vitest `applyGeneration.test.ts` 已覆盖代际守卫。
+- **代码预检**：`applyGeneration` / `shouldRunApply`；`PubgApply` 有 `is_setting_launch_option`；Vitest `tests/src/composables/applyGeneration.test.ts` 已覆盖代际守卫。
 
 ---
 

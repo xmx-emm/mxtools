@@ -2,11 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::net::{SocketAddr, TcpStream};
 use std::process::Command;
 use std::time::Duration;
+use zeroize::Zeroize;
 
 use crate::elevated::require_elevated;
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::log_error;
-use crate::user::{parse_group_members, run_cmd, run_powershell};
+use crate::user::{run_cmd, run_powershell};
+
+const RDP_USERS_GROUP_SID: &str = "S-1-5-32-555";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RdpConnection {
@@ -68,8 +71,47 @@ pub fn set_rdp_enabled(enabled: bool) -> IpcResult<()> {
 
 #[tauri::command]
 pub fn get_rdp_users() -> IpcResult<Vec<String>> {
-    let output = run_cmd(&["net", "localgroup", "Remote Desktop Users"]).map_err(rdp_error)?;
-    Ok(parse_group_members(&output))
+    let script = format!(
+        "$members = @(Get-LocalGroupMember -SID '{}' -ErrorAction Stop | ForEach-Object {{ [string]$_.Name }}); [Console]::Out.Write(($members -join \"`n\"))",
+        RDP_USERS_GROUP_SID
+    );
+    let output = run_powershell(&script).map_err(rdp_error)?;
+    Ok(output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+fn escape_powershell_single_quoted(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+fn set_rdp_group_membership(username: &str, add: bool) -> Result<(), String> {
+    let command = if add {
+        "Add-LocalGroupMember"
+    } else {
+        "Remove-LocalGroupMember"
+    };
+    let script = format!(
+        "$memberSid = (Get-LocalUser -Name '{}' -ErrorAction Stop).SID; {} -SID '{}' -Member $memberSid -ErrorAction Stop",
+        escape_powershell_single_quoted(username),
+        command,
+        RDP_USERS_GROUP_SID
+    );
+    run_powershell(&script).map(|_| ())
+}
+
+fn map_create_user_error(message: String) -> IpcError {
+    let status = message
+        .rsplit_once(':')
+        .and_then(|(_, value)| value.trim().parse::<u32>().ok());
+    match status {
+        Some(2224) => IpcError::new("rdp.user_exists", message),
+        Some(1325 | 2245) => IpcError::new("rdp.password_policy", message),
+        _ => IpcError::new("rdp.create_user_failed", message),
+    }
 }
 
 #[tauri::command]
@@ -77,15 +119,7 @@ pub fn add_rdp_user(username: String) -> IpcResult<()> {
     require_elevated().map_err(rdp_error)?;
     crate::user::validate_windows_username_pub(&username)
         .map_err(|message| IpcError::new("rdp.invalid_username", message))?;
-    run_cmd(&[
-        "net",
-        "localgroup",
-        "Remote Desktop Users",
-        &username,
-        "/add",
-    ])
-    .map_err(rdp_error)?;
-    Ok(())
+    set_rdp_group_membership(&username, true).map_err(rdp_error)
 }
 
 #[tauri::command]
@@ -93,15 +127,48 @@ pub fn remove_rdp_user(username: String) -> IpcResult<()> {
     require_elevated().map_err(rdp_error)?;
     crate::user::validate_windows_username_pub(&username)
         .map_err(|message| IpcError::new("rdp.invalid_username", message))?;
-    run_cmd(&[
-        "net",
-        "localgroup",
-        "Remote Desktop Users",
-        &username,
-        "/delete",
-    ])
-    .map_err(rdp_error)?;
-    Ok(())
+    set_rdp_group_membership(&username, false).map_err(rdp_error)
+}
+
+#[tauri::command]
+pub fn create_rdp_local_user(username: String, mut password: String) -> IpcResult<()> {
+    let result = (|| {
+        require_elevated().map_err(rdp_error)?;
+        crate::user::validate_windows_username_pub(&username)
+            .map_err(|message| IpcError::new("rdp.invalid_username", message))?;
+        if password.is_empty() {
+            return Err(IpcError::new(
+                "rdp.password_required",
+                "A password is required for a Remote Desktop account.",
+            ));
+        }
+        crate::user::validate_windows_password_pub(&password)
+            .map_err(|message| IpcError::new("rdp.invalid_password", message))?;
+
+        #[cfg(windows)]
+        {
+            crate::user::net_user_add(&username, &password).map_err(map_create_user_error)?;
+            if let Err(message) = set_rdp_group_membership(&username, true) {
+                let rolled_back = run_cmd(&["net", "user", &username, "/delete"]).is_ok();
+                let code = if rolled_back {
+                    "rdp.grant_user_failed"
+                } else {
+                    "rdp.grant_user_rollback_failed"
+                };
+                return Err(IpcError::new(code, message).with_detail("rolledBack", rolled_back));
+            }
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        {
+            Err(IpcError::new(
+                "rdp.windows_only",
+                "Remote Desktop account setup is only supported on Windows.",
+            ))
+        }
+    })();
+    password.zeroize();
+    result
 }
 
 // ==================== RDP 端口 ====================

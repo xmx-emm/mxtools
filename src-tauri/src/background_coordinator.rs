@@ -486,8 +486,10 @@ mod tests {
 
     #[test]
     fn native_razer_config_keeps_per_device_rates_and_exact_matchers() {
-        let mut config = BackgroundRuntimeConfig::default();
-        config.beta_features_enabled = true;
+        let mut config = BackgroundRuntimeConfig {
+            beta_features_enabled: true,
+            ..Default::default()
+        };
         config.razer.enabled = true;
         config.razer.device_profiles.insert(
             "device-a".to_string(),
@@ -529,8 +531,10 @@ mod tests {
 
     #[test]
     fn native_razer_config_omits_unverified_device_rates() {
-        let mut config = BackgroundRuntimeConfig::default();
-        config.beta_features_enabled = true;
+        let mut config = BackgroundRuntimeConfig {
+            beta_features_enabled: true,
+            ..Default::default()
+        };
         config.razer.enabled = true;
         config.razer.device_profiles.insert(
             "device-a".to_string(),

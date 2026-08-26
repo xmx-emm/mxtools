@@ -6,8 +6,6 @@
 pub mod auth;
 mod credential_store;
 pub mod presets;
-#[cfg(test)]
-mod tests;
 
 use crate::ipc_error::{IpcError, IpcResult};
 use std::time::Duration;
@@ -30,4 +28,12 @@ pub(crate) fn http_client() -> IpcResult<reqwest::Client> {
         .user_agent(concat!("MxTools/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|error| IpcError::new("online_auth.client_init", error.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/online.test.rs"
+    ));
 }

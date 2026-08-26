@@ -73,6 +73,15 @@ import type {
   RazerBackgroundConfig,
 } from '@/types/background_runtime.ts';
 import type {InstalledGameScanReport} from '@/types/game_scan.ts';
+import type {
+  OnlineAccount,
+  OnlineDeviceLoginPoll,
+  OnlineDeviceLoginStart,
+  OnlinePresetComment,
+  OnlinePresetListItem,
+  OnlinePresetListQuery,
+  OnlinePresetUseResult,
+} from '@/types/online.ts';
 
 /** Typed wrapper around Tauri `invoke`. */
 export async function ipcInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -355,6 +364,10 @@ export function addRdpUser(args: {username: string}): Promise<void> {
 
 export function removeRdpUser(args: {username: string}): Promise<void> {
   return ipcInvoke<void>('remove_rdp_user', args);
+}
+
+export function createRdpLocalUser(args: {username: string; password: string}): Promise<void> {
+  return ipcInvoke<void>('create_rdp_local_user', args);
 }
 
 export function checkRemotePort(args: {ip: string; port: number}): Promise<boolean> {
@@ -947,4 +960,62 @@ export function setTrayLocale(locale: string): Promise<void> {
 
 export function setTrayBetaFeatures(enabled: boolean): Promise<void> {
   return ipcInvoke<void>('set_tray_beta_features', {enabled});
+}
+
+// ── online account (apex.0w0.online) ─────────────────────
+
+export function onlineAuthStartDeviceLogin(): Promise<OnlineDeviceLoginStart> {
+  return ipcInvoke<OnlineDeviceLoginStart>('online_auth_start_device_login');
+}
+
+export function onlineAuthPollDeviceLogin(): Promise<OnlineDeviceLoginPoll> {
+  return ipcInvoke<OnlineDeviceLoginPoll>('online_auth_poll_device_login');
+}
+
+export function onlineAuthCancelDeviceLogin(): Promise<void> {
+  return ipcInvoke<void>('online_auth_cancel_device_login');
+}
+
+export function onlineAuthGetAccount(): Promise<OnlineAccount | null> {
+  return ipcInvoke<OnlineAccount | null>('online_auth_get_account');
+}
+
+export function onlineAuthLogout(): Promise<void> {
+  return ipcInvoke<void>('online_auth_logout');
+}
+
+export function onlinePresetsList(query: OnlinePresetListQuery): Promise<OnlinePresetListItem[]> {
+  return ipcInvoke<OnlinePresetListItem[]>('online_presets_list', {query});
+}
+
+export function onlinePresetUse(id: string): Promise<OnlinePresetUseResult> {
+  return ipcInvoke<OnlinePresetUseResult>('online_preset_use', {id});
+}
+
+export function onlinePresetPublish(args: {
+  title: string;
+  description?: string;
+  payload: unknown;
+}): Promise<OnlinePresetListItem> {
+  return ipcInvoke<OnlinePresetListItem>('online_preset_publish', args);
+}
+
+export function onlinePresetComments(id: string): Promise<OnlinePresetComment[]> {
+  return ipcInvoke<OnlinePresetComment[]>('online_preset_comments', {id});
+}
+
+export function onlinePresetCommentCreate(args: {
+  id: string;
+  body: string;
+  parentId?: string;
+}): Promise<unknown> {
+  return ipcInvoke<unknown>('online_preset_comment_create', args);
+}
+
+export function onlinePresetReport(args: {
+  id: string;
+  reason: string;
+  detail?: string;
+}): Promise<unknown> {
+  return ipcInvoke<unknown>('online_preset_report', args);
 }

@@ -12,14 +12,13 @@ mod input_method;
 mod ipc_error;
 mod logger;
 mod network_repair;
+mod online;
 mod port_forwarding;
 mod razer_polling;
 mod rdp;
 mod registry;
 mod stdio_tee;
 mod system;
-#[cfg(test)]
-mod test;
 mod tray;
 mod user;
 mod utils;
@@ -94,6 +93,14 @@ use crate::input_method::{
 };
 use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_log};
 use crate::network_repair::{diagnose_network_repair_check, repair_network};
+use crate::online::auth::{
+    online_auth_cancel_device_login, online_auth_get_account, online_auth_logout,
+    online_auth_poll_device_login, online_auth_start_device_login,
+};
+use crate::online::presets::{
+    online_preset_comment_create, online_preset_comments, online_preset_publish,
+    online_preset_report, online_preset_use, online_presets_list,
+};
 use crate::port_forwarding::{
     create_multiple_port_forwarding, del_port_forwarding, get_port_forwarding,
     reset_port_forwarding, set_port_forwarding,
@@ -103,9 +110,9 @@ use crate::razer_polling::{
     razer_polling_status, razer_polling_verify_capabilities,
 };
 use crate::rdp::{
-    add_rdp_user, check_remote_port, connect_rdp, export_rdp_file, get_rdp_enabled, get_rdp_port,
-    get_rdp_users, load_rdp_connections, remove_rdp_user, save_rdp_connections, set_rdp_enabled,
-    set_rdp_port,
+    add_rdp_user, check_remote_port, connect_rdp, create_rdp_local_user, export_rdp_file,
+    get_rdp_enabled, get_rdp_port, get_rdp_users, load_rdp_connections, remove_rdp_user,
+    save_rdp_connections, set_rdp_enabled, set_rdp_port,
 };
 use crate::registry::{
     add_custom_background_folder, get_all_common_folders, hide_common_folders,
@@ -252,6 +259,19 @@ pub fn run() {
             background_runtime_update_razer,
             background_runtime_configure,
             destroy_main_window,
+            // Online account (apex.0w0.online)
+            online_auth_start_device_login,
+            online_auth_poll_device_login,
+            online_auth_cancel_device_login,
+            online_auth_get_account,
+            online_auth_logout,
+            // Online presets
+            online_presets_list,
+            online_preset_use,
+            online_preset_publish,
+            online_preset_comments,
+            online_preset_comment_create,
+            online_preset_report,
             //System
             system_info,
             system_total_memory_mb,
@@ -407,6 +427,7 @@ pub fn run() {
             get_rdp_users,
             add_rdp_user,
             remove_rdp_user,
+            create_rdp_local_user,
             get_rdp_port,
             set_rdp_port,
             check_remote_port,
@@ -423,4 +444,12 @@ pub fn run() {
             BackgroundCoordinator::shutdown_and_restore(app);
         }
     });
+}
+
+#[cfg(test)]
+mod test {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/lib.test.rs"
+    ));
 }

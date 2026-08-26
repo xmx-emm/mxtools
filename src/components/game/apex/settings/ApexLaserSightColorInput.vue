@@ -1,31 +1,53 @@
 <script setup lang="ts">
 import {computed, reactive, watch} from 'vue';
+import {useI18n} from 'vue-i18n';
 import laserSightPreviewBackground from '@/assets/images/apex/laser_sight_preview.jpg';
+
+type RgbEncoding = 'channels' | 'packed';
 
 const props = defineProps<{
   modelValue: string
   label: string
   disabled?: boolean
   previewOnly?: boolean
+  mode?: string
+  encoding?: RgbEncoding
+  defaultRgb?: [number, number, number]
 }>();
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void
+  (event: 'update:mode', value: string): void
 }>();
+const {t} = useI18n();
 
 const MAX_PACKED_RGB = 0xFF_FF_FF;
 const channels = reactive(['0', '0', '0']);
 
-function unpackRgb(value: string): [number, number, number] | null {
-  const packed = Number(value);
-  if (!/^\d+$/.test(value.trim())
+function packRgb(rgb: readonly number[]): number {
+  return rgb[0] | (rgb[1] << 8) | (rgb[2] << 16);
+}
+
+function decodeRgb(value: string): [number, number, number] | null {
+  const normalized = value.trim();
+  if ((props.encoding ?? 'packed') === 'channels') {
+    const values = normalized.split(/\s+/).map(Number);
+    return values.length === 3
+      && values.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255)
+      ? values as [number, number, number]
+      : null;
+  }
+  const packed = Number(normalized);
+  if (!/^\d+$/.test(normalized)
     || !Number.isInteger(packed)
     || packed < 0
     || packed > MAX_PACKED_RGB) return null;
   return [packed & 0xFF, (packed >> 8) & 0xFF, (packed >> 16) & 0xFF];
 }
 
-function packRgb(rgb: readonly number[]): number {
-  return rgb[0] | (rgb[1] << 8) | (rgb[2] << 16);
+function encodeRgb(rgb: readonly number[]): string {
+  return (props.encoding ?? 'packed') === 'channels'
+    ? rgb.join(' ')
+    : String(packRgb(rgb));
 }
 
 function currentChannels(): [number, number, number] | null {
@@ -38,8 +60,7 @@ function currentChannels(): [number, number, number] | null {
 watch(
   () => props.modelValue,
   value => {
-    const parsed = unpackRgb(value);
-    if (!parsed) return;
+    const parsed = decodeRgb(value) ?? props.defaultRgb ?? [0, 0, 0];
     const next = parsed.map(String);
     if (next.join(' ') !== channels.join(' ')) channels.splice(0, 3, ...next);
   },
@@ -47,9 +68,8 @@ watch(
 );
 
 const rgb = computed<[number, number, number]>(() => (
-  currentChannels() ?? unpackRgb(props.modelValue) ?? [0, 0, 0]
+  currentChannels() ?? decodeRgb(props.modelValue) ?? props.defaultRgb ?? [0, 0, 0]
 ));
-const packedValue = computed(() => packRgb(rgb.value));
 const colorHex = computed(() => `#${rgb.value.map(channel => channel.toString(16).padStart(2, '0')).join('')}`);
 const previewStyle = computed(() => ({
   '--laser-color': `rgb(${rgb.value.join(' ')})`,
@@ -59,7 +79,16 @@ const previewStyle = computed(() => ({
 
 function emitChannels(next: [number, number, number]) {
   channels.splice(0, 3, ...next.map(String));
-  emit('update:modelValue', String(packRgb(next)));
+  emit('update:modelValue', encodeRgb(next));
+}
+
+function updateMode(value: unknown) {
+  const next = String(value ?? '');
+  if (props.disabled || (next !== '0' && next !== '1')) return;
+  emit('update:mode', next);
+  if (next === '1' && !decodeRgb(props.modelValue)) {
+    emit('update:modelValue', encodeRgb(props.defaultRgb ?? [0, 0, 0]));
+  }
 }
 
 function normalizeChannels() {
@@ -71,7 +100,7 @@ function updateChannel(index: number, event: Event) {
   if (props.disabled) return;
   channels[index] = (event.target as HTMLInputElement).value;
   const parsed = currentChannels();
-  if (parsed) emit('update:modelValue', String(packRgb(parsed)));
+  if (parsed) emit('update:modelValue', encodeRgb(parsed));
 }
 
 function updateColor(event: Event) {
@@ -84,8 +113,15 @@ function updateColor(event: Event) {
 </script>
 
 <template>
-  <div class="laser-color-input" :class="{'laser-color-input--disabled': disabled}">
+  <div
+    class="laser-color-input"
+    :class="{
+      'laser-color-input--disabled': disabled,
+      'laser-color-input--preview-only': previewOnly,
+    }"
+  >
     <div
+      v-if="previewOnly"
       class="laser-preview"
       :style="previewStyle"
       role="img"
@@ -95,45 +131,66 @@ function updateColor(event: Event) {
       <div class="laser-impact" aria-hidden="true"/>
     </div>
 
-    <div v-if="!previewOnly" class="laser-controls">
-      <label class="color-swatch" :style="{'--swatch-color': colorHex}">
-        <input
-          :value="colorHex"
-          type="color"
-          :aria-label="label"
-          :disabled="disabled"
-          @input="updateColor"
-          @click.stop
-          @mousedown.stop
-          @pointerdown.stop
-        />
-      </label>
-      <label v-for="(channel, index) in channels" :key="index" class="rgb-channel">
-        <span :class="`rgb-channel-label--${index}`">{{ ['R', 'G', 'B'][index] }}</span>
-        <input
-          :value="channel"
-          type="number"
-          min="0"
-          max="255"
-          step="1"
-          :aria-label="`${label} ${['R', 'G', 'B'][index]}`"
-          :disabled="disabled"
-          @input="updateChannel(index, $event)"
-          @blur="normalizeChannels"
-          @click.stop
-          @mousedown.stop
-          @pointerdown.stop
-        />
-      </label>
-      <output class="packed-value" :aria-label="`${label}: ${packedValue}`">{{ packedValue }}</output>
+    <div v-else class="color-editor">
+      <v-btn-toggle
+        :model-value="mode ?? '1'"
+        mandatory
+        density="compact"
+        color="primary"
+        variant="text"
+        border
+        divided
+        class="color-mode-toggle game-page-segmented-toggle"
+        :disabled="disabled"
+        :aria-label="label"
+        @update:model-value="updateMode"
+      >
+        <v-btn value="0" size="small">{{ t('apexGameSettings.options.default') }}</v-btn>
+        <v-btn value="1" size="small">{{ t('apexGameSettings.options.custom') }}</v-btn>
+      </v-btn-toggle>
+      <div v-if="(mode ?? '1') === '1'" class="laser-controls">
+        <label class="color-swatch" :style="{'--swatch-color': colorHex}" :title="label">
+          <input
+            :value="colorHex"
+            type="color"
+            :aria-label="label"
+            :disabled="disabled"
+            @input="updateColor"
+            @click.stop
+            @mousedown.stop
+            @pointerdown.stop
+          />
+        </label>
+        <label v-for="(channel, index) in channels" :key="index" class="rgb-channel">
+          <span :class="`rgb-channel-label--${index}`">{{ ['R', 'G', 'B'][index] }}</span>
+          <input
+            :value="channel"
+            type="number"
+            min="0"
+            max="255"
+            step="1"
+            :aria-label="`${label} ${['R', 'G', 'B'][index]}`"
+            :disabled="disabled"
+            @input="updateChannel(index, $event)"
+            @blur="normalizeChannels"
+            @click.stop
+            @mousedown.stop
+            @pointerdown.stop
+          />
+        </label>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .laser-color-input {
-  width: clamp(360px, 40vw, 520px);
+  min-width: 0;
   max-width: 100%;
+}
+
+.laser-color-input--preview-only {
+  width: clamp(360px, 40vw, 520px);
 }
 
 .laser-preview {
@@ -182,11 +239,18 @@ function updateColor(event: Event) {
   box-shadow: 0 0 7px 2px var(--laser-glow);
 }
 
+.color-editor {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.color-mode-toggle { flex: 0 0 auto; }
 .laser-controls {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-top: 6px;
 }
 .color-swatch {
   position: relative;
@@ -238,19 +302,21 @@ function updateColor(event: Event) {
   border-color: rgba(var(--v-theme-primary), 0.78);
   box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.14);
 }
-.packed-value {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  font: 11px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .laser-color-input--disabled { opacity: 0.46; }
 .laser-color-input--disabled .color-swatch input { cursor: default; }
 
+@media (max-width: 980px) {
+  .laser-color-input:not(.laser-color-input--preview-only),
+  .color-editor {
+    width: 100%;
+  }
+  .color-editor {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
 @media (max-width: 760px) {
-  .laser-color-input { width: 100%; }
+  .laser-color-input--preview-only { width: 100%; }
   .laser-controls { flex-wrap: wrap; }
 }
 </style>

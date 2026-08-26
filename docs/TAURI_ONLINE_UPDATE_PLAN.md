@@ -99,6 +99,14 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 ### 5.1 Tauri 后端与配置
 
 - 引入 `tauri-plugin-updater`，保持 Windows 原生 TLS 路线并复核发布体积。
+- **体积探针结论（2026-08-13 实测，基线便携版 4,655,881 字节）**：
+  - 默认特性（`rustls-tls` + `zip`）会引入第二套 TLS 栈：便携版涨到
+    5,186,383 字节，超出 5,000,000 硬门槛 186,384 字节，发布门禁直接失败。
+  - 必须使用
+    `tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls"] }`：
+    复用应用现有的 SChannel/native-tls，Windows NSIS 更新也不需要 `zip`。
+    实测便携版 4,754,939 字节、安装版 4,781,710 字节，增量约 99 KB，
+    门禁通过且剩余约 245 KB 余量。
 - 在应用启动器中注册 updater 插件。
 - 在 capability 中授予最小 updater 权限。
 - 在 `tauri.conf.json` 中启用 `bundle.createUpdaterArtifacts` 并配置公钥。

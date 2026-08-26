@@ -19,64 +19,57 @@ watch(() => store.rdpPort, (p) => {
 });
 
 async function checkPort() {
-  if (!ip.value) {
+  if (!ip.value.trim()) {
     toast.error(t('rdp.portCheck.enterIp'));
     return;
   }
   checking.value = true;
   result.value = null;
   try {
-    result.value = await checkRemotePort({ ip: ip.value, port: port.value });
+    result.value = await checkRemotePort({ip: ip.value.trim(), port: port.value});
   } catch (e: unknown) {
     toast.error(String(e));
+  } finally {
+    checking.value = false;
   }
-  checking.value = false;
 }
 </script>
 
 <template>
-  <v-card variant="flat" class="rdp-card mb-4">
+  <v-card variant="flat" class="rdp-card">
     <v-card-title class="text-subtitle-1 font-weight-medium pb-1">
       {{ t('rdp.portCheck.title') }}
     </v-card-title>
-    <v-card-subtitle class="text-caption" style="opacity: 0.8;">
+    <v-card-subtitle class="text-caption">
       {{ t('rdp.portCheck.subtitle') }}
     </v-card-subtitle>
     <v-card-text>
-      <v-row dense>
-        <v-col cols="7">
-          <v-text-field
-            v-model="ip"
-            :label="t('rdp.portCheck.ipLabel')"
-            variant="outlined"
-            density="compact"
-            placeholder="192.168.1.100"
-            hide-details
-          />
-        </v-col>
-        <v-col cols="3">
-          <v-text-field
-            v-model.number="port"
-            :label="t('rdp.port.label')"
-            variant="outlined"
-            density="compact"
-            type="number"
-            hide-details
-          />
-        </v-col>
-        <v-col cols="2" class="d-flex align-center">
-          <v-btn
-            :loading="checking"
-            variant="tonal"
-            color="primary"
-            rounded="lg"
-            block
-            @click="checkPort"
-          >
-            {{ t('rdp.portCheck.check') }}
-          </v-btn>
-        </v-col>
-      </v-row>
+      <div class="port-check-form">
+        <v-text-field
+          v-model="ip"
+          class="mx-standard-field"
+          :label="t('rdp.portCheck.ipLabel')"
+          variant="outlined"
+          density="default"
+          placeholder="192.168.1.100"
+          hide-details
+          autocomplete="off"
+        />
+        <v-text-field
+          v-model.number="port"
+          class="mx-standard-field"
+          :label="t('rdp.port.label')"
+          variant="outlined"
+          density="default"
+          type="number"
+          :min="1"
+          :max="65535"
+          hide-details
+        />
+        <v-btn class="port-check-button" :loading="checking" variant="tonal" color="primary" @click="checkPort">
+          {{ t('rdp.portCheck.check') }}
+        </v-btn>
+      </div>
       <div v-if="result !== null" class="mt-3">
         <v-alert
           :type="result ? 'success' : 'error'"
@@ -90,3 +83,23 @@ async function checkPort() {
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped>
+.port-check-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 10px;
+}
+
+.port-check-button {
+  grid-column: 1 / -1;
+  min-height: var(--app-control-height-field) !important;
+  height: var(--app-control-height-field) !important;
+}
+
+@media (max-width: 380px) {
+  .port-check-form {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

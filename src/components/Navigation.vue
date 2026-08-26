@@ -39,6 +39,7 @@ const activeTool = computed(() => {
 const showSecondary = computed(
   () => activeTool.value != null && activeTool.value.children.length !== 0,
 );
+const onDashboard = computed(() => route.path === '/dashboard');
 
 const primaryMaxWidth = ref(NAV_PRIMARY_MAX);
 const secondaryMaxWidth = ref(NAV_SECONDARY_MAX);
@@ -201,7 +202,9 @@ onMounted(() => {
                 v-bind="tipProps"
                 :title="$t('about.appName')"
                 :subtitle="$t('nav.toolCenter')"
-                @click="router.push('/')"
+                :active="onDashboard"
+                active-class="nav-brand-item-active"
+                @click="router.push('/dashboard')"
                 rounded="lg"
                 class="mb-1 nav-brand-item"
               >
@@ -558,14 +561,28 @@ onMounted(() => {
   height: 40px;
   flex: 0 0 40px;
   box-sizing: border-box;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
   border-radius: 8px;
-  background: linear-gradient(145deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-primary), 0.055));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(var(--v-theme-on-surface), 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition:
     border-color var(--app-motion-fast) var(--app-ease-standard),
     box-shadow var(--app-motion-fast) var(--app-ease-standard),
     transform var(--app-motion-fast) var(--app-ease-emphasized);
+}
+
+.nav-brand-item-active {
+  color: rgb(var(--v-theme-primary));
+}
+
+.nav-brand-item-active :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+.nav-brand-item-active .nav-brand-mark {
+  border-color: rgba(var(--v-theme-primary), 0.2);
+  background: linear-gradient(145deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-primary), 0.055));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .nav-brand-mark img {

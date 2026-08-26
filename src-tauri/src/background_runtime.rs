@@ -1770,9 +1770,11 @@ mod tests {
     fn config_round_trip_uses_the_build_specific_file() {
         let dir = TestDir::new("roundtrip");
         let store = BackgroundRuntimeStore::new(&dir.0);
-        let mut config = BackgroundRuntimeConfig::default();
-        config.beta_features_enabled = true;
-        config.locale = RuntimeLocale::ZhCn;
+        let mut config = BackgroundRuntimeConfig {
+            beta_features_enabled: true,
+            locale: RuntimeLocale::ZhCn,
+            ..Default::default()
+        };
         config.apex_q.enabled = true;
         config.apex_q.setup_done = true;
         store.save(&config).unwrap();
@@ -1793,10 +1795,12 @@ mod tests {
     fn partial_runtime_commits_preserve_unrelated_fields() {
         let dir = TestDir::new("partial-commit");
         let store = BackgroundRuntimeStore::new(&dir.0);
-        let mut original = BackgroundRuntimeConfig::default();
-        original.autostart = true;
-        original.beta_features_enabled = true;
-        original.locale = RuntimeLocale::ZhCn;
+        let mut original = BackgroundRuntimeConfig {
+            autostart: true,
+            beta_features_enabled: true,
+            locale: RuntimeLocale::ZhCn,
+            ..Default::default()
+        };
         original.apex_q.hotkey = "Ctrl+Alt+A".to_string();
         store.save(&original).unwrap();
 
@@ -1893,8 +1897,10 @@ mod tests {
         let dir = TestDir::new("unsupported");
         let store = BackgroundRuntimeStore::new(&dir.0);
         let backend = FakeAutostart::default();
-        let mut stale_config = BackgroundRuntimeConfig::default();
-        stale_config.autostart = true;
+        let stale_config = BackgroundRuntimeConfig {
+            autostart: true,
+            ..Default::default()
+        };
         store.save(&stale_config).unwrap();
 
         let snapshot =
@@ -1950,8 +1956,10 @@ mod tests {
     fn debug_invariant_clears_only_the_dev_config_preference() {
         let dir = TestDir::new("debug-invariant");
         let store = BackgroundRuntimeStore::new(&dir.0);
-        let mut config = BackgroundRuntimeConfig::default();
-        config.autostart = true;
+        let config = BackgroundRuntimeConfig {
+            autostart: true,
+            ..Default::default()
+        };
         store.save(&config).unwrap();
 
         let repaired = store.enforce_current_build_invariants().unwrap();

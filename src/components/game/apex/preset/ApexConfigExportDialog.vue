@@ -5,6 +5,7 @@ import {save} from '@tauri-apps/plugin-dialog';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {explorerFolder} from '@/ipc/commands.ts';
+import {apexConfigSnapshotFilename} from '@/utils/game/apex_config_snapshot.ts';
 
 const {t} = useI18n();
 const toast = useToast();
@@ -44,11 +45,12 @@ async function confirm_export() {
   if (!can_export.value || exporting.value) return;
   exporting.value = true;
   try {
-    let defaultPath = 'apex-config-snapshot.json';
+    const filename = apexConfigSnapshotFilename();
+    let defaultPath = filename;
     try {
       const folder = await explorerFolder();
       if (folder) {
-        defaultPath = `${folder}\\apex-config-snapshot.json`;
+        defaultPath = `${folder}\\${filename}`;
       }
     } catch {
       // ignore default path resolution failures

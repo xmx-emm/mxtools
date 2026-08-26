@@ -5,8 +5,8 @@ import {getCurrentWindow} from '@tauri-apps/api/window';
 import {openUrl} from '@tauri-apps/plugin-opener';
 import {AUTHOR_BILIBILI_URL, GITHUB_AUTHOR_URL, GITHUB_PROJECT_URL, QQ_CHANNEL_URL} from '@/data/url_other.ts';
 import avatarImg from '@/assets/images/avatar.jpg';
-import alipaySponsorImg from '@/assets/images/sponsor/alipay.png';
-import wechatSponsorImg from '@/assets/images/sponsor/wechat.png';
+import alipaySponsorImg from '@/assets/images/sponsor/alipay.webp';
+import wechatSponsorImg from '@/assets/images/sponsor/wechat.webp';
 import type {AppInfo} from '@/types/app.ts';
 import {fetchAppInfo} from '@/utils/app_info.ts';
 

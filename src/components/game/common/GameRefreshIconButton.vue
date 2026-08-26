@@ -54,10 +54,7 @@ const iconClass = computed(() => ({
 
 <template>
   <v-btn
-    class="mx-compact-icon-button"
     icon
-    size="small"
-    variant="text"
     :title="title"
     :aria-label="title"
     :aria-busy="loading || undefined"

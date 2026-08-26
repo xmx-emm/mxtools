@@ -4,6 +4,7 @@ import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import ApexGameSettingsData, {
   apexBindingCommandLabels,
+  apexGameSettingsReviewIgnoredKeys,
   apexGameSettingsSections,
 } from '@/data/apex_game_settings.ts';
 import type {
@@ -20,8 +21,11 @@ import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexBindingSelect from './ApexBindingSelect.vue';
 import ApexGameSettingTip from './ApexGameSettingTip.vue';
-import ApexLaserSightColorInput from './ApexLaserSightColorInput.vue';
-import ApexRgbIntegerInput from './ApexRgbIntegerInput.vue';
+import ApexRgbColorInput from './ApexLaserSightColorInput.vue';
+
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
 
 const apex_store = useApexStore();
 const {locale, t, te} = useI18n();
@@ -89,18 +93,74 @@ const settingsBusy = computed(() => (
   || apex_store.is_config_snapshot_applying
   || apex_store.quick_preset_applying
 ));
+const laserSightMode = computed(() => (
+  apex_store.game_settings_values.profile.laserSightColorCustomized === '1' ? '1' : '0'
+));
+
 function valueFor(field: ApexGameSettingDefinition): string {
   return apex_store.game_settings_values[field.file][field.readKey ?? field.key] ?? '';
 }
 
+function hasValidRgbChannels(value: string): boolean {
+  const channels = value.trim().split(/\s+/).map(Number);
+  return channels.length === 3
+    && channels.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255);
+}
+
+function isRgbColorField(field: ApexGameSettingDefinition): boolean {
+  return field.control === 'rgb' || field.control === 'packed-rgb';
+}
+
+function colorModeFor(field: ApexGameSettingDefinition): string {
+  return field.id === 'laserSightColor'
+    ? laserSightMode.value
+    : (hasValidRgbChannels(valueFor(field)) ? '1' : '0');
+}
+
+function colorEncodingFor(field: ApexGameSettingDefinition): 'channels' | 'packed' {
+  return field.control === 'packed-rgb' ? 'packed' : 'channels';
+}
+
+function defaultRgbFor(field: ApexGameSettingDefinition): [number, number, number] {
+  return field.id === 'laserSightColor' ? [255, 0, 0] : [255, 255, 255];
+}
+
+function setLaserSightMode(value: unknown) {
+  const next = String(value ?? '');
+  if (settingsBusy.value || (next !== '0' && next !== '1')) return;
+  apex_store.set_game_setting_value('profile', 'laserSightColorCustomized', next);
+}
+
+function setColorMode(field: ApexGameSettingDefinition, value: unknown) {
+  const next = String(value ?? '');
+  if (next !== '0' && next !== '1') return;
+  if (field.id === 'laserSightColor') {
+    setLaserSightMode(next);
+    return;
+  }
+  if (next === '0') {
+    setValue(field, '');
+  }
+}
+
 function setValue(field: ApexGameSettingDefinition, value: string) {
   if (isDisabled(field)) return;
+  const linkedValues = field.options?.find(option => option.value === value)?.values;
+  if (linkedValues) {
+    for (const [key, linkedValue] of Object.entries(linkedValues)) {
+      apex_store.set_game_setting_value(field.file, key, linkedValue);
+    }
+    return;
+  }
   for (const key of field.writeKeys ?? [field.key]) {
     apex_store.set_game_setting_value(field.file, key, value);
   }
 }
 
 function storageKeyLabel(field: ApexGameSettingDefinition): string {
+  if (field.id === 'laserSightColor') {
+    return 'laserSightColorCustomized…laserSightColor';
+  }
   if (field.writeKeys?.length) {
     if (field.writeKeys.length === 1) return field.writeKeys[0];
     return `${field.writeKeys[0]}…${field.writeKeys[field.writeKeys.length - 1]}`;
@@ -137,6 +197,12 @@ function matchesField(field: ApexGameSettingDefinition): boolean {
     field.readKey,
     ...(field.writeKeys ?? []),
     valueFor(field),
+    ...(field.id === 'laserSightColor' ? [
+      t('apexGameSettings.fields.laserSightCustom.name'),
+      t('apexGameSettings.fields.laserSightCustom.description'),
+      'laserSightColorCustomized',
+      laserSightMode.value,
+    ] : []),
   ]
     .join(' ')
     .toLowerCase()
@@ -145,19 +211,29 @@ function matchesField(field: ApexGameSettingDefinition): boolean {
 
 const visibleFields = computed(() => ApexGameSettingsData.filter(field => (
   field.section === section.value
-  && (field.readKey ?? field.key) in apex_store.game_settings_values[field.file]
+  && field.id !== 'laserSightCustom'
+  && (!isTauriRuntime
+    || (field.id === 'laserSightColor'
+      ? ('laserSightColorCustomized' in apex_store.game_settings_values.profile
+        || 'laserSightColor' in apex_store.game_settings_values.profile)
+      : (field.readKey ?? field.key) in apex_store.game_settings_values[field.file]))
   && matchesField(field)
 )));
 
 const knownKeys = new Set([
-  ...ApexGameSettingsData.map(field => `${field.file}:${field.key}`),
+  ...ApexGameSettingsData.flatMap(field => [
+    field.key,
+    field.readKey,
+    ...(field.writeKeys ?? []),
+  ].filter((key): key is string => Boolean(key)).map(key => `${field.file}:${key}`)),
   'profile:toggle_on_jump_to_deactivate_changed',
 ]);
 const unknownEntries = computed(() => {
   const entries: {file: ApexGameSettingsFile; key: string; value: string}[] = [];
   for (const file of ['settings', 'profile'] as const) {
     for (const [key, value] of Object.entries(apex_store.game_settings_values[file])) {
-      if (knownKeys.has(`${file}:${key}`)) continue;
+      const qualifiedKey = `${file}:${key}`;
+      if (knownKeys.has(qualifiedKey) || apexGameSettingsReviewIgnoredKeys.has(qualifiedKey)) continue;
       const haystack = `${file} ${key} ${value}`.toLowerCase();
       if (!query.value || haystack.includes(query.value)) entries.push({file, key, value});
     }
@@ -241,6 +317,13 @@ function enumItems(field: ApexGameSettingDefinition) {
 }
 
 function enumValueFor(field: ApexGameSettingDefinition): string {
+  const linkedOption = field.options?.find(option => (
+    option.values
+    && Object.entries(option.values).every(([key, value]) => (
+      apex_store.game_settings_values[field.file][key] === value
+    ))
+  ));
+  if (linkedOption) return linkedOption.value;
   const value = valueFor(field);
   return matchingApexGameSettingOptionValue(field, value) ?? value;
 }
@@ -321,8 +404,8 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
           :key="field.id"
           class="setting-row game-page-row-tip-host"
           :class="{
-            'setting-row--disabled': isDisabled(field),
-            'setting-row--wide-control': field.control === 'packed-rgb',
+            'setting-row--disabled': !isRgbColorField(field) && isDisabled(field),
+            'setting-row--wide-control': isRgbColorField(field),
           }"
           :title="t('apexLaunchOptions.ui.rightClickTip')"
           @contextmenu.prevent="showSettingTip(field)"
@@ -344,8 +427,19 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
           <template #subtitle><div class="setting-description">{{ t(field.descriptionKey) }}</div></template>
           <template #append>
             <div class="setting-row-append">
+              <ApexRgbColorInput
+                v-if="isRgbColorField(field)"
+                :model-value="valueFor(field)"
+                :mode="colorModeFor(field)"
+                :encoding="colorEncodingFor(field)"
+                :default-rgb="defaultRgbFor(field)"
+                :label="t(field.labelKey)"
+                :disabled="settingsBusy"
+                @update:mode="setColorMode(field, $event)"
+                @update:model-value="setValue(field, $event)"
+              />
               <v-switch
-                v-if="field.control === 'toggle'"
+                v-else-if="field.control === 'toggle'"
                 :model-value="valueFor(field) === '1'"
                 density="compact"
                 color="primary"
@@ -380,20 +474,6 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
                   </v-btn>
                 </v-btn-toggle>
               </div>
-              <ApexRgbIntegerInput
-                v-else-if="field.control === 'rgb'"
-                :model-value="valueFor(field)"
-                :label="t(field.labelKey)"
-                :disabled="isDisabled(field)"
-                @update:model-value="setValue(field, $event)"
-              />
-              <ApexLaserSightColorInput
-                v-else-if="field.control === 'packed-rgb'"
-                :model-value="valueFor(field)"
-                :label="t(field.labelKey)"
-                :disabled="isDisabled(field)"
-                @update:model-value="setValue(field, $event)"
-              />
               <ApexNumberInput
                 v-else
                 :model-value="valueFor(field)"

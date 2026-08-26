@@ -232,6 +232,15 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     max: 3,
     step: 0.05,
   },
+  {
+    identifier: 'setting.sound_volume',
+    name: 'apexVideoConfig.soundVolume.name',
+    description: 'apexVideoConfig.soundVolume.description',
+    valueType: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+  },
 
   // 自适应分辨率：目标非 0 时启用并写入帧时间上下限，同时禁用“双缓冲”垂直同步选项。
   // 当前游戏菜单未写入 setting.dvs_supersample_enable。
@@ -516,7 +525,8 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
   },
 
   // 点光源阴影细节仅联动 shadow_enable + shadow_depth_dimen_min + shadow_depth_upres_factor_max。
-  // shadow_maxdynamic 与 new_shadow_settings 在所有档位切换中均保持不变。
+  // 隔离切换中 shadow_maxdynamic 与 new_shadow_settings 保持不变；一次全设置
+  // 扫描曾观察到 shadow_maxdynamic 0 -> 4，具体菜单归属仍待隔离。
   {
     identifier: 'group.shadowDetail',
     name: 'apexVideoConfig.shadowDetail.name',

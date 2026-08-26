@@ -19,6 +19,10 @@ import {
   listenApexQuickPresetAccount,
 } from '@/utils/game/apex_config_events.ts';
 
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 const {t} = useI18n();
 const route = useRoute();
 const apexStore = useApexStore();
@@ -56,6 +60,10 @@ async function initialize(accountKey = requestedAccountKey) {
 }
 
 onMounted(async () => {
+  if (!isTauriRuntime) {
+    ready.value = true;
+    return;
+  }
   const currentWindow = getCurrentWindow();
   void currentWindow.setDecorations(false).catch(() => undefined);
   unlistenAccount = await listenApexQuickPresetAccount(({accountKey}) => {
@@ -143,7 +151,7 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  padding: 14px 18px 16px;
+  padding: 0;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -186,7 +194,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .quick-preset-window-body {
-    padding: 10px;
+    padding: 0;
   }
 }
 </style>

@@ -21,6 +21,7 @@ import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.v
 import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSettingsApply.vue';
 import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
 import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
+import ApexOnlinePresetsDialog from '@/components/game/apex/preset/ApexOnlinePresetsDialog.vue';
 import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
 import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
 import {openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
@@ -43,6 +44,7 @@ import {
   pendingApexConfigChange,
   type ApexExternalConfigScope,
 } from '@/utils/game/apex_config_events.ts';
+import {useRouter} from 'vue-router';
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -55,6 +57,7 @@ const { check_is_steam_running } = steam_store;
 const ea_store = useEaStore();
 const apex_store = useApexStore();
 const settings_store = useSettingsStore();
+const router = useRouter();
 
 const is_initial_content_loading = computed(() => {
   if (apex_store.is_launch_page) {
@@ -367,12 +370,28 @@ function on_user_update() {
 }
 
 function open_quick_preset() {
-  if (!isTauriRuntime) return;
+  if (!isTauriRuntime) {
+    void router.push({
+      path: '/apex-quick-preset',
+      query: apex_store.launcher_selection_key
+        ? {account: apex_store.launcher_selection_key}
+        : undefined,
+    });
+    return;
+  }
   apex_store.open_quick_preset_window();
 }
 
 function open_launch_repair() {
-  if (!isTauriRuntime) return;
+  if (!isTauriRuntime) {
+    void router.push({
+      path: '/repair-apex-launch',
+      query: apex_store.launcher_selection_key
+        ? {account: apex_store.launcher_selection_key}
+        : undefined,
+    });
+    return;
+  }
   void openRepairToolWindow('apex-launch', apex_store.launcher_selection_key)
     .catch((error) => toast.error(String(error)));
 }
@@ -385,6 +404,8 @@ function open_apex_q() {
 function open_config_export() {
   apex_store.open_config_export_dialog();
 }
+
+const online_presets_dialog = ref(false);
 
 async function open_config_import() {
   if (!isTauriRuntime) return;
@@ -492,6 +513,22 @@ async function open_config_import() {
             >
               <v-icon icon="mdi-application-import" size="small" />
             </v-btn>
+          </div>
+          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
+            <v-btn
+              icon="mdi-cloud-outline"
+              size="small"
+              variant="text"
+              density="compact"
+              class="apex-preset-btn"
+              :title="t('apex.onlinePresets.toolbarTip')"
+              :aria-label="t('apex.onlinePresets.toolbarTip')"
+              @click="online_presets_dialog = true"
+            />
+            <span
+              class="mx-beta-badge apex-q-beta-badge"
+              :title="t('settings.betaFeaturesHint')"
+            >{{ t('common.beta') }}</span>
           </div>
         </div>
         <div class="apex-page-switcher" role="region" :aria-label="t('apex.pageSwitcherLabel')">
@@ -640,6 +677,7 @@ async function open_config_import() {
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
     <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
     <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
+    <ApexOnlinePresetsDialog v-model="online_presets_dialog"/>
     <ApexConfigHistoryDialog/>
     <ApexResetDefaultsDialog/>
   </v-col>
@@ -808,11 +846,5 @@ async function open_config_import() {
 
 .apex-tab-panel--active {
   display: flex;
-}
-</style>
-
-<style>
-.apex-tip-dialog-no-ripple .v-ripple__container {
-  display: none !important;
 }
 </style>

@@ -15,6 +15,7 @@ import ClearPersistedDataDialog from '@/components/settings/ClearPersistedDataDi
 import ThemeColorPicker from '@/components/settings/ThemeColorPicker.vue';
 import ShortcutInput from '@/components/settings/ShortcutInput.vue';
 import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
+import OnlineAccountSection from '@/components/settings/OnlineAccountSection.vue';
 import type {LocaleCode} from '@/utils/locale.ts';
 import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT, setSynchronizedAppLocale} from '@/utils/global-shortcuts.ts';
 import {
@@ -317,6 +318,7 @@ onUnmounted(() => {
             </div>
           </section>
 
+          <OnlineAccountSection v-if="settingsStore.betaFeaturesEnabled"/>
         </div>
 
         <div

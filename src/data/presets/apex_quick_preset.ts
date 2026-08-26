@@ -290,8 +290,13 @@ export const quickPresetGameSettingToggles = [
   ['subtitles', 'closecaption', '0', 'subtitlesOff'],
 ] as const;
 
+export const QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY = 'bindingOptimizations';
+
 export function buildDefaultGameSettingOptions(): Record<string, boolean> {
   return Object.fromEntries(
-    quickPresetGameSettingToggles.map(([id]) => [id, true]),
+    [
+      ...quickPresetGameSettingToggles.map(([id]) => [id, true] as const),
+      [QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY, true] as const,
+    ],
   );
 }

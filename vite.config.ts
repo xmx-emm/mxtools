@@ -52,7 +52,7 @@ export default defineConfig(async () => ({
     },
     test: {
         environment: 'node',
-        include: ['src/**/*.{test,spec}.ts', 'scripts/**/*.{test,spec}.ts'],
+        include: ['tests/**/*.{test,spec}.ts'],
     },
     build: {
         manifest: true,

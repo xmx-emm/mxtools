@@ -37,6 +37,10 @@ import {
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {openRepairToolWindow} from '@/utils/windows.ts';
 
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 type UiStatus = ApexLaunchRepairCheckStatus | 'pending' | 'checking';
 type ExternalActionId =
   | 'open_game_repair'
@@ -75,6 +79,7 @@ const requestedRouteAccount = typeof route.query.account === 'string'
 const accountKey = computed(() => apexStore.launcher_selection_key);
 const activeAccount = computed(() => apexStore.active_apex_account);
 const target = computed<ApexLaunchRepairTarget | null>(() => {
+  if (!isTauriRuntime) return {launcher: 'steam', accountId: 'browser-preview'};
   const account = activeAccount.value;
   if (!account) return null;
   return {launcher: account.kind, accountId: account.user.id};
@@ -265,6 +270,73 @@ function clearReport() {
   completedCheckCount.value = 0;
 }
 
+function browserPreviewResults(): ApexLaunchRepairCheckResult[] {
+  return [
+    {id: 'installation', status: 'pass', detailCode: 'found', params: {launcher: 'Steam', path: 'C:\\Games\\Apex Legends'}, actions: []},
+    {id: 'processes', status: 'pass', detailCode: 'available', params: {}, actions: []},
+    {id: 'game_files', status: 'pass', detailCode: 'present', params: {}, actions: []},
+    {
+      id: 'anti_cheat',
+      status: 'warning',
+      detailCode: 'serviceMissing',
+      params: {},
+      actions: [{id: 'repair_eac', mode: 'batch', requiresAdmin: true, restartRequired: false, recommended: true}],
+    },
+    {id: 'crash_logs', status: 'info', detailCode: 'detected', params: {}, actions: []},
+    {id: 'configuration', status: 'info', detailCode: 'customLaunchOptions', params: {}, actions: []},
+    {
+      id: 'apex_cache',
+      status: 'warning',
+      detailCode: 'available',
+      params: {psoBytes: 18432000, assetsBytes: 67108864},
+      actions: [
+        {id: 'clear_apex_pso_cache', mode: 'batch', requiresAdmin: false, restartRequired: false, recommended: true},
+        {id: 'clear_apex_assets_cache', mode: 'batch', requiresAdmin: false, restartRequired: false, recommended: true},
+      ],
+    },
+    {
+      id: 'shader_cache',
+      status: 'warning',
+      detailCode: 'available',
+      params: {directxBytes: 125829120, nvidiaBytes: 268435456},
+      actions: [
+        {id: 'clear_directx_shader_cache', mode: 'batch', requiresAdmin: false, restartRequired: false, recommended: false},
+        {id: 'clear_nvidia_shader_cache', mode: 'batch', requiresAdmin: false, restartRequired: false, recommended: false},
+      ],
+    },
+    {id: 'runtime', status: 'pass', detailCode: 'healthy', params: {}, actions: []},
+    {
+      id: 'conflicts',
+      status: 'warning',
+      detailCode: 'running',
+      params: {processes: 'RTSS.exe'},
+      actions: [{id: 'close_conflicting_apps', mode: 'batch', requiresAdmin: false, restartRequired: false, recommended: true}],
+    },
+  ];
+}
+
+async function runBrowserPreviewScan() {
+  const generation = ++operationGeneration;
+  const previews = browserPreviewResults();
+  phase.value = hasReport.value ? 'refreshing' : 'scanning';
+  workingResults.value = [];
+  currentCheckId.value = null;
+  completedCheckCount.value = 0;
+  selectedActions.value = [];
+  for (const preview of previews) {
+    if (generation !== operationGeneration) return;
+    currentCheckId.value = preview.id;
+    await new Promise(resolve => window.setTimeout(resolve, 160));
+    if (generation !== operationGeneration) return;
+    workingResults.value = [...workingResults.value, preview];
+    completedCheckCount.value = workingResults.value.length;
+  }
+  results.value = [...workingResults.value];
+  checkedAtMs.value = Date.now();
+  currentCheckId.value = null;
+  phase.value = 'ready';
+}
+
 async function initialize(accountKeyToRestore: string | null) {
   const generation = ++initializeGeneration;
   ready.value = false;
@@ -292,6 +364,10 @@ function onAccountChanged() {
 }
 
 async function scan() {
+  if (!isTauriRuntime) {
+    if (!isBusy.value) await runBrowserPreviewScan();
+    return;
+  }
   const selectedTarget = target.value;
   const selectedAccountKey = accountKey.value;
   if (!selectedTarget || isBusy.value) return;
@@ -336,6 +412,21 @@ async function scan() {
 async function repairSelected() {
   const selectedTarget = target.value;
   if (!selectedTarget || isBusy.value || selectedActions.value.length === 0) return;
+  if (!isTauriRuntime) {
+    const actions = [...selectedActions.value];
+    phase.value = 'repairing';
+    await new Promise(resolve => window.setTimeout(resolve, 500));
+    actionResults.value = actions.map(action => ({
+      action,
+      success: true,
+      errorCode: null,
+      restartRequired: false,
+      changedItems: ['browser-preview'],
+    }));
+    selectedActions.value = [];
+    phase.value = 'ready';
+    return;
+  }
   const generation = ++operationGeneration;
   phase.value = 'repairing';
   actionResults.value = [];
@@ -426,6 +517,10 @@ async function resetApexConfig() {
 }
 
 onMounted(async () => {
+  if (!isTauriRuntime) {
+    ready.value = true;
+    return;
+  }
   const currentWindow = getCurrentWindow();
   void currentWindow.setDecorations(false).catch(() => undefined);
   unlistenAccount = await listenApexLaunchRepairAccount(({accountKey: nextAccountKey}) => {
@@ -576,80 +671,79 @@ onBeforeUnmount(() => {
           <div class="apex-launch-repair-check__index">{{ index + 1 }}</div>
           <div class="apex-launch-repair-check__content">
             <div class="apex-launch-repair-check__heading">
-              <div>
-                <h2>{{ checkTitle(checkId) }}</h2>
-                <p>{{ checkDescription(checkId) }}</p>
-              </div>
-              <div
-                class="apex-launch-repair-check__status"
-                :class="`apex-launch-repair-check__status--${statusFor(checkId)}`"
-              >
-                <v-progress-circular
-                  v-if="statusFor(checkId) === 'checking'"
-                  indeterminate
-                  color="primary"
-                  :size="14"
-                  :width="2"
-                />
-                <v-icon
-                  v-else
-                  :icon="statusIcons[statusFor(checkId) as Exclude<UiStatus, 'checking'>]"
-                  :color="statusColor(statusFor(checkId))"
-                  size="16"
-                />
-                <span>{{ t(`apexLaunchRepair.status.${statusFor(checkId)}`) }}</span>
-              </div>
+              <h2>{{ checkTitle(checkId) }}</h2>
+              <p>{{ checkDescription(checkId) }}</p>
             </div>
             <div v-if="resultFor(checkId)" class="apex-launch-repair-check__detail">
               {{ checkDetail(checkId) }}
             </div>
-
-            <div
-              v-if="batchActions(resultFor(checkId)).length"
-              class="apex-launch-repair-check__actions"
+          </div>
+          <div
+            class="apex-launch-repair-check__status"
+            :class="`apex-launch-repair-check__status--${statusFor(checkId)}`"
+          >
+            <v-progress-circular
+              v-if="statusFor(checkId) === 'checking'"
+              indeterminate
+              color="primary"
+              :size="14"
+              :width="2"
+            />
+            <v-icon
+              v-else
+              :icon="statusIcons[statusFor(checkId) as Exclude<UiStatus, 'checking'>]"
+              :color="statusColor(statusFor(checkId))"
+              size="16"
+            />
+            <span>{{ t(`apexLaunchRepair.status.${statusFor(checkId)}`) }}</span>
+          </div>
+          <div
+            v-if="batchActions(resultFor(checkId)).length"
+            class="apex-launch-repair-check__actions"
+          >
+            <label
+              v-for="action in batchActions(resultFor(checkId))"
+              :key="action.id"
+              class="apex-launch-repair-action"
             >
-              <label
-                v-for="action in batchActions(resultFor(checkId))"
-                :key="action.id"
-                class="apex-launch-repair-action"
-              >
-                <v-checkbox-btn
-                  class="apex-launch-repair-action__checkbox"
-                  :model-value="isSelected(action.id)"
-                  :disabled="isBusy"
-                  color="primary"
-                  density="compact"
-                  @update:model-value="toggleAction(action.id, $event)"
-                />
-                <span class="apex-launch-repair-action__copy">
-                  <strong>{{ actionLabel(action.id) }}</strong>
-                  <small>{{ actionImpact(action.id) }}</small>
-                </span>
+              <v-checkbox-btn
+                class="apex-launch-repair-action__checkbox"
+                :model-value="isSelected(action.id)"
+                :disabled="isBusy"
+                color="primary"
+                density="compact"
+                @update:model-value="toggleAction(action.id, $event)"
+              />
+              <span class="apex-launch-repair-action__copy">
+                <strong>{{ actionLabel(action.id) }}</strong>
+                <small>{{ actionImpact(action.id) }}</small>
+              </span>
+              <span class="apex-launch-repair-action__badges">
                 <v-chip v-if="action.requiresAdmin" size="x-small" color="warning" variant="tonal">
                   {{ t('apexLaunchRepair.badges.admin') }}
                 </v-chip>
                 <v-chip v-if="action.restartRequired" size="x-small" color="info" variant="tonal">
                   {{ t('apexLaunchRepair.badges.restart') }}
                 </v-chip>
-              </label>
-            </div>
+              </span>
+            </label>
+          </div>
 
-            <div
-              v-if="directActions(resultFor(checkId)).length"
-              class="apex-launch-repair-check__direct-actions"
+          <div
+            v-if="directActions(resultFor(checkId)).length"
+            class="apex-launch-repair-check__direct-actions"
+          >
+            <v-btn
+              v-for="action in directActions(resultFor(checkId))"
+              :key="action.id"
+              class="apex-launch-repair-command"
+              variant="tonal"
+              :prepend-icon="action.mode === 'external' ? 'mdi-open-in-new' : 'mdi-history'"
+              :disabled="isBusy"
+              @click="showExternalAction(action.id)"
             >
-              <v-btn
-                v-for="action in directActions(resultFor(checkId))"
-                :key="action.id"
-                class="apex-launch-repair-command"
-                variant="tonal"
-                :prepend-icon="action.mode === 'external' ? 'mdi-open-in-new' : 'mdi-history'"
-                :disabled="isBusy"
-                @click="showExternalAction(action.id)"
-              >
-                {{ actionLabel(action.id) }}
-              </v-btn>
-            </div>
+              {{ actionLabel(action.id) }}
+            </v-btn>
           </div>
         </article>
         </main>
@@ -813,7 +907,7 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  padding: 14px 18px 16px;
+  padding: 0;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -824,8 +918,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-sm);
   background: var(--app-layer-raised);
 }
 
@@ -833,14 +925,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
+  margin-right: 6px;
 }
 
 .apex-launch-repair-account {
   display: flex;
   align-items: center;
-  min-height: 54px;
-  gap: 12px;
-  padding: 8px 14px;
+  min-height: 48px;
+  gap: 10px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--app-border);
 }
 
@@ -891,11 +984,11 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-summary {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 22px minmax(0, 1fr) 88px;
   align-items: center;
-  min-height: 72px;
-  gap: 12px;
-  padding: 11px 14px;
+  min-height: 54px;
+  gap: 10px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--app-border);
 }
 
@@ -903,8 +996,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .apex-launch-repair-summary__copy {
@@ -919,25 +1012,28 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-summary h1 {
   color: rgba(var(--v-theme-on-surface), 0.92);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 680;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .apex-launch-repair-summary p {
-  margin-top: 2px;
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 11px;
-  line-height: 1.45;
+  margin-top: 1px;
+  color: rgba(var(--v-theme-on-surface), 0.46);
+  font-size: 10px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .apex-launch-repair-summary__badges {
   display: flex;
   align-items: center;
+  justify-self: end;
   justify-content: flex-end;
   flex-wrap: wrap;
+  width: max-content;
+  max-width: 88px;
   gap: 5px;
 }
 
@@ -983,11 +1079,10 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-check {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr) 88px;
   min-width: 0;
-  min-height: 70px;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 5px 14px;
   border-bottom: 1px solid var(--app-border);
   transition: background-color var(--app-motion-fast) var(--app-ease-standard);
 }
@@ -1002,14 +1097,14 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-check__index {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   place-items: center;
   color: rgba(var(--v-theme-on-surface), 0.5);
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--app-layer-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -1026,13 +1121,8 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-check__heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.apex-launch-repair-check__heading > div:first-child {
-  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
 }
 
 .apex-launch-repair-check h2,
@@ -1041,36 +1131,49 @@ onBeforeUnmount(() => {
 }
 
 .apex-launch-repair-check h2 {
+  min-width: 0;
   color: rgba(var(--v-theme-on-surface), 0.88);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
-.apex-launch-repair-check p,
-.apex-launch-repair-check__detail {
-  color: rgba(var(--v-theme-on-surface), 0.55);
-  font-size: 11px;
-  line-height: 1.45;
+.apex-launch-repair-check p {
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  font-size: 10px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .apex-launch-repair-check__detail {
-  margin-top: 4px;
-  color: rgba(var(--v-theme-on-surface), 0.7);
+  margin-top: 2px;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .apex-launch-repair-check__status {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
+  align-self: start;
+  grid-column: 3;
+  grid-row: 1;
   justify-self: end;
+  width: 88px;
   min-width: 88px;
-  gap: 6px;
+  gap: 5px;
   color: rgba(var(--v-theme-on-surface), 0.5);
   font-size: 11px;
   line-height: 1.4;
+  margin-top: 7px;
   white-space: nowrap;
+}
+
+.apex-launch-repair-check__status > :first-child {
+  justify-self: center;
 }
 
 .apex-launch-repair-check__status--checking {
@@ -1095,20 +1198,26 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-check__actions {
   display: grid;
-  margin-top: 8px;
+  grid-column: 2 / 4;
+  margin-top: 6px;
   margin-inline: -8px;
   border-top: 1px solid var(--app-border);
 }
 
 .apex-launch-repair-action {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  grid-template-columns: 28px minmax(0, 1fr) 88px;
   align-items: center;
-  min-height: 44px;
-  gap: 8px;
-  padding: 6px 8px;
+  min-height: 40px;
+  gap: 7px;
+  padding: 4px 8px;
   cursor: pointer;
   transition: background-color var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.apex-launch-repair-action__checkbox {
+  grid-area: auto;
+  grid-column: 1;
 }
 
 .apex-launch-repair-action + .apex-launch-repair-action {
@@ -1126,6 +1235,7 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-action__copy {
   display: flex;
+  grid-column: 2;
   flex: 1 1 auto;
   min-width: 0;
   flex-direction: column;
@@ -1145,8 +1255,21 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+.apex-launch-repair-action__badges {
+  display: flex;
+  grid-column: 3;
+  align-items: center;
+  justify-self: end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 88px;
+  gap: 4px;
+}
+
 .apex-launch-repair-check__direct-actions {
   display: flex;
+  grid-column: 2 / 4;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
@@ -1163,11 +1286,12 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-footer {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
   flex: 0 0 auto;
   min-height: 56px;
   gap: 12px;
+  margin-right: 6px;
   padding: 9px 14px;
   border-top: 1px solid var(--app-border);
   background: rgba(var(--v-theme-on-surface), 0.02);
@@ -1175,17 +1299,23 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-footer__hint {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   min-width: 0;
   gap: 7px;
   color: rgba(var(--v-theme-on-surface), 0.52);
   font-size: 11px;
   line-height: 1.45;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.apex-launch-repair-footer__hint::-webkit-scrollbar {
+  display: none;
 }
 
 .apex-launch-repair-footer__hint .v-icon {
   flex: 0 0 auto;
-  margin-top: 1px;
 }
 
 .apex-launch-repair-footer__actions {
@@ -1229,7 +1359,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 820px) {
   .apex-launch-repair-window__body {
-    padding: 12px 14px 14px;
+    padding: 0;
   }
 
   .apex-launch-repair-account,
@@ -1251,7 +1381,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .apex-launch-repair-window__body {
-    padding: 10px;
+    padding: 0;
   }
 
   .apex-launch-repair-account {
@@ -1273,22 +1403,16 @@ onBeforeUnmount(() => {
     justify-content: flex-start;
   }
 
-  .apex-launch-repair-check__heading {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .apex-launch-repair-check__status {
-    justify-self: start;
-  }
-
   .apex-launch-repair-action {
     grid-template-columns: 28px minmax(0, 1fr);
   }
 
-  .apex-launch-repair-action .v-chip {
+  .apex-launch-repair-action__badges {
     grid-column: 2;
     justify-self: start;
+    justify-content: flex-start;
+    width: auto;
+    max-width: none;
   }
 
   .apex-launch-repair-footer__actions {

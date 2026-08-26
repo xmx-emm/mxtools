@@ -17,6 +17,7 @@ import {
   FPS_CAP_MAX,
   FPS_CAP_MIN,
   graphicsQualityPresets,
+  QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY,
   quickPresetLaunchOptionToggles,
   quickPresetGameSettingToggles,
   quickPresetVideoConfigToggles,
@@ -44,6 +45,10 @@ import {
 import {useCloseLauncherThenApply} from '@/composables/useCloseLauncherThenApply.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import ApexGameSettingTip from '@/components/game/apex/settings/ApexGameSettingTip.vue';
+
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
 
 const { t } = useI18n();
 const toast = useToast();
@@ -75,6 +80,12 @@ const target_account_label = computed(() => {
 });
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
+const graphics_preset_description = computed(() => {
+  const key = graphicsQualityPresets.find(
+    preset => preset.identifier === graphics_preset_id.value,
+  )?.description;
+  return key ? t(key) : '';
+});
 
 function build_selection(): ApexQuickPresetSelection {
   return {
@@ -91,6 +102,21 @@ function build_selection(): ApexQuickPresetSelection {
   };
 }
 
+function select_all_options() {
+  enable_resolution_preset.value = true;
+  enable_graphics_preset.value = true;
+  simplified_reticle.value = true;
+  launch_options.value = Object.fromEntries(
+    Object.keys(launch_options.value).map(key => [key, true]),
+  );
+  video_options.value = Object.fromEntries(
+    Object.keys(video_options.value).map(key => [key, true]),
+  );
+  game_setting_options.value = Object.fromEntries(
+    Object.keys(game_setting_options.value).map(key => [key, true]),
+  );
+}
+
 const resolution_preview = computed(() => {
   if (!local_display.value || aspect_value.value == null) return null;
   return buildQuickPresetPreview(local_display.value, {
@@ -103,6 +129,23 @@ async function load_display_info() {
   display_loading.value = true;
   display_error.value = null;
   try {
+    if (!isTauriRuntime) {
+      const info: PrimaryDisplayInfo = {
+        width: 1920,
+        height: 1080,
+        aspectRatio: 16 / 9,
+        maxRefreshRate: 144,
+      };
+      local_display.value = info;
+      apex_store.set_quick_preset_display(info);
+      fps_cap.value = defaultFpsCap(info.maxRefreshRate);
+      aspect_value.value = resolveQuickPresetInitialAspectValue(
+        false,
+        info.aspectRatio,
+        info.aspectRatio,
+      );
+      return;
+    }
     const info = await getPrimaryDisplayInfo();
     local_display.value = info;
     apex_store.set_quick_preset_display(info);
@@ -316,9 +359,6 @@ void load_display_info();
       <main class="quick-preset-scroll">
         <template v-if="local_display">
           <section class="quick-preset-section quick-preset-overview-section">
-            <header class="quick-preset-section__header">
-              <h2>{{ t('apexQuickPreset.screenInfo') }}</h2>
-            </header>
             <dl class="info-grid">
               <div class="info-item">
                 <dt class="info-key">{{ t('apexQuickPreset.targetAccount') }}</dt>
@@ -373,10 +413,10 @@ void load_display_info();
             </header>
             <v-expand-transition>
               <div v-show="enable_resolution_preset" class="quick-preset-section__body">
-                <div class="quick-preset-subsection-label">
-                  {{ t('apexQuickPreset.aspectPreset') }}
-                </div>
-                <div class="quick-preset-inline-controls">
+                <div class="quick-preset-subsection-heading">
+                  <div class="quick-preset-subsection-label">
+                    {{ t('apexQuickPreset.aspectPreset') }}
+                  </div>
                   <v-btn-toggle
                     v-model="lock_axis"
                     mandatory
@@ -391,39 +431,38 @@ void load_display_info();
                     <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
                   </v-btn-toggle>
                 </div>
-                <div
-                  class="quick-preset-segment-scroll"
-                  role="region"
-                  :aria-label="t('apexQuickPreset.aspectPreset')"
-                >
-                  <v-btn-toggle
-                    v-model="aspect_value"
-                    density="compact"
-                    color="primary"
-                    variant="text"
-                    class="apex-parameter-toggle aspect-preset-toggle game-page-segmented-toggle"
-                    border
-                    divided
+                <div class="quick-preset-setting-line">
+                  <div
+                    class="quick-preset-segment-scroll"
+                    role="region"
+                    :aria-label="t('apexQuickPreset.aspectPreset')"
                   >
-                    <v-btn
-                      v-for="item in sorted_aspect_presets"
-                      :key="item.aspectValue"
-                      :value="item.aspectValue"
-                      size="small"
+                    <v-btn-toggle
+                      v-model="aspect_value"
+                      density="compact"
+                      color="primary"
+                      variant="text"
+                      class="apex-parameter-toggle aspect-preset-toggle game-page-segmented-toggle"
+                      border
+                      divided
                     >
-                      {{ t(item.label) }}
-                    </v-btn>
-                  </v-btn-toggle>
-                </div>
-
-                <div v-if="resolution_preview" class="text-caption">
-                  {{ t('apexQuickPreset.resolutionPreview') }}:
-                  <strong>
-                    {{ resolution_preview.width }} &times; {{ resolution_preview.height }}
-                  </strong>
-                  <span v-if="resolution_preview.fromTable" class="text-medium-emphasis">
-                    ({{ t('apexQuickPreset.fromTable') }})
-                  </span>
+                      <v-btn
+                        v-for="item in sorted_aspect_presets"
+                        :key="item.aspectValue"
+                        :value="item.aspectValue"
+                        size="small"
+                      >
+                        {{ t(item.label) }}
+                      </v-btn>
+                    </v-btn-toggle>
+                  </div>
+                  <div v-if="resolution_preview" class="quick-preset-inline-summary">
+                    {{ t('apexQuickPreset.resolutionPreview') }}:
+                    <strong>{{ resolution_preview.width }} &times; {{ resolution_preview.height }}</strong>
+                    <span v-if="resolution_preview.fromTable" class="text-medium-emphasis">
+                      ({{ t('apexQuickPreset.fromTable') }})
+                    </span>
+                  </div>
                 </div>
               </div>
             </v-expand-transition>
@@ -442,36 +481,39 @@ void load_display_info();
             </header>
             <v-expand-transition>
               <div v-show="enable_graphics_preset" class="quick-preset-section__body">
-                <div
-                  class="quick-preset-segment-scroll"
-                  role="region"
-                  :aria-label="t('apexQuickPreset.graphicsSettingsLabel')"
-                >
-                  <v-btn-toggle
-                    v-model="graphics_preset_id"
-                    mandatory
-                    density="compact"
-                    color="primary"
-                    variant="text"
-                    class="apex-parameter-toggle graphics-preset-toggle game-page-segmented-toggle"
-                    border
-                    divided
+                <div class="quick-preset-setting-line">
+                  <div
+                    class="quick-preset-segment-scroll"
+                    role="region"
+                    :aria-label="t('apexQuickPreset.graphicsSettingsLabel')"
                   >
-                    <v-btn
-                      v-for="item in graphicsQualityPresets"
-                      :key="item.identifier"
-                      :value="item.identifier"
-                      size="small"
+                    <v-btn-toggle
+                      v-model="graphics_preset_id"
+                      mandatory
+                      density="compact"
+                      color="primary"
+                      variant="text"
+                      class="apex-parameter-toggle graphics-preset-toggle game-page-segmented-toggle"
+                      border
+                      divided
                     >
-                      {{ t(item.name) }}
-                    </v-btn>
-                  </v-btn-toggle>
-                </div>
-                <div
-                  v-if="graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)?.description"
-                  class="text-caption text-medium-emphasis"
-                >
-                  {{ t(graphicsQualityPresets.find((p) => p.identifier === graphics_preset_id)!.description!) }}
+                      <v-btn
+                        v-for="item in graphicsQualityPresets"
+                        :key="item.identifier"
+                        :value="item.identifier"
+                        size="small"
+                      >
+                        {{ t(item.name) }}
+                      </v-btn>
+                    </v-btn-toggle>
+                  </div>
+                  <div
+                    v-if="graphics_preset_description"
+                    class="quick-preset-inline-summary"
+                    :title="graphics_preset_description"
+                  >
+                    {{ graphics_preset_description }}
+                  </div>
                 </div>
               </div>
             </v-expand-transition>
@@ -599,24 +641,45 @@ void load_display_info();
                 </div>
               </div>
               <aside class="preset-binding-summary">
-                <strong>{{ t('apexQuickPreset.bindingOptimizationsLabel') }}</strong>
-                <span>MOUSE2 &rarr; {{ t('apexGameSettings.bindings.holdAim') }}</span>
-                <span>MWHEELUP &rarr; {{ t('apexGameSettings.bindings.moveForward') }}</span>
-                <span>MWHEELDOWN &rarr; {{ t('apexGameSettings.bindings.jump') }}</span>
+                <v-checkbox
+                  v-model="game_setting_options[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]"
+                  :label="t('apexQuickPreset.bindingOptimizationsLabel')"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox preset-binding-checkbox"
+                />
+                <div
+                  class="preset-binding-details"
+                  :class="{'preset-binding-details--disabled': !game_setting_options[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]}"
+                >
+                  <div class="preset-binding-row">
+                    <span>{{ t('apexGameSettings.bindings.holdAim') }}</span>
+                    <kbd>{{ t('apexQuickPreset.bindingInputs.mouseRight') }}</kbd>
+                  </div>
+                  <div class="preset-binding-row">
+                    <span>{{ t('apexGameSettings.bindings.moveForward') }}</span>
+                    <kbd>{{ t('apexQuickPreset.bindingInputs.wheelUp') }}</kbd>
+                  </div>
+                  <div class="preset-binding-row">
+                    <span>{{ t('apexGameSettings.bindings.jump') }}</span>
+                    <kbd>{{ t('apexQuickPreset.bindingInputs.wheelDown') }}</kbd>
+                  </div>
+                </div>
               </aside>
             </div>
-            <v-alert
-              type="warning"
-              variant="tonal"
-              density="compact"
-              class="preset-ping-warning"
-              :text="t('apexQuickPreset.pingOpacityDeferred')"
-            />
           </section>
         </template>
       </main>
 
       <footer class="quick-preset-footer">
+        <v-btn
+          class="quick-preset-action quick-preset-select-all"
+          variant="text"
+          prepend-icon="mdi-check-all"
+          :disabled="apex_store.quick_preset_applying"
+          @click="select_all_options"
+        >{{ t('apexQuickPreset.selectAll') }}</v-btn>
         <v-btn
           class="quick-preset-action"
           variant="text"
@@ -630,7 +693,7 @@ void load_display_info();
           variant="flat"
           prepend-icon="mdi-check"
           :loading="apex_store.quick_preset_applying || is_apply_running"
-          :disabled="display_loading || !local_display"
+          :disabled="!isTauriRuntime || display_loading || !local_display"
           @click="apply_check"
         >
           {{ t('apex.apply') }}
@@ -704,8 +767,6 @@ void load_display_info();
   min-height: 0;
   overflow: hidden;
   color: rgba(var(--v-theme-on-surface), 0.9);
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-sm);
   background: var(--app-layer-raised);
   letter-spacing: 0;
 }
@@ -748,6 +809,18 @@ void load_display_info();
 
 .quick-preset-section + .quick-preset-section {
   border-top: 1px solid var(--app-border);
+}
+
+.quick-preset-overview-section {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding-block: 8px;
+  background: var(--app-layer-raised);
+}
+
+.quick-preset-section--collapsible + .quick-preset-section--collapsible {
+  border-top: 0;
 }
 
 .quick-preset-section__header,
@@ -799,22 +872,22 @@ void load_display_info();
 
 .quick-preset-section__body {
   min-width: 0;
-  padding: 0 14px 12px;
-  border-top: 1px solid var(--app-border);
+  padding: 0 14px 8px;
 }
 
 .quick-preset-subsection-label {
-  margin-bottom: 7px;
   color: rgba(var(--v-theme-on-surface), 0.58);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.quick-preset-inline-controls {
+.quick-preset-subsection-heading {
   display: flex;
+  align-items: center;
   min-width: 0;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .info-grid {
@@ -889,14 +962,31 @@ void load_display_info();
 }
 
 .quick-preset-segment-scroll {
+  flex: 0 1 auto;
   max-width: 100%;
   min-width: 0;
-  margin-bottom: 7px;
-  padding-bottom: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-color: rgba(var(--v-theme-on-surface), 0.22) transparent;
   scrollbar-width: thin;
+}
+
+.quick-preset-setting-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.quick-preset-inline-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-preset-segment-scroll::-webkit-scrollbar {
@@ -920,13 +1010,6 @@ void load_display_info();
   min-width: max-content;
   flex: 0 0 auto;
   white-space: nowrap;
-}
-
-.quick-preset-section__body > .text-caption {
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 11px !important;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .compact-checkbox {
@@ -999,23 +1082,43 @@ void load_display_info();
   line-height: 1.45;
 }
 
-.preset-binding-summary strong {
-  margin-bottom: 2px;
+.preset-binding-checkbox {
+  width: 100%;
+}
+
+.preset-binding-details {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding-left: 2px;
+  transition: opacity var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.preset-binding-details--disabled {
+  opacity: 0.45;
+}
+
+.preset-binding-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  align-items: baseline;
+  min-width: 0;
+  column-gap: 12px;
+}
+
+.preset-binding-row span {
+  overflow-wrap: anywhere;
+}
+
+.preset-binding-row kbd {
+  min-width: 0;
   color: rgba(var(--v-theme-on-surface), 0.76);
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 10px;
   font-weight: 650;
-  overflow-wrap: anywhere;
-}
-
-.preset-binding-summary span {
-  overflow-wrap: anywhere;
-}
-
-.preset-ping-warning {
-  margin-top: 10px;
-  border-radius: var(--app-radius-sm);
-  font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.45;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .quick-preset-footer {
@@ -1037,6 +1140,10 @@ void load_display_info();
   border-radius: var(--app-radius-sm) !important;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.quick-preset-select-all {
+  margin-right: auto;
 }
 
 .quick-preset-dialog.v-card {
@@ -1139,6 +1246,10 @@ void load_display_info();
 
   .quick-preset-footer .v-btn {
     width: 100%;
+  }
+
+  .quick-preset-select-all {
+    margin-right: 0;
   }
 }
 </style>

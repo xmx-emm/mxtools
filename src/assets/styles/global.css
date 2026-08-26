@@ -930,6 +930,14 @@ html[data-mx-performance-mode] ::view-transition-new(root) {
   line-height: 1;
 }
 
+.apex-tip-dialog-no-ripple {
+  align-items: center;
+}
+
+.apex-tip-dialog-no-ripple .v-ripple__container {
+  display: none !important;
+}
+
 @media (max-width: 560px) {
   .game-page-actions {
     flex-wrap: wrap;

@@ -18,8 +18,20 @@ const value = computed(() => {
   return item ? apexStore.game_settings_values[item.file][item.readKey ?? item.key] ?? '' : '';
 });
 const isLaserColorTip = computed(() => field.value?.id === 'laserSightCustom' || field.value?.id === 'laserSightColor');
+const laserColorMode = computed(() => (
+  apexStore.game_settings_values.profile.laserSightColorCustomized === '1' ? '1' : '0'
+));
+const laserColorBusy = computed(() => (
+  apexStore.is_game_settings_saving
+  || apexStore.is_game_settings_restoring
+  || apexStore.is_config_snapshot_applying
+  || apexStore.quick_preset_applying
+));
+const laserColorStoredValue = computed(() => (
+  apexStore.game_settings_values.profile.laserSightColor ?? ''
+));
 const laserColorValue = computed(() => {
-  const stored = (apexStore.game_settings_values.profile.laserSightColor ?? '').trim();
+  const stored = laserColorStoredValue.value.trim();
   const packed = Number(stored);
   return /^\d+$/.test(stored) && Number.isInteger(packed) && packed >= 0 && packed <= 0xFF_FF_FF
     ? stored
@@ -35,6 +47,16 @@ const reticleRgb = computed<[number, number, number]>(() => {
 const reticlePreviewStyle = computed(() => ({
   '--reticle-color': `rgb(${reticleRgb.value.join(' ')})`,
 }));
+
+function setLaserColorMode(value: string) {
+  if (laserColorBusy.value || (value !== '0' && value !== '1')) return;
+  apexStore.set_game_setting_value('profile', 'laserSightColorCustomized', value);
+}
+
+function setLaserColorValue(value: string) {
+  if (laserColorBusy.value) return;
+  apexStore.set_game_setting_value('profile', 'laserSightColor', value);
+}
 </script>
 
 <template>
@@ -65,6 +87,18 @@ const reticlePreviewStyle = computed(() => ({
       :model-value="laserColorValue"
       :label="t(field.labelKey)"
       preview-only
+    />
+    <ApexLaserSightColorInput
+      v-if="isLaserColorTip"
+      class="laser-color-editor"
+      :model-value="laserColorStoredValue"
+      :mode="laserColorMode"
+      encoding="packed"
+      :default-rgb="[255, 0, 0]"
+      :label="t(field.labelKey)"
+      :disabled="laserColorBusy"
+      @update:mode="setLaserColorMode"
+      @update:model-value="setLaserColorValue"
     />
   </ApexTipCard>
 </template>
@@ -132,5 +166,11 @@ const reticlePreviewStyle = computed(() => ({
 
 .laser-color-preview {
   margin-top: 12px;
+}
+
+.laser-color-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 </style>

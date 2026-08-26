@@ -67,6 +67,7 @@ export interface ApexGameSettingOption {
   value: string;
   labelKey: string;
   descriptionKey?: string;
+  values?: Record<string, string>;
 }
 
 export interface ApexGameSettingDependency {

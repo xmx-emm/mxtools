@@ -22,8 +22,9 @@ async function toggleRdp() {
     toast.success(newState ? t('rdp.status.enabled') : t('rdp.status.disabled'));
   } catch (e: unknown) {
     toast.error(String(e));
+  } finally {
+    switching.value = false;
   }
-  switching.value = false;
 }
 
 function openDialog() {
@@ -32,7 +33,7 @@ function openDialog() {
 }
 
 async function savePort() {
-  if (newPort.value < 1 || newPort.value > 65535) {
+  if (!Number.isInteger(newPort.value) || newPort.value < 1 || newPort.value > 65535) {
     toast.error(t('rdp.port.invalidPort'));
     return;
   }
@@ -44,21 +45,22 @@ async function savePort() {
     showDialog.value = false;
   } catch (e: unknown) {
     toast.error(String(e));
+  } finally {
+    saving.value = false;
   }
-  saving.value = false;
 }
 </script>
 
 <template>
-  <v-card variant="flat" class="rdp-card mb-4">
+  <v-card variant="flat" class="rdp-card">
     <v-card-title class="text-subtitle-1 font-weight-medium pb-1">
       {{ t('rdp.status.title') }}
     </v-card-title>
-    <v-card-subtitle class="text-caption" style="opacity: 0.8;">
+    <v-card-subtitle class="text-caption">
       {{ t('rdp.status.subtitle') }}
     </v-card-subtitle>
     <v-card-text>
-      <div class="d-flex align-center flex-wrap ga-4">
+      <div class="rdp-status-summary">
         <v-chip
           :color="store.rdpEnabled ? 'success' : 'error'"
           variant="tonal"
@@ -76,13 +78,13 @@ async function savePort() {
         :loading="switching"
         :color="store.rdpEnabled ? 'error' : 'success'"
         variant="tonal"
-        rounded="lg"
+        size="small"
         @click="toggleRdp"
         :prepend-icon="store.rdpEnabled ? 'mdi-close' : 'mdi-check'"
       >
         {{ store.rdpEnabled ? t('rdp.status.turnOff') : t('rdp.status.turnOn') }}
       </v-btn>
-      <v-btn variant="tonal" rounded="lg" prepend-icon="mdi-pencil" @click="openDialog">
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-pencil" @click="openDialog">
         {{ t('rdp.port.modify') }}
       </v-btn>
     </v-card-actions>
@@ -92,9 +94,10 @@ async function savePort() {
         <v-card-text>
           <v-text-field
             v-model.number="newPort"
+            class="mx-standard-field"
             :label="t('rdp.port.label')"
             variant="outlined"
-            density="compact"
+            density="default"
             type="number"
             :min="1"
             :max="65535"
@@ -111,3 +114,19 @@ async function savePort() {
     </v-dialog>
   </v-card>
 </template>
+
+<style scoped>
+.rdp-status-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 380px) {
+  .rdp-status-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>

@@ -21,9 +21,13 @@ the context describes the committed tree and include it when changed.
 
 ## Test organization
 
-- Put new or changed test-only code in dedicated files (`*.test.*` for the
-  frontend and external test modules for Rust); do not add it to production
-  modules.
+- Put every standalone frontend and script test under the root `tests/`
+  directory, mirroring its production path as `tests/src/...` or
+  `tests/scripts/...`; do not place `*.test.*` files beside production modules.
+- Put standalone Rust test modules under `tests/rust/` and mount private-module
+  tests from their production owner with a minimal test-only `include!` block.
+  Existing inline `#[cfg(test)]` modules do not require unrelated extraction
+  from their owning Rust module.
 - Give each independently owned feature or workflow a focused test file. Do not
   append new feature coverage to a broad omnibus test file when it can be tested
   separately.

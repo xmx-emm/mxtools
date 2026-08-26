@@ -2741,7 +2741,12 @@ mod tests {
         }
     }
 
-    mod capability_verification;
+    mod capability_verification {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/razer_polling_capability_verification.test.rs"
+        ));
+    }
 
     #[test]
     fn device_identity_uses_serial_container_instance_then_path() {
