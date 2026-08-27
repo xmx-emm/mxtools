@@ -40,6 +40,8 @@ describe('Apex quick preset visual contract', () => {
     expect(dialogSource.match(/class="quick-preset-action"/g)).toHaveLength(4);
     expect(windowSource).toContain('class="quick-preset-window-state"');
     expect(windowSource).toContain('class="quick-preset-window-retry"');
-    expect(windowSource).toContain('padding: 14px 18px 16px;');
+    expect(windowSource).toMatch(
+      /\.quick-preset-window-body\s*\{[^}]*padding: 0;/s,
+    );
   });
 });

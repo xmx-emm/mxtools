@@ -98,7 +98,6 @@ function onAccentKeydown(event: KeyboardEvent, index: number) {
 
 .accent-card {
   position: relative;
-  isolation: isolate;
   width: 100%;
   padding: 10px 12px;
   overflow: hidden;
@@ -115,27 +114,6 @@ function onAccentKeydown(event: KeyboardEvent, index: number) {
     border-color var(--app-motion-base) var(--app-ease-standard),
     background-color var(--app-motion-base) var(--app-ease-standard),
     box-shadow var(--app-motion-base) var(--app-ease-standard);
-}
-
-.accent-card::before {
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 3px;
-  content: '';
-  background: rgb(var(--v-theme-primary));
-  opacity: 0;
-  transform: scaleY(0.28);
-  transition:
-    opacity var(--app-motion-fast) ease,
-    transform var(--app-motion-base) var(--app-ease-emphasized);
-}
-
-.accent-card > * {
-  position: relative;
-  z-index: 1;
 }
 
 .accent-card:hover {
@@ -157,11 +135,6 @@ function onAccentKeydown(event: KeyboardEvent, index: number) {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.06);
   box-shadow: 0 0 0 1px rgba(var(--v-theme-primary), 0.15);
-}
-
-.accent-card--active::before {
-  opacity: 1;
-  transform: scaleY(1);
 }
 
 .accent-card--active:hover {
@@ -230,7 +203,6 @@ function onAccentKeydown(event: KeyboardEvent, index: number) {
 
 @media (prefers-reduced-motion: reduce) {
   .accent-card,
-  .accent-card::before,
   .palette-dot,
   .accent-check {
     animation: none !important;

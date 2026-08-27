@@ -19,6 +19,7 @@ import {
 } from '@/utils/game/apex_game_settings.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
+import ApexRangeInput from '@/components/game/apex/common/ApexRangeInput.vue';
 import ApexBindingSelect from './ApexBindingSelect.vue';
 import ApexGameSettingTip from './ApexGameSettingTip.vue';
 import ApexRgbColorInput from './ApexLaserSightColorInput.vue';
@@ -109,6 +110,11 @@ function hasValidRgbChannels(value: string): boolean {
 
 function isRgbColorField(field: ApexGameSettingDefinition): boolean {
   return field.control === 'rgb' || field.control === 'packed-rgb';
+}
+
+/** 有上下界的数值项在游戏内是滑块，这里同样给出可拖动的范围控件。 */
+function isRangeField(field: ApexGameSettingDefinition): boolean {
+  return field.control === 'number' && field.min !== undefined && field.max !== undefined;
 }
 
 function colorModeFor(field: ApexGameSettingDefinition): string {
@@ -405,7 +411,7 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
           class="setting-row game-page-row-tip-host"
           :class="{
             'setting-row--disabled': !isRgbColorField(field) && isDisabled(field),
-            'setting-row--wide-control': isRgbColorField(field),
+            'setting-row--wide-control': isRgbColorField(field) || isRangeField(field),
           }"
           :title="t('apexLaunchOptions.ui.rightClickTip')"
           @contextmenu.prevent="showSettingTip(field)"
@@ -474,6 +480,16 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
                   </v-btn>
                 </v-btn-toggle>
               </div>
+              <ApexRangeInput
+                v-else-if="isRangeField(field)"
+                :model-value="valueFor(field)"
+                :min="field.min!"
+                :max="field.max!"
+                :step="field.step"
+                :aria-label="t(field.labelKey)"
+                :disabled="isDisabled(field)"
+                @update:model-value="setValue(field, String($event))"
+              />
               <ApexNumberInput
                 v-else
                 :model-value="valueFor(field)"

@@ -21,13 +21,14 @@ export default defineConfig(async () => ({
     //
     // 1. prevent Vite from obscuring rust errors
     clearScreen: false,
+    // `preprocessorOptions` 是顶层 `css` 选项；放在 `server` 下不会生效
+    css: {
+        preprocessorOptions: {
+            scss: {api: 'modern-compiler'},
+        },
+    },
     // 2. tauri expects a fixed port, fail if that port is not available
     server: {
-        css: {
-            preprocessorOptions: {
-                scss: {api: 'modern-compiler'},
-            },
-        },
         // 避开常见 5173 占用(其它 Tauri 项目)与 Hyper-V 低段保留端口
         port: 14200,
         strictPort: true,
@@ -42,6 +43,18 @@ export default defineConfig(async () => ({
         watch: {
             // 3. tell Vite to ignore watching `src-tauri`
             ignored: ['**/src-tauri/**'],
+        },
+        // 路由页面按需加载，开发期首次点开某页才会触发转换与 Vuetify 样式编译，
+        // 表现为切换卡顿。启动时提前预热这些入口，把该成本移出交互路径。
+        warmup: {
+            clientFiles: [
+                './src/main.ts',
+                './src/App.vue',
+                './src/views/*.vue',
+                './src/pages/**/*.vue',
+                './src/components/Navigation.vue',
+                './src/components/AppTopBar.vue',
+            ],
         },
     },
     resolve: {

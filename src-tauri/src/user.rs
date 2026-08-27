@@ -174,8 +174,8 @@ fn map_windows_user(user: RawWindowsUser) -> WindowsUser {
         _ => WindowsAccountKind::Unknown,
     };
     let can_manage_locally = matches!(account_kind, WindowsAccountKind::Local) && !user.is_system;
-    let rdp_username = (!matches!(account_kind, WindowsAccountKind::Microsoft))
-        .then(|| user.account_name.clone());
+    let rdp_username =
+        (!matches!(account_kind, WindowsAccountKind::Microsoft)).then(|| user.account_name.clone());
 
     WindowsUser {
         name: user.name,

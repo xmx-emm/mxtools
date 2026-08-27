@@ -334,7 +334,10 @@ noncommercial mirrors and public modified versions are allowed.
   binding, and unknown rows keep a flat divided hierarchy. At 760 px and below,
   controls move below their copy, enum and binding reachability preserves two
   fixed slots, and unknown values remain read-only with full text available by
-  keyboard. Known setting rows share a reusable right-click tip dialog;
+  keyboard. Bounded `number` fields with min and max render
+  `ApexRangeInput`: a compact 28 px slider beside the existing numeric field.
+  Vuetify's default 42 px slider hit target is clamped to that row height so it
+  cannot overlap neighboring rows. Known setting rows share a reusable right-click tip dialog;
   colorblind tips render the stored mode palette, reticle-color tips render the
   current RGB crosshair, and the laser-sight color tip renders the extracted
   scene with the currently stored custom beam color. The shared overlay content
@@ -698,9 +701,13 @@ noncommercial mirrors and public modified versions are allowed.
   and remaining manual checks are recorded under
   `docs/RELEASE_CHECKLIST_<version>.md`.
 - Version `0.0.6` remains an unreleased candidate until its manual acceptance,
-  tag, and publication exist. With no Authenticode budget, external EXE/NSIS
-  artifacts remain explicitly unsigned and must not be presented as a trusted
-  publisher build. A free SignPath Foundation application or a future Store-
+  tag, and publication exist. It ships to GitHub Releases only; Microsoft Store
+  submission is deferred, so Partner Center listing material and the Store EXE
+  signing requirements are not blockers for this version. The offline-WebView2
+  artifact still ships as an offline install option. With no Authenticode
+  budget, external EXE/NSIS artifacts remain explicitly unsigned and must not be
+  presented as a trusted publisher build; the release notes state that and carry
+  SHA-256 values. A free SignPath Foundation application or a future Store-
   signed MSIX are the zero-fixed-cost signing paths; the current Store EXE route
   still requires a trusted Authenticode signature.
 
@@ -711,6 +718,12 @@ noncommercial mirrors and public modified versions are allowed.
   restricted Windows sessions hide process metadata, refuses to terminate an
   unknown owner of fixed Vite port 14200, and then invokes the repository-local
   Tauri CLI.
+- Route pages are lazily imported, so a dev server transforms a page and its
+  Vuetify styles only on the first visit; that cost shows up as a hitch when
+  switching pages. `vite.config.ts` warms the entry, views, pages, and shared
+  navigation chrome at dev startup to keep that work off the interaction path.
+  `css.preprocessorOptions` is a top-level option and has no effect nested under
+  `server`.
 
 ## Constraints
 

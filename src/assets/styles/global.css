@@ -554,6 +554,54 @@ html[data-mx-performance-mode] ::view-transition-new(root) {
   animation: none !important;
 }
 
+/* Toastification 的桌面默认值是 600px 宽、16px 字号、64px 最小高度，对这个
+   1000px 级别的工具窗口过大。这里收敛到应用自身的密度；进度条保持可见，
+   它同时是通知的超时时钟。
+   `vue-toastification/dist/index.css` 在 `main.ts` 中晚于本文件导入，同优先级
+   会被它覆盖，因此这些规则统一加 `body` 前缀提高优先级。 */
+body .Vue-Toastification__container {
+  width: 360px;
+  padding: 0;
+}
+
+body .Vue-Toastification__toast {
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: var(--app-radius-md);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+body .Vue-Toastification__toast-body {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+body .Vue-Toastification__icon {
+  width: 18px;
+  height: 18px;
+  margin: 1px 10px 0 0;
+  align-self: flex-start;
+}
+
+body .Vue-Toastification__close-button {
+  align-self: flex-start;
+  padding: 0 0 0 8px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+/* 窄窗口(如各修复工具独立窗)沿用库的整宽通知，避免固定宽度溢出。 */
+@media only screen and (max-width: 600px) {
+  body .Vue-Toastification__container {
+    width: 100vw;
+  }
+}
+
 /* 全局菜单尺寸微缩,统一用于 VMenu 弹层 */
 .compact-menu .v-list {
   padding: 1px 0;

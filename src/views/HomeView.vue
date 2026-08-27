@@ -54,26 +54,28 @@ const {openCommandPalette} = useCommandPalette();
   container: workspace / inline-size;
 }
 
-:global(.workspace-route-enter-active),
-:global(.workspace-route-leave-active) {
+/* 进场把不透明度和位移拆成两条时长：内容先可读，再继续滑到位，
+   与页头强调线 80ms 延迟的擦入形成分层，而不是所有属性同时结束。 */
+:global(.workspace-route-enter-active) {
   transition:
     opacity var(--app-motion-base) var(--app-ease-standard),
-    transform var(--app-motion-base) var(--app-ease-emphasized);
+    transform var(--app-motion-slow) var(--app-ease-emphasized);
   will-change: opacity, transform;
 }
 
 :global(.workspace-route-enter-from) {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translate3d(0, 10px, 0);
 }
 
+/* 离场只做快速淡出：反向位移在 out-in 下看不清，只会让切换发飘。 */
 :global(.workspace-route-leave-active) {
-  transition-duration: 90ms;
+  transition: opacity var(--app-motion-fast) var(--app-ease-standard);
+  will-change: opacity;
 }
 
 :global(.workspace-route-leave-to) {
   opacity: 0;
-  transform: translateY(-2px);
 }
 
 @container workspace (max-width: 720px) {
@@ -93,9 +95,9 @@ const {openCommandPalette} = useCommandPalette();
   }
 }
 
+/* 降低动态效果时只保留淡入淡出；离场本身已无位移。 */
 @media (prefers-reduced-motion: reduce) {
-  :global(.workspace-route-enter-from),
-  :global(.workspace-route-leave-to) {
+  :global(.workspace-route-enter-from) {
     transform: none !important;
   }
 }

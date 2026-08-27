@@ -41,7 +41,8 @@ describe('Apex reticle and laser color preview contract', () => {
     expect(tipSource).toContain('class="reticle-color-preview"');
     expect(tipSource).toContain("'--reticle-color': `rgb(${reticleRgb.value.join(' ')})`");
     expect(tipSource).toContain('preview-only');
-    expect(laserInputSource).toContain('v-if="!previewOnly"');
+    expect(laserInputSource).toContain('v-if="previewOnly"');
+    expect(laserInputSource).toContain('v-else class="color-editor"');
     expect(laserInputSource).toContain('class="laser-beam"');
     expect(laserInputSource).toContain('class="laser-impact"');
   });
