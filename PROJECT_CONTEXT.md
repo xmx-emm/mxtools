@@ -25,7 +25,8 @@ noncommercial mirrors and public modified versions are allowed.
   failure replaces the progress track with an explicit retry state.
 - Desktop backend: Tauri 2 and Rust under `src-tauri/`.
 - IPC wrappers: `src/ipc/commands.ts`; all calls pass through `ipcInvoke`, which
-  normalizes native failures as `IpcCommandError`.
+  normalizes native failures as `IpcCommandError`, including legacy dotted i18n
+  keys delivered by Tauri as `Error` rejections.
 - Native IPC errors: `src-tauri/src/ipc_error.rs` defines the serialized
   `domain.reason` contract used by every fallible Tauri command.
 - Online account (Beta): `src-tauri/src/online/` signs into apex.0w0.online
@@ -236,7 +237,15 @@ noncommercial mirrors and public modified versions are allowed.
   independent `idle/loading/ready/error` states, loaded keys, and request
   generations; clean cached game-setting tabs silently refresh when revisited
   so external Apex edits are reflected, while dirty local edits are preserved.
-  The launch editor places a dedicated 40 px, theme-token-backed custom-command
+  All Apex/PUBG apply flows share one running-process dialog and one close-then-
+  apply coordinator. Apex writes detect the game and selected Steam/EA launcher
+  concurrently, list every running application, wait for all of them to exit,
+  and can force close the displayed set together before applying. The dialog
+  remains closed unless the apply workflow has supplied a non-empty detected
+  process set; mounting the main window never opens it by itself. The dialog
+  names the detected applications, allows long titles and explanations to wrap,
+  and uses singular or collective close wording based on the displayed count.
+  The launch editor places a dedicated 28 px, theme-token-backed custom-command
   field between its filters and managed catalog. Launcher reads use one
   quote-aware token classifier for both managed selections and the custom
   remainder: only complete supported command/value sequences are claimed,
@@ -253,6 +262,10 @@ noncommercial mirrors and public modified versions are allowed.
   shell. The known game-setting catalog remains visible without native config
   values so browser review is not reduced to an empty list; the launcher trigger
   still presents a localized empty-account state instead of an ambiguous placeholder.
+  Quick-preset binding optimization preserves whichever editable aim mode is
+  currently available (`+zoom` or `+toggle_zoom`), replaces occupied right-click
+  and wheel inputs by physical input, and reports missing required actions
+  instead of silently skipping the whole binding group.
 - The Apex page toolbar keeps the account selector in its first row and the
   utility/page controls in its second row at 840 px and below. At 560 px and
   below, the page switcher occupies its own horizontally reachable row. Every
@@ -300,9 +313,19 @@ noncommercial mirrors and public modified versions are allowed.
   omitted entirely when unchecked. Their summary uses aligned operation and
   localized key columns, with the operation first. Preset matching keeps
   editable bindings that have adjacent `bind_held` lines eligible for updates.
+  Default game-setting optimizations disable ability FOV scaling
+  (`fov_disableAbilityScaling=1`) and set sprint view shake to its lowest value
+  (`sprint_view_shake_style=0`).
+  The default video optimizations disable VSync and write its linked backbuffer
+  value (`setting.mat_vsync_mode=0`, `setting.mat_backbuffer_count=1`).
+  Enabling TSAA in the quick preset also writes the complete adaptive-resolution
+  off state (`setting.dvs_enable=0`, frame-time min `38000`, max `39200`).
   After an Apex-only reset, missing `videoconfig.txt`, `settings.cfg`, and
   `profile.cfg` load as empty ready-state documents instead of fatal errors, so
   the workbench remains usable and the first applicable save creates the files.
+  Repeating reset while those files and launch options are still absent is an
+  informational no-op, not an error; the UI explains that Apex is already
+  waiting to regenerate its defaults.
   Binding optimizations are skipped until Apex has generated binding templates;
   parse and permission failures remain real load errors.
   The quick-preset workbench
@@ -313,7 +336,15 @@ noncommercial mirrors and public modified versions are allowed.
   affordance on touch-only input.
   Its footer keeps Select all on the far left; that command enables every
   selectable resolution, graphics, launch, video, game-setting, reticle, and
-  binding optimization, while Cancel and Apply remain grouped on the right.
+  binding optimization. A refresh icon beside it reloads launch, video, and
+  game-setting configuration; live app events, window focus, and a visible-only
+  two-second signature check refresh the workbench after configuration files
+  change. After Apply closes the preset window, a revision-deduplicated success
+  notification is shown by the main Apex window only after its configuration
+  refresh succeeds. Cancel and Apply remain grouped on the right.
+  Binding optimization releases existing editable assignments on right-click,
+  wheel-up, and wheel-down before assigning the current aim mode, move forward, and jump;
+  this explicitly replaces Apex's default mouse-wheel weapon-cycle bindings.
   Browser preview routes the Apex toolbar entry to the same page in the current
   tab, skips native window/account initialization, and renders the complete
   workbench with local 1920x1080/144 Hz display data while keeping apply

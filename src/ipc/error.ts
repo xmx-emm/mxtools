@@ -84,7 +84,9 @@ export function normalizeIpcError(error: unknown, command = ''): IpcErrorPayload
     const nested = objectPayload((error as Error & {cause?: unknown}).cause);
     if (nested) return nested;
     return {
-      code: `${commandDomain(command)}.operation_failed`,
+      // Tauri can reject a legacy string payload as an Error rather than a
+      // plain string. Preserve a dotted i18n key in that transport shape.
+      code: legacyCode(error.message, command),
       message: error.message,
     };
   }

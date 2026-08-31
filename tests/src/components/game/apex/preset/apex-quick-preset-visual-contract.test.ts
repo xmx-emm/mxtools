@@ -9,6 +9,7 @@ function readSource(relativePath: string): string {
 const dialogSource = readSource('../../../../../../src/components/game/apex/preset/ApexQuickPresetDialog.vue');
 const windowSource = readSource('../../../../../../src/views/ApexQuickPresetWindowView.vue');
 const presetActionsSource = readSource('../../../../../../src/stores/game/apex/actions_preset.ts');
+const apexPageSource = readSource('../../../../../../src/pages/game/ApexPage.vue');
 
 describe('Apex quick preset visual contract', () => {
   it('uses one framed workbench with a single settings scroll owner and fixed actions', () => {
@@ -38,7 +39,13 @@ describe('Apex quick preset visual contract', () => {
     expect(dialogSource).toContain('width: max-content;');
     expect(dialogSource).toContain('flex-wrap: nowrap !important;');
     expect(dialogSource).not.toContain('.graphics-preset-toggle :deep(.v-btn-group)');
-    expect(dialogSource.match(/class="quick-preset-action"/g)).toHaveLength(4);
+    expect(dialogSource.match(/class="quick-preset-action"/g)).toHaveLength(2);
+    expect(dialogSource).toContain('class="quick-preset-action quick-preset-refresh"');
+    expect(dialogSource).toContain('icon="mdi-refresh"');
+    expect(dialogSource).toContain('@click="refresh_config()"');
+    expect(dialogSource).toContain('listenApexConfigChanged(() => refresh_config(true))');
+    expect(dialogSource).toContain('void refresh_if_config_changed();');
+    expect(dialogSource).toContain('<CloseRunningProcessesDialog');
     expect(windowSource).toContain('class="quick-preset-window-state"');
     expect(windowSource).toContain('class="quick-preset-window-retry"');
     expect(windowSource).toMatch(
@@ -53,8 +60,21 @@ describe('Apex quick preset visual contract', () => {
     expect(presetActionsSource).not.toMatch(
       /video_config_load_status !== 'ready'\s*\|\|\s*Object\.keys\(this\.video_config_values\)\.length === 0/,
     );
+  });
+
+  it('shows quick-preset completion in the main Apex window', () => {
+    expect(presetActionsSource).toContain("notification: 'quickPresetApplied'");
+    expect(presetActionsSource).not.toContain("toast.success('apexQuickPreset.applySuccess')");
+    expect(apexPageSource).toContain("toast.success('apexQuickPreset.applySuccess')");
+    expect(apexPageSource).toContain('shown_external_notifications.has(payload.revision)');
+  });
+
+  it('explains that occupied binding inputs are replaced', () => {
+    expect(dialogSource).toContain("t('apexQuickPreset.bindingReplacementHint')");
+    expect(dialogSource).toContain('class="preset-binding-replacement-hint"');
+    expect(presetActionsSource).toContain("const aimCommands = ['+zoom', '+toggle_zoom'];");
     expect(presetActionsSource).toContain(
-      "const requiredBindingCommands = ['+zoom', '+forward', '+jump'];",
+      "throw new Error(`apex.gameSettings.errors.bindingMissing: ${command}`);",
     );
   });
 });

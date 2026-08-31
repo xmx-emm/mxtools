@@ -1,6 +1,7 @@
 import {emit, listen, type UnlistenFn} from '@tauri-apps/api/event';
 
 export type ApexExternalConfigScope = 'launch' | 'video' | 'gameSettings';
+export type ApexConfigNotification = 'quickPresetApplied';
 
 export const APEX_CONFIG_CHANGED_EVENT = 'mx-apex-config-changed';
 export const APEX_QUICK_PRESET_ACCOUNT_EVENT = 'mx-apex-quick-preset-account';
@@ -13,6 +14,7 @@ const APEX_LAUNCH_REPAIR_ACCOUNT_STORAGE_KEY = 'mx-apex-launch-repair-account-v1
 export interface ApexConfigChangedPayload {
   scopes: ApexExternalConfigScope[]
   revision: string
+  notification?: ApexConfigNotification
 }
 
 export interface ApexQuickPresetAccountPayload {
@@ -23,10 +25,14 @@ export interface ApexLaunchRepairAccountPayload {
   accountKey: string | null
 }
 
-export function emitApexConfigChanged(scopes: ApexExternalConfigScope[]): Promise<void> {
+export function emitApexConfigChanged(
+  scopes: ApexExternalConfigScope[],
+  options?: {notification?: ApexConfigNotification},
+): Promise<void> {
   const payload: ApexConfigChangedPayload = {
     scopes: [...new Set(scopes)],
     revision: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    ...(options?.notification ? {notification: options.notification} : {}),
   };
   try {
     localStorage.setItem(APEX_CONFIG_CHANGE_STORAGE_KEY, JSON.stringify(payload));
@@ -46,7 +52,14 @@ export function pendingApexConfigChange(): ApexConfigChangedPayload | null {
     const scopes = payload.scopes.filter((scope): scope is ApexExternalConfigScope => (
       scope === 'launch' || scope === 'video' || scope === 'gameSettings'
     ));
-    return {revision: payload.revision, scopes: [...new Set(scopes)]};
+    const notification = payload.notification === 'quickPresetApplied'
+      ? payload.notification
+      : undefined;
+    return {
+      revision: payload.revision,
+      scopes: [...new Set(scopes)],
+      ...(notification ? {notification} : {}),
+    };
   } catch {
     return null;
   }

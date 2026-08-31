@@ -4,6 +4,7 @@ const i18n = vi.hoisted(() => ({
   te: vi.fn((key: string) => [
     'folderSharing.errors.bad_credentials',
     'apex.gameSettings.errors.fileChanged',
+    'apex.history.errors.launcherRunning',
     'razerPolling.errors.noResponse',
     'windows.errors.explorerRestartFailed',
   ].includes(key)),
@@ -11,6 +12,7 @@ const i18n = vi.hoisted(() => ({
     if (key === 'folderSharing.errors.bad_credentials') {
       return `Credentials rejected for ${String(values?.account ?? '')}`;
     }
+    if (key === 'apex.history.errors.launcherRunning') return 'Exit the selected game launcher first';
     if (key === 'ipc.errors.operationFailed') return 'Command failed';
     return key;
   }),
@@ -47,6 +49,19 @@ describe('IPC error normalization', () => {
     )).toEqual({code: 'apex.file_changed', message: 'settings.cfg changed'});
     expect(normalizeIpcError('toast.errors.invalidPort: invalid port', 'add_remote_port'))
       .toEqual({code: 'rdp.invalid_port', message: 'toast.errors.invalidPort: invalid port'});
+  });
+
+  it('maps a legacy i18n key carried by an Error rejection', () => {
+    const error = new Error('apex.history.errors.launcherRunning');
+    const normalized = normalizeIpcError(error, 'reset_apex_to_game_defaults');
+
+    expect(normalized).toEqual({
+      code: 'apex.history.launcher_running',
+      message: 'apex.history.errors.launcherRunning',
+    });
+    expect(formatIpcError(normalized)).toBe('Exit the selected game launcher first');
+    expect(String(new IpcCommandError('reset_apex_to_game_defaults', normalized, error)))
+      .toBe('Exit the selected game launcher first');
   });
 
   it('keeps command, code, details, and cause on IpcCommandError', () => {

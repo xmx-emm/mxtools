@@ -1,4 +1,5 @@
 import {useToast} from 'vue-toastification';
+import {formatIpcError, normalizeIpcError} from '@/ipc/error.ts';
 import {
   listApexConfigHistory,
   resetApexToGameDefaults,
@@ -9,6 +10,13 @@ import {toApexLauncherRef} from '@/utils/game/apex_history.ts';
 import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
 import type {ApexStoreThis} from './types.ts';
 import {adoptApexGameSettingsReport} from './actions_settings.ts';
+
+export function isApexResetAlreadyDefaultError(error: unknown): boolean {
+  const normalized = normalizeIpcError(error);
+  const messageKey = normalized.message.split(':', 1)[0]?.trim();
+  return normalized.code === 'apex_history.no_changes'
+    || messageKey === 'apex.history.errors.noChanges';
+}
 
 export const apexHistoryActions = {
   open_config_history_dialog(this: ApexStoreThis) {
@@ -34,7 +42,7 @@ export const apexHistoryActions = {
       this.config_history = await listApexConfigHistory();
     } catch (error) {
       console.warn('list apex config history failed', error);
-      useToast().error(String(error));
+      useToast().error(formatIpcError(error));
     } finally {
       this.is_config_history_loading = false;
     }
@@ -97,7 +105,7 @@ export const apexHistoryActions = {
       return true;
     } catch (error) {
       console.warn('restore apex config history failed', error);
-      useToast().error(String(error), {timeout: 8000});
+      useToast().error(formatIpcError(error), {timeout: 8000});
       return false;
     } finally {
       this.is_config_history_restoring = false;
@@ -143,8 +151,13 @@ export const apexHistoryActions = {
       useToast().success('apex.history.resetSuccess');
       return true;
     } catch (error) {
+      if (isApexResetAlreadyDefaultError(error)) {
+        this.reset_defaults_dialog = false;
+        useToast().info('apex.history.resetNoChanges');
+        return true;
+      }
       console.warn('reset apex defaults failed', error);
-      useToast().error(String(error), {timeout: 8000});
+      useToast().error(formatIpcError(error), {timeout: 8000});
       return false;
     } finally {
       this.is_resetting_defaults = false;

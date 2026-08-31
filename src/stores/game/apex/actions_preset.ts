@@ -39,23 +39,46 @@ function sameBindingCommand(actual: string, expected: string): boolean {
   return actual.toLowerCase() === expected.toLowerCase();
 }
 
-function clearPresetBindingInput(
+function resolvePresetAimBinding(store: ApexStoreThis): {command: string; context: 0 | 1} {
+  const aimCommands = ['+zoom', '+toggle_zoom'];
+  const mouseAim = store.game_settings_bindings.find(binding => (
+    binding.editable
+    && binding.input.toUpperCase() === 'MOUSE2'
+    && aimCommands.some(command => sameBindingCommand(binding.command, command))
+  ));
+  if (mouseAim) {
+    return {command: mouseAim.command, context: mouseAim.context === 1 ? 1 : 0};
+  }
+
+  for (const command of aimCommands) {
+    const bindings = store.game_settings_bindings.filter(binding => (
+      binding.editable && sameBindingCommand(binding.command, command)
+    ));
+    if (!bindings.length) continue;
+    const contexts = new Set(bindings.filter(binding => binding.input).map(binding => binding.context));
+    if (!contexts.has(1)) return {command, context: 1};
+    if (!contexts.has(0)) return {command, context: 0};
+    throw new Error(`apex.gameSettings.errors.bindingSlotLimit: ${command}`);
+  }
+  throw new Error('apex.gameSettings.errors.bindingMissing: +zoom / +toggle_zoom');
+}
+
+function releasePresetBindingInputs(
   store: ApexStoreThis,
-  command: string,
   inputs: readonly string[],
 ) {
   const wanted = new Set(inputs.map(input => input.toUpperCase()));
   for (const binding of [...store.game_settings_bindings]) {
-    if (binding.editable
-      && sameBindingCommand(binding.command, command)
-      && wanted.has(binding.input.toUpperCase())) {
-      store.set_game_binding_slot(
-        binding.templateId ?? binding.id,
-        binding.id,
-        '',
-        binding.context === 1 ? 1 : 0,
-      );
+    if (!binding.input || !wanted.has(binding.input.toUpperCase())) continue;
+    if (!binding.editable) {
+      throw new Error(`apex.gameSettings.errors.bindingConflict: ${binding.input}`);
     }
+    store.set_game_binding_slot(
+      binding.templateId ?? binding.id,
+      binding.id,
+      '',
+      binding.context === 1 ? 1 : 0,
+    );
   }
 }
 
@@ -118,15 +141,16 @@ function prepareQuickPresetGameSettings(
   }
 
   if (!enabledOptions[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]) return;
-  const requiredBindingCommands = ['+zoom', '+forward', '+jump'];
-  if (!requiredBindingCommands.every(command => (
-    store.game_settings_bindings.some(binding => (
+  const aimBinding = resolvePresetAimBinding(store);
+  for (const command of ['+forward', '+jump']) {
+    if (!store.game_settings_bindings.some(binding => (
       binding.editable && sameBindingCommand(binding.command, command)
-    ))
-  ))) return;
-  clearPresetBindingInput(store, '+toggle_zoom', ['MOUSE2']);
-  clearPresetBindingInput(store, '+weaponCycle', ['MWHEELUP', 'MWHEELDOWN']);
-  setPresetBindingInput(store, '+zoom', 'MOUSE2', 1);
+    ))) {
+      throw new Error(`apex.gameSettings.errors.bindingMissing: ${command}`);
+    }
+  }
+  releasePresetBindingInputs(store, ['MOUSE2', 'MWHEELUP', 'MWHEELDOWN']);
+  setPresetBindingInput(store, aimBinding.command, 'MOUSE2', aimBinding.context);
   setPresetBindingInput(store, '+forward', 'MWHEELUP', 1);
   setPresetBindingInput(store, '+jump', 'MWHEELDOWN', 1);
 }
@@ -292,11 +316,9 @@ export const apexPresetActions = {
       } else {
         await this.load_videoconfig_readonly();
       }
-      if (result.changedScopes.length > 0) {
-        await emitApexConfigChanged(result.changedScopes)
-          .catch(error => console.warn('notify Apex config change failed', error));
-      }
-      toast.success('apexQuickPreset.applySuccess');
+      await emitApexConfigChanged(result.changedScopes, {
+        notification: 'quickPresetApplied',
+      }).catch(error => console.warn('notify Apex config change failed', error));
       return true;
     } catch (err) {
       console.warn('apply_quick_preset_persist failed', err);

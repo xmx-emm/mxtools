@@ -42,6 +42,7 @@ import {
   listenApexConfigChanged,
   markApexConfigChangeSeen,
   pendingApexConfigChange,
+  type ApexConfigChangedPayload,
   type ApexExternalConfigScope,
 } from '@/utils/game/apex_config_events.ts';
 import {useRouter} from 'vue-router';
@@ -85,7 +86,15 @@ let unlisten_window_focus: (() => void) | null = null;
 let unlisten_config_changed: (() => void) | null = null;
 let external_config_refresh: Promise<void> | null = null;
 const pending_external_scopes = new Set<ApexExternalConfigScope>();
+const shown_external_notifications = new Set<string>();
 const pending_defaults_refreshing = ref(false);
+
+function show_external_config_notification(payload: ApexConfigChangedPayload) {
+  if (payload.notification !== 'quickPresetApplied'
+    || shown_external_notifications.has(payload.revision)) return;
+  shown_external_notifications.add(payload.revision);
+  toast.success('apexQuickPreset.applySuccess');
+}
 
 async function refresh_external_config(scopes: ApexExternalConfigScope[]) {
   if (!isTauriRuntime) return;
@@ -146,6 +155,7 @@ async function refresh_pending_external_config() {
   try {
     await refresh_external_config(pendingChange.scopes);
     markApexConfigChangeSeen(pendingChange.revision);
+    show_external_config_notification(pendingChange);
   } catch (error) {
     console.warn('refresh pending Apex configuration failed', error);
   }
@@ -203,10 +213,11 @@ onMounted(async () => {
     return;
   }
   await startTauriStoreOnce('apex', () => apex_store.$tauri.start());
-  unlisten_config_changed = await listenApexConfigChanged(async ({scopes, revision}) => {
+  unlisten_config_changed = await listenApexConfigChanged(async (payload) => {
     try {
-      await refresh_external_config(scopes);
-      markApexConfigChangeSeen(revision);
+      await refresh_external_config(payload.scopes);
+      markApexConfigChangeSeen(payload.revision);
+      show_external_config_notification(payload);
     } catch (error) {
       console.warn('refresh live Apex configuration failed', error);
     }

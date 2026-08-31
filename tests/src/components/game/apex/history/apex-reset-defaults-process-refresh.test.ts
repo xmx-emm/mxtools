@@ -20,7 +20,8 @@ describe('Apex reset process refresh contract', () => {
     expect(source).toContain("checkFailed.value = true");
     expect(source).toContain("t('apex.history.processCheckFailed')");
     expect(source).toContain(':disabled="!processStatusReady || checkFailed || !!runningProcesses.length || !apexStore.active_apex_account || forceClosingLauncher"');
-    expect(source).toContain('thoroughlyKillSteam');
-    expect(source).toContain('forceCloseLauncher');
+    expect(source).toContain('forceCloseProcessSet(runningProcessKinds.value)');
+    expect(source).toContain('forceCloseProcesses');
+    expect(source).toContain('<RunningProcessesList');
   });
 });

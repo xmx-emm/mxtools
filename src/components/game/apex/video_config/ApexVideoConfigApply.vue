@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import {computed, ref, shallowRef} from 'vue';
+import {computed, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
-import {apexIsRunning, thoroughlyKillApex} from '@/ipc/commands.ts';
-import {useProcessPollUntilExit} from '@/composables/useProcessPollUntilExit.ts';
+import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
+import {
+  detectRunningProcesses,
+  useCloseLauncherThenApply,
+} from '@/composables/useCloseLauncherThenApply.ts';
 
 const {t} = useI18n();
 const toast = useToast();
 const apex_store = useApexStore();
-const dialog = shallowRef(false);
-const is_thoroughly_kill = ref(false);
-const is_apply_running = ref(false);
 const is_applying_video_config = ref(false);
-const WAIT_CLOSE_POLL_MS = 1500;
 
 const apply_button_class = computed(() => {
   if (apex_store.is_video_config_loading || !apex_store.is_video_config_modified) return '';
@@ -27,114 +26,46 @@ async function apply_video_config() {
     await apex_store.apply_apex_video_config();
   } finally {
     is_applying_video_config.value = false;
-    is_apply_running.value = false;
-    dialog.value = false;
   }
 }
 
-const {start: start_monitoring, stop: stop_monitoring} = useProcessPollUntilExit({
-  isRunning: apexIsRunning,
-  pollMs: WAIT_CLOSE_POLL_MS,
-  onExit: apply_video_config,
-});
-
-async function force_close_apex() {
-  is_thoroughly_kill.value = true;
-  stop_monitoring();
-  await thoroughlyKillApex();
-  if (await apexIsRunning()) {
-    toast.error('toast.cannotCloseApex');
-    is_thoroughly_kill.value = false;
-    start_monitoring();
-    return;
-  }
-  is_thoroughly_kill.value = false;
-  dialog.value = false;
-  await apply_video_config();
-}
-
-function cancel() {
-  dialog.value = false;
-  is_thoroughly_kill.value = false;
-  stop_monitoring();
-  is_apply_running.value = false;
-}
-
-async function apply_check() {
-  if (apex_store.is_video_config_loading) return;
-  if (!apex_store.is_video_config_modified) {
-    toast.info('apex.videoConfigNoChanges');
-    return;
-  }
-  is_apply_running.value = true;
-  try {
-    const running = await apexIsRunning();
-    if (running) {
-      dialog.value = true;
-      start_monitoring();
-    } else {
-      stop_monitoring();
-      await apply_video_config();
+const {
+  dialog,
+  close_processes,
+  is_thoroughly_kill,
+  is_apply_running,
+  apply_check,
+  force_close_launcher,
+  cancel,
+} = useCloseLauncherThenApply({
+  apply: apply_video_config,
+  beforeApply: () => {
+    if (apex_store.is_video_config_loading) return false;
+    if (!apex_store.is_video_config_modified) {
+      toast.info('apex.videoConfigNoChanges');
+      return false;
     }
-  } catch {
-    is_apply_running.value = false;
-  }
-}
+    return true;
+  },
+  resolveCloseProcesses: () => detectRunningProcesses(['apex']),
+});
 </script>
 
 <template>
-  <v-dialog v-model="dialog" max-width="400" persistent>
-    <template v-slot:activator>
-      <v-btn
-        @click.stop="apply_check"
-        :loading="apex_store.is_video_config_saving || is_apply_running"
-        :title="t('apex.applyVideoConfig')"
-        :class="apply_button_class"
-      >
-        {{ t('apex.apply') }}
-      </v-btn>
-    </template>
-    <template v-slot:default>
-      <v-card
-        prepend-icon="mdi-gamepad-variant"
-        :title="t('apex.closeApex')"
-      >
-        <v-card-text>
-          <p class="mb-0">
-            {{ t('apex.closeApexVideoConfigTip') }}
-          </p>
-        </v-card-text>
-        <template v-slot:actions>
-          <v-btn
-            @click="force_close_apex"
-            color="error"
-            variant="flat"
-            :loading="is_thoroughly_kill"
-          >
-            {{ t('apex.forceClose') }}
-          </v-btn>
-          <v-spacer/>
-          <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">
-            {{ t('common.cancel') }}
-          </v-btn>
-        </template>
-        <template v-slot:prepend>
-          <div class="pe-4">
-            <v-icon
-              size="x-large"
-              color="red"
-            />
-          </div>
-        </template>
-        <template v-slot:append>
-          <v-progress-circular
-            indeterminate="disable-shrink"
-            size="16"
-            color="red"
-            width="2"
-          />
-        </template>
-      </v-card>
-    </template>
-  </v-dialog>
+  <v-btn
+    @click.stop="apply_check"
+    :loading="apex_store.is_video_config_saving || is_apply_running"
+    :title="t('apex.applyVideoConfig')"
+    :class="apply_button_class"
+  >
+    {{ t('apex.apply') }}
+  </v-btn>
+  <CloseRunningProcessesDialog
+    v-model="dialog"
+    :processes="close_processes"
+    :loading="is_thoroughly_kill"
+    :message="t('apex.closeApexVideoConfigTip')"
+    @force-close="force_close_launcher"
+    @cancel="cancel"
+  />
 </template>

@@ -206,15 +206,27 @@ export function buildDefaultLaunchOptions(): Record<string, boolean> {
 /** 快速预设可选视频配置开关 */
 export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
   {
+    key: 'disable_vsync',
+    label: 'apexQuickPreset.video.disableVsync',
+    tipIdentifier: 'setting.mat_vsync_mode',
+    defaultEnabled: true,
+    onValues: { 'setting.mat_vsync_mode': '0', 'setting.mat_backbuffer_count': '1' },
+  },
+  {
     key: 'antialias',
     label: 'apexVideoConfig.matAntialiasMode.name',
     tipIdentifier: 'setting.mat_antialias_mode',
     defaultEnabled: true,
-    onValues: { 'setting.mat_antialias_mode': '12' },
+    onValues: {
+      'setting.mat_antialias_mode': '12',
+      'setting.dvs_enable': '0',
+      'setting.dvs_gpuframetime_min': '38000',
+      'setting.dvs_gpuframetime_max': '39200',
+    },
   },
   {
     key: 'map_detail_low',
-    label: 'apexVideoConfig.mapDetailLevel.name',
+    label: 'apexQuickPreset.video.lowMapDecorations',
     tipIdentifier: 'group.mapDetailLevel',
     defaultEnabled: true,
     onValues: { 'setting.map_detail_level': '1' },
@@ -288,6 +300,8 @@ export const quickPresetGameSettingToggles = [
   ['autoSprint', 'player_setting_autosprint', '1', 'autoSprintOn'],
   ['rotateMinimap', 'hud_setting_minimapRotate', '1', 'rotateMinimapOn'],
   ['subtitles', 'closecaption', '0', 'subtitlesOff'],
+  ['abilityFovScaling', 'fov_disableAbilityScaling', '1', 'abilityFovScalingOff'],
+  ['viewShake', 'sprint_view_shake_style', '0', 'viewShakeLowest'],
 ] as const;
 
 export const QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY = 'bindingOptimizations';

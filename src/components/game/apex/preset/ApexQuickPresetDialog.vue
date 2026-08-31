@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue';
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
-import {getPrimaryDisplayInfo} from '@/ipc/commands.ts';
+import {
+  getApexGameSettings,
+  getApexLaunchOption,
+  getApexLaunchOptionEa,
+  getApexVideoConfig,
+  getPrimaryDisplayInfo,
+} from '@/ipc/commands.ts';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
-import {useSteamStore} from '@/stores/game/steam.ts';
-import {useEaStore} from '@/stores/game/ea.ts';
-import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
@@ -42,9 +46,14 @@ import {
   initVideoOptionsForDialog,
   resolveQuickPresetInitialAspectValue,
 } from '@/utils/game/apex_quick_preset.ts';
-import {useCloseLauncherThenApply} from '@/composables/useCloseLauncherThenApply.ts';
+import {
+  detectRunningProcesses,
+  useCloseLauncherThenApply,
+} from '@/composables/useCloseLauncherThenApply.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
+import type {UnlistenFn} from '@tauri-apps/api/event';
 import ApexGameSettingTip from '@/components/game/apex/settings/ApexGameSettingTip.vue';
+import {listenApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -53,10 +62,9 @@ const isTauriRuntime = typeof window !== 'undefined'
 const { t } = useI18n();
 const toast = useToast();
 const apex_store = useApexStore();
-const steam_store = useSteamStore();
-const ea_store = useEaStore();
 
 const display_loading = ref(false);
+const config_refreshing = ref(false);
 const display_error = ref<string | null>(null);
 const local_display = ref<PrimaryDisplayInfo | null>(null);
 
@@ -70,6 +78,11 @@ const simplified_reticle = ref(true);
 const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
 const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
 const game_setting_options = ref<Record<string, boolean>>(buildDefaultGameSettingOptions());
+const CONFIG_CHANGE_POLL_MS = 2000;
+let config_signature: string | null = null;
+let config_poll_timer: number | null = null;
+let unlisten_config_changed: UnlistenFn | null = null;
+let unlisten_focus: (() => void) | null = null;
 const target_account = computed(() => apex_store.active_apex_account);
 const target_account_label = computed(() => {
   const account = target_account.value;
@@ -125,6 +138,93 @@ const resolution_preview = computed(() => {
   });
 });
 
+function sync_options_from_store(info: PrimaryDisplayInfo) {
+  const has_letterbox = apex_store.options_selection.some(
+    (item) => item.identifier === 'letterbox_aspect',
+  );
+  aspect_value.value = resolveQuickPresetInitialAspectValue(
+    has_letterbox,
+    apex_store.mat_letterbox_aspect_goal,
+    info.aspectRatio,
+  );
+  simplified_reticle.value = apex_store.options_selection.some(
+    (item) => item.identifier === 'reticle_color',
+  );
+  launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection);
+  video_options.value = initVideoOptionsForDialog(apex_store.video_config_values);
+}
+
+async function read_config_signature(): Promise<string> {
+  const account = apex_store.active_apex_account;
+  if (!account) throw new Error(t('apexQuickPreset.noAccount'));
+  const launchRequest = account.kind === 'steam'
+    ? getApexLaunchOption({id: Number(account.user.id)})
+    : getApexLaunchOptionEa({eaUserId: account.user.id});
+  const [launchOptions, videoConfig, gameSettings] = await Promise.all([
+    launchRequest,
+    getApexVideoConfig(),
+    getApexGameSettings(),
+  ]);
+  return JSON.stringify({
+    account: apex_store.launcher_selection_key,
+    launchOptions,
+    videoConfig: Object.entries(videoConfig).sort(([left], [right]) => left.localeCompare(right)),
+    settingsRevision: gameSettings.settings.revision,
+    profileRevision: gameSettings.profile.revision,
+  });
+}
+
+async function refresh_config(silent = false) {
+  if (!isTauriRuntime || config_refreshing.value || apex_store.quick_preset_applying) return;
+  config_refreshing.value = true;
+  try {
+    await Promise.all([
+      apex_store.load_launch_data({force: true}),
+      apex_store.load_apex_video_config({silent: true, force: true}),
+      apex_store.load_apex_game_settings({silent: true, force: true, discardLocal: true}),
+    ]);
+    const key = apex_store.launcher_selection_key;
+    if (!key || apex_store.launch_loaded_for_key !== key
+      || apex_store.launch_load_status !== 'ready') {
+      throw new Error(t('apexQuickPreset.launchLoadFailed'));
+    }
+    if (!apex_store.video_config_loaded
+      || apex_store.video_config_load_status !== 'ready') {
+      throw new Error(t('apexQuickPreset.videoLoadFailed'));
+    }
+    if (!apex_store.game_settings_report
+      || apex_store.game_settings_load_status !== 'ready') {
+      throw new Error(t('apexQuickPreset.gameSettingsLoadFailed'));
+    }
+    if (local_display.value) sync_options_from_store(local_display.value);
+    config_signature = await read_config_signature();
+  } catch (error) {
+    if (silent) {
+      console.warn('refresh Apex quick preset configuration failed', error);
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      toast.error(`${t('apexQuickPreset.refreshFailed')}: ${detail}`);
+    }
+  } finally {
+    config_refreshing.value = false;
+  }
+}
+
+async function refresh_if_config_changed() {
+  if (!isTauriRuntime || document.visibilityState !== 'visible'
+    || config_refreshing.value || apex_store.quick_preset_applying) return;
+  try {
+    const nextSignature = await read_config_signature();
+    if (config_signature === null) {
+      config_signature = nextSignature;
+    } else if (nextSignature !== config_signature) {
+      await refresh_config(true);
+    }
+  } catch (error) {
+    console.warn('check Apex quick preset configuration failed', error);
+  }
+}
+
 async function load_display_info() {
   display_loading.value = true;
   display_error.value = null;
@@ -174,19 +274,8 @@ async function load_display_info() {
     if (!apex_store.game_settings_report) {
       throw new Error(t('apexQuickPreset.gameSettingsLoadFailed'));
     }
-    const has_letterbox = apex_store.options_selection.some(
-      (item) => item.identifier === 'letterbox_aspect',
-    );
-    aspect_value.value = resolveQuickPresetInitialAspectValue(
-      has_letterbox,
-      apex_store.mat_letterbox_aspect_goal,
-      info.aspectRatio,
-    );
-    simplified_reticle.value = apex_store.options_selection.some(
-      (item) => item.identifier === 'reticle_color',
-    );
-    launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection);
-    video_options.value = initVideoOptionsForDialog(apex_store.video_config_values);
+    sync_options_from_store(info);
+    config_signature = await read_config_signature();
   } catch (e) {
     display_error.value = String(e);
     local_display.value = null;
@@ -260,7 +349,7 @@ async function run_persist() {
 
 const {
   dialog,
-  close_launcher_kind,
+  close_processes,
   is_thoroughly_kill,
   is_apply_running,
   apply_check,
@@ -292,29 +381,12 @@ const {
     }
     return true;
   },
-  resolveCloseKind: async () => {
+  resolveCloseProcesses: async () => {
     const acc = apex_store.active_apex_account;
-    if (!acc) return null;
-    if (acc.kind === 'ea') {
-      await ea_store.check_is_ea_desktop_running();
-      return ea_store.is_ea_desktop_running ? 'ea' : null;
-    }
-    await steam_store.check_is_steam_running();
-    return steam_store.is_steam_running ? 'steam' : null;
+    if (!acc) return [];
+    return detectRunningProcesses(['apex', acc.kind]);
   },
 });
-
-const close_dialog_title = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteam') : t('apex.closeEaDesktop'),
-);
-
-const close_dialog_text = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteamTip') : t('apex.closeEaDesktopTip'),
-);
-
-const close_dialog_icon = computed(() =>
-  close_launcher_kind.value === 'steam' ? 'mdi-steam' : 'mdi-alpha-e-circle',
-);
 
 const close_steam_apply_user = computed(() => {
   const acc = apex_store.active_apex_account;
@@ -322,6 +394,26 @@ const close_steam_apply_user = computed(() => {
 });
 
 void load_display_info();
+
+onMounted(async () => {
+  if (!isTauriRuntime) return;
+  unlisten_config_changed = await listenApexConfigChanged(() => refresh_config(true));
+  unlisten_focus = await getCurrentWindow().onFocusChanged(({payload}) => {
+    if (payload) void refresh_if_config_changed();
+  });
+  config_poll_timer = window.setInterval(() => {
+    void refresh_if_config_changed();
+  }, CONFIG_CHANGE_POLL_MS);
+});
+
+onBeforeUnmount(() => {
+  if (config_poll_timer !== null) window.clearInterval(config_poll_timer);
+  config_poll_timer = null;
+  unlisten_config_changed?.();
+  unlisten_config_changed = null;
+  unlisten_focus?.();
+  unlisten_focus = null;
+});
 </script>
 
 <template>
@@ -663,6 +755,9 @@ void load_display_info();
                     <span>{{ t('apexGameSettings.bindings.jump') }}</span>
                     <kbd>{{ t('apexQuickPreset.bindingInputs.wheelDown') }}</kbd>
                   </div>
+                  <p class="preset-binding-replacement-hint">
+                    {{ t('apexQuickPreset.bindingReplacementHint') }}
+                  </p>
                 </div>
               </aside>
             </div>
@@ -678,6 +773,16 @@ void load_display_info();
           :disabled="apex_store.quick_preset_applying"
           @click="select_all_options"
         >{{ t('apexQuickPreset.selectAll') }}</v-btn>
+        <v-btn
+          class="quick-preset-action quick-preset-refresh"
+          variant="text"
+          icon="mdi-refresh"
+          :title="t('common.refresh')"
+          :aria-label="t('common.refresh')"
+          :loading="config_refreshing"
+          :disabled="!isTauriRuntime || display_loading || apex_store.quick_preset_applying"
+          @click="refresh_config()"
+        />
         <v-btn
           class="quick-preset-action"
           variant="text"
@@ -712,45 +817,14 @@ void load_display_info();
     />
   </v-dialog>
 
-  <v-dialog v-model="dialog" max-width="400" persistent>
-    <v-card
-      class="quick-preset-dialog"
-      :prepend-icon="close_dialog_icon"
-      :title="close_dialog_title"
-    >
-      <v-card-text>
-        <p class="mb-0">{{ close_dialog_text }}</p>
-        <CloseSteamApplyAccount
-          v-if="close_launcher_kind === 'steam'"
-          :user="close_steam_apply_user"
-        />
-      </v-card-text>
-      <template #actions>
-        <v-btn
-          class="quick-preset-action"
-          color="error"
-          variant="flat"
-          prepend-icon="mdi-close"
-          :loading="is_thoroughly_kill"
-          @click="force_close_launcher"
-        >
-          {{ t('apex.forceClose') }}
-        </v-btn>
-        <v-spacer/>
-        <v-btn
-          class="quick-preset-action"
-          variant="text"
-          :disabled="is_thoroughly_kill"
-          @click="cancel"
-        >
-          {{ t('common.cancel') }}
-        </v-btn>
-      </template>
-      <template #append>
-        <v-progress-circular indeterminate size="16" color="red" width="2"/>
-      </template>
-    </v-card>
-  </v-dialog>
+  <CloseRunningProcessesDialog
+    v-model="dialog"
+    :processes="close_processes"
+    :loading="is_thoroughly_kill"
+    :steam-user="close_steam_apply_user"
+    @force-close="force_close_launcher"
+    @cancel="cancel"
+  />
 </template>
 
 <style scoped>
@@ -1119,6 +1193,13 @@ void load_display_info();
   white-space: nowrap;
 }
 
+.preset-binding-replacement-hint {
+  margin: 4px 0 0;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
 .quick-preset-footer {
   display: flex;
   align-items: center;
@@ -1141,6 +1222,13 @@ void load_display_info();
 }
 
 .quick-preset-select-all {
+  flex: 0 0 auto;
+}
+
+.quick-preset-refresh.v-btn {
+  width: var(--app-control-height-action) !important;
+  min-width: var(--app-control-height-action) !important;
+  padding-inline: 0 !important;
   margin-right: auto;
 }
 
@@ -1247,6 +1335,11 @@ void load_display_info();
   }
 
   .quick-preset-select-all {
+    margin-right: 0;
+  }
+
+  .quick-preset-refresh.v-btn {
+    width: 100% !important;
     margin-right: 0;
   }
 }

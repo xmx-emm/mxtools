@@ -5,8 +5,9 @@ import {useToast} from 'vue-toastification';
 import {useEaStore} from '@/stores/game/ea.ts';
 import {useSteamStore} from '@/stores/game/steam.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
-import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
 import {
+  detectRunningProcesses,
   formatApplyLaunchOptionError,
   useApplyButtonClass,
   useCloseLauncherThenApply,
@@ -43,7 +44,7 @@ async function set_launch_option() {
 
 const {
   dialog,
-  close_launcher_kind,
+  close_processes,
   is_thoroughly_kill,
   is_apply_running,
   apply_check,
@@ -67,15 +68,10 @@ const {
     }
     return true;
   },
-  resolveCloseKind: async () => {
+  resolveCloseProcesses: async () => {
     const acc = apex_store.active_apex_account;
-    if (!acc) return null;
-    if (acc.kind === 'ea') {
-      await ea_store.check_is_ea_desktop_running();
-      return ea_store.is_ea_desktop_running ? 'ea' : null;
-    }
-    await steam_store.check_is_steam_running();
-    return steam_store.is_steam_running ? 'steam' : null;
+    if (!acc) return [];
+    return detectRunningProcesses(['apex', acc.kind]);
   },
 });
 
@@ -92,18 +88,6 @@ const apply_button_class = useApplyButtonClass({
   }),
 });
 
-const close_dialog_title = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteam') : t('apex.closeEaDesktop'),
-);
-
-const close_dialog_text = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteamTip') : t('apex.closeEaDesktopTip'),
-);
-
-const close_dialog_icon = computed(() =>
-  close_launcher_kind.value === 'steam' ? 'mdi-steam' : 'mdi-alpha-e-circle',
-);
-
 const close_steam_apply_user = computed(() => {
   const acc = apex_store.active_apex_account;
   return acc?.kind === 'steam' ? acc.user : null;
@@ -111,68 +95,22 @@ const close_steam_apply_user = computed(() => {
 </script>
 
 <template>
-  <v-dialog
-    v-model="dialog"
-    max-width="400"
-    persistent
+  <v-btn
+    @click.stop="apply_check"
+    :loading="is_apply_running"
+    :title="t('apex.applyLaunchOptions')"
+    :class="apply_button_class"
   >
-    <template v-slot:activator>
-      <v-btn
-        @click.stop="apply_check"
-        :loading="is_apply_running"
-        :title="t('apex.applyLaunchOptions')"
-        :class="apply_button_class"
-      >
-        {{ t('apex.apply') }}
-      </v-btn>
-    </template>
-    <template v-slot:default>
-      <v-card
-        :prepend-icon="close_dialog_icon"
-        :title="close_dialog_title"
-      >
-        <v-card-text>
-          <p class="mb-0">
-            {{ close_dialog_text }}
-          </p>
-          <CloseSteamApplyAccount
-            v-if="close_launcher_kind === 'steam'"
-            :user="close_steam_apply_user"
-          />
-        </v-card-text>
-        <template v-slot:actions>
-          <v-btn
-            @click="force_close_launcher"
-            color="error"
-            variant="flat"
-            :loading="is_thoroughly_kill"
-          >
-            {{ t('apex.forceClose') }}
-          </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">
-            {{ t('common.cancel') }}
-          </v-btn>
-        </template>
-        <template v-slot:prepend>
-          <div class="pe-4">
-            <v-icon
-              size="x-large"
-              color="red"
-            />
-          </div>
-        </template>
-        <template v-slot:append>
-          <v-progress-circular
-            indeterminate="disable-shrink"
-            size="16"
-            color="red"
-            width="2"
-          />
-        </template>
-      </v-card>
-    </template>
-  </v-dialog>
+    {{ t('apex.apply') }}
+  </v-btn>
+  <CloseRunningProcessesDialog
+    v-model="dialog"
+    :processes="close_processes"
+    :loading="is_thoroughly_kill"
+    :steam-user="close_steam_apply_user"
+    @force-close="force_close_launcher"
+    @cancel="cancel"
+  />
 </template>
 
 <style scoped>

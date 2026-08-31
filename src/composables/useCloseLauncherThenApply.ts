@@ -4,14 +4,40 @@ import {useSteamStore} from '@/stores/game/steam.ts';
 import {useEaStore} from '@/stores/game/ea.ts';
 import {
   eaDesktopIsRunningByTasklist,
+  apexIsRunning,
   steamIsRunningByTasklist,
+  thoroughlyKillApex,
   thoroughlyKillEaDesktop,
   thoroughlyKillSteam,
 } from '@/ipc/commands.ts';
 import {nextGeneration, shouldRunApply} from '@/composables/applyGeneration.ts';
 import {useProcessPollUntilExit} from '@/composables/useProcessPollUntilExit.ts';
 
-export type LauncherKind = 'steam' | 'ea';
+export type CloseProcessKind = 'apex' | 'steam' | 'ea';
+export type LauncherKind = Exclude<CloseProcessKind, 'apex'>;
+
+export async function isCloseProcessRunning(kind: CloseProcessKind): Promise<boolean> {
+  if (kind === 'apex') return apexIsRunning();
+  if (kind === 'steam') return steamIsRunningByTasklist();
+  return eaDesktopIsRunningByTasklist();
+}
+
+export async function detectRunningProcesses(
+  kinds: CloseProcessKind[],
+): Promise<CloseProcessKind[]> {
+  const results = await Promise.all(
+    [...new Set(kinds)].map(async kind => ({kind, running: await isCloseProcessRunning(kind)})),
+  );
+  return results.filter(result => result.running).map(result => result.kind);
+}
+
+export async function forceCloseProcesses(kinds: CloseProcessKind[]): Promise<void> {
+  await Promise.all([...new Set(kinds)].map(async kind => {
+    if (kind === 'apex') await thoroughlyKillApex();
+    else if (kind === 'steam') await thoroughlyKillSteam();
+    else await thoroughlyKillEaDesktop();
+  }));
+}
 
 const DEFAULT_WAIT_CLOSE_POLL_MS = 1500;
 /** 等待启动器自行退出的最长时间；超时后停止轮询并提示用户。 */
@@ -34,10 +60,12 @@ export type CloseLauncherThenApplyOptions = {
    * 未提供时：仅在 Steam 运行时要求关 Steam。
    */
   resolveCloseKind?: () => LauncherKind | null | Promise<LauncherKind | null>;
+  /** 决定需要关闭的全部进程；优先于 resolveCloseKind。 */
+  resolveCloseProcesses?: () => CloseProcessKind[] | Promise<CloseProcessKind[]>;
 };
 
 /**
- * 关 Steam/EA → 轮询直至退出 → 再写入启动项。
+ * 关闭 Apex/Steam/EA 进程集合 → 轮询直至全部退出 → 再执行写入。
  * Apex / PUBG 的 Apply 按钮共用此流程。
  */
 export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions) {
@@ -46,7 +74,8 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
   const ea_store = useEaStore();
 
   const dialog = shallowRef(false);
-  const close_launcher_kind = shallowRef<LauncherKind>('steam');
+  const close_processes = ref<CloseProcessKind[]>([]);
+  const required_processes = ref<CloseProcessKind[]>([]);
   const is_thoroughly_kill = ref(false);
   const is_apply_running = ref(false);
   /** 递增以作废进行中的 async apply，避免与强制关闭双跑。 */
@@ -61,17 +90,17 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
     return generation.value;
   }
 
-  async function is_launcher_still_running(): Promise<boolean> {
-    if (close_launcher_kind.value === 'steam') {
-      return steamIsRunningByTasklist();
-    }
-    return eaDesktopIsRunningByTasklist();
+  async function are_processes_still_running(): Promise<boolean> {
+    const running = await detectRunningProcesses(required_processes.value);
+    close_processes.value = running;
+    return running.length > 0;
   }
 
   async function refresh_launcher_running_flag() {
-    if (close_launcher_kind.value === 'steam') {
+    const launcher = required_processes.value.find(kind => kind === 'steam' || kind === 'ea');
+    if (launcher === 'steam') {
       void steam_store.check_is_steam_running();
-    } else {
+    } else if (launcher === 'ea') {
       void ea_store.check_is_ea_desktop_running();
     }
   }
@@ -96,7 +125,7 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
   }
 
   const poll = useProcessPollUntilExit({
-    isRunning: is_launcher_still_running,
+    isRunning: are_processes_still_running,
     pollMs: poll_ms,
     maxMs: poll_max_ms,
     onExit: async () => {
@@ -128,29 +157,30 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
     stop_monitoring();
     const expected = bump_generation();
     try {
-      if (close_launcher_kind.value === 'steam') {
-        await thoroughlyKillSteam();
-      } else {
-        await thoroughlyKillEaDesktop();
-      }
+      await forceCloseProcesses(close_processes.value);
       if (generation.value !== expected) {
         return;
       }
-      if (await is_launcher_still_running()) {
+      const remainingChecks = await Promise.all(
+        required_processes.value.map(async kind => ({kind, running: await isCloseProcessRunning(kind)})),
+      );
+      const remaining = remainingChecks.filter(result => result.running).map(result => result.kind);
+      if (remaining.length > 0) {
         if (generation.value !== expected) {
           return;
         }
-        toast.error(
-          close_launcher_kind.value === 'steam'
-            ? 'toast.cannotCloseSteam'
-            : 'toast.cannotCloseEaDesktop',
-        );
+        toast.error('apex.closeProcesses.closeFailed');
+        close_processes.value = remaining;
         continuously_monitor_until_closed();
         return;
       }
       dialog.value = false;
       await refresh_launcher_running_flag();
       await run_apply(expected);
+    } catch (error) {
+      console.warn('force close processes failed', error);
+      toast.error('apex.closeProcesses.closeFailed');
+      if (generation.value === expected) continuously_monitor_until_closed();
     } finally {
       is_thoroughly_kill.value = false;
     }
@@ -186,12 +216,17 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
       if (generation.value !== expected) {
         return;
       }
-      const kind = await (options.resolveCloseKind ?? default_resolve_close_kind)();
+      const processes = options.resolveCloseProcesses
+        ? await options.resolveCloseProcesses()
+        : [await (options.resolveCloseKind ?? default_resolve_close_kind)()].filter(
+          (kind): kind is LauncherKind => kind !== null,
+        );
       if (generation.value !== expected) {
         return;
       }
-      if (kind) {
-        close_launcher_kind.value = kind;
+      if (processes.length > 0) {
+        required_processes.value = [...new Set(processes)];
+        close_processes.value = [...required_processes.value];
         dialog.value = true;
         // 覆盖 apply_check 的 expected：轮询 / 强制关闭用新代际
         continuously_monitor_until_closed();
@@ -215,7 +250,7 @@ export function useCloseLauncherThenApply(options: CloseLauncherThenApplyOptions
 
   return {
     dialog,
-    close_launcher_kind: close_launcher_kind as Ref<LauncherKind>,
+    close_processes: close_processes as Ref<CloseProcessKind[]>,
     is_thoroughly_kill,
     is_apply_running,
     apply_check,

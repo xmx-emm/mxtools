@@ -4,7 +4,7 @@ import {computed, ref} from 'vue';
 import {useToast} from 'vue-toastification';
 import {useSteamStore} from '@/stores/game/steam.ts';
 import {usePubgStore} from '@/stores/game/pubg.ts';
-import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
 import {
   formatApplyLaunchOptionError,
   useApplyButtonClass,
@@ -56,6 +56,7 @@ async function set_launch_option() {
 
 const {
   dialog,
+  close_processes,
   is_thoroughly_kill,
   is_apply_running,
   apply_check,
@@ -86,62 +87,22 @@ const apply_button_class = useApplyButtonClass({
 </script>
 
 <template>
-  <v-dialog
-    v-model="dialog"
-    max-width="400"
-    persistent
+  <v-btn
+    @click.stop="apply_check"
+    :loading="is_apply_running"
+    :title="t('apex.applyLaunchOptions')"
+    :class="apply_button_class"
   >
-    <template v-slot:activator>
-      <v-btn
-        @click.stop="apply_check"
-        :loading="is_apply_running"
-        :title="t('apex.applyLaunchOptions')"
-        :class="apply_button_class"
-      >
-        {{ t('apex.apply') }}
-      </v-btn>
-    </template>
-    <template v-slot:default>
-      <v-card
-        prepend-icon="mdi-steam"
-        :title="t('apex.closeSteam')"
-      >
-        <v-card-text>
-          <p class="mb-0">
-            {{ t('apex.closeSteamTip') }}
-          </p>
-          <CloseSteamApplyAccount :user="steam_store.active_steam_user" />
-        </v-card-text>
-        <template v-slot:actions>
-          <v-btn
-            @click="force_close_launcher"
-            color="error"
-            variant="flat"
-            :loading="is_thoroughly_kill"
-          >
-            {{ t('apex.forceClose') }}
-          </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">
-            {{ t('common.cancel') }}
-          </v-btn>
-        </template>
-        <template v-slot:prepend>
-          <div class="pe-4">
-            <v-icon size="x-large" color="red"></v-icon>
-          </div>
-        </template>
-        <template v-slot:append>
-          <v-progress-circular
-            indeterminate="disable-shrink"
-            size="16"
-            color="red"
-            width="2"
-          />
-        </template>
-      </v-card>
-    </template>
-  </v-dialog>
+    {{ t('apex.apply') }}
+  </v-btn>
+  <CloseRunningProcessesDialog
+    v-model="dialog"
+    :processes="close_processes"
+    :loading="is_thoroughly_kill"
+    :steam-user="steam_store.active_steam_user"
+    @force-close="force_close_launcher"
+    @cancel="cancel"
+  />
 </template>
 
 <style scoped>

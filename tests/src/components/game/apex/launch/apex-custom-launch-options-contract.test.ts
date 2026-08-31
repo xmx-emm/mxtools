@@ -12,9 +12,10 @@ const listSource = readFileSync(
 );
 
 describe('Apex custom launch options contract', () => {
-  it('uses a standard editable field with the registered console icon', () => {
+  it('uses the same compact height as the surrounding launch controls', () => {
     expect(editorSource).toContain('v-model="customLaunchOptions"');
-    expect(editorSource).toContain('class="mx-standard-field"');
+    expect(editorSource).toContain('class="mx-compact-field"');
+    expect(editorSource).not.toContain('class="mx-standard-field"');
     expect(editorSource).toContain('density="compact"');
     expect(editorSource).toContain('variant="outlined"');
     expect(editorSource).toContain('prepend-inner-icon="mdi-console"');

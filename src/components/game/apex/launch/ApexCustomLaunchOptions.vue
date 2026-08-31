@@ -16,7 +16,7 @@ const customLaunchOptions = computed({
   <div class="apex-custom-launch-options">
     <v-text-field
       v-model="customLaunchOptions"
-      class="mx-standard-field"
+      class="mx-compact-field"
       variant="outlined"
       density="compact"
       hide-details

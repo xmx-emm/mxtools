@@ -7,9 +7,12 @@ import {
   apexIsRunning,
   eaDesktopIsRunningByTasklist,
   steamIsRunningByTasklist,
-  thoroughlyKillEaDesktop,
-  thoroughlyKillSteam,
 } from '@/ipc/commands.ts';
+import RunningProcessesList from '@/components/game/common/RunningProcessesList.vue';
+import {
+  forceCloseProcesses as forceCloseProcessSet,
+  type CloseProcessKind,
+} from '@/composables/useCloseLauncherThenApply.ts';
 
 const apexStore = useApexStore();
 const {t} = useI18n();
@@ -95,25 +98,32 @@ function startProcessRefresh(clearState = false) {
   });
 }
 
-const launcherName = computed(() => (
-  apexStore.active_apex_account?.kind === 'ea' ? 'EA Desktop' : 'Steam'
-));
+const runningProcessKinds = computed<CloseProcessKind[]>(() => [
+  ...(runningProcesses.value.includes('Apex Legends') ? ['apex' as const] : []),
+  ...(launcherRunning.value
+    ? [apexStore.active_apex_account?.kind === 'ea' ? 'ea' as const : 'steam' as const]
+    : []),
+]);
+const closeSteamUser = computed(() => {
+  const account = apexStore.active_apex_account;
+  return account?.kind === 'steam' ? account.user : null;
+});
 
-async function forceCloseLauncher() {
+async function forceCloseProcesses() {
   const account = apexStore.active_apex_account;
   if (!account || forceClosingLauncher.value) return;
   forceClosingLauncher.value = true;
   stopProcessRefresh(false);
   try {
-    if (account.kind === 'steam') await thoroughlyKillSteam();
-    else await thoroughlyKillEaDesktop();
-    const stillRunning = account.kind === 'steam'
-      ? await steamIsRunningByTasklist()
-      : await eaDesktopIsRunningByTasklist();
-    if (stillRunning) {
-      toast.error(account.kind === 'steam'
-        ? 'toast.cannotCloseSteam'
-        : 'toast.cannotCloseEaDesktop');
+    await forceCloseProcessSet(runningProcessKinds.value);
+    const [gameStillRunning, launcherStillRunning] = await Promise.all([
+      apexIsRunning(),
+      account.kind === 'steam'
+        ? steamIsRunningByTasklist()
+        : eaDesktopIsRunningByTasklist(),
+    ]);
+    if (gameStillRunning || launcherStillRunning) {
+      toast.error('apex.closeProcesses.closeFailed');
     }
   } finally {
     forceClosingLauncher.value = false;
@@ -165,16 +175,22 @@ onUnmounted(() => stopProcessRefresh());
           density="compact"
           class="mt-3"
         >
-          {{ t('apex.history.closeProcesses', {processes: runningProcesses.join(' / ')}) }}
-          <template v-if="launcherRunning" #append>
+          <p class="reset-process-message">
+            {{ t('apex.history.closeProcesses', {processes: runningProcesses.join(' / ')}) }}
+          </p>
+          <RunningProcessesList
+            :processes="runningProcessKinds"
+            :steam-user="closeSteamUser"
+          />
+          <template #append>
             <v-btn
               class="reset-force-close"
               size="small"
               variant="text"
               :loading="forceClosingLauncher"
-              @click="forceCloseLauncher"
+              @click="forceCloseProcesses"
             >
-              {{ t('apex.history.forceCloseLauncher', {launcher: launcherName}) }}
+              {{ t('apex.closeProcesses.forceCloseAll') }}
             </v-btn>
           </template>
         </v-alert>
@@ -229,6 +245,7 @@ onUnmounted(() => stopProcessRefresh());
 .reset-defaults-card :deep(.v-card-title) { font-size: 16px; font-weight: 660; }
 .reset-defaults-body { padding-top: 8px; color: rgba(var(--v-theme-on-surface), 0.72); }
 .reset-description { margin: 0; font-size: 12px; line-height: 1.6; }
+.reset-process-message { margin: 0 0 8px; }
 .reset-scope-list :deep(.v-list-item) {
   min-height: 34px;
   color: rgba(var(--v-theme-on-surface), 0.76);

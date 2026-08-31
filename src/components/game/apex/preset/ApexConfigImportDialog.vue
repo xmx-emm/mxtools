@@ -3,13 +3,11 @@ import {computed, ref, watch} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
-import {useSteamStore} from '@/stores/game/steam.ts';
-import {useEaStore} from '@/stores/game/ea.ts';
-import CloseSteamApplyAccount from '@/components/game/CloseSteamApplyAccount.vue';
+import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
 import {
+  detectRunningProcesses,
   useCloseLauncherThenApply,
 } from '@/composables/useCloseLauncherThenApply.ts';
-import {apexIsRunning} from '@/ipc/commands.ts';
 import type {
   ApexConfigSnapshotApplySelection,
   ApexConfigSnapshotVideoSelectMode,
@@ -23,8 +21,6 @@ import {
 const {t} = useI18n();
 const toast = useToast();
 const apex_store = useApexStore();
-const steam_store = useSteamStore();
-const ea_store = useEaStore();
 
 const import_launch = ref(true);
 const import_video = ref(true);
@@ -156,7 +152,7 @@ async function run_apply() {
 
 const {
   dialog,
-  close_launcher_kind,
+  close_processes,
   is_thoroughly_kill,
   is_apply_running,
   apply_check,
@@ -173,40 +169,17 @@ const {
       toast.error('apex.noLauncherAccount');
       return false;
     }
-    if ((import_game_settings.value || import_aiming.value
-      || import_controller.value || import_bindings.value) && await apexIsRunning()) {
-      toast.error('apex.gameSettings.errors.apexRunning');
-      return false;
-    }
     return true;
   },
-  resolveCloseKind: async () => {
-    // 仅导入启动项时需要关启动器；纯视频导入直接写盘
-    if (!(import_launch.value && has_launch.value)) {
-      return null;
-    }
+  resolveCloseProcesses: async () => {
+    const kinds: Array<'apex' | 'steam' | 'ea'> = ['apex'];
+    if (!(import_launch.value && has_launch.value)) return detectRunningProcesses(kinds);
     const acc = apex_store.active_apex_account;
-    if (!acc) return null;
-    if (acc.kind === 'ea') {
-      await ea_store.check_is_ea_desktop_running();
-      return ea_store.is_ea_desktop_running ? 'ea' : null;
-    }
-    await steam_store.check_is_steam_running();
-    return steam_store.is_steam_running ? 'steam' : null;
+    if (!acc) return detectRunningProcesses(kinds);
+    kinds.push(acc.kind);
+    return detectRunningProcesses(kinds);
   },
 });
-
-const close_dialog_title = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteam') : t('apex.closeEaDesktop'),
-);
-
-const close_dialog_text = computed(() =>
-  close_launcher_kind.value === 'steam' ? t('apex.closeSteamTip') : t('apex.closeEaDesktopTip'),
-);
-
-const close_dialog_icon = computed(() =>
-  close_launcher_kind.value === 'steam' ? 'mdi-steam' : 'mdi-alpha-e-circle',
-);
 
 const close_steam_apply_user = computed(() => {
   const acc = apex_store.active_apex_account;
@@ -393,35 +366,14 @@ const applying = computed(
     </v-card>
   </v-dialog>
 
-  <v-dialog
+  <CloseRunningProcessesDialog
     v-model="dialog"
-    max-width="420"
-    persistent
-  >
-    <v-card :prepend-icon="close_dialog_icon" :title="close_dialog_title">
-      <v-card-text>
-        <p>{{ close_dialog_text }}</p>
-        <CloseSteamApplyAccount
-          v-if="close_launcher_kind === 'steam' && close_steam_apply_user"
-          :user="close_steam_apply_user"
-        />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer/>
-        <v-btn variant="text" :disabled="is_thoroughly_kill" @click="cancel">
-          {{ t('common.cancel') }}
-        </v-btn>
-        <v-btn
-          color="error"
-          variant="flat"
-          :loading="is_thoroughly_kill"
-          @click="force_close_launcher"
-        >
-          {{ t('apex.forceClose') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    :processes="close_processes"
+    :loading="is_thoroughly_kill"
+    :steam-user="close_steam_apply_user"
+    @force-close="force_close_launcher"
+    @cancel="cancel"
+  />
 </template>
 
 <style scoped>

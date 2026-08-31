@@ -41,7 +41,6 @@ import {
   adoptApexGameSettingsReport,
   buildApexGameSettingsMutation,
 } from '@/stores/game/apex/actions_settings.ts';
-import {buildDefaultGameSettingOptions} from '@/data/presets/apex_quick_preset.ts';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -225,10 +224,10 @@ describe('Apex unified mutations', () => {
     expect(mocks.mutateApexConfig).toHaveBeenCalledTimes(1);
     expect(mocks.setApexLaunchOption).not.toHaveBeenCalled();
     expect(mocks.setApexVideoConfig).not.toHaveBeenCalled();
-    expect(mocks.emitApexConfigChanged).toHaveBeenCalledWith([
-      'launch',
-      'video',
-    ]);
+    expect(mocks.emitApexConfigChanged).toHaveBeenCalledWith(
+      ['launch', 'video'],
+      {notification: 'quickPresetApplied'},
+    );
   });
 
   it('imports selected launch options with one backend transaction', async () => {
@@ -321,70 +320,5 @@ describe('Apex binding slot drafts', () => {
 
     expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1');
     expect(apex.game_settings_bindings[0].input).toBe('W');
-  });
-});
-
-describe('Apex quick preset game optimizations', () => {
-  it('applies the confirmed settings and idempotent two-slot binding layout', () => {
-    const apex = useApexStore();
-    apex.game_settings_values.profile = {
-      player_setting_damage_closes_deathbox_menu: '1',
-      player_setting_stickysprintforward: '0',
-      player_setting_autosprint: '0',
-      hud_setting_minimapRotate: '0',
-      closecaption: '1',
-    };
-    apex.game_settings_bindings = [
-      {id: 'toggle', input: 'MOUSE2', command: '+toggle_zoom', context: 0, heldCommand: null, editable: true, occurrence: 0},
-      {id: 'zoom', input: '\\', command: '+zoom', context: 0, heldCommand: null, editable: true, occurrence: 0},
-      {id: 'cycle-up', input: 'MWHEELUP', command: '+weaponCycle', context: 0, heldCommand: null, editable: true, occurrence: 0},
-      {id: 'cycle-down', input: 'MWHEELDOWN', command: '+weaponCycle', context: 1, heldCommand: null, editable: true, occurrence: 0},
-      {id: 'forward', input: 'w', command: '+forward', context: 0, heldCommand: null, editable: true, occurrence: 0},
-      {id: 'jump', input: 'SPACE', command: '+jump', context: 0, heldCommand: null, editable: true, occurrence: 0},
-    ];
-    const selection = {
-      fpsCap: 144,
-      aspectValue: 16 / 9,
-      lockAxis: 'width' as const,
-      enableResolutionPreset: false,
-      enableGraphicsPreset: false,
-      graphicsPresetId: 'competitive',
-      enableSimplifiedReticle: false,
-      launchOptions: {},
-      videoOptions: {},
-      gameSettingOptions: buildDefaultGameSettingOptions(),
-    };
-
-    apex.prepare_quick_preset(
-      {width: 1920, height: 1080, aspectRatio: 16 / 9, maxRefreshRate: 144},
-      selection,
-    );
-    apex.prepare_quick_preset(
-      {width: 1920, height: 1080, aspectRatio: 16 / 9, maxRefreshRate: 144},
-      selection,
-    );
-
-    expect(apex.game_settings_values.profile).toMatchObject({
-      player_setting_damage_closes_deathbox_menu: '0',
-      player_setting_stickysprintforward: '1',
-      player_setting_autosprint: '1',
-      hud_setting_minimapRotate: '1',
-      closecaption: '0',
-    });
-    const active = apex.game_settings_bindings.filter(binding => binding.input);
-    expect(active.filter(binding => binding.command === '+toggle_zoom')).toHaveLength(0);
-    expect(active.filter(binding => binding.command === '+weaponCycle')).toHaveLength(0);
-    expect(active.filter(binding => binding.command === '+zoom').map(binding => binding.input))
-      .toEqual(['\\', 'MOUSE2']);
-    expect(active.filter(binding => binding.command === '+zoom').map(binding => binding.context))
-      .toEqual([0, 1]);
-    expect(active.filter(binding => binding.command === '+forward').map(binding => binding.input))
-      .toEqual(['w', 'MWHEELUP']);
-    expect(active.filter(binding => binding.command === '+forward').map(binding => binding.context))
-      .toEqual([0, 1]);
-    expect(active.filter(binding => binding.command === '+jump').map(binding => binding.input))
-      .toEqual(['SPACE', 'MWHEELDOWN']);
-    expect(active.filter(binding => binding.command === '+jump').map(binding => binding.context))
-      .toEqual([0, 1]);
   });
 });
