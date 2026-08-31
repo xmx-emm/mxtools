@@ -62,6 +62,11 @@ export function isValidApexGameSettingValue(
         return Number.isInteger(number) && number >= 0 && number <= 255;
       });
     }
+    if (field.control === 'packed-rgb') {
+      if (!UNSIGNED_INTEGER_SETTING_VALUE.test(value)) return false;
+      const packed = Number(value);
+      return Number.isInteger(packed) && packed >= 0 && packed <= 0xFF_FF_FF;
+    }
     if (field.options?.some(option => option.values?.[key] === value)) return true;
     return matchingApexGameSettingOptionValue(field, value) !== null;
   });

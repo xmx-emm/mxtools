@@ -17,6 +17,12 @@ describe('game optimizer visual contract', () => {
     expect(optimizerSource).not.toContain('position: sticky');
   });
 
+  it('marks the page as a Beta feature', () => {
+    expect(optimizerSource).toContain('class="mx-beta-badge"');
+    expect(optimizerSource).toContain(':title="t(\'settings.betaFeaturesHint\')"');
+    expect(optimizerSource).toContain("{{ t('common.beta') }}");
+  });
+
   it('keeps controls compact and check details readable', () => {
     expect(optimizerSource.match(/class="mx-compact-icon-button"/g)?.length).toBe(3);
     expect(optimizerSource).toContain('class="optimizer-compact-action"');

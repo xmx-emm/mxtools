@@ -8,6 +8,7 @@ function readSource(relativePath: string): string {
 
 const dialogSource = readSource('../../../../../../src/components/game/apex/preset/ApexQuickPresetDialog.vue');
 const windowSource = readSource('../../../../../../src/views/ApexQuickPresetWindowView.vue');
+const presetActionsSource = readSource('../../../../../../src/stores/game/apex/actions_preset.ts');
 
 describe('Apex quick preset visual contract', () => {
   it('uses one framed workbench with a single settings scroll owner and fixed actions', () => {
@@ -42,6 +43,18 @@ describe('Apex quick preset visual contract', () => {
     expect(windowSource).toContain('class="quick-preset-window-retry"');
     expect(windowSource).toMatch(
       /\.quick-preset-window-body\s*\{[^}]*padding: 0;/s,
+    );
+  });
+
+  it('accepts a successfully loaded empty config after reset', () => {
+    expect(dialogSource).not.toMatch(
+      /video_config_load_status !== 'ready'\s*\|\|\s*Object\.keys\(apex_store\.video_config_values\)\.length === 0/,
+    );
+    expect(presetActionsSource).not.toMatch(
+      /video_config_load_status !== 'ready'\s*\|\|\s*Object\.keys\(this\.video_config_values\)\.length === 0/,
+    );
+    expect(presetActionsSource).toContain(
+      "const requiredBindingCommands = ['+zoom', '+forward', '+jump'];",
     );
   });
 });

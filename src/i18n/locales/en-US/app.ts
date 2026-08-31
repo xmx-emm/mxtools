@@ -180,6 +180,7 @@ export const appMessages = {
     shortcutNeedModifier: 'Shortcuts must include Ctrl / Alt / Shift',
     shortcutInvalid: 'Please press a valid shortcut',
     shortcutRegisterFailed: 'Failed to register shortcut; it may conflict with another app',
+    shortcutRestoreDefault: 'Restore default shortcut',
     shortcutResetDefault: 'Restored default shortcut',
   },
   steam: {

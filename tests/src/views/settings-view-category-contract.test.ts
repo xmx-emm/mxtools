@@ -29,4 +29,11 @@ describe('settings view category contract', () => {
       /:model-value="settingsStore\.locale"[\s\S]*?:loading="localeApplying"[\s\S]*?:disabled="localeApplying"[\s\S]*?@update:model-value="applyLocale"/,
     );
   });
+
+  it('offers a localized restore-default action for the locale shortcut', () => {
+    expect(source).toContain('icon="mdi-restore"');
+    expect(source).toContain(":aria-label=\"t('settings.shortcutRestoreDefault')\"");
+    expect(source).toContain('@click="resetToggleLocaleShortcut"');
+    expect(source).toContain('settingsStore.setToggleLocaleShortcut(DEFAULT_TOGGLE_LOCALE_SHORTCUT)');
+  });
 });

@@ -7,6 +7,7 @@ import {
   apexBindingFromMouseButton,
   apexBindingFromWheelDelta,
   findApexBindingConflict,
+  isValidApexGameSettingValue,
   validateApexGameSettingsCatalog,
 } from '@/utils/game/apex_game_settings.ts';
 
@@ -28,6 +29,15 @@ describe('Apex game settings catalog', () => {
   it('keeps settings and profile keys distinct by file', () => {
     const keys = ApexGameSettingsData.map(field => `${field.file}:${field.key}`);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('accepts the documented packed laser-sight color range', () => {
+    expect(isValidApexGameSettingValue(
+      ApexGameSettingsData, 'profile', 'laserSightColor', '16711680',
+    )).toBe(true);
+    expect(isValidApexGameSettingValue(
+      ApexGameSettingsData, 'profile', 'laserSightColor', '16777216',
+    )).toBe(false);
   });
 
   it('includes only screenshot mappings whose stored values are confirmed', () => {

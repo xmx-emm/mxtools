@@ -161,12 +161,10 @@ async function load_display_info() {
       throw new Error(t('apexQuickPreset.launchLoadFailed'));
     }
     if (!apex_store.video_config_loaded
-      || apex_store.video_config_load_status !== 'ready'
-      || Object.keys(apex_store.video_config_values).length === 0) {
+      || apex_store.video_config_load_status !== 'ready') {
       await apex_store.load_apex_video_config({silent: true, force: true});
     }
-    if (apex_store.video_config_load_status !== 'ready'
-      || Object.keys(apex_store.video_config_values).length === 0) {
+    if (apex_store.video_config_load_status !== 'ready') {
       throw new Error(t('apexQuickPreset.videoLoadFailed'));
     }
     if (!apex_store.game_settings_report

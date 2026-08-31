@@ -124,6 +124,7 @@ const commandItems = computed<CommandItem[]>(() => {
       });
 
       for (const searchChild of child.searchChildren ?? []) {
+        if (searchChild.beta && !settingsStore.betaFeaturesEnabled) continue;
         addItem({
           path: searchChild.path,
           label: t(searchChild.nameKey),
@@ -131,6 +132,7 @@ const commandItems = computed<CommandItem[]>(() => {
           kind: 'subtool',
           icon: searchChild.icon,
           iconComponent: searchChild.iconComponent,
+          beta: searchChild.beta,
           aliases: [
             searchChild.name,
             searchChild.nameKey,

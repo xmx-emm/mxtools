@@ -368,6 +368,9 @@ export const apexMessages = {
       exportTitle: '导出 Apex 配置',
       importTitle: '导入 Apex 配置',
       exportHint: '选择要写入 JSON 的配置块（未勾选的块不会导出）。',
+      exportItemCount: '{count} 项',
+      exportPreviewLoading: '正在读取可导出的配置…',
+      exportPreviewFailed: '读取配置失败，请关闭窗口后重试。',
       importHint: '预览文件内容，勾选要写入本机的配置块。',
       machineLocalExcluded: '不会导入或导出设备专属参数：音频输出设备（miles_output_device）和语音录入设备（voice_input_device）。',
       blockLaunch: '启动项',
@@ -414,7 +417,9 @@ export const apexMessages = {
       resetSuccess: '配置已重置；请启动 Apex 生成默认配置',
       pendingDefaults: '等待 Apex 下次启动后生成默认配置',
       closeProcesses: '请先完全退出：{processes}',
+      forceCloseLauncher: '强制关闭 {launcher}',
       checkProcesses: '重新检查运行状态',
+      processCheckFailed: '暂时未能检查运行状态，工具将自动重试。',
       scopes: {
         launch: '启动项',
         video: '画面配置',
@@ -585,7 +590,7 @@ export const apexMessages = {
     },
     graphicsPresets: {
       competitive: '竞技',
-      competitiveDesc: '模型细节低、纹理超糊，适合竞技',
+      competitiveDesc: '模型细节高、纹理超糊，适合竞技',
       lowDesc: '纹理与模型均为低档位',
       mediumDesc: '纹理与模型均为中档位',
       highDesc: '纹理与模型均为高档位',

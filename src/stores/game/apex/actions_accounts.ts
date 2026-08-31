@@ -21,6 +21,7 @@ export const apexAccountActions = {
       this.launch_load_status = 'idle';
       this.launch_loaded_for_key = null;
       this.original_launch_options = '';
+      this.custom_launch_options = '';
       invalidateMilesLanguageCheckCache();
     }
     this.launcher_selection_key = nextKey;

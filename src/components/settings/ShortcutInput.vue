@@ -14,7 +14,7 @@ const props = withDefaults(
   defineProps<{
     modelValue: string;
     disabled?: boolean;
-    /** global：必须带修饰键；app：也需至少含一个修饰键；apexQ：允许单独 F1–F12 */
+    /** global：必须带修饰键；app：允许单键；apexQ：允许单独 F1–F12 */
     scope?: 'app' | 'global' | 'apexQ';
   }>(),
   { scope: 'app' },

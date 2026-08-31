@@ -86,6 +86,8 @@ export function createApexState() {
     mat_letterbox_aspect_threshold: ASPECT_LETTERBOX_THRESHOLD,
 
     options_selection: <SteamLaunchOptionsImpl[]>[],//勾选的项
+    /** 不属于工具内置选项的启动命令，追加在生成的启动字符串末尾。 */
+    custom_launch_options: '',
     settings_config: <Record<string, string>>({
       // 这里用来放 parameters 的配置,可多选的内容
       window: '-fullscreen',

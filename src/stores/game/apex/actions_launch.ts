@@ -1,6 +1,7 @@
 import {useToast} from 'vue-toastification';
 import {Component, markRaw} from 'vue';
 import {parseApexLaunchOptionsString} from '@/utils/game/apex_launch_parse.ts';
+import {normalizeApexCustomLaunchOptions} from '@/utils/game/apex_custom_launch_options.ts';
 import type {ApexStoreThis} from './types.ts';
 import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
 import {createApexHistoryTransactionId} from '@/utils/game/apex_history.ts';
@@ -88,6 +89,7 @@ export const apexLaunchActions = {
   parse_loaded_launch_string(this: ApexStoreThis, start_launch_option: string) {
     const parsed = parseApexLaunchOptionsString(start_launch_option);
     this.options_selection = parsed.selection;
+    this.custom_launch_options = parsed.customLaunchOptions;
     if (parsed.width !== undefined) this.width = parsed.width;
     if (parsed.height !== undefined) this.height = parsed.height;
     if (parsed.lobby_max_fps !== undefined) this.lobby_max_fps = parsed.lobby_max_fps;
@@ -100,6 +102,10 @@ export const apexLaunchActions = {
     }
   },
 
+  set_custom_launch_options(this: ApexStoreThis, value: string) {
+    this.custom_launch_options = normalizeApexCustomLaunchOptions(value);
+  },
+
   async start_load_apex_launch_options_data(
     this: ApexStoreThis,
     expectedKey = this.launcher_selection_key,
@@ -110,6 +116,7 @@ export const apexLaunchActions = {
     if (!acc) {
       toast.warning('apex.noLauncherAccount');
       this.options_selection = [];
+      this.custom_launch_options = '';
       return false;
     }
     const run = async () => {
@@ -148,6 +155,7 @@ export const apexLaunchActions = {
         : 'apex.launchOptionLoadEaFailed';
       toast.error(detail ? `${prefixKey}\n${detail}` : prefixKey, {timeout: 8000});
       this.options_selection = [];
+      this.custom_launch_options = '';
       return false;
     }
   },

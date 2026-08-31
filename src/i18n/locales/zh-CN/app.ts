@@ -180,6 +180,7 @@ export const appMessages = {
     shortcutNeedModifier: '快捷键需包含 Ctrl / Alt / Shift 修饰键',
     shortcutInvalid: '请按下有效的快捷键',
     shortcutRegisterFailed: '快捷键注册失败，可能与其他应用冲突',
+    shortcutRestoreDefault: '还原默认快捷键',
     shortcutResetDefault: '已恢复为默认快捷键',
   },
   steam: {

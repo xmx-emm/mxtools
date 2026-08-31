@@ -372,13 +372,25 @@ fn backup_path(path: &Path) -> PathBuf {
 
 fn load_file(file: ConfigFile) -> Result<LoadedFile, String> {
     let path = get_apex_config_path(file.kind())?;
-    let bytes = fs::read(&path).map_err(|error| {
-        format!(
-            "apex.gameSettings.errors.readFailed: {}: {error}",
-            path.display()
-        )
-    })?;
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => {
+            return Err(format!(
+                "apex.gameSettings.errors.readFailed: {}: {error}",
+                path.display()
+            ));
+        }
+    };
     let hash = revision(&bytes);
+    if bytes.is_empty() {
+        return Ok(LoadedFile {
+            path,
+            bytes,
+            revision: hash,
+            doc: ApexCfgDocument::new(),
+        });
+    }
     let (content, encoding) = decode_bytes(&bytes)?;
     let doc = ApexCfgDocument::from_content(&content, encoding)?;
     Ok(LoadedFile {
@@ -1027,8 +1039,15 @@ fn save_backup(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 fn ensure_revision(path: &Path, expected: &str) -> Result<(), String> {
-    let bytes =
-        fs::read(path).map_err(|error| format!("apex.gameSettings.errors.readFailed: {error}"))?;
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && expected == revision(&[]) => {
+            return Ok(())
+        }
+        Err(error) => {
+            return Err(format!("apex.gameSettings.errors.readFailed: {error}"));
+        }
+    };
     if revision(&bytes) == expected {
         Ok(())
     } else {
@@ -1186,10 +1205,10 @@ fn apply_request_inner(
     if let Some(app) = app {
         prepare_legacy_game_settings_import_locked(app)?;
     }
-    if settings_changed {
+    if settings_changed && settings.path.is_file() {
         save_backup(&settings.path, &settings.bytes)?;
     }
-    if profile_changed {
+    if profile_changed && profile.path.is_file() {
         save_backup(&profile.path, &profile.bytes)?;
     }
     let history_record = app

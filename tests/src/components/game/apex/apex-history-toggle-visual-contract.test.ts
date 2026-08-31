@@ -29,4 +29,11 @@ describe('Apex history toggle visual contract', () => {
     expect(refresh).toContain(':title="t(\'apex.history.refresh\')"');
     expect(refresh).toContain(':loading="apexStore.is_config_history_loading"');
   });
+
+  it('keeps history rows readable with restrained hierarchy', () => {
+    expect(source).toContain('class="history-source"');
+    expect(source).toContain('class="history-meta"');
+    expect(source).toContain('class="history-summary"');
+    expect(source).toMatch(/\.history-source\s*\{[^}]*font-size: 13px/);
+  });
 });

@@ -99,14 +99,17 @@ noncommercial mirrors and public modified versions are allowed.
   the workspace route transition instead of staggering or layering local item
   animations. Keep nested item cards, decorative sweep effects, and hover
   elevation out of this operational navigation surface.
-- Game Checkup lives in `src/pages/game/GameOptimizerPage.vue`. It uses the
-  shared fixed page header, 1080 px content axis, single scroll owner, and a
-  persistent bottom action band. The score, network metrics, filters, and check
-  groups form flat divided data sections; toolbar and row tools use the 28 px
-  compact token, footer commands use the 32 px action token, and check details
-  wrap instead of being truncated. Its browser-only preview keeps the scan,
-  benchmark, apply, and settings actions idle so visual review shows truthful
-  empty/pending states without native IPC error toasts.
+- Game Checkup is a Beta-gated tool at `/game_optimizer`, owned by
+  `src/pages/game/GameOptimizerPage.vue`. Its route metadata drives the shared
+  navigation, dashboard, command palette, category index, and direct-route
+  guard; the page title also shows the shared Beta marker. It uses the shared
+  fixed page header, 1080 px content axis, single scroll owner, and a persistent
+  bottom action band. The score, network metrics, filters, and check groups form
+  flat divided data sections; toolbar and row tools use the 28 px compact token,
+  footer commands use the 32 px action token, and check details wrap instead of
+  being truncated. Its browser-only preview keeps the scan, benchmark, apply,
+  and settings actions idle so visual review shows truthful empty/pending states
+  without native IPC error toasts.
 - Razer polling rate is an independent Beta tool at `/razer_polling`, owned by
   `src/pages/game/RazerPollingPage.vue` and
   `src/components/game/razer/RazerPollingRateControl.vue`; it does not share
@@ -218,6 +221,13 @@ noncommercial mirrors and public modified versions are allowed.
   animations and transitions across pages and overlays, and bypasses theme
   View Transitions; the hidden toast progress bar continues only as its timeout
   clock so notifications still close automatically.
+- The in-app UI-language shortcut defaults to `Ctrl+Alt+Shift+Z`. Its Settings
+  row provides a compact restore button beside the shortcut recorder; restoring
+  applies the default immediately without replacing unrelated persisted custom
+  shortcuts. The previous `Ctrl+Alt+Z` default migrates to the new value while
+  other persisted combinations remain unchanged. The in-app locale action also
+  accepts a single ordinary key; typing fields continue to suppress the action,
+  while global shortcuts retain their modifier requirement.
 - The global reduced-motion rule shortens decorative animations and transitions
   but excludes Vue Toastification's progress bar because its `animationend`
   event is the notification timeout clock.
@@ -226,6 +236,14 @@ noncommercial mirrors and public modified versions are allowed.
   independent `idle/loading/ready/error` states, loaded keys, and request
   generations; clean cached game-setting tabs silently refresh when revisited
   so external Apex edits are reflected, while dirty local edits are preserved.
+  The launch editor places a dedicated 40 px, theme-token-backed custom-command
+  field between its filters and managed catalog. Launcher reads use one
+  quote-aware token classifier for both managed selections and the custom
+  remainder: only complete supported command/value sequences are claimed,
+  while `+exec` and its next argument are protected from catalog matching.
+  Refresh therefore returns unowned or incomplete tokens to the field without
+  dropping commands such as `+exec "autoexec.cfg"` or interpreting text inside
+  its quoted path as a managed option.
   Stale responses are ignored. A successful write from the quick-preset WebView
   publishes a Tauri event plus a durable local-storage revision; the main
   WebView replaces affected local drafts only after every requested scope
@@ -242,7 +260,10 @@ noncommercial mirrors and public modified versions are allowed.
   retains the shared 28 px `game-page-segmented-toggle` contract. Launch and
   video search/filter controls also move the search field to a full-width row
   at 560 px, and the bottom action band stacks its utility and apply groups;
-  history/reset icon-only actions keep localized `aria-label` values.
+  history/reset icon-only actions keep localized `aria-label` values. The
+  refresh tool inherits the same grouped-button background as its neighbors,
+  while reset uses a restrained error-color icon to signal its destructive
+  effect without changing the shared button geometry.
 - Explorer Context Menu Manager (`src/components/windows/ContextMenuManager.vue`)
   uses the shared compact search-field and 28 px control tokens for search,
   scope filtering, and refresh. Search and scope controls remain keyboard-
@@ -271,12 +292,19 @@ noncommercial mirrors and public modified versions are allowed.
   a horizontal reachability region rather than wrapping or clipping localized
   labels. Resolution output sits on the aspect-preset row, and the selected
   graphics description sits on the graphics-button row; both remain single-line
-  summaries instead of adding vertical rows. The resolution/aspect and graphics controls form one continuous
+  summaries instead of adding vertical rows. The Competitive graphics preset
+  keeps its minimal texture budget while using the verified High model-detail
+  value (`setting.r_lod_switch_scale=1`). The resolution/aspect and graphics controls form one continuous
   collapsible group without internal divider lines. Fixed MOUSE2/MWHEELUP/
   MWHEELDOWN binding optimizations are a default-on selectable option and are
   omitted entirely when unchecked. Their summary uses aligned operation and
   localized key columns, with the operation first. Preset matching keeps
   editable bindings that have adjacent `bind_held` lines eligible for updates.
+  After an Apex-only reset, missing `videoconfig.txt`, `settings.cfg`, and
+  `profile.cfg` load as empty ready-state documents instead of fatal errors, so
+  the workbench remains usable and the first applicable save creates the files.
+  Binding optimizations are skipped until Apex has generated binding templates;
+  parse and permission failures remain real load errors.
   The quick-preset workbench
   does not show a separate ping-opacity exclusion warning. Repeated row-level help actions in
   quick presets and the Apex
@@ -290,8 +318,11 @@ noncommercial mirrors and public modified versions are allowed.
   tab, skips native window/account initialization, and renders the complete
   workbench with local 1920x1080/144 Hz display data while keeping apply
   disabled.
-- Apex startup repair runs in the independent `/repair-apex-launch` WebView and
-  is opened either from the Repair Tools game group or the icon immediately
+- Apex startup repair is Beta-gated and runs in the independent
+  `/repair-apex-launch` WebView. With Beta disabled it is absent from the Apex
+  toolbar, Repair Tools catalog, command search, and direct routing; every
+  visible entry and the workbench use the shared Beta badge. It is opened
+  either from the Repair Tools game group or the icon immediately
   before Quick Preset on the Apex toolbar. It restores the selected Steam/EA
   account through route query, local storage, and a live event. The window starts
   idle, runs ten native diagnostics sequentially only after Start check, keeps an
@@ -437,7 +468,8 @@ noncommercial mirrors and public modified versions are allowed.
   and `RdpPortCheck`; Windows user loading is latest-request-wins.
 - Windows repair tools live in `src/pages/windows/AppRepairPage.vue` and
   `src-tauri/src/app_repair.rs`. `/app_repair` is a grouped catalog with separate
-  Microsoft Store, OneDrive, blank-icon, network, and Apex launch entries. Each
+  Microsoft Store, OneDrive, blank-icon, and network entries plus the
+  Beta-gated Apex launch entry. Each
   catalog group is unframed and uses full-width divided rows with neutral/primary
   interaction feedback. While a repair tool window is opening, its selected
   catalog row remains at full contrast with a restrained primary treatment while
@@ -481,9 +513,9 @@ noncommercial mirrors and public modified versions are allowed.
   use the `apex-q` / `apex_q` namespace; the unreleased legacy namespace is not
   migrated or supported.
 - `settings.betaFeaturesEnabled` is the persisted, default-off feature gate for
-  in-development UI. APEX Q, Razer polling rate, LAN sharing, Remote Desktop,
-  Input Method, and Explorer context-menu management are currently behind this
-  gate. Game Checkup remains available by default.
+  in-development UI. APEX Q, Game Checkup, Razer polling rate, LAN sharing,
+  Remote Desktop, Input Method, and Explorer context-menu management are
+  currently behind this gate.
   Gated tools are removed from navigation, dashboard, command search, category
   indexes, shortcuts, tray entries, and direct main-window routes as applicable.
   When enabled, Beta entries use the shared `mx-beta-badge` marker with a
@@ -591,7 +623,12 @@ noncommercial mirrors and public modified versions are allowed.
   including an explicit empty binding list that clears all editable bindings.
   Export save dialogs default to the local-date-and-time filename
   `apex-config-snapshot-YYYY-MM-DD-HH-mm-ss.json`; the snapshot schema and
-  import compatibility are unchanged.
+  import compatibility are unchanged. Opening the export dialog loads an
+  all-scope preview and shows the actual transferable item count beside launch
+  options, video settings, other game settings, aiming, controller, and
+  bindings; empty blocks display zero and are not selectable. Snapshot value
+  validation includes the documented packed RGB range `0..16777215`, so a
+  valid persisted laser-sight color does not reject the whole export.
   Empty launch options remain a real import value, while empty video blocks are
   omitted and unchanged imports report a no-op instead of success. Snapshot
   parsing rejects launch-option control characters and invalid values for known
@@ -600,11 +637,16 @@ noncommercial mirrors and public modified versions are allowed.
   `miles_output_device` and `voice_input_device`; the dialogs state this
   explicitly so device selections are not transferred to another computer. It
   also excludes the Apex-managed video key `setting.configversion` in both
-  directions.
+  directions. Both import and export dialogs present this rule as compact
+  low-emphasis helper text rather than a dominant alert block. The import
+  preview keeps selection labels primary while launch, setting-count, and
+  video-value summaries use restrained contrast and compact spacing.
 - Snapshot Vitest automation covers timestamped export-to-import round trips,
-  version rejection, serialized export filtering, and keyboard/mouse versus
-  controller import isolation; the frontend CI job runs it through the existing
-  `npm test` gate. All standalone tests live under the root `tests/` directory:
+  version rejection, serialized export filtering, keyboard/mouse versus
+  controller import isolation, and an actual temporary-directory file write
+  followed by disk read and snapshot parsing; the frontend CI job runs it
+  through the existing `npm test` gate. All standalone tests live under the
+  root `tests/` directory:
   Vitest files use mirrored `tests/src/...` and `tests/scripts/...` paths, while
   external Rust unit modules use `tests/rust/src-tauri/...` and are mounted by
   minimal test-only `include!` blocks placed after every other item in their
@@ -634,6 +676,14 @@ noncommercial mirrors and public modified versions are allowed.
   document records the exact evidence.
 - Apex-only reset clears launch options for the selected account and removes
   `videoconfig.txt`, `settings.cfg`, and `profile.cfg` after recording history.
+  Its confirmation dialog checks Apex plus the selected Steam/EA launcher
+  immediately and every 1.5 seconds while open, stops on close/account change,
+  and keeps reset disabled when detection fails while continuing to retry.
+  Automatic process refresh does not disable the reset action after the first
+  successful check; if Steam or EA Desktop is detected, the dialog exposes a
+  force-close launcher action using the existing allowlisted process command.
+  The regeneration note is rendered as low-emphasis helper text, while scope
+  rows and history entries use restrained typography and contrast for scanning.
   The frontend then waits for Apex to regenerate defaults and checks again on
   window focus or explicit refresh without launching the game itself. Every
   history restore records the current state first so the restore is undoable.
@@ -652,8 +702,9 @@ noncommercial mirrors and public modified versions are allowed.
   `MicrosoftAccount\email`, or domain/organization identity. Password entry
   remains in Windows credential UI and is never added to connection settings.
 - The repair-tools catalog opens blank-icon and network repair in their own
-  windows. All four catalog children are indexed as direct command-search
-  results and open through the same dedicated-window routes. Blank-icon repair
+  windows. Its ordinary catalog children are always indexed as direct
+  command-search results, while Apex Launch Repair joins the same dedicated
+  window and search flow only when Beta features are enabled. Blank-icon repair
   stops only Explorer processes in the current
   Windows session, removes legacy and per-size `iconcache*.db` files without
   touching thumbnail caches, and waits for Windows to restore the desktop shell

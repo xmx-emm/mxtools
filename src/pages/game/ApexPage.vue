@@ -447,7 +447,7 @@ async function open_config_import() {
       />
       <div class="apex-page-toolbar-controls">
         <div class="apex-toolbar-utility-actions">
-          <div class="apex-toolbar-control-slot">
+          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
             <v-btn
               icon="mdi-auto-fix"
               size="small"
@@ -458,6 +458,10 @@ async function open_config_import() {
               :aria-label="t('apex.launchRepairTip')"
               @click="open_launch_repair"
             />
+            <span
+              class="mx-beta-badge apex-q-beta-badge"
+              :title="t('settings.betaFeaturesHint')"
+            >{{ t('common.beta') }}</span>
           </div>
           <div class="apex-toolbar-control-slot">
             <v-btn
@@ -613,6 +617,7 @@ async function open_config_import() {
             @click="apex_store.open_config_history_dialog()"
           />
           <v-btn
+            class="apex-restore-action"
             icon="mdi-restore-alert"
             :title="t('apex.history.resetTitle')"
             :aria-label="t('apex.history.resetTitle')"
@@ -634,7 +639,7 @@ async function open_config_import() {
             @contextmenu="open_video_config_folder"
           />
           <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
-          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
+          <v-btn class="apex-restore-action" icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -651,7 +656,7 @@ async function open_config_import() {
             @contextmenu="open_game_settings_folder"
           />
           <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
-          <v-btn icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
+          <v-btn class="apex-restore-action" icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
@@ -805,6 +810,10 @@ async function open_config_import() {
 
 .apex-page-type-toggle :deep(.v-btn__content) {
   padding-inline: 2px;
+}
+
+.apex-restore-action :deep(.v-icon) {
+  color: rgba(var(--v-theme-error), 0.68);
 }
 
 @media (max-width: 840px) {

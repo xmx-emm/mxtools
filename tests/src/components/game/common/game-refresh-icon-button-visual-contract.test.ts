@@ -8,9 +8,10 @@ const source = readFileSync(
 );
 
 describe('GameRefreshIconButton visual contract', () => {
-  it('uses the shared compact text icon-button treatment', () => {
+  it('uses the shared compact icon-button treatment without overriding its group background', () => {
     expect(source).toMatch(/class="mx-compact-icon-button"/);
-    expect(source).toMatch(/icon\s*\n\s*size="small"\s*\n\s*variant="text"/);
+    expect(source).toMatch(/icon\s*\n\s*size="small"/);
+    expect(source).not.toContain('variant="text"');
   });
 
   it('keeps an accessible name and exposes refresh progress', () => {

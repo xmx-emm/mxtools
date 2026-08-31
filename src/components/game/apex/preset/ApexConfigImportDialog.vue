@@ -226,18 +226,15 @@ const applying = computed(
     :persistent="applying"
     @update:model-value="(v: boolean) => { if (!v) on_close(); }"
   >
-    <v-card :title="t('apex.configSnapshot.importTitle')">
-      <v-card-text>
-        <p class="text-body-2 text-medium-emphasis mb-3">
+    <v-card class="config-import-card" :title="t('apex.configSnapshot.importTitle')">
+      <v-card-text class="config-import-body">
+        <p class="config-import-hint">
           {{ t('apex.configSnapshot.importHint') }}
         </p>
-        <v-alert
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mb-3"
-          :text="t('apex.configSnapshot.machineLocalExcluded')"
-        />
+        <div class="config-import-device-note">
+          <v-icon icon="mdi-information-outline" size="14"/>
+          <span>{{ t('apex.configSnapshot.machineLocalExcluded') }}</span>
+        </div>
 
         <template v-if="has_launch">
           <v-checkbox
@@ -248,7 +245,7 @@ const applying = computed(
           />
           <div
             v-if="import_launch"
-            class="preview-box mb-3"
+            class="preview-box"
           >
             <div class="text-caption text-medium-emphasis mb-1">
               {{ t('apex.configSnapshot.launchPreview') }}
@@ -264,7 +261,7 @@ const applying = computed(
             hide-details
             :label="t('apex.configSnapshot.blockGameSettings')"
           />
-          <div v-if="import_game_settings" class="preview-box mb-3 text-caption text-medium-emphasis">
+          <div v-if="import_game_settings" class="preview-box preview-summary">
             {{ t('apex.configSnapshot.gameSettingsPreview', {
               settings: Object.keys(game_setting_groups?.gameSettings.settings ?? {}).length,
               profile: Object.keys(game_setting_groups?.gameSettings.profile ?? {}).length,
@@ -279,7 +276,7 @@ const applying = computed(
             hide-details
             :label="t('apex.configSnapshot.blockAiming')"
           />
-          <div v-if="import_aiming" class="preview-box mb-3 text-caption text-medium-emphasis">
+          <div v-if="import_aiming" class="preview-box preview-summary">
             {{ t('apex.configSnapshot.settingsBlockPreview', {
               count: Object.keys(game_setting_groups?.aiming.settings ?? {}).length
                 + Object.keys(game_setting_groups?.aiming.profile ?? {}).length,
@@ -294,7 +291,7 @@ const applying = computed(
             hide-details
             :label="t('apex.configSnapshot.blockController')"
           />
-          <div v-if="import_controller" class="preview-box mb-3 text-caption text-medium-emphasis">
+          <div v-if="import_controller" class="preview-box preview-summary">
             {{ t('apex.configSnapshot.settingsBlockPreview', {
               count: Object.keys(game_setting_groups?.controller.settings ?? {}).length
                 + Object.keys(game_setting_groups?.controller.profile ?? {}).length,
@@ -309,7 +306,7 @@ const applying = computed(
             hide-details
             :label="t('apex.configSnapshot.blockBindings')"
           />
-          <div v-if="import_bindings" class="preview-box mb-3 text-caption text-medium-emphasis">
+          <div v-if="import_bindings" class="preview-box preview-summary">
             {{ t('apex.configSnapshot.bindingsPreview', {
               count: snapshot?.gameSettings?.bindings?.length ?? 0,
             }) }}
@@ -321,7 +318,7 @@ const applying = computed(
             v-model="import_video"
             density="compact"
             hide-details
-            class="mb-2"
+            class="config-import-video-check"
             :label="t('apex.configSnapshot.blockVideo')"
           />
           <template v-if="import_video">
@@ -429,24 +426,82 @@ const applying = computed(
 
 <style scoped>
 .preview-box {
-  margin-left: 8px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgba(var(--v-theme-surface-variant), 0.25);
+  margin: 2px 0 8px 30px;
+  padding: 7px 9px;
+  border: 1px solid rgba(var(--v-border-color), 0.08);
+  border-radius: 4px;
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  background: rgba(var(--v-theme-on-surface), 0.025);
+}
+
+.config-import-card :deep(.v-card-title) {
+  font-size: 16px;
+  font-weight: 660;
+}
+
+.config-import-body {
+  padding-top: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.78);
+}
+
+.config-import-hint {
+  margin: 0 0 10px;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.config-import-device-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  background: rgba(var(--v-theme-on-surface), 0.035);
+  border-left: 2px solid rgba(var(--v-theme-primary), 0.42);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.config-import-device-note :deep(.v-icon) {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: rgba(var(--v-theme-primary), 0.58);
+}
+
+.config-import-body :deep(.v-checkbox .v-label) {
+  color: rgba(var(--v-theme-on-surface), 0.8);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.preview-summary {
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 .preview-code {
   display: block;
-  font-size: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 10.5px;
+  line-height: 1.5;
   word-break: break-all;
   white-space: pre-wrap;
+}
+
+.config-import-video-check {
+  margin-bottom: 4px;
 }
 
 .video-preview-list {
   max-height: 280px;
   overflow: auto;
-  margin-left: 4px;
-  padding-right: 4px;
+  margin-left: 30px;
+  padding: 6px 8px;
+  border: 1px solid rgba(var(--v-border-color), 0.08);
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
 }
 
 .video-preview-row {
@@ -455,12 +510,13 @@ const applying = computed(
 }
 
 .video-preview-name {
-  font-size: 13px;
+  color: rgba(var(--v-theme-on-surface), 0.76);
+  font-size: 12px;
   font-weight: 500;
 }
 
 .video-preview-values {
-  opacity: 0.75;
+  color: rgba(var(--v-theme-on-surface), 0.5);
   word-break: break-all;
 }
 

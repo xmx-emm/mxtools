@@ -370,6 +370,9 @@ export const apexMessages = {
       exportTitle: 'Export Apex config',
       importTitle: 'Import Apex config',
       exportHint: 'Choose which config blocks to write into the JSON file.',
+      exportItemCount: '{count} items',
+      exportPreviewLoading: 'Reading exportable configuration…',
+      exportPreviewFailed: 'Configuration could not be read. Close this dialog and try again.',
       importHint: 'Preview the file and choose which blocks to apply.',
       machineLocalExcluded: 'Device-specific values are never imported or exported: audio output (miles_output_device) and voice input (voice_input_device).',
       blockLaunch: 'Launch options',
@@ -416,7 +419,9 @@ export const apexMessages = {
       resetSuccess: 'Configuration reset; start Apex to generate default files',
       pendingDefaults: 'Waiting for Apex to generate default configuration on its next launch',
       closeProcesses: 'Exit these processes first: {processes}',
+      forceCloseLauncher: 'Force close {launcher}',
       checkProcesses: 'Check running processes again',
+      processCheckFailed: 'Running-process status could not be checked. MxTools will retry automatically.',
       scopes: {
         launch: 'Launch options',
         video: 'Video config',
@@ -590,7 +595,7 @@ export const apexMessages = {
     },
     graphicsPresets: {
       competitive: 'Competitive',
-      competitiveDesc: 'Low model detail and ultra-blurry textures — competitive',
+      competitiveDesc: 'High model detail and ultra-blurry textures — competitive',
       lowDesc: 'Low texture and model detail',
       mediumDesc: 'Medium texture and model detail',
       highDesc: 'High texture and model detail',

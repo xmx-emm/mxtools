@@ -16,6 +16,7 @@ import {useSettingsStore} from '@/stores/settings.ts';
 import ApexLobbyFpsPreset from '@/components/game/apex/launch/preset/ApexLobbyFpsPreset.vue';
 import ApexFilter from '@/components/game/apex/launch/ApexFilter.vue';
 import ApexListItemBadges from '@/components/game/apex/common/ApexListItemBadges.vue';
+import ApexCustomLaunchOptions from '@/components/game/apex/launch/ApexCustomLaunchOptions.vue';
 
 const apex_store = useApexStore();
 const settings_store = useSettingsStore();
@@ -206,6 +207,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
 <template>
   <div class="d-flex flex-column h-100 min-height-0">
     <ApexFilter/>
+    <ApexCustomLaunchOptions/>
     <div ref="listWrapRef" class="flex-grow-1 min-height-0" :style="listWrapStyle">
     <v-list
       v-model:selected="apex_store.options_selection"

@@ -53,4 +53,11 @@ describe('Apex page toolbar visual contract', () => {
     expect(utilitySource).toContain('@click="open_config_export"');
     expect(utilitySource).toContain('@click="open_config_import"');
   });
+
+  it('uses a restrained danger hint for every reset action', () => {
+    expect(source.match(/class="apex-restore-action"/g)).toHaveLength(3);
+    expect(source).toMatch(
+      /\.apex-restore-action :deep\(\.v-icon\)\s*\{[^}]*rgba\(var\(--v-theme-error\), 0\.68\)/s,
+    );
+  });
 });

@@ -295,6 +295,7 @@ onMounted(() => {
         <div class="app-page__eyebrow">{{ t('game.eyebrow') }}</div>
         <h1 class="app-page__title optimizer-header__title">
           {{ t('gameOptimizer.title') }}
+          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
         </h1>
         <p class="app-page__subtitle">{{ t('gameOptimizer.subtitle') }}</p>
       </div>

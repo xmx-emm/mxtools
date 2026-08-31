@@ -93,6 +93,7 @@ export interface ToolSearchChild {
   nameKey: string;
   icon?: string;
   iconComponent?: Component;
+  beta?: boolean;
 }
 
 const game_tools: ToolChild[] = [
@@ -102,6 +103,7 @@ const game_tools: ToolChild[] = [
     nameKey: 'nav.gameOptimizer',
     component: GameOptimizerPage,
     icon: 'mdi-speedometer',
+    beta: true,
   },
   {
     path: '/apex',
@@ -163,6 +165,7 @@ const windows_tools: ToolChild[] = [
         name: 'Apex Launch Repair',
         nameKey: 'appRepair.targets.apexLaunch',
         icon: 'mdi-auto-fix',
+        beta: true,
       },
     ],
   },
@@ -230,7 +233,11 @@ const routes = [
   {
     path: '/repair-apex-launch',
     component: ApexLaunchRepairPage,
-    meta: {repairToolTarget: 'apex-launch'},
+    meta: {
+      repairToolTarget: 'apex-launch',
+      beta: true,
+      betaFallback: '/app_repair',
+    },
   },
 
   // 404
@@ -381,18 +388,24 @@ router.beforeEach(async (to, from, next) => {
     child.beta
     && (toPathOnly === child.path || toPathOnly.startsWith(`${child.path}/`))
   )));
-  if (betaToolCategory && !settings.betaFeaturesEnabled) {
-    const rememberedPath = settings.lastToolCategoryChild[betaToolCategory.path]
-      ?.split(/[?#]/)[0];
-    if (rememberedPath === toPathOnly) {
-      const nextCategoryChildren = {...settings.lastToolCategoryChild};
-      delete nextCategoryChildren[betaToolCategory.path];
-      settings.lastToolCategoryChild = nextCategoryChildren;
+  const routeRequiresBeta = to.meta.beta === true;
+  if ((betaToolCategory || routeRequiresBeta) && !settings.betaFeaturesEnabled) {
+    if (betaToolCategory) {
+      const rememberedPath = settings.lastToolCategoryChild[betaToolCategory.path]
+        ?.split(/[?#]/)[0];
+      if (rememberedPath === toPathOnly) {
+        const nextCategoryChildren = {...settings.lastToolCategoryChild};
+        delete nextCategoryChildren[betaToolCategory.path];
+        settings.lastToolCategoryChild = nextCategoryChildren;
+      }
+      if ((settings.lastRoute.split(/[?#]/)[0] ?? '') === toPathOnly) {
+        settings.setLastRoute(betaToolCategory.path);
+      }
     }
-    if ((settings.lastRoute.split(/[?#]/)[0] ?? '') === toPathOnly) {
-      settings.setLastRoute(betaToolCategory.path);
-    }
-    next({path: betaToolCategory.path, replace: true});
+    const betaFallback = typeof to.meta.betaFallback === 'string'
+      ? to.meta.betaFallback
+      : betaToolCategory?.path ?? '/dashboard';
+    next({path: betaFallback, replace: true});
     return;
   }
 

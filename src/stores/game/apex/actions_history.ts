@@ -116,6 +116,7 @@ export const apexHistoryActions = {
         launcher: toApexLauncherRef(account),
       });
       this.options_selection = [];
+      this.custom_launch_options = '';
       this.original_launch_options = '';
       this.launch_loaded_for_key = this.launcher_selection_key;
       this.launch_load_status = 'ready';

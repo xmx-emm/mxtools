@@ -15,7 +15,8 @@ import {
   type WindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
 
-export const DEFAULT_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Z';
+export const DEFAULT_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Shift+Z';
+const LEGACY_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Z';
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
@@ -117,7 +118,8 @@ export const useSettingsStore = defineStore('settings', {
     },
     /** 补齐旧版本持久化中缺失的快捷键字段；顺带丢掉已废弃的全局开关字段 */
     ensureShortcutDefaults() {
-      if (!this.toggleLocaleShortcut) {
+      if (!this.toggleLocaleShortcut
+        || this.toggleLocaleShortcut === LEGACY_TOGGLE_LOCALE_SHORTCUT) {
         this.toggleLocaleShortcut = DEFAULT_TOGGLE_LOCALE_SHORTCUT;
       }
       if (typeof this.toggleLocaleShortcutEnabled !== 'boolean') {

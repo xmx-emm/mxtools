@@ -36,7 +36,7 @@ describe('tool category home visual contract', () => {
     expect(gamePageSource).toContain("{count: gameItems.length}");
   });
 
-  it('keeps Game Checkup public while gating only the independent Razer tool', () => {
+  it('gates Game Checkup and the independent Razer tool behind Beta features', () => {
     expect(gamePageSource).toContain("path: '/razer_polling'");
     expect(routerSource).toContain("path: '/razer_polling'");
 
@@ -71,8 +71,10 @@ describe('tool category home visual contract', () => {
       '];\nconst windows_tools',
     );
 
-    expect(gameOptimizerCard).not.toContain('beta:');
-    expect(gameOptimizerRoute).not.toContain('beta:');
+    expect(gameOptimizerCard).toContain('beta: {');
+    expect(gameOptimizerCard).toContain("label: t('common.beta')");
+    expect(gameOptimizerCard).toContain("hint: t('settings.betaFeaturesHint')");
+    expect(gameOptimizerRoute).toContain('beta: true');
     expect(gameItems.trimEnd()).toMatch(/path: '\/razer_polling'[\s\S]*},$/);
     expect(gameRoutes.trimEnd()).toMatch(/path: '\/razer_polling'[\s\S]*},$/);
     expect(gamePageSource).toContain("import RazerIcon from '@/components/icons/RazerIcon.vue';");
@@ -87,9 +89,8 @@ describe('tool category home visual contract', () => {
     expect(razerRoute).toContain('beta: true');
 
     expect(gamePageSource).toMatch(
-      /\.filter\(item => item\.path !== '\/razer_polling'\s*\|\|\s*settingsStore\.betaFeaturesEnabled\)/s,
+      /\.filter\(item => !item\.beta \|\| settingsStore\.betaFeaturesEnabled\)/s,
     );
-    expect(gamePageSource).not.toContain("item.path !== '/game_optimizer'");
     expect(routerSource).toContain('child.beta');
     expect(routerSource).toContain('!settings.betaFeaturesEnabled');
   });

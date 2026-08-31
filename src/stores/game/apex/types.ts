@@ -52,6 +52,7 @@ export type ApexActions = {
   load_launch_data(options?: {force?: boolean}): Promise<void>;
   reload_launch_page(): Promise<void>;
   parse_loaded_launch_string(start_launch_option: string): void;
+  set_custom_launch_options(value: string): void;
   start_load_apex_launch_options_data(
     expectedKey?: string | null,
     expectedGeneration?: number,

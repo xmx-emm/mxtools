@@ -118,6 +118,12 @@ function prepareQuickPresetGameSettings(
   }
 
   if (!enabledOptions[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]) return;
+  const requiredBindingCommands = ['+zoom', '+forward', '+jump'];
+  if (!requiredBindingCommands.every(command => (
+    store.game_settings_bindings.some(binding => (
+      binding.editable && sameBindingCommand(binding.command, command)
+    ))
+  ))) return;
   clearPresetBindingInput(store, '+toggle_zoom', ['MOUSE2']);
   clearPresetBindingInput(store, '+weaponCycle', ['MWHEELUP', 'MWHEELDOWN']);
   setPresetBindingInput(store, '+zoom', 'MOUSE2', 1);
@@ -217,11 +223,10 @@ export const apexPresetActions = {
       this.original_launch_options = this.launch_options;
       this.launch_loaded_for_key = this.launcher_selection_key;
     }
-    if (Object.keys(this.video_config_values).length === 0) {
+    if (!this.video_config_loaded || this.video_config_load_status !== 'ready') {
       await this.load_apex_video_config();
     }
-    if (this.video_config_load_status !== 'ready'
-      || Object.keys(this.video_config_values).length === 0) {
+    if (this.video_config_load_status !== 'ready') {
       throw new Error('apex.videoConfigLoadFailed');
     }
     if (!this.game_settings_report) {

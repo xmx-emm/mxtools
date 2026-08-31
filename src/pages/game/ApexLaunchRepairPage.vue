@@ -603,7 +603,12 @@ onBeforeUnmount(() => {
               <v-icon v-else :icon="stageIcon" :color="stageColor" size="22" />
             </div>
             <div class="apex-launch-repair-summary__copy">
-              <h1>{{ stageTitle }}</h1>
+              <div class="apex-launch-repair-summary__title">
+                <h1>{{ stageTitle }}</h1>
+                <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">
+                  {{ t('common.beta') }}
+                </span>
+              </div>
               <p>{{ stageSubtitle }}</p>
             </div>
             <div
@@ -1002,6 +1007,13 @@ onBeforeUnmount(() => {
 
 .apex-launch-repair-summary__copy {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+.apex-launch-repair-summary__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
 }
 

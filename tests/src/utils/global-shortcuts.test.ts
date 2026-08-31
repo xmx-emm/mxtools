@@ -3,8 +3,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 const mocks = vi.hoisted(() => ({
   currentWindow: {label: 'main'},
   settings: {
-    resolvedToggleLocaleShortcut: 'Ctrl+Alt+Z',
-    toggleLocaleShortcut: 'Ctrl+Alt+Z',
+    resolvedToggleLocaleShortcut: 'Ctrl+Alt+Shift+Z',
+    toggleLocaleShortcut: 'Ctrl+Alt+Shift+Z',
     toggleLocaleShortcutEnabled: true,
     locale: 'zh-CN',
     ensureShortcutDefaults: vi.fn(),
@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/stores/settings.ts', () => ({
-  DEFAULT_TOGGLE_LOCALE_SHORTCUT: 'Ctrl+Alt+Z',
+  DEFAULT_TOGGLE_LOCALE_SHORTCUT: 'Ctrl+Alt+Shift+Z',
   useSettingsStore: () => mocks.settings,
 }));
 
@@ -61,8 +61,8 @@ describe('locale shortcut cleanup', () => {
     vi.resetModules();
     vi.clearAllMocks();
     mocks.currentWindow.label = 'main';
-    mocks.settings.resolvedToggleLocaleShortcut = 'Ctrl+Alt+Z';
-    mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+Z';
+    mocks.settings.resolvedToggleLocaleShortcut = 'Ctrl+Alt+Shift+Z';
+    mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+Shift+Z';
     mocks.settings.toggleLocaleShortcutEnabled = true;
     mocks.settings.locale = 'zh-CN';
     mocks.keydownHandler = null;
@@ -97,9 +97,11 @@ describe('locale shortcut cleanup', () => {
     const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
     await applyLocaleToggleShortcut();
 
-    expect(mocks.isRegistered).toHaveBeenCalledTimes(1);
+    expect(mocks.isRegistered).toHaveBeenCalledTimes(2);
+    expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+Shift+Z');
     expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+X');
-    expect(mocks.unregister).toHaveBeenCalledTimes(1);
+    expect(mocks.unregister).toHaveBeenCalledTimes(2);
+    expect(mocks.unregister).toHaveBeenCalledWith('Ctrl+Alt+Shift+Z');
     expect(mocks.unregister).toHaveBeenCalledWith('Ctrl+Alt+X');
   });
 
@@ -114,10 +116,11 @@ describe('locale shortcut cleanup', () => {
     const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
     await applyLocaleToggleShortcut();
 
-    expect(mocks.isRegistered).toHaveBeenCalledTimes(2);
+    expect(mocks.isRegistered).toHaveBeenCalledTimes(3);
     expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+Z');
+    expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+Shift+Z');
     expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+X');
-    expect(mocks.unregister).toHaveBeenCalledTimes(2);
+    expect(mocks.unregister).toHaveBeenCalledTimes(3);
   });
 
   it('does not clean global shortcuts from a child WebView', async () => {

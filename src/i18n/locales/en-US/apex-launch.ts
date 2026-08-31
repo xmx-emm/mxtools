@@ -17,6 +17,8 @@ export const apexLaunchMessages = {
       filterAll: 'All',
       filterNormal: 'Common',
       filterSearchPlaceholder: 'Search launch options…',
+      customLaunchOptionsLabel: 'Custom launch options',
+      customLaunchOptionsPlaceholder: '+exec "autoexec.cfg"',
     },
     milesLanguage: {
       name: 'Voice language',

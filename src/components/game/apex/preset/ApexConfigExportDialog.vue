@@ -5,7 +5,12 @@ import {save} from '@tauri-apps/plugin-dialog';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {explorerFolder} from '@/ipc/commands.ts';
-import {apexConfigSnapshotFilename} from '@/utils/game/apex_config_snapshot.ts';
+import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
+import {
+  apexConfigSnapshotFilename,
+  splitApexGameSettingsSnapshot,
+} from '@/utils/game/apex_config_snapshot.ts';
+import {tokenizeApexLaunchOptions} from '@/utils/game/apex_custom_launch_options.ts';
 
 const {t} = useI18n();
 const toast = useToast();
@@ -18,10 +23,59 @@ const include_aiming = ref(true);
 const include_controller = ref(true);
 const include_bindings = ref(true);
 const exporting = ref(false);
+const preview_loading = ref(false);
+const preview_failed = ref(false);
+const preview_snapshot = ref<ApexConfigSnapshot | null>(null);
+let preview_generation = 0;
 
-const can_export = computed(() => include_launch.value || include_video.value
-  || include_game_settings.value || include_aiming.value
-  || include_controller.value || include_bindings.value);
+const preview_groups = computed(() => preview_snapshot.value?.gameSettings
+  ? splitApexGameSettingsSnapshot(preview_snapshot.value.gameSettings)
+  : null);
+const launch_count = computed(() => tokenizeApexLaunchOptions(
+  preview_snapshot.value?.launchOptions?.raw ?? '',
+).filter(token => token.value.startsWith('+') || token.value.startsWith('-')).length);
+const video_count = computed(() => Object.keys(preview_snapshot.value?.videoConfig ?? {}).length);
+const game_settings_count = computed(() => Object.keys(preview_groups.value?.gameSettings.settings ?? {}).length
+  + Object.keys(preview_groups.value?.gameSettings.profile ?? {}).length);
+const aiming_count = computed(() => Object.keys(preview_groups.value?.aiming.settings ?? {}).length
+  + Object.keys(preview_groups.value?.aiming.profile ?? {}).length);
+const controller_count = computed(() => Object.keys(preview_groups.value?.controller.settings ?? {}).length
+  + Object.keys(preview_groups.value?.controller.profile ?? {}).length);
+const bindings_count = computed(() => preview_snapshot.value?.gameSettings?.bindings?.length ?? 0);
+
+const can_export = computed(() => !preview_loading.value && !preview_failed.value && (
+  include_launch.value
+  || (include_video.value && video_count.value > 0)
+  || (include_game_settings.value && game_settings_count.value > 0)
+  || (include_aiming.value && aiming_count.value > 0)
+  || (include_controller.value && controller_count.value > 0)
+  || (include_bindings.value && bindings_count.value > 0)
+));
+
+async function load_export_preview() {
+  const generation = ++preview_generation;
+  preview_loading.value = true;
+  preview_failed.value = false;
+  preview_snapshot.value = null;
+  try {
+    const next = await apex_store.build_config_snapshot({
+      launchOptions: true,
+      videoConfig: true,
+      gameSettings: true,
+      aiming: true,
+      controller: true,
+      bindings: true,
+    });
+    if (generation !== preview_generation) return;
+    preview_snapshot.value = next;
+  } catch (error) {
+    if (generation !== preview_generation) return;
+    console.warn('load apex config export preview failed', error);
+    preview_failed.value = true;
+  } finally {
+    if (generation === preview_generation) preview_loading.value = false;
+  }
+}
 
 watch(
   () => apex_store.config_export_dialog,
@@ -33,11 +87,13 @@ watch(
       include_aiming.value = true;
       include_controller.value = true;
       include_bindings.value = true;
+      void load_export_preview();
     }
   },
 );
 
 function on_close() {
+  preview_generation += 1;
   apex_store.close_config_export_dialog();
 }
 
@@ -93,54 +149,89 @@ async function confirm_export() {
     max-width="420"
     @update:model-value="(v: boolean) => { if (!v) on_close(); }"
   >
-    <v-card :title="t('apex.configSnapshot.exportTitle')">
-      <v-card-text>
-        <p class="text-body-2 text-medium-emphasis mb-3">
+    <v-card class="config-export-card" :title="t('apex.configSnapshot.exportTitle')">
+      <v-card-text class="config-export-body">
+        <p class="config-export-hint">
           {{ t('apex.configSnapshot.exportHint') }}
         </p>
-        <v-alert
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mb-3"
-          :text="t('apex.configSnapshot.machineLocalExcluded')"
-        />
+        <div class="config-export-device-note">
+          <v-icon icon="mdi-information-outline" size="14"/>
+          <span>{{ t('apex.configSnapshot.machineLocalExcluded') }}</span>
+        </div>
+        <div v-if="preview_loading" class="config-export-status">
+          {{ t('apex.configSnapshot.exportPreviewLoading') }}
+        </div>
+        <div v-else-if="preview_failed" class="config-export-status config-export-status-error">
+          {{ t('apex.configSnapshot.exportPreviewFailed') }}
+        </div>
         <v-checkbox
           v-model="include_launch"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockLaunch')"
-        />
+          :disabled="preview_loading || preview_failed"
+        >
+          <template #label>
+            <div class="config-export-option-label">
+              <span>{{ t('apex.configSnapshot.blockLaunch') }}</span>
+              <span>{{ t('apex.configSnapshot.exportItemCount', {count: launch_count}) }}</span>
+            </div>
+          </template>
+        </v-checkbox>
         <v-checkbox
           v-model="include_aiming"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockAiming')"
-        />
+          :disabled="preview_loading || preview_failed || aiming_count === 0"
+        >
+          <template #label><div class="config-export-option-label">
+            <span>{{ t('apex.configSnapshot.blockAiming') }}</span>
+            <span>{{ t('apex.configSnapshot.exportItemCount', {count: aiming_count}) }}</span>
+          </div></template>
+        </v-checkbox>
         <v-checkbox
           v-model="include_controller"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockController')"
-        />
+          :disabled="preview_loading || preview_failed || controller_count === 0"
+        >
+          <template #label><div class="config-export-option-label">
+            <span>{{ t('apex.configSnapshot.blockController') }}</span>
+            <span>{{ t('apex.configSnapshot.exportItemCount', {count: controller_count}) }}</span>
+          </div></template>
+        </v-checkbox>
         <v-checkbox
           v-model="include_game_settings"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockGameSettings')"
-        />
+          :disabled="preview_loading || preview_failed || game_settings_count === 0"
+        >
+          <template #label><div class="config-export-option-label">
+            <span>{{ t('apex.configSnapshot.blockGameSettings') }}</span>
+            <span>{{ t('apex.configSnapshot.exportItemCount', {count: game_settings_count}) }}</span>
+          </div></template>
+        </v-checkbox>
         <v-checkbox
           v-model="include_bindings"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockBindings')"
-        />
+          :disabled="preview_loading || preview_failed || bindings_count === 0"
+        >
+          <template #label><div class="config-export-option-label">
+            <span>{{ t('apex.configSnapshot.blockBindings') }}</span>
+            <span>{{ t('apex.configSnapshot.exportItemCount', {count: bindings_count}) }}</span>
+          </div></template>
+        </v-checkbox>
         <v-checkbox
           v-model="include_video"
           density="compact"
           hide-details
-          :label="t('apex.configSnapshot.blockVideo')"
-        />
+          :disabled="preview_loading || preview_failed || video_count === 0"
+        >
+          <template #label><div class="config-export-option-label">
+            <span>{{ t('apex.configSnapshot.blockVideo') }}</span>
+            <span>{{ t('apex.configSnapshot.exportItemCount', {count: video_count}) }}</span>
+          </div></template>
+        </v-checkbox>
       </v-card-text>
       <v-card-actions>
         <v-spacer/>
@@ -159,3 +250,76 @@ async function confirm_export() {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.config-export-card :deep(.v-card-title) {
+  font-size: 16px;
+  font-weight: 660;
+}
+
+.config-export-body {
+  padding-top: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.76);
+}
+
+.config-export-hint {
+  margin: 0 0 10px;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.config-export-device-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  background: rgba(var(--v-theme-on-surface), 0.035);
+  border-left: 2px solid rgba(var(--v-theme-primary), 0.42);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.config-export-device-note :deep(.v-icon) {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: rgba(var(--v-theme-primary), 0.58);
+}
+
+.config-export-body :deep(.v-checkbox) {
+  color: rgba(var(--v-theme-on-surface), 0.8);
+}
+
+.config-export-body :deep(.v-checkbox .v-label) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.config-export-option-label {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.config-export-option-label span:last-child {
+  flex: 0 0 auto;
+  color: rgba(var(--v-theme-on-surface), 0.46);
+  font-size: 10.5px;
+}
+
+.config-export-status {
+  padding: 9px 4px;
+  color: rgba(var(--v-theme-on-surface), 0.52);
+  font-size: 11px;
+}
+
+.config-export-status-error {
+  color: rgb(var(--v-theme-error));
+}
+</style>

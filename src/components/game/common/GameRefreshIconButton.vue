@@ -57,7 +57,6 @@ const iconClass = computed(() => ({
     class="mx-compact-icon-button"
     icon
     size="small"
-    variant="text"
     :title="title"
     :aria-label="title"
     :aria-busy="loading || undefined"

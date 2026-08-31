@@ -17,6 +17,8 @@ export const apexLaunchMessages = {
       filterAll: '全部',
       filterNormal: '常用',
       filterSearchPlaceholder: '搜索启动项…',
+      customLaunchOptionsLabel: '自定义启动项',
+      customLaunchOptionsPlaceholder: '+exec "autoexec.cfg"',
     },
     milesLanguage: {
       name: '配音',

@@ -20,6 +20,7 @@ import {
   openRepairToolWindow,
   type RepairToolTarget,
 } from '@/utils/windows.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
 
 type RepairPhase = 'idle' | 'scanning' | 'results' | 'repairing' | 'success';
 type UiCheckStatus = AppRepairCheckStatus | 'pending' | 'checking';
@@ -42,6 +43,7 @@ interface CatalogItem {
   icon: string;
   nameKey: string;
   descriptionKey: string;
+  beta?: boolean;
 }
 
 interface CatalogGroup {
@@ -54,6 +56,7 @@ interface CatalogGroup {
 const {t, te} = useI18n();
 const route = useRoute();
 const toast = useToast();
+const settingsStore = useSettingsStore();
 const openingTarget = ref<RepairToolTarget | null>(null);
 const iconRepairPhase = ref<IconRepairPhase>('idle');
 let operationGeneration = 0;
@@ -69,6 +72,7 @@ const catalogGroups: readonly CatalogGroup[] = [
         icon: 'mdi-auto-fix',
         nameKey: 'appRepair.targets.apexLaunch',
         descriptionKey: 'appRepair.catalog.apexLaunchDescription',
+        beta: true,
       },
     ],
   },
@@ -111,6 +115,13 @@ const catalogGroups: readonly CatalogGroup[] = [
     ],
   },
 ];
+
+const visibleCatalogGroups = computed(() => catalogGroups
+  .map(group => ({
+    ...group,
+    items: group.items.filter(item => !item.beta || settingsStore.betaFeaturesEnabled),
+  }))
+  .filter(group => group.items.length > 0));
 
 const targets: Record<AppRepairTarget, TargetDefinition> = {
   store: {
@@ -434,7 +445,7 @@ async function repairIconCache() {
     <div class="app-page__scroll">
       <main class="app-page__content repair-catalog-content app-reveal">
         <section
-          v-for="group in catalogGroups"
+          v-for="group in visibleCatalogGroups"
           :key="group.id"
           class="repair-catalog-group"
           :aria-labelledby="`repair-catalog-group-${group.id}`"
@@ -468,8 +479,15 @@ async function repairIconCache() {
                 <v-icon v-else :icon="item.icon" size="31" />
               </span>
               <span class="repair-catalog-item__copy">
-                <strong>{{ t(item.nameKey) }}</strong>
-                <span>{{ t(item.descriptionKey) }}</span>
+                <span class="repair-catalog-item__title">
+                  <strong>{{ t(item.nameKey) }}</strong>
+                  <span
+                    v-if="item.beta"
+                    class="mx-beta-badge"
+                    :title="t('settings.betaFeaturesHint')"
+                  >{{ t('common.beta') }}</span>
+                </span>
+                <span class="repair-catalog-item__description">{{ t(item.descriptionKey) }}</span>
               </span>
               <v-icon
                 class="repair-catalog-item__arrow"
@@ -830,6 +848,13 @@ async function repairIconCache() {
   min-width: 0;
 }
 
+.repair-catalog-item__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .repair-catalog-item__copy strong {
   color: rgba(var(--v-theme-on-surface), 0.92);
   font-size: 13px;
@@ -837,7 +862,7 @@ async function repairIconCache() {
   line-height: 1.4;
 }
 
-.repair-catalog-item__copy span {
+.repair-catalog-item__description {
   max-width: 720px;
   margin-top: 4px;
   color: rgba(var(--v-theme-on-surface), 0.64);

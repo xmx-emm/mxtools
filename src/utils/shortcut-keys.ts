@@ -111,9 +111,9 @@ function isValidAccelerator(accelerator: string, requireModifier: boolean): bool
   return true;
 }
 
-/** 应用内快捷键：需包含修饰键，避免与普通按键冲突。 */
+/** 应用内快捷键：窗口聚焦时生效，允许单个普通按键。 */
 export function isValidAppAccelerator(accelerator: string): boolean {
-  return isValidAccelerator(accelerator, true);
+  return isValidAccelerator(accelerator, false);
 }
 
 /** 全局快捷键：必须带 Ctrl / Alt / Shift 修饰键。 */

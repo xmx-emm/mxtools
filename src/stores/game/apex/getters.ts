@@ -38,6 +38,7 @@ export const apexGetters: ApexGetters = {
     return buildApexLaunchOptionsString({
       options_selection: state.options_selection,
       settings_config: state.settings_config,
+      custom_launch_options: state.custom_launch_options,
       lobby_max_fps: state.lobby_max_fps,
       width: state.width,
       height: state.height,

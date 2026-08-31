@@ -4,6 +4,7 @@ import type {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 export type ApexLaunchBuildInput = {
   options_selection: SteamLaunchOptionsImpl[];
   settings_config: Record<string, string>;
+  custom_launch_options?: string;
   lobby_max_fps: number;
   width: number;
   height: number;
@@ -20,6 +21,7 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
   const {
     options_selection,
     settings_config,
+    custom_launch_options,
     lobby_max_fps,
     width,
     height,
@@ -86,5 +88,7 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
       }
     }
   });
+  const custom = custom_launch_options?.trim();
+  if (custom) items.push(custom);
   return items.join(' ');
 }

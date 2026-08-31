@@ -20,6 +20,10 @@ const gameItems = computed(() => ([
     title: t('game.optimizerTitle'),
     description: t('game.optimizerDescription'),
     action: t('game.openTool'),
+    beta: {
+      label: t('common.beta'),
+      hint: t('settings.betaFeaturesHint'),
+    },
     icon: 'mdi-speedometer',
     features: [
       t('game.optimizerFeatureScan'),
@@ -65,7 +69,7 @@ const gameItems = computed(() => ([
       t('game.razerPollingFeatureVerified'),
     ],
   },
-].filter(item => item.path !== '/razer_polling' || settingsStore.betaFeaturesEnabled)));
+].filter(item => !item.beta || settingsStore.betaFeaturesEnabled)));
 
 const gameGuides = computed(() => [
   {title: t('game.guideAccount'), description: t('game.guideAccountDesc'), icon: 'mdi-account-check'},

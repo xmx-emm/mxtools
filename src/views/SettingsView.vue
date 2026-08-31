@@ -101,6 +101,12 @@ function onToggleLocaleShortcut(value: string) {
   if (!value) toast.info(t('settings.shortcutResetDefault'));
 }
 
+function resetToggleLocaleShortcut() {
+  settingsStore.setToggleLocaleShortcut(DEFAULT_TOGGLE_LOCALE_SHORTCUT);
+  void applyLocaleToggleShortcut();
+  toast.info(t('settings.shortcutResetDefault'));
+}
+
 function onToggleLocaleEnabled(v: boolean | null) {
   settingsStore.setToggleLocaleShortcutEnabled(v);
 }
@@ -158,7 +164,7 @@ function onShortcutCaptureError(reason: 'invalid' | 'empty', scope: 'app' | 'ape
   if (reason !== 'invalid') return;
   toast.warning(scope === 'apexQ'
     ? t('settings.shortcutApexQInvalid')
-    : t('settings.shortcutNeedModifier'));
+    : t('settings.shortcutInvalid'));
 }
 
 async function focusTabAt(index: number) {
@@ -388,13 +394,24 @@ onUnmounted(() => {
                   <span>{{ t('settings.shortcutAppOnlyHint') }}</span>
                 </div>
                 <span class="scope-badge">{{ t('settings.shortcutApp') }}</span>
-                <ShortcutInput
-                  scope="app"
-                  :disabled="!settingsStore.toggleLocaleShortcutEnabled"
-                  :model-value="settingsStore.resolvedToggleLocaleShortcut"
-                  @update:model-value="onToggleLocaleShortcut"
-                  @capture-error="onShortcutCaptureError($event, 'app')"
-                />
+                <div class="shortcut-editor-actions">
+                  <ShortcutInput
+                    scope="app"
+                    :disabled="!settingsStore.toggleLocaleShortcutEnabled"
+                    :model-value="settingsStore.resolvedToggleLocaleShortcut"
+                    @update:model-value="onToggleLocaleShortcut"
+                    @capture-error="onShortcutCaptureError($event, 'app')"
+                  />
+                  <v-btn
+                    class="mx-compact-icon-button shortcut-reset-button"
+                    icon="mdi-restore"
+                    variant="text"
+                    :title="t('settings.shortcutRestoreDefault')"
+                    :aria-label="t('settings.shortcutRestoreDefault')"
+                    :disabled="settingsStore.resolvedToggleLocaleShortcut === DEFAULT_TOGGLE_LOCALE_SHORTCUT"
+                    @click="resetToggleLocaleShortcut"
+                  />
+                </div>
               </article>
               <article v-if="settingsStore.betaFeaturesEnabled" class="shortcut-row">
                 <v-switch
@@ -582,6 +599,13 @@ onUnmounted(() => {
   font-weight: 680;
 }
 .scope-badge--global { color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.09); }
+.shortcut-editor-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+.shortcut-reset-button { color: rgba(var(--v-theme-on-surface), 0.62); }
 .about-actions { display: flex; flex-wrap: wrap; gap: 9px; padding: 2px 18px 18px 63px; }
 @keyframes settings-panel-in {
   from {

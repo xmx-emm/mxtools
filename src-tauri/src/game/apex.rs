@@ -60,6 +60,10 @@ pub(crate) fn apex_video_config_path() -> Result<PathBuf, String> {
 }
 
 pub(crate) fn read_video_config_sync() -> Result<HashMap<String, String>, String> {
+    let path = get_apex_videoconfig_path()?;
+    if !path.is_file() {
+        return Ok(HashMap::new());
+    }
     let (_, values) = read_apex_videoconfig()?;
     Ok(values
         .into_iter()
