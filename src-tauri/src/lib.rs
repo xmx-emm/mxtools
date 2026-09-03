@@ -3,6 +3,7 @@ mod app_repair;
 mod background_coordinator;
 mod background_runtime;
 mod backups;
+mod cef_debug;
 mod elevated;
 mod folder_sharing;
 mod game;
@@ -59,6 +60,13 @@ use crate::game::apex::{
 use crate::game::apex_history::{
     list_apex_config_history, mutate_apex_config, reset_apex_to_game_defaults,
     restore_apex_config_history,
+};
+use crate::game::apex_language_download::{
+    cancel_apex_language_download, get_apex_language_download_state, start_apex_language_download,
+};
+use crate::game::apex_language_download_ea::{
+    cancel_apex_language_download_ea, get_apex_language_download_state_ea,
+    start_apex_language_download_ea,
 };
 use crate::game::apex_launch_repair::{
     diagnose_apex_launch_repair_check, repair_apex_launch_issues,
@@ -369,6 +377,12 @@ pub fn run() {
             open_apex_depot_download_folder_path,
             apex_is_running,
             thoroughly_kill_apex,
+            start_apex_language_download,
+            cancel_apex_language_download,
+            get_apex_language_download_state,
+            start_apex_language_download_ea,
+            cancel_apex_language_download_ea,
+            get_apex_language_download_state_ea,
             apex_q_ocr_available,
             apex_q_ocr_status,
             apex_q_ocr_download,

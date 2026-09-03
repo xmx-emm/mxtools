@@ -256,6 +256,47 @@ pub async fn set_apex_launch_option(
 下载位置 C:\Program Files (x86)\Steam\steamapps\content\app_1172470\depot_1172475\audio\ship
 替换位置 D:\SteamLibrary\steamapps\common\Apex Legends\audio
  */
+
+/// 语音包复制主体逻辑；`apply_apex_miles_language` 与一键下载完成后共用。
+pub(crate) fn copy_miles_language_to_game(
+    depot: usize,
+    platform: Option<&str>,
+    ea_user_id: Option<&str>,
+) -> Result<(), String> {
+    if platform
+        .map(|p| p.eq_ignore_ascii_case("ea"))
+        .unwrap_or(false)
+    {
+        return Err("apex.errors.eaMilesDepotUnsupported".to_string());
+    }
+    let apex_audio_path = get_apex_audio_folder_path_by_platform(platform, ea_user_id)
+        .ok_or("toast.milesLanguageNotFound")?;
+    let download_folder = get_apex_download_folder_path_by_platform(depot, platform, ea_user_id)
+        .ok_or(format!("toast.milesLanguageNotFound: {}", depot))?;
+
+    if !apex_audio_path.exists() {
+        return Err(format!(
+            "toast.milesLanguageNotFound: {:?}",
+            apex_audio_path
+        ));
+    }
+    if !download_folder.exists() {
+        return Err(format!(
+            "toast.milesLanguageNotFound: {:?}",
+            download_folder
+        ));
+    }
+
+    log_info!(
+        "{} -> {}",
+        download_folder.display(),
+        apex_audio_path.display()
+    );
+
+    copy_dir_all(&download_folder, &apex_audio_path)
+        .map_err(|e| format!("apex.errors.applyMilesCopyFailed: {}", e))
+}
+
 #[tauri::command]
 pub async fn apply_apex_miles_language(
     depot: usize,
@@ -263,44 +304,7 @@ pub async fn apply_apex_miles_language(
     ea_user_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
-        if platform
-            .as_deref()
-            .map(|p| p.eq_ignore_ascii_case("ea"))
-            .unwrap_or(false)
-        {
-            return Err("apex.errors.eaMilesDepotUnsupported".to_string());
-        }
-        let apex_audio_path =
-            get_apex_audio_folder_path_by_platform(platform.as_deref(), ea_user_id.as_deref())
-                .ok_or("toast.milesLanguageNotFound")?;
-        let download_folder = get_apex_download_folder_path_by_platform(
-            depot,
-            platform.as_deref(),
-            ea_user_id.as_deref(),
-        )
-        .ok_or(format!("toast.milesLanguageNotFound: {}", depot))?;
-
-        if !apex_audio_path.exists() {
-            return Err(format!(
-                "toast.milesLanguageNotFound: {:?}",
-                apex_audio_path
-            ));
-        }
-        if !download_folder.exists() {
-            return Err(format!(
-                "toast.milesLanguageNotFound: {:?}",
-                download_folder
-            ));
-        }
-
-        log_info!(
-            "{} -> {}",
-            download_folder.display(),
-            apex_audio_path.display()
-        );
-
-        copy_dir_all(&download_folder, &apex_audio_path)
-            .map_err(|e| format!("apex.errors.applyMilesCopyFailed: {}", e))
+        copy_miles_language_to_game(depot, platform.as_deref(), ea_user_id.as_deref())
     })
     .await
     .map_err(apex_error)
