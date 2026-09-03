@@ -1,4 +1,5 @@
 pub mod apex;
+pub mod apex_defaults;
 pub mod apex_history;
 pub mod apex_launch_repair;
 pub mod apex_q;

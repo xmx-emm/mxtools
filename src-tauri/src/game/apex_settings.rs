@@ -11,7 +11,9 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use windows_tool::game::apex::config::{decode_bytes, ApexCfgDocument, ApexCfgLine};
+use windows_tool::game::apex::config::{
+    decode_bytes, ApexCfgDocument, ApexCfgLine, ApexFileEncoding,
+};
 use windows_tool::game::apex::{
     apex_is_running_by_tasklist, get_apex_config_path, ApexConfigFileKind,
 };
@@ -60,6 +62,7 @@ enum ValueRule {
 pub struct ApexSettingsFileReport {
     pub path: String,
     pub revision: String,
+    pub exists: bool,
     pub values: HashMap<String, String>,
     pub unknown_keys: Vec<String>,
     pub backup_available: bool,
@@ -98,6 +101,11 @@ pub enum ApexBindingMutation {
     Create {
         #[serde(rename = "templateId")]
         template_id: String,
+        input: String,
+        context: i32,
+    },
+    CreateCommand {
+        command: String,
         input: String,
         context: i32,
     },
@@ -412,6 +420,7 @@ fn report_for(file: ConfigFile, loaded: &LoadedFile) -> ApexSettingsFileReport {
     ApexSettingsFileReport {
         path: loaded.path.to_string_lossy().into_owned(),
         revision: loaded.revision.clone(),
+        exists: loaded.path.is_file(),
         values,
         unknown_keys,
         backup_available: backup_path(&loaded.path).is_file(),
@@ -437,13 +446,23 @@ fn parse_binding(line: &str) -> Option<ParsedBinding> {
             let context = rest[cursor..].trim().parse::<i32>().ok()?;
             return Some(ParsedBinding {
                 kind: kind.to_string(),
-                input: quoted[0].clone(),
+                input: normalize_loaded_binding_input(&quoted[0]),
                 command: quoted[1].clone(),
                 context,
             });
         }
     }
     None
+}
+
+/// Apex stores the bracket keys as a doubled token in some generated configs.
+/// Keep the frontend and mutation model on the canonical single-key value.
+fn normalize_loaded_binding_input(input: &str) -> String {
+    match input {
+        "[[" => "[".to_string(),
+        "]]" => "]".to_string(),
+        _ => input.to_string(),
+    }
 }
 
 fn editable_binding(command: &str, input: &str) -> bool {
@@ -756,6 +775,7 @@ fn apply_binding_mutations(
     let mut updates: HashMap<String, String> = HashMap::new();
     let mut deletions: HashSet<String> = HashSet::new();
     let mut creations: Vec<(&BindingGroup, String, i32)> = Vec::new();
+    let mut command_creations: Vec<ApexBinding> = Vec::new();
     let mut mutated_ids: HashSet<String> = HashSet::new();
 
     for mutation in mutations {
@@ -820,6 +840,37 @@ fn apply_binding_mutations(
                 }
                 creations.push((template, normalized, *context));
             }
+            ApexBindingMutation::CreateCommand {
+                command,
+                input,
+                context,
+            } => {
+                if !matches!(*context, 0 | 1) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.invalidBindingContext: {context}"
+                    ));
+                }
+                let normalized = normalize_binding_input(input);
+                if !valid_binding_input(&normalized) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.invalidBinding: {normalized}"
+                    ));
+                }
+                if !editable_binding(command, &normalized) {
+                    return Err(format!(
+                        "apex.gameSettings.errors.bindingNotEditable: {command}"
+                    ));
+                }
+                command_creations.push(ApexBinding {
+                    id: format!("binding:command:{}", command_creations.len()),
+                    input: normalized,
+                    command: command.clone(),
+                    context: *context,
+                    held_command: None,
+                    editable: true,
+                    occurrence: 0,
+                });
+            }
         }
     }
     let mut final_bindings: Vec<ApexBinding> = groups
@@ -840,11 +891,14 @@ fn apply_binding_mutations(
         binding.context = *context;
         final_bindings.push(binding);
     }
+    final_bindings.extend(command_creations.iter().cloned());
 
     let mut final_inputs: HashMap<String, String> = HashMap::new();
     let mut action_counts: HashMap<String, usize> = HashMap::new();
-    let mut action_contexts: HashMap<String, HashSet<i32>> = HashMap::new();
-    let mut has_duplicate_context = false;
+    // 同一动作同一上下文的重复只应在本次变更新建/修改时才算冲突;
+    // 游戏默认文件本身就带合法的同命令同上下文键位(如 ESCAPE+START 都开菜单),
+    // 不能把它们误判为冲突。
+    let mut action_contexts: HashMap<String, Vec<(i32, bool)>> = HashMap::new();
     for binding in &final_bindings {
         if let Some(existing) =
             final_inputs.insert(binding.input.to_ascii_uppercase(), binding.id.clone())
@@ -865,18 +919,29 @@ fn apply_binding_mutations(
             }
             let action_key = binding_action_key(binding);
             *action_counts.entry(action_key.clone()).or_default() += 1;
-            if !action_contexts
+            let is_new_or_modified = updates.contains_key(&binding.id)
+                || binding.id.starts_with("binding:new:")
+                || binding.id.starts_with("binding:command:");
+            action_contexts
                 .entry(action_key)
                 .or_default()
-                .insert(binding.context)
-            {
-                has_duplicate_context = true;
-            }
+                .push((binding.context, is_new_or_modified));
         }
     }
     if action_counts.values().any(|count| *count > 2) {
         return Err("apex.gameSettings.errors.bindingSlotLimit".to_string());
     }
+    let has_duplicate_context = action_contexts.values().any(|contexts| {
+        let mut counts: HashMap<i32, (usize, bool)> = HashMap::new();
+        for (context, is_new) in contexts {
+            let entry = counts.entry(*context).or_insert((0, false));
+            entry.0 += 1;
+            entry.1 |= *is_new;
+        }
+        counts
+            .values()
+            .any(|(count, any_new)| *count > 1 && *any_new)
+    });
     if has_duplicate_context {
         return Err("apex.gameSettings.errors.duplicateBindingContext".to_string());
     }
@@ -916,6 +981,17 @@ fn apply_binding_mutations(
                 };
                 next_lines.push(ApexCfgLine::Raw(replace_binding_input(raw, input)?));
             } else {
+                // Repair doubled bracket tokens even when the user did not edit
+                // that particular slot, so the next write leaves a canonical cfg.
+                if let ApexCfgLine::Raw(raw) = line {
+                    if let Some(parsed) = parse_binding(raw) {
+                        if raw.contains("\"[[\"") || raw.contains("\"]]\"") {
+                            next_lines
+                                .push(ApexCfgLine::Raw(replace_binding_input(raw, &parsed.input)?));
+                            continue;
+                        }
+                    }
+                }
                 next_lines.push(line.clone());
             }
         }
@@ -925,7 +1001,63 @@ fn apply_binding_mutations(
             }
         }
     }
+    for binding in command_creations {
+        next_lines.push(ApexCfgLine::Raw(format!(
+            "bind_US_standard \"{}\" \"{}\" {}",
+            binding.input, binding.command, binding.context
+        )));
+    }
     doc.lines = next_lines;
+    Ok(())
+}
+
+fn doc_has_game_generated_binding(doc: &ApexCfgDocument) -> bool {
+    binding_groups(doc).iter().any(|group| {
+        !matches!(
+            group.public.command.to_ascii_lowercase().as_str(),
+            "+zoom" | "+toggle_zoom" | "+forward" | "+jump"
+        )
+    })
+}
+
+/// settings.cfg 缺失或不完整时,从内置默认模板初始化出完整默认键位。
+/// 绑定不会被游戏补齐,模板带当前构建的完整默认绑定集(见 apex_defaults)。
+/// 返回是否执行了初始化。
+fn is_old_incomplete_binding_bootstrap(doc: &ApexCfgDocument) -> bool {
+    let bindings = binding_groups(doc);
+    bindings.len() == 3
+        && [
+            ("MOUSE2", "+zoom", 0),
+            ("MWHEELUP", "+forward", 1),
+            ("MWHEELDOWN", "+jump", 1),
+        ]
+        .into_iter()
+        .all(|(input, command, context)| {
+            bindings.iter().any(|group| {
+                group.public.input.eq_ignore_ascii_case(input)
+                    && group.public.command.eq_ignore_ascii_case(command)
+                    && group.public.context == context
+            })
+        })
+}
+
+fn init_settings_doc_from_default(doc: &mut ApexCfgDocument) -> Result<bool, String> {
+    if !binding_groups(doc).is_empty() && !is_old_incomplete_binding_bootstrap(doc) {
+        return Ok(false);
+    }
+    let (content, _encoding) =
+        decode_bytes(crate::game::apex_defaults::APEX_DEFAULT_SETTINGS_CFG.as_bytes())?;
+    *doc = ApexCfgDocument::from_content(&content, ApexFileEncoding::Utf8)?;
+    Ok(true)
+}
+
+fn ensure_binding_baseline(
+    doc: &ApexCfgDocument,
+    mutations: &[ApexBindingMutation],
+) -> Result<(), String> {
+    if !mutations.is_empty() && !doc_has_game_generated_binding(doc) {
+        return Err("apexQuickPreset.bindingSettingsMissing".to_string());
+    }
     Ok(())
 }
 
@@ -1063,6 +1195,9 @@ fn verify_updates(
     path: &Path,
     values: &HashMap<String, String>,
 ) -> Result<(), String> {
+    if values.is_empty() {
+        return Ok(());
+    }
     let bytes = fs::read(path)
         .map_err(|error| format!("apex.gameSettings.errors.verifyFailed: {error}"))?;
     let (content, encoding) = decode_bytes(&bytes)?;
@@ -1182,6 +1317,12 @@ fn apply_request_inner(
     {
         return Err("apex.gameSettings.errors.fileChanged".to_string());
     }
+    // settings.cfg 缺失/不完整且要改绑定时,先从默认模板初始化出完整键位,
+    // 再应用变更(修复"只有我们添加的快捷键"的问题);初始化的写入计入历史。
+    if !request.binding_mutations.is_empty() {
+        init_settings_doc_from_default(&mut settings.doc)?;
+    }
+    ensure_binding_baseline(&settings.doc, &request.binding_mutations)?;
     apply_value_updates(
         ConfigFile::Settings,
         &mut settings.doc,
@@ -1474,6 +1615,30 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_doubled_bracket_binding_for_display_and_writes_single_bracket() {
+        let mut doc = ApexCfgDocument::from_content(
+            "bind_US_standard \"[[\" \"in_spec_toggle_freecam\" 0\n",
+            ApexFileEncoding::Utf8,
+        )
+        .unwrap();
+        let groups = binding_groups(&doc);
+        assert_eq!(groups[0].public.input, "[");
+
+        apply_binding_mutations(
+            &mut doc,
+            &[ApexBindingMutation::Update {
+                id: groups[0].public.id.clone(),
+                input: "[".into(),
+            }],
+        )
+        .unwrap();
+        assert!(doc
+            .to_string()
+            .contains("bind_US_standard \"[\" \"in_spec_toggle_freecam\" 0"));
+        assert!(!doc.to_string().contains("bind_US_standard \"[[\""));
+    }
+
+    #[test]
     fn validates_only_whitelisted_values() {
         assert!(validate_value(ConfigFile::Settings, "m_acceleration", "0").is_ok());
         assert!(validate_value(ConfigFile::Settings, "m_acceleration", "2").is_err());
@@ -1701,6 +1866,59 @@ mod tests {
     }
 
     #[test]
+    fn quick_preset_full_rebind_does_not_conflict_on_the_default_template() {
+        // 复现:重置写入默认模板后,快速预设重绑 MOUSE2/滚轮不应报绑定冲突。
+        // 模板含游戏默认的同命令同上下文联袂(ESCAPE+START=ingamemenu_activate、
+        // F6+F8=miles_insert_bug_marker),校验不得把它们误判为冲突。
+        let mut doc = ApexCfgDocument::from_content(
+            crate::game::apex_defaults::APEX_DEFAULT_SETTINGS_CFG,
+            ApexFileEncoding::Utf8,
+        )
+        .unwrap();
+        let groups = binding_groups(&doc);
+        let find_id = |input: &str, command: &str| {
+            groups
+                .iter()
+                .find(|group| group.public.input == input && group.public.command == command)
+                .unwrap_or_else(|| panic!("default template has {input} {command}"))
+                .public
+                .id
+                .clone()
+        };
+        let mouse2 = find_id("MOUSE2", "+toggle_zoom");
+        let wheel_up = find_id("MWHEELUP", "+weaponcycle");
+        let wheel_down = find_id("MWHEELDOWN", "+weaponcycle");
+        let forward = find_id("w", "+forward");
+        let jump = find_id("SPACE", "+jump");
+        apply_binding_mutations(
+            &mut doc,
+            &[
+                ApexBindingMutation::Delete { id: mouse2.clone() },
+                ApexBindingMutation::Delete { id: wheel_up },
+                ApexBindingMutation::Delete { id: wheel_down },
+                ApexBindingMutation::Create {
+                    template_id: mouse2,
+                    input: "MOUSE2".into(),
+                    context: 0,
+                },
+                ApexBindingMutation::Create {
+                    template_id: forward,
+                    input: "MWHEELUP".into(),
+                    context: 1,
+                },
+                ApexBindingMutation::Create {
+                    template_id: jump,
+                    input: "MWHEELDOWN".into(),
+                    context: 1,
+                },
+            ],
+        )
+        .unwrap();
+        let output = doc.to_string();
+        assert_eq!(output.matches("MOUSE2").count(), 1);
+    }
+
+    #[test]
     fn rejects_a_third_slot_for_the_same_action() {
         let mut doc = sample();
         apply_binding_mutations(
@@ -1762,4 +1980,9 @@ mod tests {
         assert!(!report.profile.values.is_empty());
         assert!(!report.bindings.is_empty());
     }
+
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/apex_quick_preset_binding_bootstrap.rs"
+    ));
 }

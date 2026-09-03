@@ -1,4 +1,4 @@
-use crate::game::{apex, apex_settings, ea_desktop};
+use crate::game::{apex, apex_defaults, apex_settings, ea_desktop};
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::blocking_cmd;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -866,6 +866,21 @@ fn remove_config_file(path: &Path) -> Result<(), String> {
     fs::remove_file(path).map_err(|error| error.to_string())
 }
 
+/// 写入默认配置模板(覆盖现有文件或新建)。settings.cfg / profile.cfg /
+/// videoconfig.txt 都直接写内置默认值;videoconfig 的分辨率由调用方按机器当前值填入。
+fn write_default_config(path: &Path, content: &str) -> Result<(), String> {
+    if path.exists() {
+        clear_readonly(path)?;
+    }
+    atomic_write(path, content.as_bytes())?;
+    let mut permissions = fs::metadata(path)
+        .map_err(|error| error.to_string())?
+        .permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
+    permissions.set_readonly(false);
+    fs::set_permissions(path, permissions).map_err(|error| error.to_string())
+}
+
 fn restore_file(file: &StoredFile, target: &Path) -> Result<(), String> {
     let bytes = verified_bytes(file)?;
     if !file.existed {
@@ -915,9 +930,19 @@ fn reset_impl(
     )?;
     let result = (|| -> Result<(), String> {
         write_launch(&launcher, "")?;
-        remove_config_file(&video_path)?;
-        remove_config_file(&settings_path)?;
-        remove_config_file(&profile_path)?;
+        let video_bytes = if video.existed {
+            verified_bytes(&video).ok()
+        } else {
+            None
+        };
+        let (width, height) =
+            apex_defaults::resolution_from_videoconfig_bytes(video_bytes.as_deref().unwrap_or(&[]));
+        write_default_config(
+            &video_path,
+            &apex_defaults::build_default_videoconfig(width, height),
+        )?;
+        write_default_config(&settings_path, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
+        write_default_config(&profile_path, apex_defaults::APEX_DEFAULT_PROFILE_CFG)?;
         Ok(())
     })();
     if let Err(error) = result {
@@ -954,7 +979,7 @@ fn reset_impl(
     let _ = prune_locked(&dir);
     Ok(ApexResetResult {
         history_entry: entry,
-        pending_scopes: vec![ApexConfigScope::Video, ApexConfigScope::GameSettings],
+        pending_scopes: Vec::new(),
     })
 }
 
