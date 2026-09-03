@@ -139,7 +139,7 @@ pub fn list_local_shares() -> Result<Vec<LocalShare>, FolderSharingError> {
         }
     }
 
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|item| item.name.to_lowercase());
     Ok(result)
 }
 
@@ -190,7 +190,7 @@ pub fn list_remote_shares(server: &str) -> Result<Vec<RemoteShare>, FolderSharin
         }
     }
 
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|item| item.name.to_lowercase());
     Ok(result)
 }
 
@@ -317,7 +317,7 @@ pub fn discover_network_devices() -> Result<Vec<NetworkDevice>, FolderSharingErr
     }
 
     let mut result: Vec<_> = devices.into_values().collect();
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|item| item.name.to_lowercase());
     Ok(result)
 }
 

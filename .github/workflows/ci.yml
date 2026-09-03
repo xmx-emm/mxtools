@@ -27,6 +27,7 @@ jobs:
           if-no-files-found: warn
 
   # Cargo path dep expects ../../../rust/windows_tool from src-tauri.
+  # Cargo.lock does not pin path dependencies, so keep the mirror revision explicit.
   rust-backend:
     runs-on: windows-latest
     steps:
@@ -36,6 +37,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: xmx-emm/windows_tool
+          ref: 5695e89d2a5e23475787c9df5ef5c58ba71e3205
           path: rust/windows_tool
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo fmt --check

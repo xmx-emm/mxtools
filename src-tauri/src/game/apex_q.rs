@@ -85,7 +85,7 @@ fn list_images_by_mtime(dir: &Path) -> Result<Vec<(std::time::SystemTime, PathBu
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
         items.push((modified, path));
     }
-    items.sort_by(|a, b| b.0.cmp(&a.0));
+    items.sort_by_key(|item| std::cmp::Reverse(item.0));
     Ok(items)
 }
 

@@ -115,7 +115,10 @@ noncommercial mirrors and public modified versions are allowed.
   currently behind this gate; gated tools are removed from navigation,
   dashboard, command search, category indexes, shortcuts, tray entries, and
   direct main-window routes as applicable.
-- GitHub Actions release gates are defined in `.github/workflows/ci.yml`.
+- GitHub Actions release gates are defined in `.github/workflows/ci.yml`. The
+  Rust job pins the GitHub mirror revision of the external `windows_tool` path
+  dependency because `Cargo.lock` does not record a Git revision for path
+  packages; dependency upgrades must sync that mirror and advance the pin.
 - The proposed, not-yet-implemented online updater design is documented in
   `docs/TAURI_ONLINE_UPDATE_PLAN.md`; it keeps GitHub as the authoritative
   release source and requires explicit runtime fallback rather than treating
