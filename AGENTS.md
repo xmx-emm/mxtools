@@ -12,6 +12,16 @@ When architecture, dependencies, build behavior, or durable workflow knowledge
 changes, refresh `PROJECT_CONTEXT.md` in the same task. Before a commit, ensure
 the context describes the committed tree and include it when changed.
 
+## State and cross-window communication
+
+- Do not use Web Storage (`localStorage` or `sessionStorage`) anywhere in the
+  project, including inline HTML and public scripts.
+- Persist frontend state through Pinia stores backed by `@tauri-store/pinia`.
+- Send transient cross-window updates through Tauri events or native IPC; do
+  not use a persistence layer as a message bus.
+- Code that runs before Pinia starts must use deterministic defaults, system
+  preferences, URL parameters, or an explicit native bootstrap command.
+
 ## Response output
 
 - Do not output transaction records, synthetic baseline/modified/rollback
