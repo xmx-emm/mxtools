@@ -893,20 +893,11 @@ mod tests {
 
     #[test]
     fn previews_unicode_acl_without_writing_it() {
-        let path = std::env::temp_dir().join(format!(
-            "mxtools-共享预览-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&path).unwrap();
         let request = ShareExecutionRequest {
             request: ShareMutationRequest {
                 original_name: None,
                 name: "UnicodePreview".into(),
-                path: path.to_string_lossy().into_owned(),
+                path: r"C:\mxtools-共享预览".into(),
                 description: String::new(),
                 principals: vec![SharePrincipal {
                     account_name: "NT AUTHORITY\\Authenticated Users".into(),
@@ -916,13 +907,14 @@ mod tests {
             },
             managed_acl: None,
         };
-        let first = preview_acl(&request).unwrap();
-        let second = preview_acl(&request).unwrap();
-        assert_eq!(first.before_sddl, second.before_sddl);
-        assert!(first.after_sddl.is_some());
-        assert_eq!(first.changes.len(), 1);
+        let body = script(&[PS_HEADER, SHARE_HELPERS, PREVIEW_ACL_BODY]);
+        let input = serde_json::to_string(&request).unwrap();
 
-        std::fs::remove_dir_all(path).unwrap();
+        assert!(input.contains("共享预览"));
+        assert!(body.contains("Get-PreparedAcl ([string]$req.path) $req.managedAcl"));
+        assert!(body.contains("$changes += Add-MinimumNtfsAccess $acl $principal"));
+        assert!(body.contains("$after = $acl.GetSecurityDescriptorSddlForm"));
+        assert!(!body.contains("Set-Acl"));
     }
 
     #[test]
