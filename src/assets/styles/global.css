@@ -26,6 +26,14 @@
   --app-page-max-width: 1080px;
   --app-page-padding-x: clamp(20px, 3vw, 36px);
   --app-page-padding-y: 24px;
+  --mx-toast-warning-bg: #a64b0a;
+  --mx-toast-warning-fg: #fff7ed;
+  --mx-toast-warning-edge: #fdba74;
+  --mx-toast-warning-progress: rgba(255, 247, 237, 0.58);
+  --mx-toast-info-bg: #93c5fd;
+  --mx-toast-info-fg: #172554;
+  --mx-toast-info-edge: #2563eb;
+  --mx-toast-info-progress: rgba(23, 37, 84, 0.34);
 }
 
 html,
@@ -593,6 +601,34 @@ body .Vue-Toastification__close-button {
   padding: 0 0 0 8px;
   font-size: 16px;
   line-height: 1.2;
+}
+
+/* Toastification defaults pair saturated yellow/blue surfaces with white text.
+   Use a quieter orange warning and a pale-blue info surface with explicit
+   foregrounds so compact 13 px notifications stay readable in both themes. */
+body .Vue-Toastification__toast--warning {
+  border-inline-start: 3px solid var(--mx-toast-warning-edge);
+  background-color: var(--mx-toast-warning-bg);
+  color: var(--mx-toast-warning-fg);
+}
+
+body .Vue-Toastification__toast--info {
+  border-inline-start: 3px solid var(--mx-toast-info-edge);
+  background-color: var(--mx-toast-info-bg);
+  color: var(--mx-toast-info-fg);
+}
+
+body .Vue-Toastification__toast--warning .Vue-Toastification__close-button,
+body .Vue-Toastification__toast--info .Vue-Toastification__close-button {
+  color: currentColor;
+}
+
+body .Vue-Toastification__toast--warning .Vue-Toastification__progress-bar {
+  background-color: var(--mx-toast-warning-progress);
+}
+
+body .Vue-Toastification__toast--info .Vue-Toastification__progress-bar {
+  background-color: var(--mx-toast-info-progress);
 }
 
 /* 窄窗口(如各修复工具独立窗)沿用库的整宽通知，避免固定宽度溢出。 */
