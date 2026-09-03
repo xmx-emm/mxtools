@@ -34,6 +34,14 @@ describe('ApexGameSettings visual contract', () => {
     expect(source).toContain('tabindex="0"');
   });
 
+  it('animates rows when switching or filtering setting sections', () => {
+    expect(source).toContain('<TransitionGroup');
+    expect(source).toContain('name="apex-settings-filter-list"');
+    expect(source).toContain('.apex-settings-filter-list-move,');
+    expect(source).toContain('opacity var(--app-motion-base) var(--app-ease-standard)');
+    expect(source).toContain(':key="`empty:${section}`"');
+  });
+
   it('moves appended controls below content at narrow widths without clipping enum or unknown values', () => {
     expect(source).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.v-list-item__append\)[\s\S]*?grid-row: 2/);
     expect(source).toMatch(/\.setting-enum-scroll\s*\{\s*max-width: 100%/);

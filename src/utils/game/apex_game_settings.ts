@@ -13,6 +13,23 @@ function fieldOwnsStorageKey(field: ApexGameSettingDefinition, key: string): boo
     || field.writeKeys?.includes(key) === true;
 }
 
+/** Translate a stored binary toggle into its game-menu checked state. */
+export function isApexGameSettingToggleEnabled(
+  field: ApexGameSettingDefinition,
+  value: string,
+): boolean {
+  return field.invertToggle ? value === '0' : value === '1';
+}
+
+/** Translate a game-menu toggle selection into the value written to config. */
+export function apexGameSettingToggleStorageValue(
+  field: ApexGameSettingDefinition,
+  enabled: boolean | null,
+): string {
+  if (field.invertToggle) return enabled ? '0' : '1';
+  return enabled ? '1' : '0';
+}
+
 export function matchingApexGameSettingOptionValue(
   field: ApexGameSettingDefinition,
   value: string,

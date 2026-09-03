@@ -466,6 +466,12 @@ const maxMemDisplayProxy = computed({
   align-items: center;
 }
 
+:deep(.v-expand-transition-enter-active),
+:deep(.v-expand-transition-leave-active) {
+  transition-duration: var(--app-motion-base);
+  transition-timing-function: var(--app-ease-standard);
+}
+
 .launch-option-expand-body :deep(.game-page-segmented-toggle) {
   width: max-content;
   max-width: 100%;

@@ -14,7 +14,9 @@ import type {
   ApexGameSettingsSection,
 } from '@/types/apex_game_settings.ts';
 import {
+  apexGameSettingToggleStorageValue,
   findApexBindingConflict,
+  isApexGameSettingToggleEnabled,
   matchingApexGameSettingOptionValue,
 } from '@/utils/game/apex_game_settings.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
@@ -404,6 +406,11 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
     </div>
 
     <v-list class="settings-list flex-grow-1 min-height-0" lines="two">
+      <TransitionGroup
+        name="apex-settings-filter-list"
+        tag="div"
+        class="apex-settings-filter-list"
+      >
       <template v-if="section !== 'bindings' && section !== 'unknown'">
         <v-list-item
           v-for="field in visibleFields"
@@ -446,7 +453,7 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
               />
               <v-switch
                 v-else-if="field.control === 'toggle'"
-                :model-value="valueFor(field) === '1'"
+                :model-value="isApexGameSettingToggleEnabled(field, valueFor(field))"
                 density="compact"
                 color="primary"
                 hide-details
@@ -454,7 +461,7 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
                 class="mx-compact-switch"
                 :disabled="isDisabled(field)"
                 :aria-label="t(field.labelKey)"
-                @update:model-value="setValue(field, $event ? '1' : '0')"
+                @update:model-value="setValue(field, apexGameSettingToggleStorageValue(field, $event))"
               />
               <div v-else-if="field.control === 'enum'" class="setting-enum-scroll">
                 <v-btn-toggle
@@ -561,10 +568,12 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
 
       <div
         v-if="(section === 'bindings' ? visibleBindingActions.length : section === 'unknown' ? unknownEntries.length : visibleFields.length) === 0"
+        :key="`empty:${section}`"
         class="empty-state text-medium-emphasis"
       >
         {{ t('apexGameSettings.empty') }}
       </div>
+      </TransitionGroup>
     </v-list>
   </div>
 </template>
@@ -667,6 +676,20 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
 .settings-sections :deep(.v-btn:active) { transform: scale(0.98); }
 .settings-search { flex: 0 1 240px; min-width: 150px; }
 .settings-list { overflow-y: auto; padding: 2px 0 0; }
+.apex-settings-filter-list { position: relative; min-height: 100%; }
+.apex-settings-filter-list-move,
+.apex-settings-filter-list-enter-active,
+.apex-settings-filter-list-leave-active {
+  transition:
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-standard);
+}
+.apex-settings-filter-list-enter-from,
+.apex-settings-filter-list-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.apex-settings-filter-list-leave-active { position: absolute; width: 100%; }
 .setting-row {
   border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
   transition: background-color var(--app-motion-fast) var(--app-ease-standard);

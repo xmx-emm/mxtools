@@ -6,7 +6,9 @@ import {
   apexBindingFromKeyboardCode,
   apexBindingFromMouseButton,
   apexBindingFromWheelDelta,
+  apexGameSettingToggleStorageValue,
   findApexBindingConflict,
+  isApexGameSettingToggleEnabled,
   isValidApexGameSettingValue,
   validateApexGameSettingsCatalog,
 } from '@/utils/game/apex_game_settings.ts';
@@ -128,6 +130,18 @@ describe('Apex game settings catalog', () => {
     expect(keys).toContain('gamepad_aim_speed_ads_0');
     expect(keys).not.toContain('sound_num_speakers');
     expect(keys).not.toContain('hud_setting_showMeter');
+  });
+});
+
+describe('Apex inverted toggle settings', () => {
+  it('maps ability FOV scaling between its positive menu state and inverted stored key', () => {
+    const field = ApexGameSettingsData.find(({id}) => id === 'abilityFovScaling');
+    expect(field).toBeDefined();
+    expect(field?.invertToggle).toBe(true);
+    expect(isApexGameSettingToggleEnabled(field!, '0')).toBe(true);
+    expect(isApexGameSettingToggleEnabled(field!, '1')).toBe(false);
+    expect(apexGameSettingToggleStorageValue(field!, true)).toBe('0');
+    expect(apexGameSettingToggleStorageValue(field!, false)).toBe('1');
   });
 });
 

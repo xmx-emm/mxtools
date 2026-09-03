@@ -310,8 +310,10 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     ],
   },
 
-  // 纹理质量：stream_memory + mat_picmip + dynamic_streaming_budget 联动
-  // 无 / 很低 / 低 / 中 / 高 / 很高 / 超高
+  // 纹理串流预算：stream_memory + mat_picmip + dynamic_streaming_budget 联动
+  // 当前构建(R5pc_r5-300_J57)游戏菜单为 7 档:无/很低/低/中/高/很高/超高;
+  // 标签带官方 VRAM 注释。另实测到第二条取值阶梯(高/很高/超高 =
+  // 800000/1500000/2500000),用途未定,详见 docs/CHANGELOG.md。
   {
     identifier: 'group.textureQuality',
     name: 'apexVideoConfig.textureQuality.name',
@@ -325,11 +327,11 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         outOfPreset: true
       },
       {
-        label: 'apexVideoConfig.options.none',
+        label: 'apexVideoConfig.options.texNone',
         values: { 'setting.stream_memory': '0', 'setting.mat_picmip': '2', 'setting.dynamic_streaming_budget': '0' }
       },
       {
-        label: 'apexVideoConfig.options.veryLow',
+        label: 'apexVideoConfig.options.texVeryLow',
         values: {
           'setting.stream_memory': '160000',
           'setting.mat_picmip': '1',
@@ -337,7 +339,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         }
       },
       {
-        label: 'apexVideoConfig.options.low',
+        label: 'apexVideoConfig.options.texLow',
         values: {
           'setting.stream_memory': '300000',
           'setting.mat_picmip': '0',
@@ -345,7 +347,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         }
       },
       {
-        label: 'apexVideoConfig.options.medium',
+        label: 'apexVideoConfig.options.texMedium',
         values: {
           'setting.stream_memory': '600000',
           'setting.mat_picmip': '0',
@@ -353,7 +355,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         }
       },
       {
-        label: 'apexVideoConfig.options.high',
+        label: 'apexVideoConfig.options.texHigh',
         values: {
           'setting.stream_memory': '1000000',
           'setting.mat_picmip': '0',
@@ -361,22 +363,20 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         }
       },
       {
-        label: 'apexVideoConfig.options.veryHigh',
+        label: 'apexVideoConfig.options.texVeryHigh',
         values: {
           'setting.stream_memory': '2000000',
           'setting.mat_picmip': '0',
           'setting.dynamic_streaming_budget': '1'
-        },
-        outOfPreset: true
+        }
       },
       {
-        label: 'apexVideoConfig.options.ultra',
+        label: 'apexVideoConfig.options.texUltra',
         values: {
           'setting.stream_memory': '3000000',
           'setting.mat_picmip': '0',
           'setting.dynamic_streaming_budget': '1'
-        },
-        outOfPreset: true
+        }
       },
     ],
     fields: [

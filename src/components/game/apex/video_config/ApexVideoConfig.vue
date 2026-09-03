@@ -280,7 +280,17 @@ onBeforeUnmount(() => {
       class="rounded-0 apex-options-list flex-grow-1 min-height-0"
       style="overflow-y: auto"
     >
-      <template v-for="item in displayedVideoConfig" :key="isApexVideoConfigImpl(item) ? item.identifier : item">
+      <TransitionGroup
+        name="apex-video-filter-list"
+        tag="div"
+        class="apex-video-filter-list"
+      >
+      <div
+        v-for="item in displayedVideoConfig"
+        :key="isApexVideoConfigImpl(item) ? item.identifier : item"
+        class="apex-video-filter-entry"
+        :class="{'apex-video-category-entry': !isApexVideoConfigImpl(item)}"
+      >
         <template v-if="isApexVideoConfigImpl(item)">
           <div class="apex-list-item-wrap" :title="item.tip ? t('apexLaunchOptions.ui.rightClickTip') : undefined">
           <v-list-item
@@ -471,7 +481,8 @@ onBeforeUnmount(() => {
             </div>
           </v-list-subheader>
         </template>
-      </template>
+      </div>
+      </TransitionGroup>
     </v-list>
     <ApexVideoConfigLockFab/>
   </div>
@@ -605,10 +616,41 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
-.apex-category {
+.apex-video-filter-list {
+  position: relative;
+  min-height: 100%;
+}
+
+.apex-video-filter-entry {
+  width: 100%;
+}
+
+.apex-video-filter-list-move,
+.apex-video-filter-list-enter-active,
+.apex-video-filter-list-leave-active {
+  transition:
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-standard);
+}
+
+.apex-video-filter-list-enter-from,
+.apex-video-filter-list-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.apex-video-filter-list-leave-active {
+  position: absolute;
+}
+
+.apex-video-category-entry {
   position: sticky;
   top: 0;
   z-index: 6;
+  background: rgb(var(--v-theme-surface));
+}
+
+.apex-category {
   min-height: 30px;
   background: rgb(var(--v-theme-surface));
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);

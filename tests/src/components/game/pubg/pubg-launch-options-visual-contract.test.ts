@@ -22,6 +22,14 @@ describe('PUBG launch options visual contract', () => {
     expect(source).toContain('class="game-page-segmented-toggle"');
   });
 
+  it('keeps launch-option expansion on the shared motion timing', () => {
+    expect(source).toContain('<v-expand-transition>');
+    expect(source).toMatch(
+      /\.v-expand-transition-enter-active\)[\s\S]*?transition-duration: var\(--app-motion-base\)/,
+    );
+    expect(source).toContain('transition-timing-function: var(--app-ease-standard);');
+  });
+
   it('uses semantic primary state and labels icon-only actions', () => {
     expect(source).not.toContain('color: #4caf50');
     expect(source).toContain('color: rgb(var(--v-theme-primary));');

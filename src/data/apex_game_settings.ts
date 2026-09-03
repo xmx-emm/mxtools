@@ -129,7 +129,12 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
     options: describedOptions('tutorialSystem', ['0', 'off'], ['1', 'automatic'], ['2', 'on']),
   }),
   bool('crossPlay', 'profile', 'CrossPlay_user_optin', 'gameplay'),
-  bool('abilityFovScaling', 'profile', 'fov_disableAbilityScaling', 'gameplay'),
+  // 存储键为反向语义(1=禁用缩放),游戏菜单为正向开关「视野技能缩放」,
+  // 展示方向与游戏菜单对齐:开启=启用缩放(写入 0)。
+  field('abilityFovScaling', 'profile', 'fov_disableAbilityScaling', 'gameplay', 'toggle', {
+    options: boolOptions,
+    invertToggle: true,
+  }),
   field('viewShake', 'profile', 'sprint_view_shake_style', 'gameplay', 'number', {min: 0, max: 1, step: 0.1}),
   bool('nvidiaLowLatency', 'settings', 'gfx_nvnUseLowLatency', 'gameplay'),
   bool('nvidiaLowLatencyBoost', 'settings', 'gfx_nvnUseLowLatencyBoost', 'gameplay'),
