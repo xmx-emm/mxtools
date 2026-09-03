@@ -1051,6 +1051,210 @@ fn init_settings_doc_from_default(doc: &mut ApexCfgDocument) -> Result<bool, Str
     Ok(true)
 }
 
+fn equivalent_binding_command(left: &str, right: &str) -> bool {
+    left.eq_ignore_ascii_case(right)
+        || (left.eq_ignore_ascii_case("+zoom") && right.eq_ignore_ascii_case("+toggle_zoom"))
+        || (left.eq_ignore_ascii_case("+toggle_zoom") && right.eq_ignore_ascii_case("+zoom"))
+}
+
+fn find_default_binding_template<'a>(
+    groups: &'a [BindingGroup],
+    source: &ApexBinding,
+) -> Option<&'a BindingGroup> {
+    groups.iter().find(|group| {
+        group.public.editable
+            && equivalent_binding_command(&group.public.command, &source.command)
+            && group
+                .public
+                .held_command
+                .as_deref()
+                .unwrap_or_default()
+                .eq_ignore_ascii_case(source.held_command.as_deref().unwrap_or_default())
+    })
+}
+
+fn find_default_binding_for_delete<'a>(
+    groups: &'a [BindingGroup],
+    source: &ApexBinding,
+) -> Option<&'a BindingGroup> {
+    groups
+        .iter()
+        .find(|group| {
+            group.public.editable && group.public.input.eq_ignore_ascii_case(&source.input)
+        })
+        .or_else(|| find_default_binding_template(groups, source))
+}
+
+fn rebase_binding_mutations_after_default_init(
+    doc: &ApexCfgDocument,
+    source_doc: &ApexCfgDocument,
+    mutations: &[ApexBindingMutation],
+) -> Result<Vec<ApexBindingMutation>, String> {
+    let groups = binding_groups(doc);
+    let source_groups = binding_groups(source_doc);
+    let source_by_id: HashMap<&str, &BindingGroup> = source_groups
+        .iter()
+        .map(|group| (group.public.id.as_str(), group))
+        .collect();
+    let default_by_id: HashMap<&str, &BindingGroup> = groups
+        .iter()
+        .map(|group| (group.public.id.as_str(), group))
+        .collect();
+    let mut rebased = Vec::with_capacity(mutations.len());
+    let mut replacement_inputs = HashSet::new();
+
+    for mutation in mutations {
+        match mutation {
+            ApexBindingMutation::CreateCommand {
+                command,
+                input,
+                context,
+            } => {
+                let normalized = normalize_binding_input(input);
+                replacement_inputs.insert(normalized.clone());
+                rebased.push(ApexBindingMutation::CreateCommand {
+                    command: command.clone(),
+                    input: normalized,
+                    context: *context,
+                });
+            }
+            ApexBindingMutation::Delete { id } => {
+                if let Some(source) = source_by_id.get(id.as_str()) {
+                    let template = find_default_binding_for_delete(&groups, &source.public)
+                        .ok_or_else(|| {
+                            format!("apex.gameSettings.errors.bindingTemplateMissing: {id}")
+                        })?;
+                    rebased.push(ApexBindingMutation::Delete {
+                        id: template.public.id.clone(),
+                    });
+                } else if default_by_id.contains_key(id.as_str()) {
+                    rebased.push(mutation.clone());
+                } else {
+                    return Err(format!("apex.gameSettings.errors.bindingMissing: {id}"));
+                }
+            }
+            ApexBindingMutation::Update { id, input } => {
+                if let Some(source) = source_by_id.get(id.as_str()) {
+                    let normalized = normalize_binding_input(input);
+                    replacement_inputs.insert(normalized.clone());
+                    if let Some(template) = find_default_binding_template(&groups, &source.public) {
+                        if template
+                            .public
+                            .command
+                            .eq_ignore_ascii_case(&source.public.command)
+                        {
+                            rebased.push(ApexBindingMutation::Update {
+                                id: template.public.id.clone(),
+                                input: normalized,
+                            });
+                        } else {
+                            rebased.push(ApexBindingMutation::CreateCommand {
+                                command: source.public.command.clone(),
+                                input: normalized,
+                                context: source.public.context,
+                            });
+                        }
+                    } else {
+                        rebased.push(ApexBindingMutation::CreateCommand {
+                            command: source.public.command.clone(),
+                            input: normalized,
+                            context: source.public.context,
+                        });
+                    }
+                } else if default_by_id.contains_key(id.as_str()) {
+                    rebased.push(mutation.clone());
+                } else {
+                    return Err(format!("apex.gameSettings.errors.bindingMissing: {id}"));
+                }
+            }
+            ApexBindingMutation::Create {
+                template_id,
+                input,
+                context,
+            } => {
+                let normalized = normalize_binding_input(input);
+                if let Some(source) = source_by_id.get(template_id.as_str()) {
+                    if !source.public.editable {
+                        return Err(format!(
+                            "apex.gameSettings.errors.bindingNotEditable: {template_id}"
+                        ));
+                    }
+                    replacement_inputs.insert(normalized.clone());
+                    if let Some(template) = find_default_binding_template(&groups, &source.public) {
+                        if template
+                            .public
+                            .command
+                            .eq_ignore_ascii_case(&source.public.command)
+                        {
+                            rebased.push(ApexBindingMutation::Create {
+                                template_id: template.public.id.clone(),
+                                input: normalized,
+                                context: *context,
+                            });
+                        } else {
+                            rebased.push(ApexBindingMutation::CreateCommand {
+                                command: source.public.command.clone(),
+                                input: normalized,
+                                context: *context,
+                            });
+                        }
+                    } else {
+                        rebased.push(ApexBindingMutation::CreateCommand {
+                            command: source.public.command.clone(),
+                            input: normalized,
+                            context: *context,
+                        });
+                    }
+                } else if default_by_id.contains_key(template_id.as_str()) {
+                    replacement_inputs.insert(normalized.clone());
+                    rebased.push(ApexBindingMutation::Create {
+                        template_id: template_id.clone(),
+                        input: normalized,
+                        context: *context,
+                    });
+                } else {
+                    return Err(format!(
+                        "apex.gameSettings.errors.bindingTemplateMissing: {template_id}"
+                    ));
+                }
+            }
+        }
+    }
+
+    if replacement_inputs.is_empty() {
+        return Ok(rebased);
+    }
+
+    let explicit_deletes: HashSet<&str> = rebased
+        .iter()
+        .filter_map(|mutation| match mutation {
+            ApexBindingMutation::Delete { id } => Some(id.as_str()),
+            _ => None,
+        })
+        .collect();
+    let protected_updates: HashSet<&str> = rebased
+        .iter()
+        .filter_map(|mutation| match mutation {
+            ApexBindingMutation::Update { id, .. } => Some(id.as_str()),
+            _ => None,
+        })
+        .collect();
+    let mut deletions = groups
+        .iter()
+        .filter(|group| {
+            group.public.editable
+                && replacement_inputs.contains(&normalize_binding_input(&group.public.input))
+                && !explicit_deletes.contains(group.public.id.as_str())
+                && !protected_updates.contains(group.public.id.as_str())
+        })
+        .map(|group| ApexBindingMutation::Delete {
+            id: group.public.id.clone(),
+        })
+        .collect::<Vec<_>>();
+    deletions.extend(rebased);
+    Ok(deletions)
+}
+
 fn ensure_binding_baseline(
     doc: &ApexCfgDocument,
     mutations: &[ApexBindingMutation],
@@ -1319,10 +1523,19 @@ fn apply_request_inner(
     }
     // settings.cfg 缺失/不完整且要改绑定时,先从默认模板初始化出完整键位,
     // 再应用变更(修复"只有我们添加的快捷键"的问题);初始化的写入计入历史。
-    if !request.binding_mutations.is_empty() {
-        init_settings_doc_from_default(&mut settings.doc)?;
-    }
-    ensure_binding_baseline(&settings.doc, &request.binding_mutations)?;
+    let source_settings_doc = settings.doc.clone();
+    let binding_mutations = if !request.binding_mutations.is_empty()
+        && init_settings_doc_from_default(&mut settings.doc)?
+    {
+        rebase_binding_mutations_after_default_init(
+            &settings.doc,
+            &source_settings_doc,
+            &request.binding_mutations,
+        )?
+    } else {
+        request.binding_mutations.clone()
+    };
+    ensure_binding_baseline(&settings.doc, &binding_mutations)?;
     apply_value_updates(
         ConfigFile::Settings,
         &mut settings.doc,
@@ -1333,7 +1546,7 @@ fn apply_request_inner(
         &mut profile.doc,
         &request.profile_updates,
     )?;
-    apply_binding_mutations(&mut settings.doc, &request.binding_mutations)?;
+    apply_binding_mutations(&mut settings.doc, &binding_mutations)?;
 
     let settings_changed =
         !request.settings_updates.is_empty() || !request.binding_mutations.is_empty();
@@ -1916,6 +2129,53 @@ mod tests {
         .unwrap();
         let output = doc.to_string();
         assert_eq!(output.matches("MOUSE2").count(), 1);
+    }
+
+    #[test]
+    fn rebases_missing_config_quick_preset_bindings_on_the_default_template() {
+        let mut doc = ApexCfgDocument::new();
+        let mutations = [
+            ApexBindingMutation::CreateCommand {
+                command: "+zoom".into(),
+                input: "MOUSE2".into(),
+                context: 0,
+            },
+            ApexBindingMutation::CreateCommand {
+                command: "+forward".into(),
+                input: "MWHEELUP".into(),
+                context: 1,
+            },
+            ApexBindingMutation::CreateCommand {
+                command: "+jump".into(),
+                input: "MWHEELDOWN".into(),
+                context: 1,
+            },
+        ];
+
+        assert!(init_settings_doc_from_default(&mut doc).unwrap());
+        let mutations =
+            rebase_binding_mutations_after_default_init(&doc, &ApexCfgDocument::new(), &mutations)
+                .unwrap();
+        apply_binding_mutations(&mut doc, &mutations).unwrap();
+
+        let groups = binding_groups(&doc);
+        assert_eq!(
+            groups
+                .iter()
+                .filter(|group| group.public.input == "MOUSE2")
+                .count(),
+            1
+        );
+        assert!(groups.iter().any(|group| {
+            group.public.input == "MWHEELUP"
+                && group.public.command == "+forward"
+                && group.public.context == 1
+        }));
+        assert!(groups.iter().any(|group| {
+            group.public.input == "MWHEELDOWN"
+                && group.public.command == "+jump"
+                && group.public.context == 1
+        }));
     }
 
     #[test]

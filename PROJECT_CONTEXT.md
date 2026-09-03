@@ -77,11 +77,15 @@ noncommercial mirrors and public modified versions are allowed.
   default template (`src-tauri/src/game/apex_defaults.rs`, verified against the
   current game build) before applying binding mutations, so a
   partial or absent file gains the complete default binding set; the
-  initialization is recorded in the same history transaction. With a valid
-  baseline, bindings apply in two explicit phases: remove selected target
-  inputs, duplicate physical inputs, and duplicate action/context slots, then
-  create the new bindings from an existing template or an allowlisted direct
-  command. Mutation order therefore contains all deletes before creates.
+  initialization is recorded in the same history transaction. Mutations that
+  were drafted against an empty or legacy three-binding document are rebased
+  onto the new template by action/held-command identity, with `+zoom` and
+  `+toggle_zoom` treated as equivalent; direct command mutations retain their
+  requested command. With a valid baseline, bindings apply in two explicit
+  phases: remove selected target inputs, duplicate physical inputs, and
+  duplicate action/context slots, then create the new bindings from an
+  existing template or an allowlisted direct command. Mutation order
+  therefore contains all deletes before creates.
 - Apex startup repair is Beta-gated and runs in the independent
   `/repair-apex-launch` WebView; `src-tauri/src/game/apex_launch_repair.rs`
   owns install discovery, log classification, the action allowlist, the repair
