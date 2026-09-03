@@ -57,10 +57,12 @@ const MILES_LANGUAGES = new Set([
 
 const MILES_CHANNELS = new Set(['2', '4', '6', '8']);
 const WINDOW_FLAGS = new Set(['-fullscreen', '-window', '-windowed', '-noborder']);
-const GRAPHICS_API_FLAGS = new Set([
-  '-anticheat_settings=SettingsDX11.json',
-  '-anticheat_settings=SettingsDX12.json',
-]);
+// 已从当前游戏构建(R5pc_r5-300_J57,2026-08)实测确认失效、不再受管的 token:
+// -anticheat_settings=SettingsDX11/12.json(DX11 已移除)、-freq、-forcenovsync、
+// +cl_ragdoll_collide、-limitvsconst、+m_rawinput、-noforcemaccel/mspd/mparms、
+// +cl_forcepreload、-preload、+mat_queue_mode、-allow_thrid_party_software。
+// 它们出现在旧启动串时会留在自定义输入框,由用户自行清理。
+// 核实记录见 docs/CHANGELOG.md。
 const RETICLE_VALUES = new Set([
   '2147483648 2147483648 2147483648',
   '2147483648-2147483648-2147483648',
@@ -318,7 +320,6 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
 
   const windowFlag = takeFirstFlag(tokens, WINDOW_FLAGS, claimed, protectedIndices);
   if (windowFlag) read.window = windowFlag === '-windowed' ? '-window' : windowFlag;
-  takeFirstFlag(tokens, GRAPHICS_API_FLAGS, claimed, protectedIndices);
 
   const widthMatch = findValue(tokens, '-width', isInteger, claimed, protectedIndices);
   const heightMatch = findValue(tokens, '-height', isInteger, claimed, protectedIndices);
@@ -364,20 +365,12 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
     protectedIndices,
   );
   const fpsMax = findValue(tokens, '+fps_max', isInteger, claimed, protectedIndices);
-  const frequency = findValue(tokens, '-freq', isInteger, claimed, protectedIndices);
   if (unlimited) {
     claimMatch(claimed, unlimited);
     read.fps = {unlimited: true};
   } else if (fpsMax?.value !== undefined) {
     claimMatch(claimed, fpsMax);
-    const fpsValue = Number(fpsMax.value);
-    if (frequency?.value !== undefined && Number(frequency.value) === fpsValue) {
-      claimMatch(claimed, frequency);
-    }
-    read.fps = {unlimited: false, value: fpsValue};
-  } else if (frequency?.value !== undefined) {
-    claimMatch(claimed, frequency);
-    read.fps = {unlimited: false, value: Number(frequency.value)};
+    read.fps = {unlimited: false, value: Number(fpsMax.value)};
   }
 
   takeValue(
@@ -420,16 +413,7 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
     protectedIndices,
   );
   takeFlag(tokens, '-no_render_on_input_thread', claimed, protectedIndices);
-  takeFlag(tokens, '-forcenovsync', claimed, protectedIndices);
   takeFlag(tokens, '-nojoy', claimed, protectedIndices);
-  takeValue(
-    tokens,
-    '+cl_ragdoll_collide',
-    candidate => candidate === '0',
-    claimed,
-    protectedIndices,
-  );
-  takeFlag(tokens, '-limitvsconst', claimed, protectedIndices);
   takeValue(
     tokens,
     '+cl_is_softened_locale',
@@ -437,26 +421,6 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
     claimed,
     protectedIndices,
   );
-
-  takeValue(
-    tokens,
-    '+m_rawinput',
-    candidate => candidate === '1',
-    claimed,
-    protectedIndices,
-  );
-  takeFlag(tokens, '-noforcemaccel', claimed, protectedIndices);
-  takeFlag(tokens, '-noforcemspd', claimed, protectedIndices);
-  takeFlag(tokens, '-noforcemparms', claimed, protectedIndices);
-
-  takeValue(
-    tokens,
-    '+cl_forcepreload',
-    candidate => candidate === '1',
-    claimed,
-    protectedIndices,
-  );
-  takeFlag(tokens, '-preload', claimed, protectedIndices);
 
   read.customLaunchOptions = renderCustomOptions(value, tokens, claimed);
   return read;

@@ -95,7 +95,8 @@ export function parseApexLaunchOptionsString(start_launch_option: string): Parse
           settingsPatch.fps = '+fps_max unlimited';
         } else {
           fps = read.fps.value;
-          settingsPatch.fps = '-freq X +fps_max X';
+          // -freq 已从当前游戏构建删除,锁帧只写 +fps_max
+          settingsPatch.fps = '+fps_max X';
         }
       }
       continue;

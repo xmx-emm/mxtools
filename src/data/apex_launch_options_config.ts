@@ -34,9 +34,6 @@ const ApexInputLatencyTip = defineAsyncComponent(() =>
 const ApexForcedResolutionTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexForcedResolutionTip.vue'),
 );
-const ApexInputMouseTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexInputMouseTip.vue'),
-);
 const ApexLobbyFpsTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexLobbyFpsTip.vue'),
 );
@@ -49,42 +46,19 @@ const ApexAltTabMinimizeTip = defineAsyncComponent(() =>
 const ApexReticleColorTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexReticleColorTip.vue'),
 );
-const ApexForceNoVSyncTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexForceNoVSyncTip.vue'),
-);
 const ApexNoJoyTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexNoJoyTip.vue'),
-);
-const ApexMatQueueModeTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexMatQueueModeTip.vue'),
-);
-const ApexRagdollCollideTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexRagdollCollideTip.vue'),
-);
-const ApexDX12Tip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexDX12Tip.vue'),
-);
-const ApexLimitvsConstTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexLimitvsConstTip.vue'),
 );
 const ApexMilesChannelsTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexMilesChannelsTip.vue'),
 );
-const ApexForcePreloadTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/launch/tips/ApexForcePreloadTip.vue'),
-);
 
-// -allow_thrid_party_software 这个参数好像没用?
-
-export const MatQueueMode = { //这个启动项已经没用了?
-  name: 'apexLaunchOptions.matQueueMode.name',
-  identifier: 'mat_queue_mode',
-  parameter: '+mat_queue_mode 2',
-  description: 'apexLaunchOptions.matQueueMode.description',
-  hide_in_normal_filter: true,
-  is_new: true,
-  tip: ApexMatQueueModeTip,
-};
+// 以下启动项已从当前游戏构建(R5pc_r5-300_J57,2026-08)实测确认失效,不再收录:
+// +m_rawinput / -noforcemaccel / -noforcemspd / -noforcemparms(原始输入已恒为开)
+// -forcenovsync、+cl_ragdoll_collide、-limitvsconst、+cl_forcepreload / -preload、
+// +mat_queue_mode、-allow_thrid_party_software、-freq
+// -anticheat_settings=SettingsDX11/12.json(DX11 已移除,EAC 仅余 Settings.json)
+// 逐项核实记录见 docs/CHANGELOG.md。
 
 const ApexMilesLanguages = {
   name: 'apexLaunchOptions.milesLanguage.name',
@@ -188,31 +162,6 @@ const ForcedResolution = {
   requirement: ['-fullscreen'],
   tip: ApexForcedResolutionTip,
 };
-const InputMouse = {
-  name: 'apexLaunchOptions.inputMouse.name',
-  description: 'apexLaunchOptions.inputMouse.description',
-  identifier: 'input_mouse',
-  is_combination_parameters: true,
-  parameters: [
-    {
-      name: 'apexLaunchOptions.inputMouse.rawInput',
-      parameter: '+m_rawinput 1'
-    },
-    {
-      name: 'apexLaunchOptions.inputMouse.noForceAccel',
-      parameter: '-noforcemaccel'
-    },
-    {
-      name: 'apexLaunchOptions.inputMouse.noForceSpd',
-      parameter: '-noforcemspd'
-    },
-    {
-      name: 'apexLaunchOptions.inputMouse.noForceParms',
-      parameter: '-noforcemparms'
-    }
-  ],
-  tip: ApexInputMouseTip,
-};
 const FPS = {
   name: 'apexLaunchOptions.fps.name',
   description: 'apexLaunchOptions.fps.description',
@@ -228,10 +177,10 @@ const FPS = {
       description: 'apexLaunchOptions.fps.capDesc',
       replace_numbers: true,
       identifier: 'restriction_fps',
-      default_parameter: '-freq X +fps_max X',
+      default_parameter: '+fps_max X',
       requirement: ['-window', '-noborder'],
       requirement_description: 'apexLaunchOptions.fps.capRequirementDesc',
-      parameter: '-freq X +fps_max X'
+      parameter: '+fps_max X'
     }
   ],
   tip: ApexFpsTip,
@@ -283,15 +232,6 @@ const ReticleColor = {
   is_new: true,
   tip: ApexReticleColorTip
 };
-const ForceNoVSync = {
-  name: 'apexLaunchOptions.forceNoVSync.name',
-  identifier: 'forcenovsync',
-  parameter: '-forcenovsync',
-  description: 'apexLaunchOptions.forceNoVSync.description',
-  hide_in_normal_filter: true,
-  is_new: true,
-  tip: ApexForceNoVSyncTip,
-};
 const NoJoy = {
   name: 'apexLaunchOptions.noJoy.name',
   identifier: 'nojoy',
@@ -327,60 +267,6 @@ const MilesChannels = {
   is_new: true,
   tip: ApexMilesChannelsTip,
 };
-const RagdollCollide = {
-  name: 'apexLaunchOptions.ragdollCollide.name',
-  identifier: 'cl_ragdoll_collide',
-  parameter: '+cl_ragdoll_collide 0',
-  description: 'apexLaunchOptions.ragdollCollide.description',
-  is_new: true,
-  tip: ApexRagdollCollideTip,
-};
-const GraphicsApi = {
-  name: 'apexLaunchOptions.graphicsApi.name',
-  identifier: 'graphics_api',
-  description: 'apexLaunchOptions.graphicsApi.description',
-  default_parameter: '-anticheat_settings=SettingsDX12.json',
-  parameters: [
-    {
-      name: 'apexLaunchOptions.graphicsApi.dx11',
-      parameter: '-anticheat_settings=SettingsDX11.json',
-    },
-    {
-      name: 'apexLaunchOptions.graphicsApi.dx12',
-      parameter: '-anticheat_settings=SettingsDX12.json',
-    },
-  ],
-  hide_in_normal_filter: true,
-  is_new: true,
-  tip: ApexDX12Tip,
-};
-const LimitvsConst = {
-  name: 'apexLaunchOptions.limitvsconst.name',
-  identifier: 'limitvsconst',
-  parameter: '-limitvsconst',
-  description: 'apexLaunchOptions.limitvsconst.description',
-  hide_in_normal_filter: true,
-  is_new: true,
-  tip: ApexLimitvsConstTip,
-};
-const ForcePreload = {
-  name: 'apexLaunchOptions.forcePreload.name',
-  identifier: 'forcepreload',
-  is_combination_parameters: true,
-  parameters: [
-    {
-      name: 'apexLaunchOptions.forcePreload.force',
-      parameter: '+cl_forcepreload 1',
-    },
-    {
-      name: 'apexLaunchOptions.forcePreload.preload',
-      parameter: '-preload',
-    },
-  ],
-  description: 'apexLaunchOptions.forcePreload.description',
-  is_new: true,
-  tip: ApexForcePreloadTip,
-};
 const SoftenedLocale = {
   name: 'apexLaunchOptions.redKnockdown.name',
   parameter: '+cl_is_softened_locale 1',
@@ -390,8 +276,8 @@ const SoftenedLocale = {
 
 /**
  * Apex启动项配置参数
- * v3.0.3.15
- * SteamLibrary\steamapps\common\Apex Legends\gameversion.txt
+ * 已核对构建:R5pc_r5-300_J57_CL11457258_2026_08_19_15_40(gameversion v3.0.4.57)
+ * 失效项清单与核实记录见 docs/CHANGELOG.md
  */
 const ApexLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   'apexLaunchOptions.categories.display',
@@ -403,23 +289,16 @@ const ApexLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   AltTabMinimize,
   Aspect,
   ForcedResolution,
-  // MatQueueMode,
   'apexLaunchOptions.categories.performance',
   FPS,
   LobbyFps,
   HighPriority,
-  ForceNoVSync,
-  ForcePreload,
-  RagdollCollide,
-  LimitvsConst,
-  GraphicsApi,
   'apexLaunchOptions.categories.localeExperience',
   ApexSkip,
   MilesChannels,
   ApexMilesLanguages,
   SoftenedLocale,
   'apexLaunchOptions.categories.input',
-  InputMouse,
   InputLatency,
   NoJoy,
 ];

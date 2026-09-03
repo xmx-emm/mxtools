@@ -24,12 +24,25 @@ describe('Apex custom launch options contract', () => {
     expect(editorSource).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   });
 
-  it('keeps the editor above the scrollable launch-option list', () => {
-    const editorIndex = listSource.indexOf('<ApexCustomLaunchOptions/>');
+  it('shows the editor above the list only for the animated all filter', () => {
+    const editorIndex = listSource.indexOf('<ApexCustomLaunchOptions');
     const listIndex = listSource.indexOf('<v-list');
 
     expect(listSource).toContain("import ApexCustomLaunchOptions");
+    expect(listSource).toContain('<v-expand-transition>');
+    expect(listSource).toContain('v-if="apex_store.filter_type === ApexFilterEnum.all"');
     expect(editorIndex).toBeGreaterThan(-1);
     expect(listIndex).toBeGreaterThan(editorIndex);
+  });
+
+  it('animates filtered launch entries and preserves sticky category wrappers', () => {
+    expect(listSource).toContain('<TransitionGroup');
+    expect(listSource).toContain('name="apex-filter-list"');
+    expect(listSource).toContain(':class="{\'apex-category-entry\': !isSteamLaunchOptionsImpl(item)}"');
+    expect(listSource).toContain('.apex-filter-list-move,');
+    expect(listSource).toContain('.apex-filter-list-enter-from,');
+    expect(listSource).toMatch(
+      /\.apex-category-entry\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s,
+    );
   });
 });

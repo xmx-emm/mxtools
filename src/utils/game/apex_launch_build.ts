@@ -70,18 +70,11 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
         // parameter: ['-novid', '-dev']
       }
     } else if (item?.parameters) {//多个参数
-      if (item.is_combination_parameters) {//组合参数 暂时只有input_mouse用
-        const value = item
-          .parameters
-          .map((item: SteamLaunchOptionsImpl) => item?.parameter)
-          .join(' ');
-        items.push(value);
-      } else if (item?.identifier) {
+      if (item?.identifier) {
         const value = settings_config[item.identifier];
         if (item.identifier === 'fps' && typeof value === 'string' && value.includes('X')) {
-          const fpsText = fps.toString();
-          items.push(`-freq ${fpsText}`);
-          items.push(`+fps_max ${fpsText}`);
+          // -freq 已从当前游戏构建删除,锁帧只写 +fps_max
+          items.push(`+fps_max ${fps.toString()}`);
         } else {
           items.push(value);
         }

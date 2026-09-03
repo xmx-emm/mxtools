@@ -72,35 +72,46 @@ describe('parseApexLaunchOptionsString', () => {
       '+mat_letterbox_aspect_goal 1.7778',
       '+mat_letterbox_aspect_threshold 8',
       '-width 1600 -height 900',
-      '-freq 144 +fps_max 144',
+      '+fps_max 144',
       '+lobby_max_fps 0',
-      '-high -forcenovsync',
-      '+cl_forcepreload 1 -preload',
-      '+cl_ragdoll_collide 0',
-      '-limitvsconst',
-      '-anticheat_settings=SettingsDX12.json',
+      '-high',
       '-novid -dev',
       '+miles_channels 2',
       '+miles_language japanese',
       '+cl_is_softened_locale 1',
-      '+m_rawinput 1 -noforcemaccel -noforcemspd -noforcemparms',
       '-no_render_on_input_thread -nojoy',
       '+exec "autoexec.cfg"',
     ].join(' '));
 
-    expect(parsed.selection).toHaveLength(23);
+    expect(parsed.selection).toHaveLength(17);
     expect(parsed.settingsPatch).toMatchObject({
       window: '-window',
-      graphics_api: '-anticheat_settings=SettingsDX12.json',
       miles_channels: '+miles_channels 2',
       miles_language: '+miles_language japanese',
-      fps: '-freq X +fps_max X',
+      fps: '+fps_max X',
     });
     expect(parsed.width).toBe(1600);
     expect(parsed.height).toBe(900);
     expect(parsed.fps).toBe(144);
     expect(parsed.lobby_max_fps).toBe(0);
     expect(parsed.customLaunchOptions).toBe('+exec "autoexec.cfg"');
+  });
+
+  it('leaves launch flags removed from the current game build in the custom remainder', () => {
+    // 已从当前构建(R5pc_r5-300_J57)二进制确认删除的 token 不再被认领,
+    // 留在自定义输入框里由用户自行清理。证据见 docs/CHANGELOG.md。
+    const parsed = parseApexLaunchOptionsString(
+      '-freq 144 -forcenovsync +cl_ragdoll_collide 0 -limitvsconst '
+      + '-anticheat_settings=SettingsDX12.json +m_rawinput 1 -noforcemaccel '
+      + '+cl_forcepreload 1 -preload +fps_max 144',
+    );
+
+    expect(parsed.fps).toBe(144);
+    expect(parsed.customLaunchOptions).toBe(
+      '-freq 144 -forcenovsync +cl_ragdoll_collide 0 -limitvsconst '
+      + '-anticheat_settings=SettingsDX12.json +m_rawinput 1 -noforcemaccel '
+      + '+cl_forcepreload 1 -preload',
+    );
   });
 
   it('keeps incomplete managed pairs in the custom remainder', () => {
