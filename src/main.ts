@@ -38,16 +38,19 @@ import {destroyMainWindow, markBackgroundMainWindowReady} from '@/ipc/commands.t
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {initFrontendLogger} from '@/utils/logger.ts';
-import {findAccent, persistAccentHint} from '@/themes.ts';
+import {applySplashTheme, findAccent} from '@/themes.ts';
 import {alignWindowHashWithStoredLastRoute} from '@/utils/restore-last-route-hash.ts';
 import {runAllHmrCleanups} from '@/utils/hmr.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
-import {cloneBackgroundRuntimeConfig} from '@/utils/background_runtime.ts';
 import {settleStartupTask, type StartupTaskResult} from '@/utils/startup.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
 import {openApexQWindow} from '@/utils/windows.ts';
-import {loadApexQPrefs, saveApexQPrefs} from '@/types/apex_q.ts';
+import {
+  bindApexQPreferencesStore,
+  loadApexQPrefs,
+  useApexQPreferencesStore,
+} from '@/stores/apex_q_preferences.ts';
 import {confirm} from '@/utils/app_confirmation.ts';
 
 type TauriRuntimeWindow = Window & {
@@ -69,7 +72,6 @@ function getTauriCurrentWindow() {
 
 const currentWindow = getTauriCurrentWindow();
 const isMainWindow = isTauriRuntime && currentWindow?.label === 'main';
-const BACKGROUND_MIGRATION_KEY = 'mx-background-runtime-migrated-v1';
 let mainCloseRequestInFlight = false;
 let stopMainCloseRequest: UnlistenFn | null = null;
 
@@ -82,46 +84,6 @@ async function runStartupTask<T>(
     console.error(`startup task failed: ${label}`, result.error);
   }
   return result;
-}
-
-async function migrateBackgroundRuntimeOnce(
-  runtime: ReturnType<typeof useBackgroundRuntimeStore>,
-  settings: ReturnType<typeof useSettingsStore>,
-) {
-  if (!runtime.snapshot || localStorage.getItem(BACKGROUND_MIGRATION_KEY) === '1') return;
-  const config = cloneBackgroundRuntimeConfig(runtime.snapshot.config);
-  config.betaFeaturesEnabled = settings.betaFeaturesEnabled;
-  config.locale = settings.locale;
-
-  const apexQ = loadApexQPrefs();
-  config.apexQ = {...config.apexQ, ...apexQ};
-
-  try {
-    const legacy = JSON.parse(localStorage.getItem('mx-razer-polling-config') ?? '{}') as Record<string, unknown>;
-    const executable = typeof legacy.gameExecutable === 'string'
-      ? legacy.gameExecutable.trim()
-      : '';
-    const currentGames = Array.isArray(config.razer.games) ? config.razer.games : [];
-    config.razer = {
-      ...config.razer,
-      enabled: legacy.enabled === true,
-      deviceProfiles: config.razer.deviceProfiles ?? {},
-      games: currentGames.length || !executable ? currentGames : [{
-        id: 'legacy-game-profile',
-        name: executable.split(/[\\/]/).pop() ?? executable,
-        enabled: legacy.enabled === true,
-        userEdited: true,
-        matchers: [{executable, packageFamilyName: null, source: 'manual'}],
-        deviceRatesHz: {},
-      }],
-    };
-  } catch {
-    // Malformed legacy Razer data is ignored; the native defaults stay valid.
-  }
-
-  await runtime.configure(config);
-  saveApexQPrefs(apexQ);
-  localStorage.setItem(BACKGROUND_MIGRATION_KEY, '1');
 }
 
 async function installMainCloseCoordinator() {
@@ -273,11 +235,17 @@ async function bootstrap() {
   const backgroundRuntime = useBackgroundRuntimeStore();
   const debugStore = useDebugStore();
   const style = useUiStyleStore();
+  const apexQPreferences = useApexQPreferencesStore();
+  bindApexQPreferencesStore(apexQPreferences);
   if (isTauriRuntime) {
     await Promise.all([
       runStartupTask('settings store', () => startTauriStoreOnce('settings', () => settings.$tauri.start())),
       runStartupTask('debug store', () => startTauriStoreOnce('debug', () => debugStore.$tauri.start())),
       runStartupTask('style store', () => startTauriStoreOnce('style', () => style.$tauri.start())),
+      runStartupTask('apex-q preferences store', () => startTauriStoreOnce(
+        'apex-q-preferences',
+        () => apexQPreferences.$tauri.start(),
+      )),
     ]);
   }
   settings.ensureShortcutDefaults();
@@ -293,13 +261,7 @@ async function bootstrap() {
   // 应用主题色到 Vuetify
   applyAccentTheme(style.accent);
 
-  // 同步到 localStorage 供下次启动的 splash 使用
-  try {
-    localStorage.setItem('mx-theme-preference', style.theme);
-    localStorage.setItem('mx-theme', style.themeStyle);
-  } catch { /* localStorage may be unavailable */
-  }
-  persistAccentHint(findAccent(style.accent), style.isDark);
+  applySplashTheme(findAccent(style.accent), style.isDark);
 
   await setAppLocale(resolveLocale(settings.locale));
   applyDocumentLocale(settings.locale);
@@ -318,17 +280,11 @@ async function bootstrap() {
   app.mount('#app');
   vueApp = app;
   if (isTauriRuntime) {
-    const [, runtimeRefresh] = await Promise.all([
-      runStartupTask('window behavior', () => settings.syncWindowBehaviorFromStorage()),
+    await Promise.all([
+      runStartupTask('window behavior', () => settings.syncWindowBehavior()),
       runStartupTask('background runtime refresh', () => backgroundRuntime.refresh()),
     ]);
     if (isMainWindow) {
-      if (runtimeRefresh.ok) {
-        await runStartupTask(
-          'background runtime migration',
-          () => migrateBackgroundRuntimeOnce(backgroundRuntime, settings),
-        );
-      }
       await runStartupTask('main close coordinator', installMainCloseCoordinator);
     }
   }

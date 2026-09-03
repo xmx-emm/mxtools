@@ -5,25 +5,16 @@ import {emit} from '@tauri-apps/api/event';
 import i18n from '@/i18n/i18n.ts';
 import {
   APEX_Q_WINDOW_NAVIGATE_EVENT,
-  APEX_Q_WINDOW_TARGET_STORAGE_KEY,
   type ApexQWindowTarget,
 } from '@/types/apex_q.ts';
 import {
   emitApexLaunchRepairAccount,
   emitApexQuickPresetAccount,
-  latestApexLaunchRepairAccount,
-  rememberApexLaunchRepairAccount,
-  rememberApexQuickPresetAccount,
 } from '@/utils/game/apex_config_events.ts';
 
-const APEX_Q_WIN_REV_KEY = 'mx-apex-q-win-rev';
-/** 无边框标题栏版本：旧带系统装饰的窗口需销毁重建 */
-const APEX_Q_WIN_REV = 'undecorated-v2';
 type OpenWebWindowOptions = Omit<WebviewOptions, 'x' | 'y' | 'width' | 'height'> & WindowOptions;
 export type RepairToolTarget = 'store' | 'onedrive' | 'icon-cache' | 'network' | 'apex-launch';
 const pendingWindowCreates = new Map<string, Promise<void>>();
-let apexQRevisionPromise: Promise<void> | null = null;
-let apexQRevisionEnsured = false;
 
 function waitForWindowCreated(webview: WebviewWindow, route: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -123,53 +114,11 @@ function openAboutWindow() {
 }
 
 async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
-  const windowName = 'apex-q-window';
-  try {
-    localStorage.setItem(APEX_Q_WINDOW_TARGET_STORAGE_KEY, target);
-  } catch {
-    /* The live event below still navigates an existing workbench. */
-  }
-  if (!apexQRevisionEnsured) {
-    if (!apexQRevisionPromise) {
-      apexQRevisionPromise = (async () => {
-        let storedRevision: string | null = null;
-        try {
-          storedRevision = localStorage.getItem(APEX_Q_WIN_REV_KEY);
-        } catch {
-          /* Storage may be unavailable in a browser preview. */
-        }
-        if (storedRevision !== APEX_Q_WIN_REV) {
-          let revisionApplied = true;
-          const existing = await WebviewWindow.getByLabel(windowName);
-          if (existing) {
-            try {
-              // destroy() removes an old decorated window; close() may only hide it.
-              await existing.destroy();
-            } catch (e) {
-              console.warn('destroy apex-q window failed', e);
-              revisionApplied = false;
-            }
-          }
-          if (revisionApplied) {
-            try {
-              localStorage.setItem(APEX_Q_WIN_REV_KEY, APEX_Q_WIN_REV);
-            } catch {
-              /* The revision check is an optimization; the window can still open. */
-            }
-          }
-          apexQRevisionEnsured = revisionApplied;
-          return;
-        }
-        apexQRevisionEnsured = true;
-      })();
-    }
-    try {
-      await apexQRevisionPromise;
-    } finally {
-      apexQRevisionPromise = null;
-    }
-  }
   await openWebWindow('apex-q', {
+    // A new WebView receives its initial destination from the URL, before its
+    // Vue event listener can be mounted. Existing windows still use the event
+    // below so they navigate without being recreated.
+    url: `#/apex-q?target=${encodeURIComponent(target)}`,
     width: 900,
     height: 680,
     minWidth: 720,
@@ -182,13 +131,12 @@ async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
   try {
     await emit(APEX_Q_WINDOW_NAVIGATE_EVENT, {target});
   } catch {
-    /* A newly-created workbench reads the persisted target on mount. */
+    /* A newly-created workbench reads its deterministic route target on mount. */
   }
 }
 
 async function openApexQuickPresetWindow(accountKey: string | null = null) {
   const query = accountKey ? `?account=${encodeURIComponent(accountKey)}` : '';
-  rememberApexQuickPresetAccount(accountKey);
   await openWebWindow('apex-quick-preset', {
     url: `#/apex-quick-preset${query}`,
     width: 760,
@@ -255,12 +203,7 @@ async function openRepairToolWindow(
     },
   };
   const definition = definitions[target];
-  const repairAccountKey = target === 'apex-launch'
-    ? (accountKey ?? latestApexLaunchRepairAccount())
-    : null;
-  if (target === 'apex-launch' && repairAccountKey) {
-    rememberApexLaunchRepairAccount(repairAccountKey);
-  }
+  const repairAccountKey = target === 'apex-launch' ? (accountKey ?? null) : null;
   const query = repairAccountKey ? `?account=${encodeURIComponent(repairAccountKey)}` : '';
   await openWebWindow(definition.route, {
     url: `#/${definition.route}${query}`,

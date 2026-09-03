@@ -1,7 +1,7 @@
 import {defineStore} from 'pinia';
 import {nextTick, ref} from 'vue';
 import {isDarkStyle} from '@/utils/ui.ts';
-import {DEFAULT_ACCENT, findAccent, persistAccentHint} from '@/themes.ts';
+import {applySplashTheme, DEFAULT_ACCENT, findAccent} from '@/themes.ts';
 import {applyAccentTheme} from '@/vuetify.ts';
 
 export interface ThemeTransitionOrigin {
@@ -205,31 +205,15 @@ async function applyThemeTransition(
   }
 }
 
-function persistThemeHint(resolved: string) {
-  try {
-    localStorage.setItem('mx-theme', resolved);
-  } catch { /* localStorage may be unavailable */
-  }
-}
-
-function persistThemePreference(preference: string) {
-  try {
-    localStorage.setItem('mx-theme-preference', preference);
-  } catch { /* localStorage may be unavailable */
-  }
-}
-
 export const useUiStyleStore = defineStore('uiStyle', {
     state: () => ({
       theme: 'system',
       accent: DEFAULT_ACCENT,
     }),
     actions: {
-      persistThemeHints() {
+      applyThemePresentation() {
         const resolved = this.themeStyle;
-        persistThemePreference(this.theme);
-        persistThemeHint(resolved);
-        persistAccentHint(findAccent(this.accent), resolved === 'dark');
+        applySplashTheme(findAccent(this.accent), resolved === 'dark');
       },
       async setTheme(t: string, origin?: ThemeTransitionOrigin) {
         const currentResolvedTheme = this.themeStyle;
@@ -238,7 +222,7 @@ export const useUiStyleStore = defineStore('uiStyle', {
           : t;
         const update = () => {
           this.theme = t;
-          this.persistThemeHints();
+          this.applyThemePresentation();
         };
 
         if (t === this.theme || nextResolvedTheme === currentResolvedTheme) {
@@ -252,8 +236,7 @@ export const useUiStyleStore = defineStore('uiStyle', {
         await applyThemeTransition(() => {
           this.accent = id;
           applyAccentTheme(id);
-          const isDark = this.themeStyle === 'dark';
-          persistAccentHint(findAccent(id), isDark);
+          this.applyThemePresentation();
         }, 'accent', origin);
       },
       watchSystemTheme() {
@@ -270,7 +253,7 @@ export const useUiStyleStore = defineStore('uiStyle', {
         const applySystemTheme = (matches: boolean) => {
           const update = () => {
             systemPrefersDark.value = matches;
-            if (this.theme === 'system') this.persistThemeHints();
+            if (this.theme === 'system') this.applyThemePresentation();
           };
           const shouldAnimate = initialized &&
             this.theme === 'system' &&

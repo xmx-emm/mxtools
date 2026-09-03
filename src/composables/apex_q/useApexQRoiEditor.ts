@@ -10,7 +10,8 @@ import {
   type ApexQOcrParseResult,
 } from '@/ipc/commands.ts';
 import type {ApexQRoi} from '@/types/apex_q.ts';
-import {DEFAULT_PING_ROI, DEFAULT_SHOWPOS_ROI, loadApexQPrefs} from '@/types/apex_q.ts';
+import {DEFAULT_PING_ROI, DEFAULT_SHOWPOS_ROI} from '@/types/apex_q.ts';
+import {loadApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {normalizeApexQFolder} from '@/utils/apex_q.ts';
 import {useApexQScreenshotPicker} from './useApexQScreenshotPicker.ts';
 import {

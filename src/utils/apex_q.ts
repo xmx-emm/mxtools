@@ -30,12 +30,8 @@ import type {
 } from '@/types/apex_q.ts';
 import {
   APEX_Q_OVERLAY_INTERACTION_EVENT,
-  APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY,
   APEX_Q_OVERLAY_GEOMETRY_EVENT,
   APEX_Q_OVERLAY_READY_EVENT,
-  APEX_Q_OVERLAY_STORAGE_KEY,
-  APEX_Q_OVERLAY_WINDOW_REV,
-  APEX_Q_OVERLAY_WINDOW_REV_KEY,
   APEX_Q_PREFS_CHANGED_EVENT,
   DEFAULT_OVERLAY_MARGIN_X,
   DEFAULT_OVERLAY_MARGIN_Y,
@@ -43,9 +39,8 @@ import {
   DEFAULT_OVERLAY_WIDTH,
   MIN_OVERLAY_HEIGHT,
   MIN_OVERLAY_WIDTH,
-  loadApexQPrefs,
-  saveApexQPrefs,
 } from '@/types/apex_q.ts';
+import {loadApexQPrefs, patchApexQPrefs, saveApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
 
 // Window labels, events, and storage/runtime keys below are persisted or cross-
@@ -56,7 +51,6 @@ const PREFS_SYNC_EVENT = 'apex-q-prefs-sync-request';
 const PREFS_SYNC_RESULT_EVENT = 'apex-q-prefs-sync-result';
 const CAPTURE_RESULT_EVENT = 'apex-q-capture-result';
 const OVERLAY_SHOW_REQUEST_EVENT = 'apex-q-overlay-show-request';
-const CAPTURE_RESULT_STORAGE_KEY = 'mx-apex-q-capture-result';
 const CAPTURE_RESULT_MAX_AGE_MS = 30_000;
 const PREFS_SYNC_TIMEOUT_MS = 5_000;
 const OVERLAY_READY_TIMEOUT_MS = 3_000;
@@ -65,8 +59,6 @@ const OVERLAY_READY_TIMEOUT_MS = 3_000;
 const OVERLAY_DEDUPE_MS = 500;
 const MAX_OVERLAY_WIDTH = 640;
 const MAX_OVERLAY_HEIGHT = 480;
-const OVERLAY_GEOMETRY_SAMPLE_STORAGE_KEY = 'mx-apex-q-overlay-geometry-sample';
-const OVERLAY_GEOMETRY_CLOCK_SKEW_MS = 10_000;
 const HOTKEY_RUNTIME_KEY = '__mx_apex_q_hotkey_runtime_v1';
 const CAPTURE_RUNTIME_KEY = '__mx_apex_q_capture_runtime_v1';
 
@@ -110,6 +102,8 @@ const captureRuntime = getApexQCaptureRuntime();
 let onResult: ((r: ApexQCaptureResult) => void) | null = null;
 let prefsSyncUnlisten: UnlistenFn | null = null;
 let prefsSyncListenerStarting: Promise<void> | null = null;
+let prefsChangedUnlisten: UnlistenFn | null = null;
+let prefsChangedListenerStarting: Promise<void> | null = null;
 let captureResultUnlisten: UnlistenFn | null = null;
 let captureResultListenerStarting: Promise<void> | null = null;
 let overlayShowRequestUnlisten: UnlistenFn | null = null;
@@ -121,8 +115,6 @@ let lastOverlayShownAt = 0;
 let lastSyncedPrefs: ApexQPrefs | null = null;
 let childHotkeySyncHealthy = false;
 let overlayCreationPromise: Promise<WebviewWindow> | null = null;
-let overlayRevisionPromise: Promise<void> | null = null;
-let overlayRevisionEnsured = false;
 let overlayGeometryPersistSequence = 0;
 let overlayShowSequence = 0;
 let overlayPresentationSequence = 0;
@@ -362,48 +354,6 @@ function captureResultIdIsOlder(left: string, right: string) {
   return left < right;
 }
 
-function readStoredCaptureResult(): CaptureResultEnvelope | null {
-  try {
-    const raw = localStorage.getItem(CAPTURE_RESULT_STORAGE_KEY);
-    return raw ? parseCaptureResultEnvelope(JSON.parse(raw)) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistCaptureResult(envelope: CaptureResultEnvelope) {
-  try {
-    localStorage.setItem(CAPTURE_RESULT_STORAGE_KEY, JSON.stringify(envelope));
-  } catch {
-    // A large OCR preview can exceed the WebView quota. Keep a compact
-    // fallback so the result itself remains recoverable in the other window.
-    try {
-      localStorage.setItem(
-        CAPTURE_RESULT_STORAGE_KEY,
-        JSON.stringify({
-          ...envelope,
-          result: {
-            ...envelope.result,
-            showposPreview: '',
-            pingPreview: '',
-          },
-        }),
-      );
-    } catch {
-      /* localStorage is optional; the live Tauri event is still delivered. */
-    }
-  }
-}
-
-function persistOverlayPayload(payload: ApexQOverlayPayload) {
-  try {
-    localStorage.setItem(APEX_Q_OVERLAY_STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // The live Tauri event is still enough for an already-open overlay.
-    // A newly-created overlay can recover the result from its event payload.
-  }
-}
-
 function deliverCaptureResult(envelope: CaptureResultEnvelope, force = false) {
   if (!onResult) return;
   if (!force && envelope.id === captureRuntime.lastCaptureResultId) return;
@@ -445,7 +395,6 @@ async function ensureCaptureResultListener() {
       const envelope = parseCaptureResultEnvelope(event.payload);
       if (!envelope) return;
       rememberCaptureEnvelope(envelope);
-      persistCaptureResult(envelope);
       deliverCaptureResult(envelope);
     }).then((unlisten) => {
       if (disposed) {
@@ -460,20 +409,10 @@ async function ensureCaptureResultListener() {
   await captureResultListenerStarting;
 }
 
-async function recoverStoredCaptureResult() {
-  const envelope = readStoredCaptureResult();
-  if (!envelope) return;
-  const age = Date.now() - envelope.emittedAt;
-  if (age < -5_000 || age > CAPTURE_RESULT_MAX_AGE_MS) return;
-  rememberCaptureEnvelope(envelope);
-  deliverCaptureResult(envelope);
-}
-
 export function setApexQResultHandler(handler: ((r: ApexQCaptureResult) => void) | null) {
   onResult = handler;
   if (handler && !ownsApexQHotkey()) {
     void ensureCaptureResultListener()
-      .then(() => recoverStoredCaptureResult())
       .catch((e) => console.warn('apex-q capture result listener failed', e));
   }
 }
@@ -537,21 +476,28 @@ function sameOverlayGeometry(left: ApexQPrefs, right: ApexQPrefs) {
 }
 
 async function broadcastOverlayGeometry(prefs: ApexQPrefs) {
+  const changedKeys = [...OVERLAY_GEOMETRY_PREF_KEYS];
   try {
     await emit(APEX_Q_OVERLAY_GEOMETRY_EVENT, overlayGeometrySnapshot(prefs));
   } catch {
-    /* Other WebViews reload the same values from storage when they reopen. */
+    /* Geometry is also sent through the preference event below. */
   }
+  await broadcastApexQPrefs(prefs, changedKeys);
 }
 
-async function broadcastApexQPrefs(prefs: ApexQPrefs) {
+async function broadcastApexQPrefs(
+  prefs: ApexQPrefs,
+  changedKeys: readonly (keyof ApexQPrefs)[] = Object.keys(prefs) as Array<keyof ApexQPrefs>,
+) {
   try {
+    const patch = Object.fromEntries(changedKeys.map(key => [key, prefs[key]]));
     await emit(APEX_Q_PREFS_CHANGED_EVENT, {
       source: getCurrentWindow().label,
-      prefs,
+      prefs: patch,
+      changedKeys,
     });
   } catch {
-    /* Other WebViews reload persisted preferences when they reopen. */
+    /* A closed auxiliary WebView starts from its persisted preferences. */
   }
 }
 
@@ -883,14 +829,9 @@ export async function setApexQOverlayInteractionMode(mode: ApexQOverlayInteracti
   const prefs = loadApexQPrefs();
   prefs.overlayLocked = mode === 'display';
   try {
-    saveApexQPrefs(prefs);
+    saveApexQPrefs(prefs, ['overlayLocked']);
   } catch {
     /* Keep the live window mode usable when preference storage is unavailable. */
-  }
-  try {
-    localStorage.setItem(APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY, mode);
-  } catch {
-    /* Live delivery still keeps an already-open overlay in sync. */
   }
   try {
     await emit(APEX_Q_OVERLAY_INTERACTION_EVENT, {mode});
@@ -918,7 +859,6 @@ export async function setApexQOverlayInteractionMode(mode: ApexQOverlayInteracti
 /** 将当前小窗位置/大小写回偏好（逻辑像素） */
 export async function persistApexQOverlayGeometry(win: OverlayGeomWin) {
   const sequence = ++overlayGeometryPersistSequence;
-  const sampledAt = Date.now();
   try {
     const scale = finitePositive(await win.scaleFactor(), 1);
     const rawPos = await win.outerPosition();
@@ -995,19 +935,6 @@ export async function persistApexQOverlayGeometry(win: OverlayGeomWin) {
       overlayH = Math.min(MAX_OVERLAY_HEIGHT, Math.max(MIN_OVERLAY_HEIGHT, Math.round(monitorPhysicalH / monitorScale)));
     }
     if (sequence !== overlayGeometryPersistSequence) return;
-    try {
-      const latestSample = Number(localStorage.getItem(OVERLAY_GEOMETRY_SAMPLE_STORAGE_KEY));
-      if (
-        Number.isFinite(latestSample)
-        && latestSample > sampledAt
-        && latestSample <= Date.now() + OVERLAY_GEOMETRY_CLOCK_SKEW_MS
-      ) {
-        return;
-      }
-    } catch {
-      /* Cross-WebView ordering is best effort when storage is unavailable. */
-    }
-
     // Reload after the native calls so geometry persistence never overwrites
     // a shortcut, opacity, or lock-mode change made by another WebView.
     const latestPrefs = loadApexQPrefs();
@@ -1018,12 +945,7 @@ export async function persistApexQOverlayGeometry(win: OverlayGeomWin) {
     // A valid native sample without a resolvable monitor must invalidate v2;
     // otherwise the stale relative placement wins over the new legacy values.
     latestPrefs.overlayPlacement = overlayPlacement;
-    saveApexQPrefs(latestPrefs);
-    try {
-      localStorage.setItem(OVERLAY_GEOMETRY_SAMPLE_STORAGE_KEY, String(sampledAt));
-    } catch {
-      /* Geometry is already persisted in the preferences object. */
-    }
+    saveApexQPrefs(latestPrefs, [...OVERLAY_GEOMETRY_PREF_KEYS]);
     await broadcastOverlayGeometry(latestPrefs);
   } catch (e) {
     console.warn('apex-q persist overlay geometry failed', e);
@@ -1037,7 +959,7 @@ export async function resetAndApplyApexQOverlayGeometry() {
   prefs.overlayW = DEFAULT_OVERLAY_WIDTH;
   prefs.overlayH = DEFAULT_OVERLAY_HEIGHT;
   prefs.overlayPlacement = null;
-  saveApexQPrefs(prefs);
+  saveApexQPrefs(prefs, [...OVERLAY_GEOMETRY_PREF_KEYS]);
   await broadcastOverlayGeometry(prefs);
   const win = await WebviewWindow.getByLabel(OVERLAY_LABEL);
   if (!win) return;
@@ -1046,47 +968,6 @@ export async function resetAndApplyApexQOverlayGeometry() {
     await persistApexQOverlayGeometry(win);
   } catch (e) {
     console.warn('apex-q reset overlay geometry failed', e);
-  }
-}
-
-async function ensureOverlayWindowRev() {
-  if (overlayRevisionEnsured) return;
-  if (overlayRevisionPromise) return overlayRevisionPromise;
-  const revisionCheck = (async () => {
-    let storedRevision: string | null = null;
-    try {
-      storedRevision = localStorage.getItem(APEX_Q_OVERLAY_WINDOW_REV_KEY);
-    } catch {
-      /* Storage may be unavailable in a browser preview. */
-    }
-    if (storedRevision !== APEX_Q_OVERLAY_WINDOW_REV) {
-      let revisionApplied = true;
-      const existing = await WebviewWindow.getByLabel(OVERLAY_LABEL);
-      if (existing) {
-        try {
-          await existing.destroy();
-        } catch (e) {
-          console.warn('destroy apex-q overlay failed', e);
-          revisionApplied = false;
-        }
-      }
-      if (revisionApplied) {
-        try {
-          localStorage.setItem(APEX_Q_OVERLAY_WINDOW_REV_KEY, APEX_Q_OVERLAY_WINDOW_REV);
-        } catch {
-          /* The revision check is an optimization; the window can still be used. */
-        }
-      }
-      overlayRevisionEnsured = revisionApplied;
-      return;
-    }
-    overlayRevisionEnsured = true;
-  })();
-  overlayRevisionPromise = revisionCheck;
-  try {
-    await revisionCheck;
-  } finally {
-    if (overlayRevisionPromise === revisionCheck) overlayRevisionPromise = null;
   }
 }
 
@@ -1127,7 +1008,7 @@ async function createApexQOverlayWindow(
       if (event.payload?.label === OVERLAY_LABEL) markOverlayReady?.();
     });
   } catch {
-    // Storage remains the fallback if the global event bridge is unavailable.
+    // The ready handshake is optional when the global event bridge is unavailable.
   }
 
   const win = new WebviewWindow(OVERLAY_LABEL, createOpts);
@@ -1189,9 +1070,6 @@ async function presentApexQResultOverlay(payload: ApexQOverlayPayload) {
   }
   lastOverlayFingerprint = fingerprint;
   lastOverlayShownAt = now;
-  persistOverlayPayload(payload);
-  await ensureOverlayWindowRev();
-
   let win = await WebviewWindow.getByLabel(OVERLAY_LABEL);
   if (!win && overlayCreationPromise) {
     try {
@@ -1407,8 +1285,8 @@ async function ensureApexQPrefsSyncListener() {
                   hotkey: lastSyncedPrefs.hotkey,
                 }
               : {...current, enabled: false};
-            saveApexQPrefs(fallback);
-            await broadcastApexQPrefs(fallback);
+            saveApexQPrefs(fallback, ['enabled', 'setupDone', 'hotkey']);
+            await broadcastApexQPrefs(fallback, ['enabled', 'setupDone', 'hotkey']);
           }
           if (request) {
             try {
@@ -1434,6 +1312,38 @@ async function ensureApexQPrefsSyncListener() {
     });
   }
   await prefsSyncListenerStarting;
+}
+
+/** Keep the main WebView's store current even when no APEX Q panel is mounted. */
+async function ensureApexQPrefsChangedListener() {
+  if (!ownsApexQHotkey() || prefsChangedUnlisten) return;
+  if (!prefsChangedListenerStarting) {
+    let disposed = false;
+    registerHmrCleanup(() => {
+      disposed = true;
+      prefsChangedUnlisten?.();
+      prefsChangedUnlisten = null;
+      prefsChangedListenerStarting = null;
+    });
+    prefsChangedListenerStarting = listen<{
+      source?: unknown;
+      prefs?: Partial<ApexQPrefs>;
+    }>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
+      if (event.payload?.source === getCurrentWindow().label) return;
+      if (event.payload?.prefs && typeof event.payload.prefs === 'object') {
+        patchApexQPrefs(event.payload.prefs);
+      }
+    }).then((unlisten) => {
+      if (disposed) {
+        unlisten();
+        return;
+      }
+      prefsChangedUnlisten = unlisten;
+    }).finally(() => {
+      if (!prefsChangedUnlisten) prefsChangedListenerStarting = null;
+    });
+  }
+  await prefsChangedListenerStarting;
 }
 
 export type ApplyApexQPrefsOptions = {
@@ -1476,7 +1386,7 @@ export async function applyApexQPrefs(
   }
   const geometryChanged = !sameOverlayGeometry(previous, normalized);
   const hotkeyChanged = !sameHotkeyPrefs(previous, normalized);
-  saveApexQPrefs(normalized);
+  saveApexQPrefs(normalized, [...changedKeys]);
   Object.assign(prefs, normalized);
   if (ownsApexQHotkey()) {
     try {
@@ -1496,10 +1406,10 @@ export async function applyApexQPrefs(
           }
         : latest;
       if (ownsPersistedHotkey) {
-        saveApexQPrefs(rollback);
+        saveApexQPrefs(rollback, ['enabled', 'setupDone', 'hotkey']);
       }
       Object.assign(prefs, rollback);
-      await broadcastApexQPrefs(rollback);
+      await broadcastApexQPrefs(rollback, ['enabled', 'setupDone', 'hotkey']);
       if (geometryChanged) await broadcastOverlayGeometry(rollback);
       throw e;
     }
@@ -1524,9 +1434,9 @@ export async function applyApexQPrefs(
               hotkey: previous.hotkey,
             }
           : latest;
-        if (ownsPersistedHotkey) saveApexQPrefs(rollback);
+        if (ownsPersistedHotkey) saveApexQPrefs(rollback, ['enabled', 'setupDone', 'hotkey']);
         Object.assign(prefs, rollback);
-        await broadcastApexQPrefs(rollback);
+        await broadcastApexQPrefs(rollback, ['enabled', 'setupDone', 'hotkey']);
         if (geometryChanged) await broadcastOverlayGeometry(rollback);
         throw e;
       }
@@ -1536,7 +1446,7 @@ export async function applyApexQPrefs(
   }
   const committed = loadApexQPrefs();
   Object.assign(prefs, committed);
-  await broadcastApexQPrefs(committed);
+  await broadcastApexQPrefs(committed, [...changedKeys]);
   if (geometryChanged) await broadcastOverlayGeometry(committed);
 }
 
@@ -1544,6 +1454,7 @@ export async function bootstrapApexQEventListeners() {
   if (!ownsApexQHotkey()) return;
   await Promise.all([
     ensureApexQPrefsSyncListener(),
+    ensureApexQPrefsChangedListener(),
     ensureOverlayShowRequestListener(),
   ]);
 }
@@ -1558,7 +1469,8 @@ export async function bootstrapApexQFromStorage() {
     const latestPrefs = loadApexQPrefs();
     if (latestPrefs.screenshotFolder === sourceFolder) {
       latestPrefs.screenshotFolder = normalizedFolder;
-      saveApexQPrefs(latestPrefs);
+      saveApexQPrefs(latestPrefs, ['screenshotFolder']);
+      await broadcastApexQPrefs(latestPrefs, ['screenshotFolder']);
     }
     prefs = loadApexQPrefs();
   }
@@ -1571,7 +1483,8 @@ export async function bootstrapApexQFromStorage() {
     // Do not let a stale startup attempt disable a newer queued request.
     if (sameHotkeyPrefs(failed, prefs)) {
       failed.enabled = false;
-      saveApexQPrefs(failed);
+      saveApexQPrefs(failed, ['enabled']);
+      await broadcastApexQPrefs(failed, ['enabled']);
       lastSyncedPrefs = {...failed};
     }
   }

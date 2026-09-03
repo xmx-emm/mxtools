@@ -30,7 +30,7 @@ vi.mock('@/stores/background_runtime.ts', () => ({
   useBackgroundRuntimeStore: () => mocks.backgroundRuntime,
 }));
 
-vi.mock('@/types/apex_q.ts', () => ({
+vi.mock('@/stores/apex_q_preferences.ts', () => ({
   loadApexQPrefs: mocks.loadApexQPrefs,
 }));
 

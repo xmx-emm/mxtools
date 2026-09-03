@@ -8,18 +8,17 @@ import {apexQComputeTheta} from '@/ipc/commands.ts';
 import type {
   ApexQOverlayInteractionMode,
   ApexQOverlayPayload,
+  ApexQPrefs,
   ApexQThetaResult,
 } from '@/types/apex_q.ts';
 import {
   APEX_Q_OVERLAY_INTERACTION_EVENT,
-  APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY,
   APEX_Q_OVERLAY_READY_EVENT,
-  APEX_Q_OVERLAY_STORAGE_KEY,
+  APEX_Q_PREFS_CHANGED_EVENT,
   MIN_OVERLAY_HEIGHT,
   MIN_OVERLAY_WIDTH,
-  loadApexQPrefs,
-  saveApexQPrefs,
 } from '@/types/apex_q.ts';
+import {loadApexQPrefs, patchApexQPrefs, saveApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {persistApexQOverlayGeometry} from '@/utils/apex_q.ts';
 
 type ResizeDirection =
@@ -88,14 +87,18 @@ function isOverlayPayload(value: unknown): value is ApexQOverlayPayload {
   ].every((number) => Number.isFinite(number));
 }
 
-function persistInteractionMode(next: ApexQOverlayInteractionMode) {
+async function persistInteractionMode(next: ApexQOverlayInteractionMode) {
+  const prefs = loadApexQPrefs();
+  prefs.overlayLocked = next === 'display';
+  saveApexQPrefs(prefs, ['overlayLocked']);
   try {
-    localStorage.setItem(APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY, next);
-    const prefs = loadApexQPrefs();
-    prefs.overlayLocked = next === 'display';
-    saveApexQPrefs(prefs);
+    await emitEvent(APEX_Q_PREFS_CHANGED_EVENT, {
+      source: getCurrentWindow().label,
+      prefs: {overlayLocked: prefs.overlayLocked},
+      changedKeys: ['overlayLocked'],
+    });
   } catch {
-    /* storage may be unavailable while the auxiliary window is starting */
+    /* The persisted store is still current in this WebView. */
   }
 }
 
@@ -104,7 +107,7 @@ async function applyInteractionMode(
   options: {broadcast?: boolean; persist?: boolean} = {},
 ) {
   mode.value = next;
-  if (options.persist !== false) persistInteractionMode(next);
+  if (options.persist !== false) await persistInteractionMode(next);
   const win = getCurrentWindow();
   await Promise.allSettled([
     win.setFocusable(next === 'adjusting'),
@@ -123,23 +126,6 @@ async function applyInteractionMode(
 }
 
 function loadInteractionMode() {
-  try {
-    const raw = localStorage.getItem(APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY);
-    let stored = parseInteractionMode(raw);
-    if (!stored && raw) {
-      try {
-        stored = parseInteractionMode(JSON.parse(raw));
-      } catch {
-        /* plain-string storage is the normal format */
-      }
-    }
-    if (stored) {
-      mode.value = stored;
-      return;
-    }
-  } catch {
-    /* use prefs fallback */
-  }
   mode.value = loadApexQPrefs().overlayLocked ? 'display' : 'adjusting';
 }
 
@@ -148,6 +134,7 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let unlisten: (() => void) | undefined;
 const unlistenGeom: Array<() => void> = [];
 let unlistenInteraction: (() => void) | undefined;
+let unlistenPrefs: (() => void) | undefined;
 
 function clearHideTimer() {
   if (hideTimer != null) {
@@ -173,11 +160,6 @@ function applyPayload(
   if (!isOverlayPayload(p)) return;
   const wasEditing = editing.value;
   payload.value = p;
-  try {
-    localStorage.setItem(APEX_Q_OVERLAY_STORAGE_KEY, JSON.stringify(p));
-  } catch {
-    /* The live event remains usable when storage is unavailable. */
-  }
   editR.value = p.r;
   editAlpha.value = p.alpha;
   if (options.leaveEditor !== false) {
@@ -192,30 +174,6 @@ function applyPayload(
       await setEditingConstraints(false);
       await applyInteractionMode('display');
     })();
-  }
-}
-
-function loadStored() {
-  try {
-    const raw = localStorage.getItem(APEX_Q_OVERLAY_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as ApexQOverlayPayload | ApexQThetaResult;
-    if (isOverlayPayload(parsed)) {
-      applyPayload(parsed);
-    } else {
-      // 兼容旧版只存了 theta
-      const prefs = loadApexQPrefs();
-      const legacy = parsed as ApexQThetaResult;
-      if (!Number.isFinite(legacy.r) || !Number.isFinite(legacy.alpha)) return;
-      applyPayload({
-        theta: parsed as ApexQThetaResult,
-        r: legacy.r,
-        alpha: legacy.alpha,
-        hideSec: prefs.overlayHideSec,
-      });
-    }
-  } catch {
-    payload.value = null;
   }
 }
 
@@ -408,9 +366,7 @@ async function startOverlayDragging(e: PointerEvent) {
 onMounted(async () => {
   makeShellTransparent();
   loadInteractionMode();
-  loadStored();
   refreshOpacityFromPrefs();
-  window.addEventListener('storage', onStorage);
   const win = getCurrentWindow();
   try {
     unlisten = await listen<ApexQOverlayPayload>('apex-q-overlay-result', (e) => {
@@ -425,6 +381,20 @@ onMounted(async () => {
       const next = parseInteractionMode(e.payload);
       if (next) void applyInteractionMode(next, {broadcast: false});
     });
+  } catch {
+    /* noop */
+  }
+  try {
+    unlistenPrefs = await listen<{source?: unknown; prefs?: Partial<ApexQPrefs>}>(
+      APEX_Q_PREFS_CHANGED_EVENT,
+      (e) => {
+        if (e.payload?.source === win.label || !e.payload?.prefs || typeof e.payload.prefs !== 'object') return;
+        const next = patchApexQPrefs(e.payload.prefs);
+        refreshOpacityFromPrefs();
+        const nextMode: ApexQOverlayInteractionMode = next.overlayLocked ? 'display' : 'adjusting';
+        if (nextMode !== mode.value) void applyInteractionMode(nextMode, {broadcast: false, persist: false});
+      },
+    );
   } catch {
     /* noop */
   }
@@ -459,27 +429,17 @@ onMounted(async () => {
   try {
     await emitEvent(APEX_Q_OVERLAY_READY_EVENT, {label: win.label});
   } catch {
-    /* The persisted payload remains available if the creator is not listening. */
+    /* The creator may already be closing. */
   }
 });
-
-function onStorage(e: StorageEvent) {
-  if (e.key === 'mx-apex-q-prefs' || e.key == null) {
-    refreshOpacityFromPrefs();
-  }
-  if (e.key === APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY || e.key == null) {
-    const next = parseInteractionMode(e.newValue);
-    if (next && next !== mode.value) void applyInteractionMode(next, {broadcast: false, persist: false});
-  }
-}
 
 onUnmounted(() => {
   editGeometrySnapshot.value = null;
   clearHideTimer();
   if (persistTimer != null) clearTimeout(persistTimer);
-  window.removeEventListener('storage', onStorage);
   unlisten?.();
   unlistenInteraction?.();
+  unlistenPrefs?.();
   for (const u of unlistenGeom) u();
 });
 

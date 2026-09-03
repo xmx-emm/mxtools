@@ -16,8 +16,8 @@ import {applyLocaleToggleShortcut} from '@/utils/global-shortcuts.ts';
 import {
   applyWindowBehavior,
   defaultWindowBehaviorPrefs,
-  saveWindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
+import {useApexQPreferencesStore} from '@/stores/apex_q_preferences.ts';
 
 const emit = defineEmits<{ cleared: [] }>();
 
@@ -29,6 +29,7 @@ const uiStore = useUiStyleStore();
 const steam_store = useSteamStore();
 const ea_store = useEaStore();
 const apex_store = useApexStore();
+const apexQPreferencesStore = useApexQPreferencesStore();
 
 const clearConfirmDialog = ref(false);
 
@@ -40,18 +41,12 @@ async function clearPersistedData() {
   steam_store.$reset();
   ea_store.$reset();
   apex_store.$reset();
-  try {
-    localStorage.removeItem('mx-theme');
-    localStorage.removeItem('mx-theme-preference');
-    localStorage.removeItem('mx-accent');
-  } catch { /* localStorage may be unavailable */
-  }
+  apexQPreferencesStore.$reset();
   applyAccentTheme(DEFAULT_ACCENT);
   i18nLocale.value = resolveLocale(settingsStore.locale);
   applyDocumentLocale(settingsStore.locale);
   await applyLocaleToggleShortcut();
   const cleared = defaultWindowBehaviorPrefs();
-  saveWindowBehaviorPrefs(cleared);
   await applyWindowBehavior(cleared);
   clearConfirmDialog.value = false;
   toast.success(t('settings.clearSuccess'));

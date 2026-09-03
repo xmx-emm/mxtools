@@ -9,14 +9,27 @@ import {
 } from '@/constants/nav_layout.ts';
 import {
   applyWindowBehavior,
-  loadWindowBehaviorPrefs,
-  migrateLegacyAutostart,
-  migrateApexQWindowBehaviorIfNeeded,
   type WindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
 
 export const DEFAULT_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Shift+Z';
 const LEGACY_TOGGLE_LOCALE_SHORTCUT = 'Ctrl+Alt+Z';
+export interface ApexVideoFabPosition {
+  side: 'left' | 'right';
+  topRatio: number;
+}
+
+const DEFAULT_APEX_VIDEO_FAB_POSITION: ApexVideoFabPosition = {side: 'right', topRatio: 0.7};
+
+/** Normalize persisted position data before it reaches the draggable video FAB. */
+export function normalizeApexVideoFabPosition(value: unknown): ApexVideoFabPosition {
+  if (!value || typeof value !== 'object') return {...DEFAULT_APEX_VIDEO_FAB_POSITION};
+  const {side, topRatio} = value as Partial<ApexVideoFabPosition>;
+  if ((side !== 'left' && side !== 'right') || typeof topRatio !== 'number' || !Number.isFinite(topRatio)) {
+    return {...DEFAULT_APEX_VIDEO_FAB_POSITION};
+  }
+  return {side, topRatio: Math.min(Math.max(0, topRatio), 1)};
+}
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
@@ -45,6 +58,12 @@ export const useSettingsStore = defineStore('settings', {
     performanceMode: false,
     /** 关闭窗口时最小化到托盘（否则退出） */
     closeToTray: false,
+    /** 命令面板最近访问路径 */
+    commandPaletteRecentPaths: [] as string[],
+    /** Game Checkup 最近选择的可执行文件 */
+    gameOptimizerPath: '' as string,
+    /** Apex 视频配置浮动按钮位置 */
+    apexVideoFabPosition: {...DEFAULT_APEX_VIDEO_FAB_POSITION},
   }),
   getters: {
     /** 旧持久化数据可能缺少该字段，回落到默认应用内快捷键 */
@@ -104,17 +123,11 @@ export const useSettingsStore = defineStore('settings', {
       this.closeToTray = v ?? false;
       void applyWindowBehavior(this.windowBehavior);
     },
-    /** 从 localStorage / 旧琉雀 Q prefs 对齐，并同步系统托盘与自启 */
-    async syncWindowBehaviorFromStorage() {
-      const early = loadWindowBehaviorPrefs();
-      const migrated = migrateApexQWindowBehaviorIfNeeded({
-        autostart: early.autostart,
-        closeToTray: this.closeToTray || early.closeToTray,
-        startInTray: early.startInTray,
-      });
-      this.closeToTray = migrated.closeToTray;
-      await applyWindowBehavior({closeToTray: migrated.closeToTray});
-      await migrateLegacyAutostart(migrated.autostart).catch(() => undefined);
+    setGameOptimizerPath(path: string | null) {
+      this.gameOptimizerPath = path?.trim() ?? '';
+    },
+    async syncWindowBehavior() {
+      await applyWindowBehavior(this.windowBehavior);
     },
     /** 补齐旧版本持久化中缺失的快捷键字段；顺带丢掉已废弃的全局开关字段 */
     ensureShortcutDefaults() {
@@ -131,6 +144,7 @@ export const useSettingsStore = defineStore('settings', {
       if (typeof this.performanceMode !== 'boolean') {
         this.performanceMode = false;
       }
+      this.apexVideoFabPosition = normalizeApexVideoFabPosition(this.apexVideoFabPosition);
       // 旧持久化可能仍带 globalShortcutsEnabled；从 state 上删掉避免继续同步
       const anyState = this as unknown as Record<string, unknown>;
       delete anyState.autostart;

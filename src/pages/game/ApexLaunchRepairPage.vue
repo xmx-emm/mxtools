@@ -30,9 +30,7 @@ import {
 } from '@/utils/apex-launch-repair-state.ts';
 import {
   emitApexConfigChanged,
-  latestApexLaunchRepairAccount,
   listenApexLaunchRepairAccount,
-  rememberApexLaunchRepairAccount,
 } from '@/utils/game/apex_config_events.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {openRepairToolWindow} from '@/utils/windows.ts';
@@ -74,7 +72,7 @@ let unlistenClose: (() => void) | null = null;
 
 const requestedRouteAccount = typeof route.query.account === 'string'
   ? route.query.account
-  : latestApexLaunchRepairAccount();
+  : null;
 
 const accountKey = computed(() => apexStore.launcher_selection_key);
 const activeAccount = computed(() => apexStore.active_apex_account);
@@ -347,9 +345,6 @@ async function initialize(accountKeyToRestore: string | null) {
     if (accountKeyToRestore) apexStore.launcher_selection_key = accountKeyToRestore;
     await apexStore.refresh_apex_accounts({silent: true});
     if (generation !== initializeGeneration) return;
-    if (apexStore.launcher_selection_key) {
-      rememberApexLaunchRepairAccount(apexStore.launcher_selection_key);
-    }
     ready.value = true;
   } catch (error) {
     if (generation !== initializeGeneration) return;
@@ -359,7 +354,6 @@ async function initialize(accountKeyToRestore: string | null) {
 
 function onAccountChanged() {
   if (isBusy.value || resettingConfig.value) return;
-  if (accountKey.value) rememberApexLaunchRepairAccount(accountKey.value);
   clearReport();
 }
 

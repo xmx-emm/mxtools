@@ -10,6 +10,7 @@ import {
   scanGameOptimizer,
 } from '@/ipc/commands.ts';
 import {evaluateGameOptimizer} from '@/utils/game_optimizer.ts';
+import {useSettingsStore} from '@/stores/settings.ts';
 import type {
   CheckCategory,
   CheckStatus,
@@ -34,6 +35,7 @@ const isTauriRuntime = typeof window !== 'undefined'
 
 const {t, te, locale} = useI18n();
 const toast = useToast();
+const settingsStore = useSettingsStore();
 
 const report = ref<GameOptimizerReport | null>(null);
 const benchmark = ref<NetworkBenchmark | null>(null);
@@ -214,7 +216,7 @@ async function chooseGame() {
     });
     if (typeof path === 'string') {
       gamePath.value = path;
-      localStorage.setItem('mx-game-optimizer-path', path);
+      settingsStore.setGameOptimizerPath(path);
       await scan();
     }
   } catch (error) {
@@ -224,7 +226,7 @@ async function chooseGame() {
 
 async function clearGame() {
   gamePath.value = null;
-  localStorage.removeItem('mx-game-optimizer-path');
+  settingsStore.setGameOptimizerPath(null);
   await scan();
 }
 
@@ -282,8 +284,7 @@ async function openSettings(uri: string) {
 }
 
 onMounted(() => {
-  const storedPath = localStorage.getItem('mx-game-optimizer-path');
-  if (storedPath) gamePath.value = storedPath;
+  if (settingsStore.gameOptimizerPath) gamePath.value = settingsStore.gameOptimizerPath;
   if (isTauriRuntime) void scan();
 });
 </script>

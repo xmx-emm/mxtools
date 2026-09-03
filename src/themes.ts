@@ -304,15 +304,13 @@ export function deriveThemeColors(primary: string, isDark: boolean) {
   };
 }
 
-export function persistAccentHint(accent: AccentTheme, isDark: boolean) {
-  try {
-    const mode = isDark ? accent.dark : accent.light;
-    localStorage.setItem('mx-accent', JSON.stringify({
-      g1: mode.gradient[0],
-      g2: mode.gradient[1],
-      p: mode.primary,
-      s: mode.shadow,
-    }));
-  } catch { /* localStorage may be unavailable */
-  }
+export function applySplashTheme(accent: AccentTheme, isDark: boolean) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.classList.toggle('dark', isDark);
+  const mode = isDark ? accent.dark : accent.light;
+  const style = document.documentElement.style;
+  style.setProperty('--splash-g1', mode.gradient[0]);
+  style.setProperty('--splash-g2', mode.gradient[1]);
+  style.setProperty('--splash-primary', mode.primary);
+  style.setProperty('--splash-shadow', mode.shadow);
 }

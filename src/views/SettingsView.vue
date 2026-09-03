@@ -21,9 +21,9 @@ import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT, setSynchroniz
 import {
   APEX_Q_PREFS_CHANGED_EVENT,
   DEFAULT_APEX_Q_HOTKEY,
-  loadApexQPrefs,
   type ApexQPrefs,
 } from '@/types/apex_q.ts';
+import {loadApexQPrefs, patchApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {applyApexQPrefs, bootstrapApexQFromStorage, syncApexQHotkey} from '@/utils/apex_q.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 
@@ -192,8 +192,11 @@ watch(activeTab, (tab) => {
 
 onMounted(async () => {
   if (!isTauriRuntime) return;
-  unlistenApexQPrefs = await listen<{source?: unknown}>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
+  unlistenApexQPrefs = await listen<{source?: unknown; prefs?: Partial<ApexQPrefs>}>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
     if (event.payload?.source !== currentWindowLabel) {
+      if (event.payload?.prefs && typeof event.payload.prefs === 'object') {
+        patchApexQPrefs(event.payload.prefs);
+      }
       Object.assign(apexQPrefs, loadApexQPrefs());
     }
   });

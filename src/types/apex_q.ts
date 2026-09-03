@@ -63,14 +63,22 @@ export type ApexQOverlayPlacement = {
 export type ApexQOverlayInteractionMode = 'display' | 'adjusting';
 export type ApexQWindowTarget = 'workspace' | 'ocr' | 'settings' | 'background' | 'overlay';
 
+export function parseApexQWindowTarget(value: unknown): ApexQWindowTarget | null {
+  return value === 'workspace'
+    || value === 'ocr'
+    || value === 'settings'
+    || value === 'background'
+    || value === 'overlay'
+    ? value
+    : null;
+}
+
 // These persisted keys and cross-WebView event names are an upgrade contract.
 // Keep their legacy values even though source-level naming is now APEX Q.
 /** overlay 跨 WebView 的交互模式事件。 */
 export const APEX_Q_OVERLAY_INTERACTION_EVENT = 'apex-q-overlay-interaction';
-export const APEX_Q_OVERLAY_INTERACTION_STORAGE_KEY = 'mx-apex-q-overlay-interaction';
 /** Navigate an existing or newly-created APEX Q workbench to a specific section. */
 export const APEX_Q_WINDOW_NAVIGATE_EVENT = 'apex-q-window-navigate';
-export const APEX_Q_WINDOW_TARGET_STORAGE_KEY = 'mx-apex-q-window-target';
 /** Emitted only after preference persistence and hotkey synchronization settle. */
 export const APEX_Q_PREFS_CHANGED_EVENT = 'apex-q-prefs-changed';
 
@@ -118,11 +126,6 @@ export const APEX_Q_OVERLAY_GEOMETRY_EVENT = 'apex-q-overlay-geometry-changed';
 /** The overlay emits this after its result listener has been attached. */
 export const APEX_Q_OVERLAY_READY_EVENT = 'apex-q-overlay-ready';
 
-export const APEX_Q_STORAGE_KEY = 'mx-apex-q-prefs';
-export const APEX_Q_OVERLAY_STORAGE_KEY = 'mx-apex-q-overlay';
-/** 小窗口创建参数版本：升级后强制重建透明窗 */
-export const APEX_Q_OVERLAY_WINDOW_REV = 'acrylic-nofocus-opacity-v2';
-export const APEX_Q_OVERLAY_WINDOW_REV_KEY = 'mx-apex-q-overlay-win-rev';
 export const DEFAULT_APEX_Q_HOTKEY = 'F12';
 export const DEFAULT_APEX_Q_DELAY_MS = 500;
 export const DEFAULT_OVERLAY_HIDE_SEC = 8;
@@ -237,15 +240,8 @@ function clampOverlaySize(w: number, h: number): {w: number; h: number} {
   };
 }
 
-export function loadApexQPrefs(): ApexQPrefs {
-  try {
-    const raw = localStorage.getItem(APEX_Q_STORAGE_KEY);
-    if (!raw) return defaultApexQPrefs();
-    const parsed = JSON.parse(raw) as Partial<ApexQPrefs> & Record<string, unknown>;
-    delete parsed.autostart;
-    delete parsed.closeToTray;
-    delete parsed.startInTray;
-    const prefs = {...defaultApexQPrefs(), ...parsed};
+export function normalizeApexQPrefs(value: Partial<ApexQPrefs> = {}): ApexQPrefs {
+    const prefs = {...defaultApexQPrefs(), ...value};
     // 旧默认 showpos ROI（整块四行）→ 迁到只框 ang 行
     const s = prefs.showposRoi;
     if (
@@ -284,26 +280,4 @@ export function loadApexQPrefs(): ApexQPrefs {
       ? Math.min(MAX_OVERLAY_OPACITY, Math.max(MIN_OVERLAY_OPACITY, op))
       : DEFAULT_OVERLAY_OPACITY;
     return prefs;
-  } catch {
-    return defaultApexQPrefs();
-  }
-}
-
-/** 重置小窗口位置与大小为默认（运行时会按当前显示器工作区摆放） */
-export function resetApexQOverlayGeometry(prefs: ApexQPrefs): ApexQPrefs {
-  prefs.overlayX = null;
-  prefs.overlayY = null;
-  prefs.overlayW = DEFAULT_OVERLAY_WIDTH;
-  prefs.overlayH = DEFAULT_OVERLAY_HEIGHT;
-  prefs.overlayPlacement = null;
-  saveApexQPrefs(prefs);
-  return prefs;
-}
-
-export function saveApexQPrefs(prefs: ApexQPrefs) {
-  const clean = {...prefs} as ApexQPrefs & Record<string, unknown>;
-  delete clean.autostart;
-  delete clean.closeToTray;
-  delete clean.startInTray;
-  localStorage.setItem(APEX_Q_STORAGE_KEY, JSON.stringify(clean));
 }

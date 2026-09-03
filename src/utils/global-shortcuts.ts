@@ -4,7 +4,7 @@ import {
   useSettingsStore,
 } from '@/stores/settings.ts';
 import type {LocaleCode} from '@/utils/locale.ts';
-import {loadApexQPrefs} from '@/types/apex_q.ts';
+import {loadApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 import {

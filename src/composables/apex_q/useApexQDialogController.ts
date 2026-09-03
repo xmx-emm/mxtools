@@ -21,6 +21,7 @@ import type {
   ApexQOverlayGeometry,
   ApexQOverlayInteractionMode,
   ApexQOverlayPlacement,
+  ApexQPrefs,
   ApexQRoi,
   ApexQThetaResult,
   ApexQWindowTarget,
@@ -30,14 +31,14 @@ import {
   APEX_Q_OVERLAY_GEOMETRY_EVENT,
   APEX_Q_PREFS_CHANGED_EVENT,
   APEX_Q_WINDOW_NAVIGATE_EVENT,
-  APEX_Q_WINDOW_TARGET_STORAGE_KEY,
   DEFAULT_OVERLAY_OPACITY,
   DEFAULT_PING_ROI,
   DEFAULT_SHOWPOS_ROI,
   MAX_OVERLAY_OPACITY,
   MIN_OVERLAY_OPACITY,
-  loadApexQPrefs,
+  parseApexQWindowTarget,
 } from '@/types/apex_q.ts';
+import {loadApexQPrefs, patchApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {
   applyApexQOverlayGeometry,
   applyApexQPrefs,
@@ -92,7 +93,10 @@ export function useApexQDialogController() {
   const theta = ref<ApexQThetaResult | null>(null);
   const thetaInput = ref<{r: number; alpha: number} | null>(null);
   type MainTab = ApexQWindowTarget;
-  const mainTab = ref<MainTab>('workspace');
+  const routeTarget = typeof window === 'undefined'
+    ? null
+    : parseApexQWindowTarget(new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('target'));
+  const mainTab = ref<MainTab>(routeTarget ?? 'workspace');
   const pendingMainTab = ref<MainTab | null>(null);
   const pageScroll = ref<HTMLElement | null>(null);
   const deleteConfirmOpen = ref(false);
@@ -188,31 +192,7 @@ export function useApexQDialogController() {
   }
 
   function parseMainTab(value: unknown): MainTab | null {
-    return value === 'workspace'
-      || value === 'ocr'
-      || value === 'settings'
-      || value === 'background'
-      || value === 'overlay'
-      ? value
-      : null;
-  }
-
-  function consumeStoredMainTab() {
-    try {
-      const target = parseMainTab(localStorage.getItem(APEX_Q_WINDOW_TARGET_STORAGE_KEY));
-      if (target) requestMainTab(target);
-      localStorage.removeItem(APEX_Q_WINDOW_TARGET_STORAGE_KEY);
-    } catch {
-      /* The live event remains available when storage is disabled. */
-    }
-  }
-
-  function onWindowStorage(event: StorageEvent) {
-    if (event.key === APEX_Q_WINDOW_TARGET_STORAGE_KEY) {
-      const target = parseMainTab(event.newValue);
-      if (target) requestMainTab(target);
-      return;
-    }
+    return parseApexQWindowTarget(value);
   }
 
   function onMainTabKeydown(event: KeyboardEvent, current: MainTab) {
@@ -839,8 +819,11 @@ export function useApexQDialogController() {
       const target = parseMainTab(e.payload?.target);
       if (target) requestMainTab(target);
     });
-    unlistenPrefs = await listen<{source?: unknown}>(APEX_Q_PREFS_CHANGED_EVENT, (e) => {
+    unlistenPrefs = await listen<{source?: unknown; prefs?: Partial<ApexQPrefs>}>(APEX_Q_PREFS_CHANGED_EVENT, (e) => {
       if (e.payload?.source === currentWindowLabel) return;
+      if (e.payload?.prefs && typeof e.payload.prefs === 'object') {
+        patchApexQPrefs(e.payload.prefs);
+      }
       syncingExternalPrefs = true;
       const latest = loadApexQPrefs();
       adoptPersistedApexQPrefs(latest);
@@ -848,8 +831,6 @@ export function useApexQDialogController() {
         syncingExternalPrefs = false;
       });
     });
-    window.addEventListener('storage', onWindowStorage);
-    consumeStoredMainTab();
     unlistenDownload = await listen<{
       fileName: string;
       percent: number;
@@ -890,7 +871,6 @@ export function useApexQDialogController() {
   onUnmounted(() => {
     flushScheduledPrefsPersist();
     setApexQResultHandler(null);
-    window.removeEventListener('storage', onWindowStorage);
     unlistenNavigate?.();
     unlistenNavigate = null;
     unlistenPrefs?.();

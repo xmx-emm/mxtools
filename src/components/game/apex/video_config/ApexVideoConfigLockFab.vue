@@ -4,17 +4,18 @@ import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import ApexVideoConfigFabTooltip from '@/components/game/apex/video_config/ApexVideoConfigFabTooltip.vue';
+import {useSettingsStore} from '@/stores/settings.ts';
 
 const {t} = useI18n();
 const toast = useToast();
 const apex_store = useApexStore();
+const settings_store = useSettingsStore();
 
 const FAB_SIZE = 32;
 const GAP = 4;
 const MARGIN = 12;
 const GROUP_W = FAB_SIZE;
 const GROUP_H = FAB_SIZE * 2 + GAP;
-const STORAGE_KEY = 'apex_video_fab_pos';
 
 const root = ref<HTMLElement | null>(null);
 const pos = reactive({x: 0, y: 0});
@@ -24,8 +25,8 @@ const dragging = ref(false);
 
 // 持久化：贴靠边(left/right)+ 纵向比例，适应窗口/导航尺寸变化
 const persisted = reactive<{ side: 'left' | 'right'; topRatio: number }>({
-  side: 'right',
-  topRatio: 0.7,
+  side: settings_store.apexVideoFabPosition.side,
+  topRatio: settings_store.apexVideoFabPosition.topRatio,
 });
 
 let pointer_start = {x: 0, y: 0};
@@ -62,25 +63,10 @@ function applyPersisted() {
 }
 
 function savePersisted() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
-  } catch (e) {
-    console.warn('save fab pos failed', e);
-  }
-}
-
-function loadPersisted() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (data && (data.side === 'left' || data.side === 'right') && typeof data.topRatio === 'number') {
-      persisted.side = data.side;
-      persisted.topRatio = Math.min(Math.max(0, data.topRatio), 1);
-    }
-  } catch (e) {
-    console.warn('load fab pos failed', e);
-  }
+  settings_store.apexVideoFabPosition = {
+    side: persisted.side,
+    topRatio: persisted.topRatio,
+  };
 }
 
 function snapToEdge() {
@@ -176,7 +162,6 @@ const individualColor = computed(() =>
 );
 
 onMounted(() => {
-  loadPersisted();
   applyPersisted();
   positioned.value = true;
   void apex_store.load_videoconfig_readonly();

@@ -1,9 +1,15 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {createPinia, setActivePinia} from 'pinia';
+import {defaultApexQPrefs} from '@/types/apex_q.ts';
 import {
-  defaultApexQPrefs,
+  bindApexQPreferencesStore,
   loadApexQPrefs,
+  patchApexQPrefs,
+  resetApexQOverlayGeometry,
   saveApexQPrefs,
-} from '@/types/apex_q.ts';
+  useApexQPreferencesStore,
+} from '@/stores/apex_q_preferences.ts';
 
 const mocks = vi.hoisted(() => ({
   isRegistered: vi.fn(),
@@ -11,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   unregister: vi.fn(),
   emit: vi.fn(),
 }));
+const apexQSource = readFileSync(new URL('../../../src/utils/apex_q.ts', import.meta.url), 'utf8');
 
 vi.mock('@tauri-apps/plugin-global-shortcut', () => ({
   isRegistered: mocks.isRegistered,
@@ -32,12 +39,10 @@ vi.mock('@tauri-apps/api/window', () => ({
 }));
 
 describe('applyApexQPrefs', () => {
-  const storage = new Map<string, string>();
-
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
-    storage.clear();
+    setActivePinia(createPinia());
+    bindApexQPreferencesStore(useApexQPreferencesStore());
     mocks.isRegistered.mockResolvedValue(false);
     mocks.register.mockResolvedValue(undefined);
     mocks.unregister.mockResolvedValue(undefined);
@@ -45,11 +50,6 @@ describe('applyApexQPrefs', () => {
     delete (globalThis as typeof globalThis & {
       __mx_apex_q_hotkey_runtime_v1?: unknown;
     }).__mx_apex_q_hotkey_runtime_v1;
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-      removeItem: (key: string) => storage.delete(key),
-    });
   });
 
   it('merges only changed fields onto the latest persisted preferences', async () => {
@@ -70,6 +70,58 @@ describe('applyApexQPrefs', () => {
     });
     expect(staleCaller.overlayOpacity).toBe(0.83);
     expect(staleCaller.usageConfirmed).toBe(true);
+    expect(mocks.emit).toHaveBeenCalledWith('apex-q-prefs-changed', expect.objectContaining({
+      prefs: {enabled: true},
+      changedKeys: ['enabled'],
+    }));
+  });
+
+  it('preserves an auxiliary-window geometry patch while saving a stale normal preference draft', () => {
+    const staleDraft = defaultApexQPrefs();
+    staleDraft.overlayOpacity = 0.8;
+    patchApexQPrefs({
+      overlayW: 480,
+      overlayH: 260,
+      overlayX: 120,
+      overlayY: 80,
+    });
+
+    saveApexQPrefs(staleDraft, ['overlayOpacity']);
+
+    expect(loadApexQPrefs()).toMatchObject({
+      overlayOpacity: 0.8,
+      overlayW: 480,
+      overlayH: 260,
+      overlayX: 120,
+      overlayY: 80,
+    });
+  });
+
+  it('resets only geometry when its caller holds a stale preference snapshot', () => {
+    const staleGeometry = defaultApexQPrefs();
+    staleGeometry.overlayX = 120;
+    staleGeometry.overlayY = 80;
+    staleGeometry.overlayW = 480;
+    staleGeometry.overlayH = 260;
+    patchApexQPrefs({overlayOpacity: 0.8, usageConfirmed: true});
+
+    resetApexQOverlayGeometry(staleGeometry);
+
+    expect(loadApexQPrefs()).toMatchObject({
+      overlayX: null,
+      overlayY: null,
+      overlayW: 220,
+      overlayH: 124,
+      overlayPlacement: null,
+      overlayOpacity: 0.8,
+      usageConfirmed: true,
+    });
+  });
+
+  it('limits hotkey rollback broadcasts to the fields they restore', () => {
+    expect(apexQSource).toContain(
+      "broadcastApexQPrefs(rollback, ['enabled', 'setupDone', 'hotkey'])",
+    );
   });
 
   it('changes overlay geometry only for an explicit placement save', async () => {

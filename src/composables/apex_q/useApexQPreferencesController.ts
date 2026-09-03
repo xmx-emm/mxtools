@@ -1,6 +1,6 @@
 import {reactive} from 'vue';
 import type {ApexQPrefs} from '@/types/apex_q.ts';
-import {loadApexQPrefs} from '@/types/apex_q.ts';
+import {loadApexQPrefs} from '@/stores/apex_q_preferences.ts';
 
 function clonePrefs(value: ApexQPrefs): ApexQPrefs {
   return JSON.parse(JSON.stringify(value)) as ApexQPrefs;

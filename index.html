@@ -7,26 +7,9 @@
     <title>MX Tools</title>
     <script>
         (function(){
-            var t = '';
-            try {
-                t = localStorage.getItem('mx-theme-preference') || localStorage.getItem('mx-theme') || '';
-            } catch(e){}
-            var isDark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme:dark)').matches);
+            var isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
             if (isDark) {
                 document.documentElement.classList.add('dark');
-            }
-            // 读取主题色
-            var accent = null;
-            try {
-                var raw = localStorage.getItem('mx-accent');
-                if (raw) accent = JSON.parse(raw);
-            } catch(e){}
-            if (accent && accent.g1 && accent.g2) {
-                var s = document.documentElement.style;
-                s.setProperty('--splash-g1', accent.g1);
-                s.setProperty('--splash-g2', accent.g2);
-                s.setProperty('--splash-primary', accent.p || accent.g1);
-                s.setProperty('--splash-shadow', accent.s || 'rgba(218,41,42,0.27)');
             }
 
             document.addEventListener('contextmenu', function(event) {

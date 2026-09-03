@@ -15,8 +15,8 @@ import {
   DEFAULT_OVERLAY_WIDTH,
   MIN_OVERLAY_HEIGHT,
   MIN_OVERLAY_WIDTH,
-  loadApexQPrefs,
 } from '@/types/apex_q.ts';
+import {loadApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {normalizeApexQFolder, selectApexQOverlayMonitor} from '@/utils/apex_q.ts';
 import {useApexQScreenshotPicker} from './useApexQScreenshotPicker.ts';
 import {
