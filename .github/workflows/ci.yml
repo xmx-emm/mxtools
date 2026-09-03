@@ -40,6 +40,13 @@ jobs:
           ref: 5695e89d2a5e23475787c9df5ef5c58ba71e3205
           path: rust/windows_tool
       - uses: dtolnay/rust-toolchain@stable
+      - name: Restore Rust dependency cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: tauri/mxtools/src-tauri -> target
+          key: windows-tool-5695e89d2a5e23475787c9df5ef5c58ba71e3205
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: cargo fmt --check
         working-directory: tauri/mxtools/src-tauri
         run: cargo fmt --check

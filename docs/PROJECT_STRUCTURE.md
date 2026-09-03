@@ -94,7 +94,7 @@ windows_tool = { path = "../../../rust/windows_tool", features = ["input_method"
 
 若克隆本仓库后 **未放置** `windows_tool`,`cargo build` / `tauri build` 会因找不到依赖而失败.请按你本机实际布局补齐该目录,或自行调整 `path`(需同时保证相对路径在团队内一致).
 
-GitHub Actions 会在 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 中将 `windows_tool` 的 GitHub 镜像检出到同一相对路径，并固定到明确的 `ref`。`Cargo.lock` 不记录路径依赖的 Git 提交，因此升级该依赖时应先同步 GitHub 镜像，再更新 workflow 中的固定提交。
+GitHub Actions 会在 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 中将 `windows_tool` 的 GitHub 镜像检出到同一相对路径，并固定到明确的 `ref`。`Cargo.lock` 不记录路径依赖的 Git 提交，因此升级该依赖时应先同步 GitHub 镜像，再更新 workflow 中的固定提交与缓存 key。Rust job 会复用 Cargo registry 和 `src-tauri/target` 中的依赖构建产物；仅 `master` 写入缓存，失败运行中已完成的依赖构建也会保留。
 
 ## 相关配置文件速查
 
