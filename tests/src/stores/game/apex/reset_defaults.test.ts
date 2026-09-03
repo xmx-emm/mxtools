@@ -4,12 +4,14 @@ const mocks = vi.hoisted(() => ({
   resetApexToGameDefaults: vi.fn(),
   info: vi.fn(),
   error: vi.fn(),
+  success: vi.fn(),
 }));
 
 vi.mock('vue-toastification', () => ({
   useToast: () => ({
     info: mocks.info,
     error: mocks.error,
+    success: mocks.success,
   }),
 }));
 
@@ -29,6 +31,12 @@ function resetStore() {
     },
     is_resetting_defaults: false,
     reset_defaults_dialog: true,
+    launcher_selection_key: 'steam:1',
+    video_config_request_generation: 0,
+    game_settings_request_generation: 0,
+    load_apex_video_config: vi.fn().mockResolvedValue(undefined),
+    load_apex_game_settings: vi.fn().mockResolvedValue(undefined),
+    load_config_history: vi.fn().mockResolvedValue(undefined),
   } as unknown as ApexStoreThis;
 }
 
@@ -62,6 +70,27 @@ describe('Apex reset defaults notifications', () => {
     expect(mocks.info).not.toHaveBeenCalled();
     expect(mocks.error).toHaveBeenCalledOnce();
     expect(store.reset_defaults_dialog).toBe(true);
+    expect(store.is_resetting_defaults).toBe(false);
+  });
+
+  it('reloads video and game settings after a successful reset', async () => {
+    mocks.resetApexToGameDefaults.mockResolvedValue({
+      historyEntry: {id: 'reset-1'},
+      pendingScopes: [],
+    });
+    const store = resetStore();
+
+    await expect(apexHistoryActions.reset_apex_to_defaults.call(store)).resolves.toBe(true);
+
+    expect(store.reset_pending_scopes).toEqual([]);
+    expect(store.load_apex_video_config).toHaveBeenCalledWith({silent: true, force: true});
+    expect(store.load_apex_game_settings).toHaveBeenCalledWith({
+      silent: true,
+      force: true,
+      discardLocal: true,
+    });
+    expect(store.load_config_history).toHaveBeenCalledOnce();
+    expect(mocks.success).toHaveBeenCalledWith('apex.history.resetSuccess');
     expect(store.is_resetting_defaults).toBe(false);
   });
 });

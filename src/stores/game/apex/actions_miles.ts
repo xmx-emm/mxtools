@@ -7,7 +7,16 @@ import {
   milesLanguageCheck,
 } from './miles_cache.ts';
 import type {ApexStoreThis} from './types.ts';
-import {checkApexMilesLanguage} from '@/ipc/commands.ts';
+import {
+  cancelApexLanguageDownload,
+  cancelApexLanguageDownloadEa,
+  checkApexMilesLanguage,
+  getApexLanguageDownloadState,
+  getApexLanguageDownloadStateEa,
+  startApexLanguageDownload,
+  startApexLanguageDownloadEa,
+} from '@/ipc/commands.ts';
+import type {ApexMilesDownloadProgress} from '@/ipc/commands.ts';
 
 export const apexMilesActions = {
   //从steam加载启动数据
@@ -73,6 +82,67 @@ export const apexMilesActions = {
       });
     } else {
       this.download_language_button_color = 'info';
+    }
+  },
+
+  /** 打开一键下载对话框（按平台分发）；若已有进行中的下载则恢复现场 */
+  open_miles_auto_download(this: ApexStoreThis) {
+    if (this.active_account_is_ea) {
+      this.download_miles_language_auto_dialog_ea = true;
+      getApexLanguageDownloadStateEa()
+        .then((state) => {
+          if (state) this.miles_download_progress = state;
+        })
+        .catch(() => {});
+    } else {
+      this.download_miles_language_auto_dialog = true;
+      getApexLanguageDownloadState()
+        .then((state) => {
+          if (state) this.miles_download_progress = state;
+        })
+        .catch(() => {});
+    }
+  },
+
+  /** EA：一键下载语音包（经 EA App 原生桥切换游戏语言触发增量下载） */
+  async start_miles_auto_download_ea(this: ApexStoreThis): Promise<void> {
+    this.miles_download_progress = null;
+    await startApexLanguageDownloadEa({language: this.language});
+  },
+
+  async cancel_miles_auto_download_ea(this: ApexStoreThis, stopEa: boolean): Promise<void> {
+    await cancelApexLanguageDownloadEa({stopEa});
+  },
+
+  /** Steam：一键下载语音包（后台静默驱动本机 Steam 客户端） */
+  async start_miles_auto_download(this: ApexStoreThis): Promise<void> {
+    const depot = Number(this.language_depot);
+    if (!depot) {
+      this.miles_download_progress = {
+        phase: 'error',
+        depot: 0,
+        downloadedBytes: 0,
+        totalBytes: 0,
+        percent: 0,
+        message: 'apex.milesDl.badDepot',
+        cefBrowser: '',
+      };
+      return;
+    }
+    this.miles_download_progress = null;
+    await startApexLanguageDownload({depot});
+  },
+
+  async cancel_miles_auto_download(this: ApexStoreThis, stopSteam: boolean): Promise<void> {
+    await cancelApexLanguageDownload({stopSteam});
+  },
+
+  /** apex-miles-download-progress 事件入口（组件里 listen 后转发到这里） */
+  handle_miles_download_event(this: ApexStoreThis, progress: ApexMilesDownloadProgress) {
+    this.miles_download_progress = progress;
+    if (progress.phase === 'done') {
+      invalidateMilesLanguageCheckCache();
+      this.update_download_language_button_color();
     }
   },
 };

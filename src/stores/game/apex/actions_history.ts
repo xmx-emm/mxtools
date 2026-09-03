@@ -147,6 +147,10 @@ export const apexHistoryActions = {
       this.is_game_settings_loading = false;
       this.reset_pending_scopes = [...result.pendingScopes];
       this.reset_defaults_dialog = false;
+      await Promise.all([
+        this.load_apex_video_config({silent: true, force: true}),
+        this.load_apex_game_settings({silent: true, force: true, discardLocal: true}),
+      ]);
       await this.load_config_history();
       useToast().success('apex.history.resetSuccess');
       return true;

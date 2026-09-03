@@ -751,6 +751,47 @@ export function openApexDepotDownloadFolderPath(args: {
   return ipcInvoke<void>('open_apex_depot_download_folder_path', args);
 }
 
+/** Steam 一键下载语音包进度（apex-miles-download-progress 事件负载）。 */
+export interface ApexMilesDownloadProgress {
+  /** checking | restartingSteam | waitingSteam | downloading | applying | done | error | cancelled */
+  phase: string;
+  depot: number;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number;
+  /** 错误/信息码（i18n key） */
+  message: string;
+  /** 探测到的 Steam CEF 版本（诊断用） */
+  cefBrowser: string;
+}
+
+export const APEX_MILES_DOWNLOAD_EVENT = 'apex-miles-download-progress';
+
+export function startApexLanguageDownload(args: {depot: number}): Promise<void> {
+  return ipcInvoke<void>('start_apex_language_download', args);
+}
+
+export function cancelApexLanguageDownload(args: {stopSteam: boolean}): Promise<void> {
+  return ipcInvoke<void>('cancel_apex_language_download', args);
+}
+
+export function getApexLanguageDownloadState(): Promise<ApexMilesDownloadProgress | null> {
+  return ipcInvoke<ApexMilesDownloadProgress | null>('get_apex_language_download_state');
+}
+
+/** EA：一键下载语音包（经 EA App 原生桥切换游戏语言触发增量下载，完成后切回）。 */
+export function startApexLanguageDownloadEa(args: {language: string}): Promise<void> {
+  return ipcInvoke<void>('start_apex_language_download_ea', args);
+}
+
+export function cancelApexLanguageDownloadEa(args: {stopEa: boolean}): Promise<void> {
+  return ipcInvoke<void>('cancel_apex_language_download_ea', args);
+}
+
+export function getApexLanguageDownloadStateEa(): Promise<ApexMilesDownloadProgress | null> {
+  return ipcInvoke<ApexMilesDownloadProgress | null>('get_apex_language_download_state_ea');
+}
+
 // ── explorer / context menu ───────────────────────────────
 
 export function listContextMenuItems(): Promise<ContextMenuItem[]> {

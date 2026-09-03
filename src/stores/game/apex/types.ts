@@ -15,6 +15,7 @@ import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_qu
 import type {DvsConstraintTrigger} from '@/utils/apex_dvs.ts';
 import type {ApexConfigMutationMeta} from '@/types/apex_history.ts';
 import type {ApexConfigHistoryEntry} from '@/types/apex_history.ts';
+import type {ApexMilesDownloadProgress} from '@/ipc/commands.ts';
 import type {createApexState} from './state.ts';
 
 export type ApexVideoWindowMode = 'fullscreen' | 'windowed' | 'borderless';
@@ -63,6 +64,12 @@ export type ApexActions = {
   set_page_type(page: ApexPageTypeEnum): void;
   check_miles_language(force?: boolean): Promise<boolean>;
   update_download_language_button_color(): void;
+  open_miles_auto_download(): void;
+  start_miles_auto_download(): Promise<void>;
+  cancel_miles_auto_download(stopSteam: boolean): Promise<void>;
+  start_miles_auto_download_ea(): Promise<void>;
+  cancel_miles_auto_download_ea(stopEa: boolean): Promise<void>;
+  handle_miles_download_event(progress: ApexMilesDownloadProgress): void;
   load_apex_video_config(options?: {silent?: boolean; force?: boolean}): Promise<void>;
   start_video_config(force?: boolean): void;
   set_video_config_value(identifier: string, value: string): void;

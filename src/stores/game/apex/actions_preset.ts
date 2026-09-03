@@ -3,10 +3,13 @@ import {
   ASPECT_LETTERBOX_MIN_DEFAULT,
   ASPECT_LETTERBOX_THRESHOLD,
   findGraphicsQualityPreset,
-  QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY,
+  QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
+  QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
+  QUICK_PRESET_JUMP_WHEEL_DOWN_KEY,
   quickPresetGameSettingToggles,
 } from '@/data/presets/apex_quick_preset.ts';
 import type {ApexQuickPresetSelection, PrimaryDisplayInfo} from '@/types/apex_quick_preset.ts';
+import type {ApexBinding} from '@/types/apex_game_settings.ts';
 import {
   applyQuickPresetLaunchOptions,
   clampFpsCap,
@@ -39,7 +42,36 @@ function sameBindingCommand(actual: string, expected: string): boolean {
   return actual.toLowerCase() === expected.toLowerCase();
 }
 
-function resolvePresetAimBinding(store: ApexStoreThis): {command: string; context: 0 | 1} {
+function sameBindingAction(left: ApexBinding, right: ApexBinding): boolean {
+  return sameBindingCommand(left.command, right.command)
+    && (left.heldCommand ?? '').toLowerCase() === (right.heldCommand ?? '').toLowerCase();
+}
+
+type PresetBindingTarget = {
+  templateId?: string;
+  binding?: ApexBinding;
+  command: '+zoom' | '+toggle_zoom' | '+forward' | '+jump';
+  input: 'MOUSE2' | 'MWHEELUP' | 'MWHEELDOWN';
+  context: 0 | 1;
+};
+
+function clearBinding(store: ApexStoreThis, binding: ApexBinding) {
+  if (!binding.editable) {
+    throw new Error(`apex.gameSettings.errors.bindingConflict: ${binding.input}`);
+  }
+  store.set_game_binding_slot(
+    binding.templateId ?? binding.id,
+    binding.id,
+    '',
+    binding.context === 1 ? 1 : 0,
+  );
+}
+
+function resolvePresetAimBinding(store: ApexStoreThis): {
+  binding?: ApexBinding;
+  command: '+zoom' | '+toggle_zoom';
+  context: 0 | 1;
+} {
   const aimCommands = ['+zoom', '+toggle_zoom'];
   const mouseAim = store.game_settings_bindings.find(binding => (
     binding.editable
@@ -47,87 +79,127 @@ function resolvePresetAimBinding(store: ApexStoreThis): {command: string; contex
     && aimCommands.some(command => sameBindingCommand(binding.command, command))
   ));
   if (mouseAim) {
-    return {command: mouseAim.command, context: mouseAim.context === 1 ? 1 : 0};
+    return {
+      binding: mouseAim,
+      command: sameBindingCommand(mouseAim.command, '+toggle_zoom') ? '+toggle_zoom' : '+zoom',
+      context: mouseAim.context === 1 ? 1 : 0,
+    };
   }
 
   for (const command of aimCommands) {
-    const bindings = store.game_settings_bindings.filter(binding => (
+    const candidates = store.game_settings_bindings.filter(binding => (
       binding.editable && sameBindingCommand(binding.command, command)
     ));
-    if (!bindings.length) continue;
-    const contexts = new Set(bindings.filter(binding => binding.input).map(binding => binding.context));
-    if (!contexts.has(1)) return {command, context: 1};
-    if (!contexts.has(0)) return {command, context: 0};
-    throw new Error(`apex.gameSettings.errors.bindingSlotLimit: ${command}`);
+    if (!candidates.length) continue;
+    const binding = candidates.find(candidate => !candidate.heldCommand) ?? candidates[0]!;
+    const sameAction = candidates.filter(candidate => sameBindingAction(candidate, binding));
+    const contexts = new Set(sameAction.filter(candidate => candidate.input).map(candidate => candidate.context));
+    const resolvedCommand = command as '+zoom' | '+toggle_zoom';
+    if (!contexts.has(1)) return {binding, command: resolvedCommand, context: 1};
+    if (!contexts.has(0)) return {binding, command: resolvedCommand, context: 0};
+    return {
+      binding,
+      command: resolvedCommand,
+      context: binding.context === 1 ? 1 : 0,
+    };
   }
-  throw new Error('apex.gameSettings.errors.bindingMissing: +zoom / +toggle_zoom');
+  return {command: '+zoom', context: 0};
 }
 
-function releasePresetBindingInputs(
+function resolvePresetActionBinding(
   store: ApexStoreThis,
-  inputs: readonly string[],
-) {
-  const wanted = new Set(inputs.map(input => input.toUpperCase()));
-  for (const binding of [...store.game_settings_bindings]) {
-    if (!binding.input || !wanted.has(binding.input.toUpperCase())) continue;
-    if (!binding.editable) {
-      throw new Error(`apex.gameSettings.errors.bindingConflict: ${binding.input}`);
-    }
-    store.set_game_binding_slot(
-      binding.templateId ?? binding.id,
-      binding.id,
-      '',
-      binding.context === 1 ? 1 : 0,
-    );
-  }
-}
-
-function setPresetBindingInput(
-  store: ApexStoreThis,
-  command: string,
-  input: string,
-  context: 0 | 1,
-) {
-  const normalizedInput = input.toUpperCase();
-  for (const binding of [...store.game_settings_bindings]) {
-    if (!binding.input || binding.input.toUpperCase() !== normalizedInput) continue;
-    if (binding.editable
-      && sameBindingCommand(binding.command, command)
-      && binding.context === context) continue;
-    if (!binding.editable) {
-      throw new Error(`apex.gameSettings.errors.bindingConflict: ${input}`);
-    }
-    store.set_game_binding_slot(
-      binding.templateId ?? binding.id,
-      binding.id,
-      '',
-      binding.context === 1 ? 1 : 0,
-    );
-  }
-
-  const actionBindings = store.game_settings_bindings.filter(binding => (
-    binding.editable
-    && sameBindingCommand(binding.command, command)
+  command: '+forward' | '+jump',
+): ApexBinding | undefined {
+  const candidates = store.game_settings_bindings.filter(binding => (
+    binding.editable && sameBindingCommand(binding.command, command)
   ));
-  const target = actionBindings.find(binding => binding.context === context);
-  if (target) {
-    store.set_game_binding_slot(
-      target.templateId ?? target.id,
-      target.id,
-      input,
-      context,
-    );
+  return candidates.find(candidate => !candidate.heldCommand) ?? candidates[0];
+}
+
+function bindingMatchesTarget(binding: ApexBinding, target: PresetBindingTarget): boolean {
+  if (target.binding) return sameBindingAction(binding, target.binding);
+  return sameBindingCommand(binding.command, target.command) && !binding.heldCommand;
+}
+
+function createPresetBinding(store: ApexStoreThis, target: PresetBindingTarget) {
+  if (target.templateId) {
+    store.set_game_binding_slot(target.templateId, null, target.input, target.context);
     return;
   }
-  const active = actionBindings.filter(binding => binding.input);
-  if (active.length >= 2) {
-    throw new Error(`apex.gameSettings.errors.bindingSlotLimit: ${command}`);
+  const sequence = ++store.game_settings_binding_draft_sequence;
+  store.game_settings_bindings.push({
+    id: `binding:quick-preset:${sequence}`,
+    input: target.input,
+    command: target.command,
+    context: target.context,
+    heldCommand: null,
+    editable: true,
+    occurrence: sequence,
+    createCommand: target.command,
+  });
+}
+
+function replacePresetBindings(
+  store: ApexStoreThis,
+  targets: readonly PresetBindingTarget[],
+) {
+  const wantedInputs = new Set(targets.map(target => target.input));
+
+  // Phase 1: remove every occupied physical key and every stale copy of the
+  // target action/context. The backend then validates only the clean final set.
+  for (const binding of [...store.game_settings_bindings]) {
+    const occupiesInput = Boolean(binding.input)
+      && wantedInputs.has(binding.input.toUpperCase() as PresetBindingTarget['input']);
+    const occupiesTargetSlot = targets.some(target => (
+      bindingMatchesTarget(binding, target)
+      && binding.context === target.context
+    ));
+    if (!occupiesInput && !occupiesTargetSlot) continue;
+    clearBinding(store, binding);
   }
-  const template = actionBindings.find(binding => !binding.templateId) ?? actionBindings[0];
-  if (!template) {
-    throw new Error(`apex.gameSettings.errors.bindingMissing: ${command}`);
+
+  // Phase 2: create each desired slot from its original on-disk template.
+  for (const target of targets) {
+    createPresetBinding(store, target);
   }
-  store.set_game_binding_slot(template.id, null, input, context);
+}
+
+function selectedPresetBindingTargets(
+  store: ApexStoreThis,
+  enabledOptions: Record<string, boolean>,
+): PresetBindingTarget[] {
+  const targets: PresetBindingTarget[] = [];
+  if (enabledOptions[QUICK_PRESET_AIM_MOUSE_RIGHT_KEY]) {
+    const aim = resolvePresetAimBinding(store);
+    targets.push({
+      templateId: aim.binding?.templateId ?? aim.binding?.id,
+      binding: aim.binding,
+      command: aim.command,
+      input: 'MOUSE2',
+      context: aim.context,
+    });
+  }
+  if (enabledOptions[QUICK_PRESET_FORWARD_WHEEL_UP_KEY]) {
+    const binding = resolvePresetActionBinding(store, '+forward');
+    targets.push({
+      templateId: binding?.templateId ?? binding?.id,
+      binding,
+      command: '+forward',
+      input: 'MWHEELUP',
+      context: 1,
+    });
+  }
+  if (enabledOptions[QUICK_PRESET_JUMP_WHEEL_DOWN_KEY]) {
+    const binding = resolvePresetActionBinding(store, '+jump');
+    targets.push({
+      templateId: binding?.templateId ?? binding?.id,
+      binding,
+      command: '+jump',
+      input: 'MWHEELDOWN',
+      context: 1,
+    });
+  }
+  return targets;
 }
 
 function prepareQuickPresetGameSettings(
@@ -140,19 +212,9 @@ function prepareQuickPresetGameSettings(
     }
   }
 
-  if (!enabledOptions[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]) return;
-  const aimBinding = resolvePresetAimBinding(store);
-  for (const command of ['+forward', '+jump']) {
-    if (!store.game_settings_bindings.some(binding => (
-      binding.editable && sameBindingCommand(binding.command, command)
-    ))) {
-      throw new Error(`apex.gameSettings.errors.bindingMissing: ${command}`);
-    }
-  }
-  releasePresetBindingInputs(store, ['MOUSE2', 'MWHEELUP', 'MWHEELDOWN']);
-  setPresetBindingInput(store, aimBinding.command, 'MOUSE2', aimBinding.context);
-  setPresetBindingInput(store, '+forward', 'MWHEELUP', 1);
-  setPresetBindingInput(store, '+jump', 'MWHEELDOWN', 1);
+  const targets = selectedPresetBindingTargets(store, enabledOptions);
+  if (!targets.length) return;
+  replacePresetBindings(store, targets);
 }
 
 export const apexPresetActions = {
@@ -180,6 +242,7 @@ export const apexPresetActions = {
 
   /** 将快速预设选项写入内存状态(启动项 + 视频配置)，不落盘 */
   prepare_quick_preset(this: ApexStoreThis, screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection) {
+    // settings.cfg 缺失/不完整时不再阻塞:后端会从内置默认模板初始化完整键位再应用
     const fpsCap = clampFpsCap(selection.fpsCap);
     this.fps = fpsCap;
     this.lobby_max_fps = fpsCap;
@@ -211,7 +274,7 @@ export const apexPresetActions = {
     } else {
       remove_option_from_selection(this.options_selection, 'reticle_color');
     }
-    this.settings_config['fps'] = '-freq X +fps_max X';
+    this.settings_config['fps'] = '+fps_max X';
 
     const skip_video_keys = uncheckedQuickPresetVideoKeys(selection.videoOptions);
 
@@ -236,26 +299,21 @@ export const apexPresetActions = {
    * 快速预设联合应用：先确保配置已加载，再写启动项与 videoconfig。
    * 调用方需自行处理 Steam/EA 运行中的提示。
    */
-  /** 落盘前确保启动项与视频配置已从磁盘加载(避免 load 覆盖 prepare 写入的值) */
+  /** 落盘前从磁盘重读启动项、画面与键位(避免重置/外部修改后内存状态过期) */
   async ensure_configs_loaded_for_preset(this: ApexStoreThis): Promise<void> {
     const key = this.launcher_selection_key;
-    if (!key || this.launch_loaded_for_key !== key) {
-      const ok = await this.start_load_apex_launch_options_data();
-      if (!ok) {
-        throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
-      }
-      this.original_launch_options = this.launch_options;
-      this.launch_loaded_for_key = this.launcher_selection_key;
+    if (!key) {
+      throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
     }
-    if (!this.video_config_loaded || this.video_config_load_status !== 'ready') {
-      await this.load_apex_video_config();
+    await this.load_launch_data({force: true});
+    if (this.launch_loaded_for_key !== key || this.launch_load_status !== 'ready') {
+      throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
     }
+    await this.load_apex_video_config({silent: true, force: true});
     if (this.video_config_load_status !== 'ready') {
       throw new Error('apex.videoConfigLoadFailed');
     }
-    if (!this.game_settings_report) {
-      await this.load_apex_game_settings();
-    }
+    await this.load_apex_game_settings({silent: true, force: true, discardLocal: true});
     if (!this.game_settings_report) {
       throw new Error('apex.gameSettings.errors.readFailed');
     }

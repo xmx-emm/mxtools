@@ -27,8 +27,17 @@ export default tseslint.config(
       globals: {
         window: 'readonly',
         document: 'readonly',
-        localStorage: 'readonly',
       },
+    },
+    rules: {
+      'no-restricted-globals': ['error', 'localStorage', 'sessionStorage'],
+      'no-restricted-properties': [
+        'error',
+        {object: 'window', property: 'localStorage'},
+        {object: 'window', property: 'sessionStorage'},
+        {object: 'globalThis', property: 'localStorage'},
+        {object: 'globalThis', property: 'sessionStorage'},
+      ],
     },
   },
   {
@@ -46,6 +55,14 @@ export default tseslint.config(
       // TypeScript and vue-tsc resolve browser/type globals more accurately than
       // ESLint's JavaScript-only no-undef rule.
       'no-undef': 'off',
+      'no-restricted-globals': ['error', 'localStorage', 'sessionStorage'],
+      'no-restricted-properties': [
+        'error',
+        {object: 'window', property: 'localStorage'},
+        {object: 'window', property: 'sessionStorage'},
+        {object: 'globalThis', property: 'localStorage'},
+        {object: 'globalThis', property: 'sessionStorage'},
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_'}],
       'vue/multi-word-component-names': 'off',

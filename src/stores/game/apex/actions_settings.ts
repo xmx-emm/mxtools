@@ -83,6 +83,15 @@ export function buildApexGameSettingsMutation(
   }
   for (const binding of store.game_settings_bindings) {
     if (binding.id in store.original_game_settings_bindings || !binding.input) continue;
+    if (binding.createCommand) {
+      bindingMutations.push({
+        operation: 'createCommand',
+        command: binding.createCommand,
+        input: binding.input,
+        context: binding.context === 1 ? 1 : 0,
+      });
+      continue;
+    }
     if (!binding.templateId) continue;
     bindingMutations.push({
       operation: 'create',

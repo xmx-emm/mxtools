@@ -6,6 +6,7 @@ import {
   buildDefaultLaunchOptions,
   buildDefaultVideoOptions,
   graphicsQualityPresets,
+  quickPresetBindingToggles,
   quickPresetGameSettingToggles,
   quickPresetLaunchOptionToggles,
   quickPresetVideoConfigToggles,
@@ -30,7 +31,9 @@ describe('Apex quick preset effect coverage', () => {
   ) {
     const apex = useApexStore();
     const gameSettingOptions = buildDefaultGameSettingOptions();
-    gameSettingOptions.bindingOptimizations = false;
+    for (const toggle of quickPresetBindingToggles) {
+      gameSettingOptions[toggle.key] = false;
+    }
     apex.prepare_quick_preset(screen, {
       fpsCap: 144,
       aspectValue: 16 / 9,
@@ -126,7 +129,9 @@ describe('Apex quick preset effect coverage', () => {
       bindings: [],
     };
     const gameSettingOptions = buildDefaultGameSettingOptions();
-    gameSettingOptions.bindingOptimizations = false;
+    for (const toggle of quickPresetBindingToggles) {
+      gameSettingOptions[toggle.key] = false;
+    }
 
     apex.prepare_quick_preset(
       screen,

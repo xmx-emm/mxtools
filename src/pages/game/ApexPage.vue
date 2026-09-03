@@ -15,6 +15,10 @@ import ApexSteamManualDownloadMilesLanguage
 import ApexEaManualDownloadMilesLanguage from '@/components/game/apex/launch/language/ea/ApexManualDownloadMilesLanguage.vue';
 import ApexSemiAutomaticDownloadLanguage
   from '@/components/game/apex/launch/language/steam/ApexSemiAutomaticDownloadLanguage.vue';
+import ApexAutoDownloadLanguage
+  from '@/components/game/apex/launch/language/steam/ApexAutoDownloadLanguage.vue';
+import ApexAutoDownloadMilesLanguageEa
+  from '@/components/game/apex/launch/language/ea/ApexAutoDownloadMilesLanguageEa.vue';
 import ApexVideoConfig from '@/components/game/apex/video_config/ApexVideoConfig.vue';
 import ApexVideoConfigApply from '@/components/game/apex/video_config/ApexVideoConfigApply.vue';
 import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.vue';
@@ -40,8 +44,6 @@ import {
 } from '@/utils/game/apex_config_snapshot.ts';
 import {
   listenApexConfigChanged,
-  markApexConfigChangeSeen,
-  pendingApexConfigChange,
   type ApexConfigChangedPayload,
   type ApexExternalConfigScope,
 } from '@/utils/game/apex_config_events.ts';
@@ -149,18 +151,6 @@ async function refresh_external_config(scopes: ApexExternalConfigScope[]) {
   return external_config_refresh;
 }
 
-async function refresh_pending_external_config() {
-  const pendingChange = pendingApexConfigChange();
-  if (!pendingChange) return;
-  try {
-    await refresh_external_config(pendingChange.scopes);
-    markApexConfigChangeSeen(pendingChange.revision);
-    show_external_config_notification(pendingChange);
-  } catch (error) {
-    console.warn('refresh pending Apex configuration failed', error);
-  }
-}
-
 async function refresh_running_for_active_account() {
   if (!isTauriRuntime) return;
   const acc = apex_store.active_apex_account;
@@ -196,7 +186,6 @@ function on_app_focus() {
     void refresh_running_for_active_account();
   }
   void refresh_pending_defaults();
-  void refresh_pending_external_config();
 }
 
 function on_visibility_change() {
@@ -216,7 +205,6 @@ onMounted(async () => {
   unlisten_config_changed = await listenApexConfigChanged(async (payload) => {
     try {
       await refresh_external_config(payload.scopes);
-      markApexConfigChangeSeen(payload.revision);
       show_external_config_notification(payload);
     } catch (error) {
       console.warn('refresh live Apex configuration failed', error);
@@ -243,7 +231,6 @@ onMounted(async () => {
     apex_store.start_launch();
   }
   await refresh_running_for_active_account();
-  await refresh_pending_external_config();
   document.addEventListener('visibilitychange', on_visibility_change);
   unlisten_window_focus = await getCurrentWindow().onFocusChanged(({payload}) => {
     if (payload) on_app_focus();
@@ -691,6 +678,8 @@ async function open_config_import() {
     <ApexSteamManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog"/>
     <ApexEaManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog_ea"/>
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
+    <ApexAutoDownloadLanguage v-if="apex_store.download_miles_language_auto_dialog"/>
+    <ApexAutoDownloadMilesLanguageEa v-if="apex_store.download_miles_language_auto_dialog_ea"/>
     <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
     <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
     <ApexOnlinePresetsDialog v-model="online_presets_dialog"/>

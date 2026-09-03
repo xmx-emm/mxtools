@@ -1,4 +1,5 @@
 import {ASPECT_LETTERBOX_MIN_DEFAULT, ASPECT_LETTERBOX_THRESHOLD} from '@/data/presets/apex_quick_preset.ts';
+import type {ApexMilesDownloadProgress} from '@/ipc/commands.ts';
 import {ApexFilterEnum, ApexPageTypeEnum} from '@/enum.ts';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
 import type {
@@ -21,6 +22,12 @@ export function createApexState() {
     download_miles_language_manual_dialog: false,
     /** EA：仅支持手动下载语音包 */
     download_miles_language_manual_dialog_ea: false,
+    /** Steam：一键下载语音包对话框 */
+    download_miles_language_auto_dialog: false,
+    /** EA：一键下载语音包对话框 */
+    download_miles_language_auto_dialog_ea: false,
+    /** 一键下载进度（apex-miles-download-progress 事件负载） */
+    miles_download_progress: <ApexMilesDownloadProgress | null>null,
 
     filter_type: ApexFilterEnum.normal,
     filter_search: '',//过滤搜索
@@ -93,8 +100,8 @@ export function createApexState() {
       window: '-fullscreen',
       fps: '+fps_max unlimited',
       miles_language: '+miles_language japanese',
-      miles_channels: '+miles_channels 2',
-      graphics_api: '-anticheat_settings=SettingsDX11.json'
+      miles_channels: '+miles_channels 2'
+      // graphics_api 已从当前游戏构建移除(DX11 已删除,EAC 仅余 Settings.json)
     }),//多选项配置
 
     original_launch_options: '',//从Steam加载后的启动项快照

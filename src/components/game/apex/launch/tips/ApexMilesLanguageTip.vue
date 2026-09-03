@@ -21,12 +21,15 @@ const { t } = useI18n();
       {{ t('apexTips.milesLanguage.example') }}
       <v-col>
         <template v-if="apex_store.active_account_is_ea">
+          <v-btn @click="apex_store.open_miles_auto_download();apex_store.closeTip();">
+            {{ t('apexTips.milesLanguage.downloadButton') }}
+          </v-btn>
           <v-btn @click="apex_store.download_miles_language_manual_dialog_ea = true;apex_store.closeTip();">
             {{ t('apexTips.milesLanguage.manualButton') }}
           </v-btn>
         </template>
         <template v-else>
-          <v-btn @click="apex_store.download_miles_language_semi_automatic_dialog = true;apex_store.closeTip();">
+          <v-btn @click="apex_store.open_miles_auto_download();apex_store.closeTip();">
             {{ t('apexTips.milesLanguage.downloadButton') }}
           </v-btn>
           <v-btn @click="apex_store.download_miles_language_manual_dialog = true;apex_store.closeTip();">

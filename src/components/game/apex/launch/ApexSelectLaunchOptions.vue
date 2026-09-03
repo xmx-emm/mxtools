@@ -102,11 +102,7 @@ const is_download_button_danger = computed(() => {
 });
 
 function open_miles_language_download_help() {
-  if (apex_store.active_account_is_ea) {
-    apex_store.download_miles_language_manual_dialog_ea = true;
-  } else {
-    apex_store.download_miles_language_semi_automatic_dialog = true;
-  }
+  apex_store.open_miles_auto_download();
 }
 
 function check_item(item: SteamLaunchOptionsImpl) {
@@ -207,7 +203,9 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
 <template>
   <div class="d-flex flex-column h-100 min-height-0">
     <ApexFilter/>
-    <ApexCustomLaunchOptions/>
+    <v-expand-transition>
+      <ApexCustomLaunchOptions v-if="apex_store.filter_type === ApexFilterEnum.all"/>
+    </v-expand-transition>
     <div ref="listWrapRef" class="flex-grow-1 min-height-0" :style="listWrapStyle">
     <v-list
       v-model:selected="apex_store.options_selection"
@@ -215,9 +213,16 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
       class="rounded-0 apex-options-list h-100 min-height-0"
       style="overflow-y: auto"
     >
-      <template
+      <TransitionGroup
+        name="apex-filter-list"
+        tag="div"
+        class="apex-filter-list"
+      >
+      <div
         v-for="item in displayedLaunchOptions"
         :key="isSteamLaunchOptionsImpl(item) ? launchOptionKey(item) : item"
+        class="apex-filter-entry"
+        :class="{'apex-category-entry': !isSteamLaunchOptionsImpl(item)}"
       >
         <template v-if="isSteamLaunchOptionsImpl(item)">
           <div class="apex-list-item-wrap" :title="t('apexLaunchOptions.ui.rightClickTip')">
@@ -475,7 +480,8 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
             </div>
           </v-list-subheader>
         </template>
-      </template>
+      </div>
+      </TransitionGroup>
     </v-list>
     </div>
   </div>
@@ -509,10 +515,41 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
   padding: 0;
 }
 
-.apex-category {
+.apex-filter-list {
+  position: relative;
+  min-height: 100%;
+}
+
+.apex-filter-entry {
+  width: 100%;
+}
+
+.apex-filter-list-move,
+.apex-filter-list-enter-active,
+.apex-filter-list-leave-active {
+  transition:
+    opacity var(--app-motion-base) var(--app-ease-standard),
+    transform var(--app-motion-base) var(--app-ease-standard);
+}
+
+.apex-filter-list-enter-from,
+.apex-filter-list-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.apex-filter-list-leave-active {
+  position: absolute;
+}
+
+.apex-category-entry {
   position: sticky;
   top: 0;
   z-index: 6;
+  background: rgb(var(--v-theme-surface));
+}
+
+.apex-category {
   min-height: 30px;
   margin-top: 0;
   padding-top: 0;

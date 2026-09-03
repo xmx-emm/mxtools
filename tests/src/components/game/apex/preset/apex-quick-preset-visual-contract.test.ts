@@ -60,6 +60,18 @@ describe('Apex quick preset visual contract', () => {
     expect(presetActionsSource).not.toMatch(
       /video_config_load_status !== 'ready'\s*\|\|\s*Object\.keys\(this\.video_config_values\)\.length === 0/,
     );
+    expect(dialogSource).toContain(
+      'launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection)',
+    );
+    expect(dialogSource).toContain(
+      'video_options.value = initVideoOptionsForDialog(apex_store.video_config_values)',
+    );
+    expect(dialogSource).toContain(
+      'game_setting_options.value = initGameSettingOptionsForDialog(',
+    );
+    expect(dialogSource).not.toContain('ref<Record<string, boolean>>(buildDefaultLaunchOptions())');
+    expect(dialogSource).not.toContain('ref<Record<string, boolean>>(buildDefaultVideoOptions())');
+    expect(dialogSource).not.toContain('ref<Record<string, boolean>>(buildDefaultGameSettingOptions())');
   });
 
   it('shows quick-preset completion in the main Apex window', () => {
@@ -67,14 +79,27 @@ describe('Apex quick preset visual contract', () => {
     expect(presetActionsSource).not.toContain("toast.success('apexQuickPreset.applySuccess')");
     expect(apexPageSource).toContain("toast.success('apexQuickPreset.applySuccess')");
     expect(apexPageSource).toContain('shown_external_notifications.has(payload.revision)');
+    expect(apexPageSource).not.toContain('pendingApexConfigChange');
+    expect(apexPageSource).not.toContain('markApexConfigChangeSeen');
+    expect(apexPageSource).toContain('show_external_config_notification(payload);');
   });
 
   it('explains that occupied binding inputs are replaced', () => {
     expect(dialogSource).toContain("t('apexQuickPreset.bindingReplacementHint')");
     expect(dialogSource).toContain('class="preset-binding-replacement-hint"');
     expect(presetActionsSource).toContain("const aimCommands = ['+zoom', '+toggle_zoom'];");
-    expect(presetActionsSource).toContain(
-      "throw new Error(`apex.gameSettings.errors.bindingMissing: ${command}`);",
+    expect(dialogSource).toContain('v-if="binding_settings_missing"');
+    expect(dialogSource).toContain("t('apexQuickPreset.bindingSettingsMissing')");
+    expect(dialogSource).toContain('binding_settings_missing"');
+    // 缺失/不完整时不再阻塞:后端从内置默认模板初始化完整键位,成功后提示
+    expect(presetActionsSource).not.toContain("throw new Error('apexQuickPreset.bindingSettingsMissing')");
+    expect(dialogSource).toContain("toast.info('apexQuickPreset.bindingDefaultsGenerated'");
+    expect(presetActionsSource).not.toContain('for (const target of targets) createPresetBinding(store, target);');
+    expect(dialogSource).not.toMatch(
+      /\.preset-binding-summary\s*\{[^}]*color:\s*rgba\(var\(--v-theme-on-surface\),\s*0\.56\)/s,
+    );
+    expect(dialogSource).toMatch(
+      /\.preset-binding-row kbd\s*\{[^}]*color:\s*rgba\(var\(--v-theme-on-surface\),\s*0\.76\)/s,
     );
   });
 });

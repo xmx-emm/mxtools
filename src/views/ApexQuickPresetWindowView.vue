@@ -12,10 +12,13 @@ import ApexEaManualDownloadMilesLanguage
   from '@/components/game/apex/launch/language/ea/ApexManualDownloadMilesLanguage.vue';
 import ApexSemiAutomaticDownloadLanguage
   from '@/components/game/apex/launch/language/steam/ApexSemiAutomaticDownloadLanguage.vue';
+import ApexAutoDownloadLanguage
+  from '@/components/game/apex/launch/language/steam/ApexAutoDownloadLanguage.vue';
+import ApexAutoDownloadMilesLanguageEa
+  from '@/components/game/apex/launch/language/ea/ApexAutoDownloadMilesLanguageEa.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {
-  latestApexQuickPresetAccount,
   listenApexQuickPresetAccount,
 } from '@/utils/game/apex_config_events.ts';
 
@@ -30,12 +33,11 @@ const ready = ref(false);
 const error = ref<string | null>(null);
 const presetSession = ref(0);
 let unlistenAccount: UnlistenFn | null = null;
-let unlistenFocus: (() => void) | null = null;
 let unlistenClose: (() => void) | null = null;
 let initializeGeneration = 0;
 let requestedAccountKey = typeof route.query.account === 'string'
   ? route.query.account
-  : latestApexQuickPresetAccount();
+  : null;
 
 async function initialize(accountKey = requestedAccountKey) {
   const generation = ++initializeGeneration;
@@ -70,11 +72,6 @@ onMounted(async () => {
     if (accountKey === requestedAccountKey) return;
     void initialize(accountKey);
   });
-  unlistenFocus = await currentWindow.onFocusChanged(({payload}) => {
-    if (!payload) return;
-    const accountKey = latestApexQuickPresetAccount();
-    if (accountKey !== requestedAccountKey) void initialize(accountKey);
-  });
   unlistenClose = await currentWindow.onCloseRequested(event => {
     if (apexStore.quick_preset_applying) event.preventDefault();
   });
@@ -84,8 +81,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   unlistenAccount?.();
   unlistenAccount = null;
-  unlistenFocus?.();
-  unlistenFocus = null;
   unlistenClose?.();
   unlistenClose = null;
 });
@@ -131,6 +126,12 @@ onBeforeUnmount(() => {
     />
     <ApexSemiAutomaticDownloadLanguage
       v-if="apexStore.download_miles_language_semi_automatic_dialog"
+    />
+    <ApexAutoDownloadLanguage
+      v-if="apexStore.download_miles_language_auto_dialog"
+    />
+    <ApexAutoDownloadMilesLanguageEa
+      v-if="apexStore.download_miles_language_auto_dialog_ea"
     />
   </v-main>
 </template>

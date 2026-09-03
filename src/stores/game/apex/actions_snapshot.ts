@@ -377,11 +377,7 @@ export const apexSnapshotActions = {
       }
       if (!await validateSnapshotLaunchLanguage(this, snapshot.launchOptions.raw)) {
         toast.error('toast.milesLanguageNotFound');
-        if (this.active_apex_account?.kind === 'ea') {
-          this.download_miles_language_manual_dialog_ea = true;
-        } else {
-          this.download_miles_language_semi_automatic_dialog = true;
-        }
+        this.open_miles_auto_download();
         return false;
       }
     }

@@ -1,11 +1,13 @@
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import {
   aspectResolutionTable,
-  buildDefaultLaunchOptions,
-  buildDefaultVideoOptions,
   closestAspectPresetValue,
   FPS_CAP_MAX,
   FPS_CAP_MIN,
+  QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
+  QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
+  QUICK_PRESET_JUMP_WHEEL_DOWN_KEY,
+  quickPresetGameSettingToggles,
   quickPresetLaunchOptionToggles,
   quickPresetVideoConfigToggles,
 } from '@/data/presets/apex_quick_preset.ts';
@@ -16,6 +18,7 @@ import type {
   ResolutionLockAxis,
 } from '@/types/apex_quick_preset.ts';
 import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
+import type {ApexBinding} from '@/types/apex_game_settings.ts';
 
 export function screenKey(width: number, height: number): string {
   return `${width}x${height}`;
@@ -174,13 +177,10 @@ export function isQuickPresetLaunchOptionSelected(
   return findLaunchOptionSelectionIndex(selection, toggle) >= 0;
 }
 
-/** 打开对话框时初始化启动项勾选：无已有配置用默认，否则按当前启动项同步 */
+/** 打开对话框时按当前启动项初始化勾选。 */
 export function initLaunchOptionsForDialog(
   selection: SteamLaunchOptionsImpl[],
 ): Record<string, boolean> {
-  if (selection.length === 0) {
-    return buildDefaultLaunchOptions();
-  }
   return Object.fromEntries(
     quickPresetLaunchOptionToggles.map((opt) => [
       opt.key,
@@ -235,19 +235,62 @@ export function matchesVideoToggleValues(
   });
 }
 
-/** 打开对话框时初始化视频开关：匹配 onValues 为勾选，否则不勾选；无配置时用 defaultEnabled */
+/** 打开对话框时按当前视频配置初始化勾选。 */
 export function initVideoOptionsForDialog(
   values: Record<string, string>,
 ): Record<string, boolean> {
-  if (Object.keys(values).length === 0) {
-    return buildDefaultVideoOptions();
-  }
   return Object.fromEntries(
     quickPresetVideoConfigToggles.map((opt) => [
       opt.key,
       matchesVideoToggleValues(values, opt.onValues),
     ]),
   );
+}
+
+function inputHasOnlyTargetBinding(
+  bindings: ApexBinding[],
+  input: string,
+  commands: readonly string[],
+  context?: number,
+): boolean {
+  const inputBindings = bindings.filter(binding => (
+    binding.input.toUpperCase() === input
+  ));
+  return inputBindings.length === 1
+    && commands.some(command => inputBindings[0]!.command.toLowerCase() === command)
+    && (context == null || inputBindings[0]!.context === context);
+}
+
+/** 按 profile.cfg 与当前键位初始化游戏设置优化勾选。 */
+export function initGameSettingOptionsForDialog(
+  profileValues: Record<string, string>,
+  bindings: ApexBinding[],
+): Record<string, boolean> {
+  return {
+    ...Object.fromEntries(
+      quickPresetGameSettingToggles.map(([id, key, optimizedValue]) => [
+        id,
+        profileValues[key] === optimizedValue,
+      ]),
+    ),
+    [QUICK_PRESET_AIM_MOUSE_RIGHT_KEY]: inputHasOnlyTargetBinding(
+      bindings,
+      'MOUSE2',
+      ['+zoom', '+toggle_zoom'],
+    ),
+    [QUICK_PRESET_FORWARD_WHEEL_UP_KEY]: inputHasOnlyTargetBinding(
+      bindings,
+      'MWHEELUP',
+      ['+forward'],
+      1,
+    ),
+    [QUICK_PRESET_JUMP_WHEEL_DOWN_KEY]: inputHasOnlyTargetBinding(
+      bindings,
+      'MWHEELDOWN',
+      ['+jump'],
+      1,
+    ),
+  };
 }
 
 /** 勾选时写入 onValues；未勾选不修改(由调用方在应用竞技基线后恢复原有值) */

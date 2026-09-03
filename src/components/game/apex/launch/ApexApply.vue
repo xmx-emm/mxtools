@@ -59,11 +59,7 @@ const {
     }
     if (!await apex_store.check_miles_language()) {
       toast.error('toast.milesLanguageNotFound');
-      if (apex_store.active_apex_account?.kind === 'ea') {
-        apex_store.download_miles_language_manual_dialog_ea = true;
-      } else {
-        apex_store.download_miles_language_semi_automatic_dialog = true;
-      }
+      apex_store.open_miles_auto_download();
       return false;
     }
     return true;

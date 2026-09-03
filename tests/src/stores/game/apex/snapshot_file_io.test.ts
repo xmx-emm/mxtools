@@ -69,7 +69,7 @@ describe('Apex snapshot filesystem export', () => {
     expect(parseApexConfigSnapshot(content)).toMatchObject({
       version: 1,
       kind: 'apex-config-snapshot',
-      launchOptions: {raw: '-freq 240 +fps_max 240 +miles_language english'},
+      launchOptions: {raw: '+fps_max 240 +miles_language english'},
     });
   });
 });

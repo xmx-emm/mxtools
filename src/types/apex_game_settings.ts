@@ -3,6 +3,7 @@ export type ApexGameSettingsFile = 'settings' | 'profile';
 export interface ApexSettingsFileReport {
   path: string;
   revision: string;
+  exists?: boolean;
   values: Record<string, string>;
   unknownKeys: string[];
   backupAvailable: boolean;
@@ -18,6 +19,8 @@ export interface ApexBinding {
   occurrence: number;
   /** Frontend-only source binding used when drafting a new second slot. */
   templateId?: string;
+  /** Frontend-only command used when the source file has no reusable template. */
+  createCommand?: string;
 }
 
 export interface ApexGameSettingsReport {
@@ -29,7 +32,8 @@ export interface ApexGameSettingsReport {
 export type ApexBindingMutation =
   | {operation: 'update'; id: string; input: string}
   | {operation: 'delete'; id: string}
-  | {operation: 'create'; templateId: string; input: string; context: 0 | 1};
+  | {operation: 'create'; templateId: string; input: string; context: 0 | 1}
+  | {operation: 'createCommand'; command: string; input: string; context: 0 | 1};
 
 export interface ApexGameSettingsApplyRequest {
   settingsRevision: string;
@@ -91,6 +95,11 @@ export interface ApexGameSettingDefinition {
   disabledWhen?: ApexGameSettingDependency | ApexGameSettingDependency[];
   readKey?: string;
   writeKeys?: string[];
+  /**
+   * Toggle 展示方向与存储值相反时使用：开启状态对应存储 '0'。
+   * 用于 fov_disableAbilityScaling 这类游戏菜单为正向开关、存储键为反向语义的项。
+   */
+  invertToggle?: boolean;
 }
 
 export interface ApexBindingSnapshot {

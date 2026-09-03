@@ -304,13 +304,33 @@ export const quickPresetGameSettingToggles = [
   ['viewShake', 'sprint_view_shake_style', '0', 'viewShakeLowest'],
 ] as const;
 
-export const QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY = 'bindingOptimizations';
+export const QUICK_PRESET_AIM_MOUSE_RIGHT_KEY = 'aimMouseRight';
+export const QUICK_PRESET_FORWARD_WHEEL_UP_KEY = 'forwardWheelUp';
+export const QUICK_PRESET_JUMP_WHEEL_DOWN_KEY = 'jumpWheelDown';
+
+export const quickPresetBindingToggles = [
+  {
+    key: QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
+    actionLabel: 'apexGameSettings.bindings.holdAim',
+    inputLabel: 'apexQuickPreset.bindingInputs.mouseRight',
+  },
+  {
+    key: QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
+    actionLabel: 'apexGameSettings.bindings.moveForward',
+    inputLabel: 'apexQuickPreset.bindingInputs.wheelUp',
+  },
+  {
+    key: QUICK_PRESET_JUMP_WHEEL_DOWN_KEY,
+    actionLabel: 'apexGameSettings.bindings.jump',
+    inputLabel: 'apexQuickPreset.bindingInputs.wheelDown',
+  },
+] as const;
 
 export function buildDefaultGameSettingOptions(): Record<string, boolean> {
   return Object.fromEntries(
     [
       ...quickPresetGameSettingToggles.map(([id]) => [id, true] as const),
-      [QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY, true] as const,
+      ...quickPresetBindingToggles.map(({key}) => [key, true] as const),
     ],
   );
 }

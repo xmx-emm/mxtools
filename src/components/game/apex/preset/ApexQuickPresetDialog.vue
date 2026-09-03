@@ -15,13 +15,10 @@ import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
-  buildDefaultGameSettingOptions,
-  buildDefaultLaunchOptions,
-  buildDefaultVideoOptions,
   FPS_CAP_MAX,
   FPS_CAP_MIN,
   graphicsQualityPresets,
-  QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY,
+  quickPresetBindingToggles,
   quickPresetLaunchOptionToggles,
   quickPresetGameSettingToggles,
   quickPresetVideoConfigToggles,
@@ -42,6 +39,7 @@ import {
   defaultFpsCap,
   findLaunchOptionRef,
   formatAspectRatioLabel,
+  initGameSettingOptionsForDialog,
   initLaunchOptionsForDialog,
   initVideoOptionsForDialog,
   resolveQuickPresetInitialAspectValue,
@@ -74,10 +72,24 @@ const lock_axis = ref<ResolutionLockAxis>('width');
 const enable_resolution_preset = ref(true);
 const enable_graphics_preset = ref(true);
 const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competitive');
-const simplified_reticle = ref(true);
-const launch_options = ref<Record<string, boolean>>(buildDefaultLaunchOptions());
-const video_options = ref<Record<string, boolean>>(buildDefaultVideoOptions());
-const game_setting_options = ref<Record<string, boolean>>(buildDefaultGameSettingOptions());
+const simplified_reticle = ref(false);
+const launch_options = ref<Record<string, boolean>>(initLaunchOptionsForDialog([]));
+const video_options = ref<Record<string, boolean>>(initVideoOptionsForDialog({}));
+const game_setting_options = ref<Record<string, boolean>>(
+  initGameSettingOptionsForDialog({}, []),
+);
+const quick_preset_binding_commands = new Set(['+zoom', '+toggle_zoom', '+forward', '+jump']);
+const binding_settings_missing = computed(() => {
+  const report = apex_store.game_settings_report;
+  if (!report) return false;
+  const hasSelectedBinding = quickPresetBindingToggles.some(
+    ({key}) => game_setting_options.value[key],
+  );
+  return hasSelectedBinding
+    && (report.settings.exists === false || !report.bindings.some(
+      binding => !quick_preset_binding_commands.has(binding.command.toLowerCase()),
+    ));
+});
 const CONFIG_CHANGE_POLL_MS = 2000;
 let config_signature: string | null = null;
 let config_poll_timer: number | null = null;
@@ -152,6 +164,10 @@ function sync_options_from_store(info: PrimaryDisplayInfo) {
   );
   launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection);
   video_options.value = initVideoOptionsForDialog(apex_store.video_config_values);
+  game_setting_options.value = initGameSettingOptionsForDialog(
+    apex_store.game_settings_values.profile,
+    apex_store.game_settings_bindings,
+  );
 }
 
 async function read_config_signature(): Promise<string> {
@@ -327,11 +343,15 @@ async function run_persist() {
     toast.warning('apexQuickPreset.selectAspect');
     return;
   }
+  const will_init_defaults = binding_settings_missing.value;
   try {
     await apex_store.ensure_configs_loaded_for_preset();
     apex_store.prepare_quick_preset(local_display.value, build_selection());
     const applied = await apex_store.apply_quick_preset_persist();
     if (applied) {
+      if (will_init_defaults) {
+        toast.info('apexQuickPreset.bindingDefaultsGenerated', {timeout: 8000});
+      }
       await getCurrentWindow().close();
     }
   } catch (e) {
@@ -372,11 +392,7 @@ const {
     }
     if (!await apex_store.check_miles_language()) {
       toast.error('toast.milesLanguageNotFound');
-      if (apex_store.active_apex_account?.kind === 'ea') {
-        apex_store.download_miles_language_manual_dialog_ea = true;
-      } else {
-        apex_store.download_miles_language_semi_automatic_dialog = true;
-      }
+      apex_store.open_miles_auto_download();
       return false;
     }
     return true;
@@ -731,32 +747,27 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <aside class="preset-binding-summary">
-                <v-checkbox
-                  v-model="game_setting_options[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]"
-                  :label="t('apexQuickPreset.bindingOptimizationsLabel')"
-                  density="compact"
-                  hide-details
-                  color="primary"
-                  class="compact-checkbox preset-binding-checkbox"
-                />
-                <div
-                  class="preset-binding-details"
-                  :class="{'preset-binding-details--disabled': !game_setting_options[QUICK_PRESET_BINDING_OPTIMIZATIONS_KEY]}"
-                >
-                  <div class="preset-binding-row">
-                    <span>{{ t('apexGameSettings.bindings.holdAim') }}</span>
-                    <kbd>{{ t('apexQuickPreset.bindingInputs.mouseRight') }}</kbd>
-                  </div>
-                  <div class="preset-binding-row">
-                    <span>{{ t('apexGameSettings.bindings.moveForward') }}</span>
-                    <kbd>{{ t('apexQuickPreset.bindingInputs.wheelUp') }}</kbd>
-                  </div>
-                  <div class="preset-binding-row">
-                    <span>{{ t('apexGameSettings.bindings.jump') }}</span>
-                    <kbd>{{ t('apexQuickPreset.bindingInputs.wheelDown') }}</kbd>
+                <div class="preset-binding-details">
+                  <div
+                    v-for="binding in quickPresetBindingToggles"
+                    :key="binding.key"
+                    class="preset-binding-row"
+                  >
+                    <v-checkbox
+                      v-model="game_setting_options[binding.key]"
+                      :label="t(binding.actionLabel)"
+                      density="compact"
+                      hide-details
+                      color="primary"
+                      class="compact-checkbox preset-binding-checkbox"
+                    />
+                    <kbd>{{ t(binding.inputLabel) }}</kbd>
                   </div>
                   <p class="preset-binding-replacement-hint">
                     {{ t('apexQuickPreset.bindingReplacementHint') }}
+                  </p>
+                  <p v-if="binding_settings_missing" class="preset-binding-missing-hint">
+                    {{ t('apexQuickPreset.bindingSettingsMissing') }}
                   </p>
                 </div>
               </aside>
@@ -1148,7 +1159,6 @@ onBeforeUnmount(() => {
   align-self: start;
   gap: 4px;
   padding: 4px 0 4px 14px;
-  color: rgba(var(--v-theme-on-surface), 0.56);
   border-left: 1px solid var(--app-border);
   font-size: 11px;
   line-height: 1.45;
@@ -1166,20 +1176,12 @@ onBeforeUnmount(() => {
   transition: opacity var(--app-motion-fast) var(--app-ease-standard);
 }
 
-.preset-binding-details--disabled {
-  opacity: 0.45;
-}
-
 .preset-binding-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 82px;
-  align-items: baseline;
+  align-items: center;
   min-width: 0;
   column-gap: 12px;
-}
-
-.preset-binding-row span {
-  overflow-wrap: anywhere;
 }
 
 .preset-binding-row kbd {
@@ -1196,6 +1198,13 @@ onBeforeUnmount(() => {
 .preset-binding-replacement-hint {
   margin: 4px 0 0;
   color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.preset-binding-missing-hint {
+  margin: 4px 0 0;
+  color: rgb(var(--v-theme-warning));
   font-size: 10.5px;
   line-height: 1.45;
 }
