@@ -4,6 +4,7 @@ import {useI18n} from 'vue-i18n';
 import {
   appConfirmationState,
   resolveAppConfirmation,
+  runAppConfirmationAction,
   type AppConfirmationKind,
 } from '@/utils/app_confirmation.ts';
 
@@ -22,7 +23,7 @@ onBeforeUnmount(() => resolveAppConfirmation(false));
 </script>
 
 <template>
-  <v-dialog :model-value="appConfirmationState.open" max-width="440" persistent>
+  <v-dialog :model-value="appConfirmationState.open" max-width="520" persistent>
     <v-card class="app-confirmation-dialog">
       <v-card-title class="app-confirmation-dialog__title">
         <span
@@ -38,10 +39,20 @@ onBeforeUnmount(() => resolveAppConfirmation(false));
         {{ appConfirmationState.message }}
       </v-card-text>
 
-      <v-card-actions>
+      <v-card-actions class="app-confirmation-dialog__actions">
         <v-spacer/>
         <v-btn variant="text" @click="resolveAppConfirmation(false)">
           {{ appConfirmationState.cancelText || t('common.cancel') }}
+        </v-btn>
+        <v-btn
+          v-if="appConfirmationState.actionText"
+          color="primary"
+          variant="text"
+          append-icon="mdi-arrow-right-thin"
+          :disabled="appConfirmationState.actionRunning"
+          @click="runAppConfirmationAction()"
+        >
+          {{ appConfirmationState.actionText }}
         </v-btn>
         <v-btn
           :color="confirmColor"
@@ -98,5 +109,10 @@ onBeforeUnmount(() => resolveAppConfirmation(false));
   color: rgba(var(--v-theme-on-surface), 0.72);
   font-size: 13px;
   line-height: 1.65;
+}
+
+.app-confirmation-dialog__actions {
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 </style>

@@ -94,6 +94,7 @@ export const appMessages = {
     closeWithPendingChangesTitle: '存在未应用的修改',
     closeWithPendingChanges: 'APEX 或 PUBG 仍有未应用的修改。放弃这些修改并转到后台吗？',
     discardAndContinueInBackground: '放弃修改并转到后台',
+    reviewPendingChanges: '前往修改页',
     language: '语言',
     languageSystem: '跟随系统',
     languageZh: '简体中文',

@@ -94,6 +94,7 @@ export const appMessages = {
     closeWithPendingChangesTitle: 'Pending changes',
     closeWithPendingChanges: 'APEX or PUBG still has unapplied changes. Discard them and continue in the background?',
     discardAndContinueInBackground: 'Discard and continue in background',
+    reviewPendingChanges: 'Go to edits',
     language: 'Language',
     languageSystem: 'Follow system',
     languageZh: '简体中文',

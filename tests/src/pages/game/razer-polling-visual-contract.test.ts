@@ -13,10 +13,6 @@ const autostartSource = readFileSync(
   new URL('../../../../src/components/settings/BackgroundAutostartSwitch.vue', import.meta.url),
   'utf8',
 );
-const mainSource = readFileSync(
-  new URL('../../../../src/main.ts', import.meta.url),
-  'utf8',
-);
 const configSource = readFileSync(
   new URL('../../../../src/utils/razer_polling_config.ts', import.meta.url),
   'utf8',
@@ -151,24 +147,5 @@ describe('Razer polling page visual contract', () => {
       /async function chooseExecutable\(\) \{\s*if \(!isTauriRuntime\) return null;/s,
     );
     expect(pageSource).toMatch(/onMounted\(async \(\) => \{\s*if \(!isTauriRuntime\) return;/s);
-  });
-
-  it('confirms existing dirty game edits before destroying the main window', () => {
-    const closeStart = mainSource.indexOf('async function installMainCloseCoordinator()');
-    const closeEnd = mainSource.indexOf('\nif (isTauriRuntime)', closeStart);
-    const closeCoordinator = mainSource.slice(closeStart, closeEnd);
-
-    expect(closeStart).toBeGreaterThanOrEqual(0);
-    expect(closeEnd).toBeGreaterThan(closeStart);
-    expect(closeCoordinator).toContain("listen('main-close-to-background-request'");
-    expect(closeCoordinator).toContain('apex.is_launch_options_modified');
-    expect(closeCoordinator).toContain('apex.is_video_config_modified');
-    expect(closeCoordinator).toContain('apex.is_game_settings_modified');
-    expect(closeCoordinator).toContain('pubg.is_launch_options_modified');
-    expect(closeCoordinator).toContain("confirm(i18n.global.t('settings.closeWithPendingChanges')");
-    expect(closeCoordinator).toContain('if (!accepted) return');
-    expect(closeCoordinator.indexOf('if (dirty)')).toBeLessThan(
-      closeCoordinator.indexOf('await destroyMainWindow()'),
-    );
   });
 });

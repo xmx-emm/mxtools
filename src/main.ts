@@ -46,6 +46,8 @@ import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {settleStartupTask, type StartupTaskResult} from '@/utils/startup.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
 import {openApexQWindow} from '@/utils/windows.ts';
+import type {ApexPageTypeEnum} from '@/enum.ts';
+import {resolvePendingGameChangesTarget} from '@/utils/game/pending_game_changes.ts';
 import {
   bindApexQPreferencesStore,
   loadApexQPrefs,
@@ -86,6 +88,34 @@ async function runStartupTask<T>(
   return result;
 }
 
+type PendingChangesStores = {
+  apex: {
+    page_type: ApexPageTypeEnum;
+    is_launch_options_modified: boolean;
+    is_video_config_modified: boolean;
+    is_game_settings_modified: boolean;
+    set_page_type(page: ApexPageTypeEnum): void;
+  };
+  pubg: {
+    is_launch_options_modified: boolean;
+  };
+};
+
+async function navigateToPendingChanges(stores: PendingChangesStores) {
+  const {default: router} = await import('./router');
+  const target = resolvePendingGameChangesTarget({
+    currentPath: router.currentRoute.value.path,
+    currentApexPage: stores.apex.page_type,
+    apexLaunchModified: stores.apex.is_launch_options_modified,
+    apexVideoModified: stores.apex.is_video_config_modified,
+    apexGameSettingsModified: stores.apex.is_game_settings_modified,
+    pubgLaunchModified: stores.pubg.is_launch_options_modified,
+  });
+  if (!target) return;
+  if (target.path === '/apex') stores.apex.set_page_type(target.page);
+  await router.push(target.path);
+}
+
 async function installMainCloseCoordinator() {
   if (!isMainWindow || stopMainCloseRequest) return;
   stopMainCloseRequest = await listen('main-close-to-background-request', () => {
@@ -107,6 +137,10 @@ async function installMainCloseCoordinator() {
           title: i18n.global.t('settings.closeWithPendingChangesTitle'),
           kind: 'warning',
           confirmText: i18n.global.t('settings.discardAndContinueInBackground'),
+          actionText: i18n.global.t('settings.reviewPendingChanges'),
+          onAction: () => navigateToPendingChanges({apex, pubg}).catch((error) => {
+            console.warn('navigate to pending changes failed', error);
+          }),
         });
         if (!accepted) return;
       }

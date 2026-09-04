@@ -138,6 +138,10 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Important Workflows
 
+- Closing the main window to the background checks the in-memory Apex and PUBG
+  editors first. The shared confirmation can keep the window open and navigate
+  back to the currently visible dirty editor; otherwise it selects the first
+  dirty Apex launch, video, or game-settings tab, then PUBG.
 - `openApexQWindow(target)` in `src/utils/windows.ts` creates or activates the
   APEX Q workbench and navigates to `workspace`, `ocr`, `settings`,
   `background`, or `overlay`. The tray exposes direct Workspace, OCR, and
