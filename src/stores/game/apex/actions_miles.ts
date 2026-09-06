@@ -1,3 +1,4 @@
+import {useDownloadsStore, isFinishedDownload} from '@/stores/downloads.ts';
 import {
   MILES_LANGUAGE_CHECK_CACHE_MS,
   milesLanguageCheckKey,
@@ -11,10 +12,6 @@ import {
   cancelApexLanguageDownload,
   cancelApexLanguageDownloadEa,
   checkApexMilesLanguage,
-  getApexLanguageDownloadState,
-  getApexLanguageDownloadStateEa,
-  startApexLanguageDownload,
-  startApexLanguageDownloadEa,
 } from '@/ipc/commands.ts';
 import type {ApexMilesDownloadProgress} from '@/ipc/commands.ts';
 
@@ -42,18 +39,18 @@ export const apexMilesActions = {
     ) {
       return milesLanguageCheck.cache.value;
     }
-    if (milesLanguageCheck.inFlight) {
+    if (!force && milesLanguageCheck.inFlight && milesLanguageCheck.inFlightKey === cacheKey) {
       return milesLanguageCheck.inFlight;
     }
     const platform = acc?.kind === 'ea' ? 'ea' : 'steam';
     const eaUserId = acc?.kind === 'ea' ? acc.user.id : null;
-    milesLanguageCheck.inFlight = checkApexMilesLanguage({
+    const pending = checkApexMilesLanguage({
       language: this.language,
       platform,
       eaUserId,
     })
       .then((is_ok) => {
-        if (cacheKey) {
+        if (cacheKey && milesLanguageCheck.inFlight === pending) {
           milesLanguageCheck.cache = { key: cacheKey, at: Date.now(), value: is_ok };
         }
         return is_ok;
@@ -63,9 +60,14 @@ export const apexMilesActions = {
         return false;
       })
       .finally(() => {
-        milesLanguageCheck.inFlight = null;
+        if (milesLanguageCheck.inFlight === pending) {
+          milesLanguageCheck.inFlight = null;
+          milesLanguageCheck.inFlightKey = null;
+        }
       });
-    return milesLanguageCheck.inFlight;
+    milesLanguageCheck.inFlight = pending;
+    milesLanguageCheck.inFlightKey = cacheKey;
+    return pending;
   },
 
   update_download_language_button_color(this: ApexStoreThis) {
@@ -76,7 +78,10 @@ export const apexMilesActions = {
       this.download_language_button_color = 'success';
       this.is_miles_language_ready = true;
     } else if (this.is_enabled_miles_language) {
+      const key = this.launcher_selection_key;
+      const language = this.language;
       this.check_miles_language().then((is_ok: boolean) => {
+        if (key !== this.launcher_selection_key || language !== this.language) return;
         this.is_miles_language_ready = is_ok;
         this.download_language_button_color = is_ok ? 'success' : 'error';
       });
@@ -85,56 +90,51 @@ export const apexMilesActions = {
     }
   },
 
-  /** 打开一键下载对话框（按平台分发）；若已有进行中的下载则恢复现场 */
-  open_miles_auto_download(this: ApexStoreThis) {
-    if (this.active_account_is_ea) {
-      this.download_miles_language_auto_dialog_ea = true;
-      getApexLanguageDownloadStateEa()
-        .then((state) => {
-          if (state) this.miles_download_progress = state;
-        })
-        .catch(() => {});
-    } else {
-      this.download_miles_language_auto_dialog = true;
-      getApexLanguageDownloadState()
-        .then((state) => {
-          if (state) this.miles_download_progress = state;
-        })
-        .catch(() => {});
-    }
+  /** Reopening is not proof that a historical completed download still exists. */
+  async open_miles_auto_download(this: ApexStoreThis) {
+    const platform = this.active_account_is_ea ? 'ea' : 'steam';
+    const language = this.language;
+    const accountKey = this.launcher_selection_key;
+    this.miles_download_progress = null;
+    this.miles_download_job_id = null;
+    this.download_miles_language_auto_dialog_ea = platform === 'ea';
+    this.download_miles_language_auto_dialog = platform === 'steam';
+    const downloads = useDownloadsStore();
+    await downloads.initialize().catch(error => console.warn('initialize downloads', error));
+    await downloads.refresh();
+    if (this.language !== language || this.launcher_selection_key !== accountKey) return;
+    const job = downloads.jobs.find(job => job.platform === platform && job.language === language && !isFinishedDownload(job.status));
+    this.miles_download_job_id = job?.id ?? null;
+    const ready = await this.check_miles_language(true);
+    if (this.language !== language || this.launcher_selection_key !== accountKey) return;
+    this.is_miles_language_ready = ready;
+    this.download_language_button_color = ready ? 'success' : 'error';
   },
 
-  /** EA：一键下载语音包（经 EA App 原生桥切换游戏语言触发增量下载） */
   async start_miles_auto_download_ea(this: ApexStoreThis): Promise<void> {
     this.miles_download_progress = null;
-    await startApexLanguageDownloadEa({language: this.language});
+    const downloads = useDownloadsStore();
+    const job = downloads.jobs.find(job => job.id === this.miles_download_job_id && job.language === this.language && job.platform === 'ea');
+    if (job?.status === 'paused') await downloads.control(job.id, 'resume');
+    else this.miles_download_job_id = await downloads.enqueue('ea', this.language);
   },
 
   async cancel_miles_auto_download_ea(this: ApexStoreThis, stopEa: boolean): Promise<void> {
-    await cancelApexLanguageDownloadEa({stopEa});
+    if (this.miles_download_job_id !== null) await useDownloadsStore().control(this.miles_download_job_id, 'cancel');
+    else await cancelApexLanguageDownloadEa({stopEa});
   },
 
-  /** Steam：一键下载语音包（后台静默驱动本机 Steam 客户端） */
   async start_miles_auto_download(this: ApexStoreThis): Promise<void> {
-    const depot = Number(this.language_depot);
-    if (!depot) {
-      this.miles_download_progress = {
-        phase: 'error',
-        depot: 0,
-        downloadedBytes: 0,
-        totalBytes: 0,
-        percent: 0,
-        message: 'apex.milesDl.badDepot',
-        cefBrowser: '',
-      };
-      return;
-    }
     this.miles_download_progress = null;
-    await startApexLanguageDownload({depot});
+    const downloads = useDownloadsStore();
+    const job = downloads.jobs.find(job => job.id === this.miles_download_job_id && job.language === this.language && job.platform === 'steam');
+    if (job?.status === 'paused') await downloads.control(job.id, 'resume');
+    else this.miles_download_job_id = await downloads.enqueue('steam', this.language);
   },
 
   async cancel_miles_auto_download(this: ApexStoreThis, stopSteam: boolean): Promise<void> {
-    await cancelApexLanguageDownload({stopSteam});
+    if (this.miles_download_job_id !== null) await useDownloadsStore().control(this.miles_download_job_id, 'cancel');
+    else await cancelApexLanguageDownload({stopSteam});
   },
 
   /** apex-miles-download-progress 事件入口（组件里 listen 后转发到这里） */

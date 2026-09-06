@@ -10,6 +10,7 @@ pub mod apex_q_ocr_download;
 pub mod apex_q_rapid_ocr;
 pub mod apex_settings;
 pub mod apex_theta;
+pub mod download_manager;
 pub mod ea_desktop;
 pub mod pubg;
 pub mod steam;

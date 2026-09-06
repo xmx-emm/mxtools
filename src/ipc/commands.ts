@@ -759,6 +759,7 @@ export interface ApexMilesDownloadProgress {
   downloadedBytes: number;
   totalBytes: number;
   percent: number;
+  progressKnown?: boolean;
   /** 错误/信息码（i18n key） */
   message: string;
   /** 探测到的 Steam CEF 版本（诊断用） */
@@ -766,6 +767,32 @@ export interface ApexMilesDownloadProgress {
 }
 
 export const APEX_MILES_DOWNLOAD_EVENT = 'apex-miles-download-progress';
+
+export interface DownloadJob {
+  id: number;
+  platform: 'steam' | 'ea';
+  language: string;
+  depot: number;
+  status: string;
+  progress: ApexMilesDownloadProgress;
+  createdAt: string;
+  updatedAt: string;
+  requested: string | null;
+}
+export interface DownloadSnapshot {revision: number; jobs: DownloadJob[]}
+export const DOWNLOAD_MANAGER_EVENT = 'download-manager-changed';
+export function getDownloadQueue(): Promise<DownloadSnapshot> {
+  return ipcInvoke<DownloadSnapshot>('get_download_queue');
+}
+export function enqueueApexDownload(args: {platform: 'steam' | 'ea'; language: string}): Promise<number> {
+  return ipcInvoke<number>('enqueue_apex_download', args);
+}
+export function controlDownload(args: {id: number; action: 'pause' | 'resume' | 'retry' | 'cancel'}): Promise<void> {
+  return ipcInvoke<void>('control_download', args);
+}
+export function clearFinishedDownloads(): Promise<void> {
+  return ipcInvoke<void>('clear_finished_downloads');
+}
 
 export function startApexLanguageDownload(args: {depot: number}): Promise<void> {
   return ipcInvoke<void>('start_apex_language_download', args);

@@ -35,6 +35,7 @@ const ApexQOverlayView = () => import('./views/ApexQOverlayView.vue');
 const ApexQWindowView = () => import('./views/ApexQWindowView.vue');
 const ApexQuickPresetWindowView = () => import('./views/ApexQuickPresetWindowView.vue');
 const SettingsView = () => import('./views/SettingsView.vue');
+const DownloadsPage = () => import('./pages/DownloadsPage.vue');
 const GamePage = () => import('./pages/GamePage.vue');
 const WindowsPage = () => import('./pages/WindowsPage.vue');
 const ApexPage = () => import('./pages/game/ApexPage.vue');
@@ -218,7 +219,7 @@ const routes = [
   {
     path: '/', component: HomeView,
     redirect: '/dashboard',
-    children: [{ path: '/dashboard', component: DashboardView }, { path: '/settings', component: SettingsView },]
+    children: [{ path: '/dashboard', component: DashboardView }, { path: '/downloads', component: DownloadsPage }, { path: '/settings', component: SettingsView },]
   },
   { path: '/tools', component: HomeView, redirect: '/game', children: tools, name: 'Tools' },
 

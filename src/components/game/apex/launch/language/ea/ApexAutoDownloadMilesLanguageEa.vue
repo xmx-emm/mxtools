@@ -3,15 +3,13 @@
  * EA：一键下载语音包（驱动 EA App 原生桥切换游戏语言触发增量下载，完成后切回）
  * 进度经 apex-miles-download-progress 事件推送；手动流程保留为回退。
  */
-import {computed, onMounted, onUnmounted, ref} from 'vue';
-import {listen} from '@tauri-apps/api/event';
+import {computed, ref, watch} from 'vue';
+import {useDownloadsStore} from '@/stores/downloads.ts';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {
-  APEX_MILES_DOWNLOAD_EVENT,
   openApexAudioFolderPath,
-  type ApexMilesDownloadProgress,
 } from '@/ipc/commands.ts';
 
 const {t, te} = useI18n();
@@ -19,20 +17,21 @@ const apex_store = useApexStore();
 const toast = useToast();
 
 const show_cancel_confirm = ref(false);
-let unlisten: (() => void) | null = null;
-
-onMounted(async () => {
-  unlisten = await listen<ApexMilesDownloadProgress>(APEX_MILES_DOWNLOAD_EVENT, (event) => {
-    apex_store.handle_miles_download_event(event.payload);
-  });
+const downloads = useDownloadsStore();
+const progress = computed(() => {
+  const platform = 'ea';
+  const job = downloads.jobs.find(job => job.id === apex_store.miles_download_job_id
+    && job.platform === platform && job.language === apex_store.language);
+  return job ? {...job.progress, phase: job.status} : apex_store.miles_download_progress;
 });
-
-onUnmounted(() => {
-  unlisten?.();
-  unlisten = null;
+watch(() => progress.value?.phase, phase => {
+  if (phase === 'done') {
+    void apex_store.check_miles_language(true).then(ready => {
+      apex_store.is_miles_language_ready = ready;
+      apex_store.download_language_button_color = ready ? 'success' : 'error';
+    });
+  }
 });
-
-const progress = computed(() => apex_store.miles_download_progress);
 const phase = computed(() => progress.value?.phase ?? 'intro');
 const is_running = computed(() =>
   [
@@ -51,7 +50,7 @@ const downloaded_mb = computed(() =>
 const total_mb = computed(() =>
   progress.value ? (progress.value.totalBytes / 1048576).toFixed(0) : '0',
 );
-const has_bytes = computed(() => (progress.value?.totalBytes ?? 0) > 0);
+const has_bytes = computed(() => progress.value?.progressKnown === true);
 
 const phase_text = computed(() => {
   switch (phase.value) {
@@ -146,6 +145,11 @@ function open_audio_folder() {
           </p>
         </template>
 
+        <template v-else-if="['queued', 'paused', 'stopping'].includes(phase)">
+          <p>{{ t('downloads.phases.' + phase) }}</p>
+          <v-btn variant="text" to="/downloads">{{ t('downloads.title') }}</v-btn>
+        </template>
+
         <!-- 完成 -->
         <template v-else-if="phase === 'done'">
           <div class="d-flex align-center">
@@ -176,12 +180,10 @@ function open_audio_folder() {
         <template v-if="show_cancel_confirm">
           <v-divider class="my-3"/>
           <p class="mb-2 font-weight-medium">{{ t('apex.milesDownload.autoCancelTitle') }}</p>
+          <p class="text-medium-emphasis mb-2">{{ t('downloads.stopHint') }}</p>
           <div class="d-flex flex-column" style="gap: 6px">
-            <v-btn size="small" variant="tonal" @click="confirm_cancel(false)">
-              {{ t('apex.milesDownload.autoEaCancelKeepFiles') }}
-            </v-btn>
             <v-btn size="small" variant="tonal" color="error" @click="confirm_cancel(true)">
-              {{ t('apex.milesDownload.autoEaCancelStopEa') }}
+              {{ t('downloads.confirmStop') }}
             </v-btn>
             <v-btn size="small" variant="text" @click="show_cancel_confirm = false">
               {{ t('apex.milesDownload.autoCancelBack') }}

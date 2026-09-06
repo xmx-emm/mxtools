@@ -94,6 +94,7 @@ const PROGRESS_SUB_JS: &str = r"(() => {
       });
     } catch (e) {}
   }
+  window.__mxEaDl.length = 0;
   return 'ok';
 })()";
 
@@ -184,6 +185,7 @@ fn emit(app: &AppHandle, progress: &MilesDownloadProgress) {
         }
     }
     let _ = app.emit(APEX_MILES_DOWNLOAD_EVENT, progress);
+    crate::game::download_manager::record_progress(app, "ea", progress);
 }
 
 fn ea_desktop_exe() -> Result<PathBuf, String> {
@@ -351,6 +353,9 @@ async fn ensure_ea_debugging(app: &AppHandle) -> Result<CefPage, String> {
     }
 
     for attempt in 0..2 {
+        if session_cancelled() {
+            return Err("cancelled".into());
+        }
         // EA 在运行但没带调试端口（或自更新丢了参数）：重启它
         if ea_process_running() {
             if ea_other_game_running() {
@@ -371,6 +376,9 @@ async fn ensure_ea_debugging(app: &AppHandle) -> Result<CefPage, String> {
         }
 
         emit(app, &MilesDownloadProgress::new(0, ea_phase::WAITING_EA));
+        if session_cancelled() {
+            return Err("cancelled".into());
+        }
         let exe = ea_desktop_exe()?;
         std::process::Command::new(&exe)
             .arg(format!("--remote-debugging-port={EA_CEF_PORT}"))
@@ -380,6 +388,9 @@ async fn ensure_ea_debugging(app: &AppHandle) -> Result<CefPage, String> {
         // 等页面出现；若进程中途消失（自更新换实例丢参数）则下一轮重拉
         let deadline = Instant::now() + EA_PORT_TIMEOUT;
         loop {
+            if session_cancelled() {
+                return Err("cancelled".into());
+            }
             tokio::time::sleep(Duration::from_secs(2)).await;
             if let Ok(page) = try_connect_ea_page().await {
                 minimize_ea_window();
@@ -417,6 +428,9 @@ async fn wait_bridge_ready(page: &mut CefPage) -> Result<(), String> {
         .unwrap_or_default();
     let deadline = Instant::now() + BRIDGE_READY_TIMEOUT;
     loop {
+        if session_cancelled() {
+            return Err("cancelled".into());
+        }
         let probe = page
             .evaluate(BRIDGE_PROBE_JS)
             .await
@@ -445,6 +459,14 @@ async fn wait_bridge_ready(page: &mut CefPage) -> Result<(), String> {
             }
         }
     }
+}
+
+fn session_cancelled() -> bool {
+    session_cell()
+        .lock()
+        .ok()
+        .and_then(|s| s.as_ref().map(|s| s.cancel.load(Ordering::Relaxed)))
+        .unwrap_or(false)
 }
 
 struct EaGameStatus {
@@ -494,11 +516,20 @@ fn parse_progress_payloads(items: &[String]) -> Option<(u64, u64)> {
     let mut latest = None;
     for item in items {
         // 负载可能是 JSON 对象/字符串，或带 offerId 前缀
-        let candidates: Vec<&str> = item.splitn(2, ' ').collect();
+        let mut candidates = vec![item.as_str()];
+        if let Some((_, payload)) = item.split_once(' ') {
+            candidates.push(payload);
+        }
         for c in candidates {
             let Ok(v) = serde_json::from_str::<Value>(c) else {
                 continue;
             };
+            if v["offerId"]
+                .as_str()
+                .is_some_and(|id| id != APEX_EA_OFFER_ID)
+            {
+                continue;
+            }
             let downloaded = v["bytesDownloaded"].as_u64();
             let total = v["bytesTotal"].as_u64();
             if let (Some(d), Some(t)) = (downloaded, total) {
@@ -522,20 +553,33 @@ async fn run_download(app: AppHandle, language: String, cancel: Arc<AtomicBool>)
             p
         }
     };
-    let is_final = matches!(
-        final_progress.phase.as_str(),
-        phase::DONE | phase::ERROR | phase::CANCELLED
-    );
-    emit(&app, &final_progress);
     if let Ok(mut guard) = session_cell().lock() {
-        if let Some(session) = guard.as_mut() {
-            session.last = final_progress;
-        }
-        if is_final {
-            *guard = None;
-        }
+        *guard = None;
     }
     release_download_gate();
+    let mut final_progress = final_progress;
+    if final_progress.phase == phase::DONE {
+        final_progress.percent = 100.0;
+        final_progress.progress_known = true;
+    }
+    emit(&app, &final_progress);
+}
+
+fn restore_locales() -> &'static Mutex<std::collections::HashMap<String, String>> {
+    static CELL: OnceLock<Mutex<std::collections::HashMap<String, String>>> = OnceLock::new();
+    CELL.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+fn bridge_result(value: Value) -> Result<Value, String> {
+    let parsed = if let Some(text) = value.as_str() {
+        serde_json::from_str(text).map_err(|e| format!("apex.milesDlEa.eaChangeFailed: {e}"))?
+    } else {
+        value
+    };
+    if let Some(message) = parsed.get("error") {
+        return Err(format!("apex.milesDlEa.eaChangeFailed: {message}"));
+    }
+    Ok(parsed)
 }
 
 async fn run_download_inner(
@@ -543,6 +587,9 @@ async fn run_download_inner(
     language: &str,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), String> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err("cancelled".into());
+    }
     let started = Instant::now();
     emit(app, &MilesDownloadProgress::new(0, phase::CHECKING));
 
@@ -568,25 +615,42 @@ async fn run_download_inner(
     {
         return Err("apex.milesDlEa.eaUpdatePending".to_string());
     }
-    if status.installed_locale == target_locale {
-        log_info!("EA 端已是目标语言 {}, 无需下载", target_locale);
-        return Ok(());
+    let previous_locale = restore_locales()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(language)
+        .cloned();
+    if status.installed_locale == target_locale && previous_locale.is_none() {
+        return if crate::game::apex::check_apex_miles_language(
+            language.to_string(),
+            Some("ea".into()),
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        {
+            Ok(())
+        } else {
+            Err("toast.milesLanguageNotFound".into())
+        };
     }
-    let restore_locale = status.installed_locale.clone();
+    let restore_locale = previous_locale.unwrap_or_else(|| status.installed_locale.clone());
+    restore_locales()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(language.to_string(), restore_locale.clone());
     let restore_slug = ea_locale_to_slug(&restore_locale);
 
     page.evaluate(PROGRESS_SUB_JS).await?;
 
     emit(app, &MilesDownloadProgress::new(0, ea_phase::SWITCHING));
-    let change_result = page.evaluate(&language_change_js(target_slug)).await?;
-    if let Some(error) = change_result.get("error").and_then(|e| e.as_str()) {
-        return Err(format!("apex.milesDlEa.eaChangeFailed: {error}"));
-    }
+    bridge_result(page.evaluate(&language_change_js(target_slug)).await?)?;
     let change_issued_at = Instant::now();
     log_info!("EA 已发起语言切换 -> {}", target_slug);
 
     // 等下载完成：installedLocale 翻到目标语言且不在安装/更新中
     let mut last_bytes = 0u64;
+    let mut last_total = 0u64;
     let mut last_growth = Instant::now();
     loop {
         if cancel.load(Ordering::Relaxed) {
@@ -607,6 +671,7 @@ async fn run_download_inner(
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
             .collect();
         if let Some((downloaded, total)) = parse_progress_payloads(&items) {
+            last_total = total;
             if downloaded > last_bytes {
                 last_bytes = downloaded;
                 last_growth = Instant::now();
@@ -615,10 +680,18 @@ async fn run_download_inner(
             p.downloaded_bytes = downloaded;
             p.total_bytes = total;
             p.percent = (downloaded as f64 / total as f64 * 100.0).min(99.0);
+            p.progress_known = true;
             emit(app, &p);
         } else {
             // 无字节进度时也要让前端知道还活着
-            emit(app, &MilesDownloadProgress::new(0, phase::DOWNLOADING));
+            let mut progress = MilesDownloadProgress::new(0, phase::DOWNLOADING);
+            if last_total > 0 {
+                progress.downloaded_bytes = last_bytes;
+                progress.total_bytes = last_total;
+                progress.progress_known = true;
+                progress.percent = (last_bytes as f64 / last_total as f64 * 100.0).min(99.0);
+            }
+            emit(app, &progress);
         }
 
         let status = read_status(&mut page).await?;
@@ -643,7 +716,10 @@ async fn run_download_inner(
     if let Some(restore_slug) = restore_slug {
         if !restore_locale.is_empty() && restore_locale != target_locale {
             emit(app, &MilesDownloadProgress::new(0, ea_phase::RESTORING));
-            let restore_result = page.evaluate(&language_change_js(restore_slug)).await;
+            let restore_result = page
+                .evaluate(&language_change_js(restore_slug))
+                .await
+                .and_then(bridge_result);
             match restore_result {
                 Ok(v) if v.get("error").is_none() => {
                     let deadline = Instant::now() + RESTORE_TIMEOUT;
@@ -652,8 +728,7 @@ async fn run_download_inner(
                             return Err("cancelled".to_string());
                         }
                         if Instant::now() > deadline {
-                            log_info!("EA 切回原语言超时（语音包已下载完成，可手动切回）");
-                            break;
+                            return Err("downloads.restoreFailed".into());
                         }
                         let status = read_status(&mut page).await?;
                         if status.installed_locale == restore_locale
@@ -666,22 +741,25 @@ async fn run_download_inner(
                     }
                 }
                 Ok(v) => {
-                    log_info!(
-                        "EA 切回原语言被拒: {}（语音包已下载完成，可手动切回）",
-                        v["error"].as_str().unwrap_or_default()
-                    );
+                    return Err(format!("downloads.restoreFailed: {v}"));
                 }
                 Err(e) => {
-                    log_info!("EA 切回原语言失败: {}（语音包已下载完成，可手动切回）", e);
+                    return Err(format!("downloads.restoreFailed: {e}"));
                 }
             }
         }
     }
 
-    let mut p = MilesDownloadProgress::new(0, phase::DONE);
-    p.percent = 100.0;
-    p.downloaded_bytes = last_bytes;
-    emit(app, &p);
+    if !crate::game::apex::check_apex_miles_language(language.to_string(), Some("ea".into()), None)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        return Err("toast.milesLanguageNotFound".into());
+    }
+    restore_locales()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(language);
     Ok(())
 }
 
@@ -719,6 +797,9 @@ pub async fn start_apex_language_download_ea(app: AppHandle, language: String) -
         });
     }
 
+    if crate::game::download_manager::stop_requested("ea", 0) {
+        cancel.store(true, Ordering::Relaxed);
+    }
     tauri::async_runtime::spawn(run_download(app, language, cancel));
     Ok(())
 }
@@ -726,6 +807,12 @@ pub async fn start_apex_language_download_ea(app: AppHandle, language: String) -
 /// 取消 EA 下载监控；`stop_ea` 为 true 时同时退出 EA App 以中止其后台下载。
 #[tauri::command]
 pub async fn cancel_apex_language_download_ea(stop_ea: bool) -> IpcResult<()> {
+    if stop_ea && ea_other_game_running() {
+        return Err(IpcError::from_message(
+            "apex",
+            "apex.milesDlEa.otherGameRunning",
+        ));
+    }
     let cancel = {
         let guard = session_cell()
             .lock()
@@ -746,6 +833,13 @@ pub async fn cancel_apex_language_download_ea(stop_ea: bool) -> IpcResult<()> {
             ],
             ProcessNameMatchMode::Exact,
         );
+        let deadline = Instant::now() + Duration::from_secs(45);
+        while ea_process_running() {
+            if Instant::now() > deadline {
+                return Err(IpcError::from_message("apex", "downloads.stopFailed"));
+            }
+            tokio::time::sleep(Duration::from_millis(300)).await;
+        }
     }
     Ok(())
 }
@@ -766,5 +860,9 @@ mod language_download_ea_tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/apex_language_download_ea.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/miles_ea_payloads.rs"
     ));
 }

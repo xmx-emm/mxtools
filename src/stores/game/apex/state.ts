@@ -131,6 +131,7 @@ export function createApexState() {
     is_config_history_restoring: false,
     is_resetting_defaults: false,
     reset_pending_scopes: <ApexConfigScope[]>[],
+    miles_download_job_id: null as number | null,
 
     /** 当前账户下启动项是否已从磁盘加载(切换子页时避免重复 IPC) */
     launch_loaded_for_key: <string | null>null,

@@ -70,6 +70,27 @@ noncommercial mirrors and public modified versions are allowed.
   progress gate whose `apex-miles-download-progress` event is restored by
   `actions_miles.ts`, and only restart a client after its running-game check
   passes.
+- Download management lives at `/downloads`, above Settings in navigation.
+  Clicking the navigation entry first opens an anchored compact queue popover
+  without leaving the current page. Its expand icon opens `/downloads`.
+  `components/downloads/DownloadJobList.vue` owns task rendering and launcher
+  stop confirmations for both surfaces; queue/history tabs and scrollable rows
+  live in `DownloadQueuePopover.vue`. Popover visibility is transient local UI
+  state, closes on outside click/Escape/navigation, and does not affect workers.
+  The navigation icon shows a determinate ring for known active transfer
+  progress, an indeterminate ring for other active phases, and distinct queued,
+  paused, and failed states even when the sidebar is collapsed.
+  `game/download_manager.rs` owns the session-wide serial Steam/EA queue,
+  task identity and revisioned event snapshots; the frontend downloads store
+  does not persist those transient events. Pause/cancel of an active task
+  explicitly confirms exiting its launcher, retains downloaded files and waits
+  for worker acknowledgement. Resume resubmits to the launcher for reuse.
+  History is session-only, bounded, and is not evidence that files still exist.
+  Reopening the Miles dialog discards stale terminal state and forces a file
+  check. Both workers check audio availability before reporting completion.
+  Steam's console flow shows indeterminate progress until its correlated
+  completion message, not a percentage inferred from preallocated file sizes.
+  EA uses known byte progress when available and reports language-restore errors.
 - Advanced video input ranges are separate from game-menu endpoints. The
   texture budget has distinct runtime and serialized ladders. CSM coverage
   starts at 1; disabling uses csm_enabled, not coverage=0. The 128/256 CSM

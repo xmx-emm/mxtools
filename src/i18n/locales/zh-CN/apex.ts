@@ -583,7 +583,7 @@ export const apexMessages = {
       autoDone: '语音包已下载并自动应用！',
       autoDoneHint: 'Apex 大版本更新后若语音失效，需重新下载应用',
       autoError: '一键下载失败',
-      autoCancelled: '已取消下载监控',
+      autoCancelled: '已取消下载任务',
       autoRetry: '重试',
       autoCancel: '取消下载',
       autoCancelTitle: '停止下载？',

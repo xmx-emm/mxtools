@@ -3,15 +3,13 @@
  * Steam：一键下载语音包（后台静默驱动本机 Steam 客户端控制台 download_depot）
  * 进度经 apex-miles-download-progress 事件推送；半自动流程保留为回退。
  */
-import {computed, onMounted, onUnmounted, ref} from 'vue';
-import {listen} from '@tauri-apps/api/event';
+import {computed, ref, watch} from 'vue';
+import {useDownloadsStore} from '@/stores/downloads.ts';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {
-  APEX_MILES_DOWNLOAD_EVENT,
   openApexAudioFolderPath,
-  type ApexMilesDownloadProgress,
 } from '@/ipc/commands.ts';
 
 const {t, te} = useI18n();
@@ -19,20 +17,21 @@ const apex_store = useApexStore();
 const toast = useToast();
 
 const show_cancel_confirm = ref(false);
-let unlisten: (() => void) | null = null;
-
-onMounted(async () => {
-  unlisten = await listen<ApexMilesDownloadProgress>(APEX_MILES_DOWNLOAD_EVENT, (event) => {
-    apex_store.handle_miles_download_event(event.payload);
-  });
+const downloads = useDownloadsStore();
+const progress = computed(() => {
+  const platform = 'steam';
+  const job = downloads.jobs.find(job => job.id === apex_store.miles_download_job_id
+    && job.platform === platform && job.language === apex_store.language);
+  return job ? {...job.progress, phase: job.status} : apex_store.miles_download_progress;
 });
-
-onUnmounted(() => {
-  unlisten?.();
-  unlisten = null;
+watch(() => progress.value?.phase, phase => {
+  if (phase === 'done') {
+    void apex_store.check_miles_language(true).then(ready => {
+      apex_store.is_miles_language_ready = ready;
+      apex_store.download_language_button_color = ready ? 'success' : 'error';
+    });
+  }
 });
-
-const progress = computed(() => apex_store.miles_download_progress);
 const phase = computed(() => progress.value?.phase ?? 'intro');
 const is_running = computed(() =>
   ['checking', 'restartingSteam', 'waitingSteam', 'downloading', 'applying'].includes(phase.value),
@@ -120,17 +119,23 @@ function open_audio_folder() {
           <div class="mb-2">{{ phase_text }}</div>
           <v-progress-linear
             :model-value="progress?.percent ?? 0"
+            :indeterminate="!progress?.progressKnown"
             color="primary"
             height="10"
             rounded
           />
-          <div class="d-flex justify-space-between mt-1 text-medium-emphasis">
+          <div v-if="progress?.progressKnown" class="d-flex justify-space-between mt-1 text-medium-emphasis">
             <span>{{ downloaded_mb }} / {{ total_mb }} MB</span>
             <span>{{ (progress?.percent ?? 0).toFixed(1) }}%</span>
           </div>
           <p class="text-medium-emphasis mt-2" style="font-size: 12px">
-            {{ t('apex.milesDownload.autoMinimizeHint') }}
+            {{ t('downloads.indeterminateHint') }}
           </p>
+        </template>
+
+        <template v-else-if="['queued', 'paused', 'stopping'].includes(phase)">
+          <p>{{ t('downloads.phases.' + phase) }}</p>
+          <v-btn variant="text" to="/downloads">{{ t('downloads.title') }}</v-btn>
         </template>
 
         <!-- 完成 -->
@@ -164,14 +169,11 @@ function open_audio_folder() {
           <v-divider class="my-3"/>
           <p class="mb-2 font-weight-medium">{{ t('apex.milesDownload.autoCancelTitle') }}</p>
           <p class="text-medium-emphasis mb-2" style="font-size: 12px">
-            {{ t('apex.milesDownload.autoCancelHint') }}
+            {{ t('downloads.stopHint') }}
           </p>
           <div class="d-flex flex-column" style="gap: 6px">
-            <v-btn size="small" variant="tonal" @click="confirm_cancel(false)">
-              {{ t('apex.milesDownload.autoCancelKeepFiles') }}
-            </v-btn>
             <v-btn size="small" variant="tonal" color="error" @click="confirm_cancel(true)">
-              {{ t('apex.milesDownload.autoCancelStopSteam') }}
+              {{ t('downloads.confirmStop') }}
             </v-btn>
             <v-btn size="small" variant="text" @click="show_cancel_confirm = false">
               {{ t('apex.milesDownload.autoCancelBack') }}

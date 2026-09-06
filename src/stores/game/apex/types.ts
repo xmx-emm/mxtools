@@ -64,7 +64,7 @@ export type ApexActions = {
   set_page_type(page: ApexPageTypeEnum): void;
   check_miles_language(force?: boolean): Promise<boolean>;
   update_download_language_button_color(): void;
-  open_miles_auto_download(): void;
+  open_miles_auto_download(): Promise<void>;
   start_miles_auto_download(): Promise<void>;
   cancel_miles_auto_download(stopSteam: boolean): Promise<void>;
   start_miles_auto_download_ea(): Promise<void>;

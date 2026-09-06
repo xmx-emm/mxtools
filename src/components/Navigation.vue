@@ -8,6 +8,9 @@ import {useI18n} from 'vue-i18n';
 import AppVersion from '@/components/utils/AppVersion.vue';
 import NavPanelResizeHandle from '@/components/navigation/NavPanelResizeHandle.vue';
 import {useSettingsStore} from '@/stores/settings.ts';
+import {useDownloadsStore} from '@/stores/downloads.ts';
+import DownloadQueuePopover from '@/components/downloads/DownloadQueuePopover.vue';
+import DownloadNavIndicator from '@/components/downloads/DownloadNavIndicator.vue';
 import {
   isNavPanelCollapsed,
   NAV_MIN_WIDTH,
@@ -22,6 +25,11 @@ import {
 const router = useRouter();
 const route = useRoute();
 const settingsStore = useSettingsStore();
+const downloads = useDownloadsStore();
+const downloadPopoverOpen = ref(false);
+watch(() => route.fullPath, () => { downloadPopoverOpen.value = false; });
+watch(downloadPopoverOpen, open => { if (open) void downloads.refresh(); });
+onMounted(() => { void downloads.initialize().catch(error => console.warn('download queue', error)); });
 const {t, locale} = useI18n();
 const visibleTools = computed(() => tools.map(tool => ({
   ...tool,
@@ -105,6 +113,7 @@ const primaryMeasurementKey = computed(() => [
   t('about.appName'),
   t('nav.toolCenter'),
   t('settings.title'),
+  t('downloads.title'),
   ...visibleTools.value.map(tool => t(tool.nameKey)),
 ].join('\u0000'));
 const secondaryMeasurementKey = computed(() => [
@@ -247,6 +256,23 @@ onMounted(() => {
       <div class="nav-panel__append">
         <v-list density="compact" nav class="nav-list">
           <AppVersion class="nav-version"/>
+          <v-menu v-model="downloadPopoverOpen" location="end bottom" :offset="12"
+            :close-on-content-click="false" :width="420" :max-width="'calc(100vw - 32px)'">
+            <template #activator="{props: menuProps}">
+              <v-tooltip :text="t('downloads.title')" location="end" :disabled="primaryLabelsVisible || downloadPopoverOpen" open-delay="300">
+                <template #activator="{props: tipProps}">
+                  <v-list-item v-bind="{...tipProps, ...menuProps}"
+                    :title="t('downloads.title')" :aria-label="t('downloads.title')" aria-haspopup="dialog"
+                    :active="downloadPopoverOpen || includesRoute('/downloads', route)"
+                    rounded="lg" class="mb-1 nav-tool-item" active-class="nav-tool-item-active" density="compact">
+                    <template #prepend><DownloadNavIndicator/></template>
+                    <template v-if="downloads.unfinished" #append><v-badge inline :content="downloads.unfinished" color="primary"/></template>
+                  </v-list-item>
+                </template>
+              </v-tooltip>
+            </template>
+            <DownloadQueuePopover @close="downloadPopoverOpen = false"/>
+          </v-menu>
           <v-tooltip
             :text="$t('settings.title')"
             location="end"

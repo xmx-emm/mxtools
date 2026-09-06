@@ -12,7 +12,9 @@ use crate::ipc_error::{IpcError, IpcResult};
 use crate::log_info;
 use crate::utils::blocking_cmd;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -29,7 +31,6 @@ const STEAM_EXIT_TIMEOUT: Duration = Duration::from_secs(45);
 const CEF_PORT_TIMEOUT: Duration = Duration::from_secs(120);
 const STEAM_LOGIN_TIMEOUT: Duration = Duration::from_secs(90);
 const DOWNLOAD_START_TIMEOUT: Duration = Duration::from_secs(45);
-const STALL_TIMEOUT: Duration = Duration::from_secs(300);
 const OVERALL_TIMEOUT: Duration = Duration::from_secs(90 * 60);
 
 /// 能力探测：Steam 客户端更新后若内部 API 变更，此处会失败并走回退。
@@ -67,6 +68,8 @@ pub struct MilesDownloadProgress {
     pub downloaded_bytes: u64,
     pub total_bytes: u64,
     pub percent: f64,
+    /// True only when the client reports transfer progress (not preallocated file length).
+    pub progress_known: bool,
     /// i18n key 或诊断信息（错误码放 message）
     pub message: String,
     /// 探测到的 Steam CEF 版本（诊断/版本校验用）
@@ -129,6 +132,7 @@ fn emit(app: &AppHandle, progress: &MilesDownloadProgress) {
         }
     }
     let _ = app.emit(APEX_MILES_DOWNLOAD_EVENT, progress);
+    crate::game::download_manager::record_progress(app, "steam", progress);
 }
 
 fn steam_exe_path() -> Result<PathBuf, String> {
@@ -169,6 +173,7 @@ fn steam_active_user() -> u32 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
 fn dir_size(path: &Path) -> u64 {
     let mut total = 0u64;
     let mut stack = vec![path.to_path_buf()];
@@ -255,6 +260,9 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
             .spawn();
         let deadline = Instant::now() + STEAM_EXIT_TIMEOUT;
         while steam_is_running_sync()? {
+            if session_cancelled() {
+                return Err("cancelled".into());
+            }
             if Instant::now() > deadline {
                 return Err("apex.milesDl.steamExitTimeout".to_string());
             }
@@ -267,6 +275,9 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
         &MilesDownloadProgress::new(depot, phase::WAITING_STEAM),
     );
     let exe = steam_exe_path()?;
+    if session_cancelled() {
+        return Err("cancelled".into());
+    }
     std::process::Command::new(&exe)
         .args(["-cef-enable-debugging", "-silent"])
         .with_hidden_window()
@@ -275,6 +286,9 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
 
     let deadline = Instant::now() + CEF_PORT_TIMEOUT;
     while list_targets(STEAM_CEF_PORT).await.is_err() {
+        if session_cancelled() {
+            return Err("cancelled".into());
+        }
         if Instant::now() > deadline {
             return Err("apex.milesDl.cefPortTimeout".to_string());
         }
@@ -284,12 +298,23 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
     // 等 Steam 完成登录（控制台 download_depot 需要已登录会话）
     let deadline = Instant::now() + STEAM_LOGIN_TIMEOUT;
     while steam_active_user() == 0 {
+        if session_cancelled() {
+            return Err("cancelled".into());
+        }
         if Instant::now() > deadline {
             return Err("apex.milesDl.loginRequired".to_string());
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
     Ok(())
+}
+
+fn session_cancelled() -> bool {
+    session_cell()
+        .lock()
+        .ok()
+        .and_then(|s| s.as_ref().map(|s| s.cancel.load(Ordering::Relaxed)))
+        .unwrap_or(false)
 }
 
 /// 连接 SharedJSContext 并做能力探测 + 版本记录；探测失败返回回退错误。
@@ -385,86 +410,64 @@ pub(crate) async fn download_depot_via_cef(
 ) -> Result<u64, String> {
     let started = Instant::now();
     let mut page = connect_and_probe().await?;
-    page.evaluate(&inject_and_start_js(target.app_id, target.depot))
-        .await?;
-
-    // 等待 "Downloading depot ... (N files, M MB) ..." 起始行，拿到总大小
-    let mut total_bytes = 0u64;
-    let deadline = Instant::now() + DOWNLOAD_START_TIMEOUT;
-    while total_bytes == 0 {
-        if cancel.load(Ordering::Relaxed) {
-            let _ = page.evaluate(CLEANUP_JS).await;
-            return Err("cancelled".to_string());
-        }
-        if Instant::now() > deadline {
-            let _ = page.evaluate(CLEANUP_JS).await;
-            return Err("apex.milesDl.downloadStartTimeout".to_string());
-        }
-        let spew = page
-            .evaluate(DRAIN_SPEW_JS)
-            .await?
-            .as_str()
-            .unwrap_or_default()
-            .to_string();
-        if let Some(total) = parse_start_line(&spew, target.depot)? {
-            total_bytes = total;
-        } else {
+    let result = async {
+        page.evaluate(&inject_and_start_js(target.app_id, target.depot))
+            .await?;
+        let mut total = 0;
+        let mut acknowledged = false;
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                return Err("cancelled".to_string());
+            }
+            if started.elapsed() > OVERALL_TIMEOUT {
+                return Err("apex.milesDl.overallTimeout".to_string());
+            }
+            let spew = page
+                .evaluate(DRAIN_SPEW_JS)
+                .await?
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+            if let Some(bytes) = parse_start_line(&spew, target.depot)? {
+                acknowledged = true;
+                total = bytes;
+            }
+            // The completion message may arrive in the same batch as the start.
+            // Correlate its destination; another console download is not ours.
+            if completion_for_target(&spew, target) {
+                return Ok(total);
+            }
+            if !acknowledged && started.elapsed() > DOWNLOAD_START_TIMEOUT {
+                return Err("apex.milesDl.downloadStartTimeout".to_string());
+            }
+            if acknowledged {
+                on_progress(0, total);
+            }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
-
-    let mut last_size = 0u64;
-    let mut last_growth = Instant::now();
-    let mut size_reached_at: Option<Instant> = None;
-    loop {
-        if cancel.load(Ordering::Relaxed) {
-            let _ = page.evaluate(CLEANUP_JS).await;
-            return Err("cancelled".to_string());
-        }
-        if started.elapsed() > OVERALL_TIMEOUT {
-            let _ = page.evaluate(CLEANUP_JS).await;
-            return Err("apex.milesDl.overallTimeout".to_string());
-        }
-
-        let size = dir_size(&target.depot_root);
-        if size != last_size {
-            last_size = size;
-            last_growth = Instant::now();
-        } else if size < total_bytes && last_growth.elapsed() > STALL_TIMEOUT {
-            let _ = page.evaluate(CLEANUP_JS).await;
-            return Err("apex.milesDl.downloadStalled".to_string());
-        }
-
-        let spew = page
-            .evaluate(DRAIN_SPEW_JS)
-            .await?
-            .as_str()
-            .unwrap_or_default()
-            .to_string();
-        parse_start_line(&spew, target.depot)?; // 复用错误行检测
-        if is_complete_line(&spew) {
-            break;
-        }
-        if total_bytes > 0 && size >= total_bytes {
-            // 字节数已够但 spew 未出完成行：宽限 20s，超时按完成处理
-            match size_reached_at {
-                None => size_reached_at = Some(Instant::now()),
-                Some(t) if t.elapsed() > Duration::from_secs(20) => {
-                    log_info!(
-                        "depot {} 字节数已达总量但未收到完成行, 按完成处理",
-                        target.depot
-                    );
-                    break;
-                }
-                _ => {}
-            }
-        }
-
-        on_progress(size, total_bytes);
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
+    .await;
     let _ = page.evaluate(CLEANUP_JS).await;
-    Ok(total_bytes)
+    result
+}
+
+fn completion_for_target(spew: &str, target: &DownloadTarget) -> bool {
+    let destination = target
+        .depot_root
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
+    spew.lines().any(|line| {
+        if !is_complete_line(line) {
+            return false;
+        }
+        let Some(path) = line.split('"').nth(1) else {
+            return false;
+        };
+        path.replace('\\', "/")
+            .trim_end_matches('/')
+            .eq_ignore_ascii_case(destination.trim_end_matches('/'))
+    })
 }
 
 async fn run_download(app: AppHandle, depot: u32, cancel: Arc<AtomicBool>) {
@@ -478,20 +481,16 @@ async fn run_download(app: AppHandle, depot: u32, cancel: Arc<AtomicBool>) {
             p
         }
     };
-    let is_final = matches!(
-        final_progress.phase.as_str(),
-        phase::DONE | phase::ERROR | phase::CANCELLED
-    );
-    emit(&app, &final_progress);
     if let Ok(mut guard) = session_cell().lock() {
-        if let Some(session) = guard.as_mut() {
-            session.last = final_progress;
-        }
-        if is_final {
-            *guard = None;
-        }
+        *guard = None;
     }
     release_download_gate();
+    let mut final_progress = final_progress;
+    if final_progress.phase == phase::DONE {
+        final_progress.percent = 100.0;
+        final_progress.progress_known = true;
+    }
+    emit(&app, &final_progress);
 }
 
 async fn run_download_inner(
@@ -499,6 +498,9 @@ async fn run_download_inner(
     depot: u32,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), String> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err("cancelled".into());
+    }
     emit(app, &MilesDownloadProgress::new(depot, phase::CHECKING));
 
     let depot_dir =
@@ -520,28 +522,35 @@ async fn run_download_inner(
         depot,
         depot_root,
     };
-    let total_bytes = download_depot_via_cef(&target, cancel, &|downloaded, total| {
+    download_depot_via_cef(&target, cancel, &|downloaded, total| {
         let mut p = MilesDownloadProgress::new(depot, phase::DOWNLOADING);
         p.downloaded_bytes = downloaded;
         p.total_bytes = total;
-        p.percent = if total > 0 {
-            (downloaded as f64 / total as f64 * 100.0).min(99.0)
-        } else {
-            0.0
-        };
+        // Steam's console does not expose continuous transfer bytes. Do not
+        // turn preallocated file lengths into a fictitious 99% progress value.
+        p.progress_known = false;
         emit(app, &p);
     })
     .await?;
 
+    if cancel.load(Ordering::Relaxed) {
+        return Err("cancelled".into());
+    }
     emit(app, &MilesDownloadProgress::new(depot, phase::APPLYING));
     let depot_usize = depot as usize;
     blocking_cmd(move || copy_miles_language_to_game(depot_usize, Some("steam"), None)).await?;
 
-    let mut p = MilesDownloadProgress::new(depot, phase::DONE);
-    p.downloaded_bytes = total_bytes;
-    p.total_bytes = total_bytes;
-    p.percent = 100.0;
-    emit(app, &p);
+    let language = windows_tool::game::apex::apex_languages_depots()
+        .iter()
+        .find(|(_, id)| **id == depot as i32)
+        .map(|(language, _)| language.language.to_string())
+        .ok_or("apex.milesDl.badDepot")?;
+    if !crate::game::apex::check_apex_miles_language(language, Some("steam".into()), None)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        return Err("toast.milesLanguageNotFound".into());
+    }
     Ok(())
 }
 
@@ -579,6 +588,9 @@ pub async fn start_apex_language_download(app: AppHandle, depot: u32) -> IpcResu
         });
     }
 
+    if crate::game::download_manager::stop_requested("steam", depot) {
+        cancel.store(true, Ordering::Relaxed);
+    }
     tauri::async_runtime::spawn(run_download(app, depot, cancel));
     Ok(())
 }
@@ -586,6 +598,10 @@ pub async fn start_apex_language_download(app: AppHandle, depot: u32) -> IpcResu
 /// 取消下载；`stop_steam` 为 true 时同时退出 Steam 以中止其后台下载。
 #[tauri::command]
 pub async fn cancel_apex_language_download(stop_steam: bool) -> IpcResult<()> {
+    if stop_steam {
+        reject_running_steam_game(steam_running_app_id())
+            .map_err(|e| IpcError::from_message("apex", e))?;
+    }
     let cancel = {
         let guard = session_cell()
             .lock()
@@ -597,10 +613,21 @@ pub async fn cancel_apex_language_download(stop_steam: bool) -> IpcResult<()> {
     }
     if stop_steam {
         if let Ok(exe) = steam_exe_path() {
-            let _ = std::process::Command::new(&exe)
+            std::process::Command::new(&exe)
                 .arg("-shutdown")
                 .with_hidden_window()
-                .spawn();
+                .spawn()
+                .map_err(|e| IpcError::from_message("apex", e.to_string()))?;
+            let deadline = Instant::now() + STEAM_EXIT_TIMEOUT;
+            while steam_is_running_sync().map_err(|e| IpcError::from_message("apex", e))? {
+                if Instant::now() > deadline {
+                    return Err(IpcError::from_message(
+                        "apex",
+                        "apex.milesDl.steamExitTimeout",
+                    ));
+                }
+                tokio::time::sleep(Duration::from_millis(300)).await;
+            }
         }
     }
     Ok(())
@@ -622,5 +649,9 @@ mod language_download_tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/apex_language_download.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/miles_download_progress.rs"
     ));
 }

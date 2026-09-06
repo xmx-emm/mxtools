@@ -1,4 +1,5 @@
 import {appMessages} from './app.ts';
+import {downloadMessages} from './downloads.ts';
 import {windowsMessages} from './windows.ts';
 import {apexMessages} from './apex.ts';
 import {apexConfigMessages} from './apex-config.ts';
@@ -9,6 +10,7 @@ import {razerPollingMessages} from './razer-polling.ts';
 
 export const enUS = {
   ...appMessages,
+  ...downloadMessages,
   ...windowsMessages,
   ...apexMessages,
   ...apexConfigMessages,

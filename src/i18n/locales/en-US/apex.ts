@@ -593,7 +593,7 @@ export const apexMessages = {
       autoDone: 'Voice pack downloaded and applied!',
       autoDoneHint: 'After major Apex updates, re-download and re-apply if voices revert',
       autoError: 'One-click download failed',
-      autoCancelled: 'Download monitoring cancelled',
+      autoCancelled: 'Download task cancelled',
       autoRetry: 'Retry',
       autoCancel: 'Cancel download',
       autoCancelTitle: 'Stop the download?',
