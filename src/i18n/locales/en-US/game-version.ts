@@ -1,0 +1,1 @@
+export const gameVersionMessages = {gameVersion: {"current":"Game version","checking":"Checking","unknown":"Version unknown","notInstalled":"Installation not found","verified":"Verified","unverified":"Compatibility not verified"}};

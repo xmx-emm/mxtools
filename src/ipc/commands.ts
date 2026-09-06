@@ -781,6 +781,9 @@ export interface DownloadJob {
 }
 export interface DownloadSnapshot {revision: number; jobs: DownloadJob[]}
 export const DOWNLOAD_MANAGER_EVENT = 'download-manager-changed';
+export function getInstalledGameVersion(args: {game: 'apex' | 'pubg'; platform: 'steam' | 'ea'; eaUserId: string | null}) {
+  return ipcInvoke<import('@/utils/game/version_support.ts').InstalledGameVersion>('get_installed_game_version', args);
+}
 export function getDownloadQueue(): Promise<DownloadSnapshot> {
   return ipcInvoke<DownloadSnapshot>('get_download_queue');
 }

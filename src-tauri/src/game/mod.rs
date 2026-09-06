@@ -14,6 +14,7 @@ pub mod download_manager;
 pub mod ea_desktop;
 pub mod pubg;
 pub mod steam;
+pub mod version;
 
 pub use ea_desktop::{
     ea_desktop_is_running_by_tasklist, get_apex_launch_option_ea, get_ea_desktop_users,

@@ -380,6 +380,7 @@ pub fn run() {
             start_apex_language_download,
             game::download_manager::enqueue_apex_download,
             game::download_manager::get_download_queue,
+            game::version::get_installed_game_version,
             game::download_manager::control_download,
             game::download_manager::clear_finished_downloads,
             cancel_apex_language_download,

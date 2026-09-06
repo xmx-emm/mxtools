@@ -30,6 +30,7 @@ import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHi
 import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
 import {openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
+import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
 import {ApexPageTypeEnum} from '@/enum.ts';
@@ -622,6 +623,8 @@ async function open_config_import() {
             @click="apex_store.open_reset_defaults_dialog()"
           />
         </v-btn-group>
+        <GameVersionStatus game="apex" :platform="apex_store.active_account_is_ea ? 'ea' : 'steam'"
+          :ea-user-id="apex_store.active_apex_account?.kind === 'ea' ? apex_store.active_apex_account.user.id : null"/>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
           <ApexStart/>
@@ -639,6 +642,8 @@ async function open_config_import() {
           <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
           <v-btn class="apex-restore-action" icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
+        <GameVersionStatus game="apex" :platform="apex_store.active_account_is_ea ? 'ea' : 'steam'"
+          :ea-user-id="apex_store.active_apex_account?.kind === 'ea' ? apex_store.active_apex_account.user.id : null"/>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
           <ApexStart/>
@@ -656,6 +661,8 @@ async function open_config_import() {
           <v-btn icon="mdi-history" :title="t('apex.history.open')" :aria-label="t('apex.history.open')" @click="apex_store.open_config_history_dialog()"/>
           <v-btn class="apex-restore-action" icon="mdi-restore-alert" :title="t('apex.history.resetTitle')" :aria-label="t('apex.history.resetTitle')" @click="apex_store.open_reset_defaults_dialog()"/>
         </v-btn-group>
+        <GameVersionStatus game="apex" :platform="apex_store.active_account_is_ea ? 'ea' : 'steam'"
+          :ea-user-id="apex_store.active_apex_account?.kind === 'ea' ? apex_store.active_apex_account.user.id : null"/>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>
           <ApexStart/>

@@ -9,6 +9,7 @@ import PubgCopyButton from '@/components/game/pubg/PubgCopyButton.vue';
 import PubgSelectLaunchOptions from '@/components/game/pubg/PubgSelectLaunchOptions.vue';
 import PubgStart from '@/components/game/pubg/PubgStart.vue';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
+import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
 import {useSteamStore} from '@/stores/game/steam.ts';
 import {usePubgStore} from '@/stores/game/pubg.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
@@ -117,6 +118,7 @@ onUnmounted(() => {
         />
       </v-btn-group>
 
+      <GameVersionStatus game="pubg"/>
       <v-spacer></v-spacer>
 
       <v-btn-group density="compact" divided>

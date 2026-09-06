@@ -65,6 +65,15 @@ noncommercial mirrors and public modified versions are allowed.
 - Apex letterbox launch options manage only min/goal. The minimum is clamped
   to 1-2; omitted values use the game defaults 1.59/1.6, while quick presets
   use a minimum of 1. Retired threshold tokens remain in custom launch input.
+- Apex/PUBG action footers share `GameVersionStatus.vue`, backed by the
+  read-only `get_installed_game_version` IPC. Steam manifests identify the
+  installation and build; Apex also reads gameversion.txt/build.txt and selects
+  EA's installation from the active account when applicable. PUBG displays the
+  installed Steam Build ID, not a guessed marketing patch number. Exact verified
+  build identities live in `src/utils/game/version_support.ts`; unknown and
+  unverified builds remain distinct. No PUBG build is marked verified yet.
+  Version reads refresh on target changes and window focus, with stale responses
+  ignored. This is an advisory indicator, not an application-blocking gate.
 - Miles one-click downloads use the local Steam/EA CEF clients in
   `src-tauri/src/game/apex_language_download{,_ea}.rs`, share one native
   progress gate whose `apex-miles-download-progress` event is restored by
