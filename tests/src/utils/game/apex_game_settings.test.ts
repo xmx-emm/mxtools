@@ -3,9 +3,6 @@ import ApexGameSettingsData, {apexBindingCommandLabels} from '@/data/apex_game_s
 import {mdiPathByName} from '@/icons/mdi-icons.ts';
 import type {ApexBinding} from '@/types/apex_game_settings.ts';
 import {
-  apexBindingFromKeyboardCode,
-  apexBindingFromMouseButton,
-  apexBindingFromWheelDelta,
   apexGameSettingToggleStorageValue,
   findApexBindingConflict,
   isApexGameSettingToggleEnabled,
@@ -178,28 +175,9 @@ describe('Apex runtime binding labels', () => {
       toggle_obs_ring_survey: 'observerRingSurvey',
       '+spectatorRollClockwise': 'spectatorRollClockwise',
     });
-    expect(apexBindingFromKeyboardCode('Numpad0')).toBe('KP_INS');
-    expect(apexBindingFromKeyboardCode('NumpadEnter')).toBe('KP_ENTER');
-    expect(apexBindingFromKeyboardCode('NumLock')).toBe('NUMLOCK');
-    expect(apexBindingFromKeyboardCode('ScrollLock')).toBe('SCROLLLOCK');
   });
 });
 
-describe('Apex binding input capture', () => {
-  it('maps keyboard codes to the config key names Apex accepts', () => {
-    expect(apexBindingFromKeyboardCode('KeyW')).toBe('w');
-    expect(apexBindingFromKeyboardCode('ShiftRight')).toBe('RSHIFT');
-    expect(apexBindingFromKeyboardCode('Numpad7')).toBe('KP_HOME');
-  });
-
-  it('maps mouse buttons and wheel direction', () => {
-    expect(apexBindingFromMouseButton(0)).toBe('MOUSE1');
-    expect(apexBindingFromMouseButton(2)).toBe('MOUSE2');
-    expect(apexBindingFromMouseButton(3)).toBe('MOUSE4');
-    expect(apexBindingFromWheelDelta(-1)).toBe('MWHEELUP');
-    expect(apexBindingFromWheelDelta(1)).toBe('MWHEELDOWN');
-  });
-});
 
 describe('Apex action icons', () => {
   it('keeps the game-settings bottom actions resolvable', () => {

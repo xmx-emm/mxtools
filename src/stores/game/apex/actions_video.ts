@@ -117,8 +117,8 @@ export const apexVideoActions = {
     syncing_dvs_constraints = true;
     try {
       this.video_config_values['setting.dvs_enable'] = enable;
-      this.video_config_values['setting.dvs_gpuframetime_min'] = min;
-      this.video_config_values['setting.dvs_gpuframetime_max'] = max;
+      if (min !== undefined) this.video_config_values['setting.dvs_gpuframetime_min'] = min;
+      if (max !== undefined) this.video_config_values['setting.dvs_gpuframetime_max'] = max;
     } finally {
       syncing_dvs_constraints = false;
     }

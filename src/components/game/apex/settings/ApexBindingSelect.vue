@@ -49,6 +49,8 @@ const INTERACTIVE_RECORDING_TARGETS = [
 const displayText = computed(() => {
   if (recording.value) return t('apexGameSettings.bindingRecording');
   if (!props.modelValue) return t('apexGameSettings.bindingUnassigned');
+  if (props.modelValue === '[[') return '[';
+  if (props.modelValue === 'SEMICOLON') return ';';
   return props.modelValue.length === 1 ? props.modelValue.toUpperCase() : props.modelValue;
 });
 const editLabel = computed(() => t('apexGameSettings.bindingEditSlot', {

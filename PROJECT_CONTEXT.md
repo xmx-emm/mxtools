@@ -70,6 +70,11 @@ noncommercial mirrors and public modified versions are allowed.
   progress gate whose `apex-miles-download-progress` event is restored by
   `actions_miles.ts`, and only restart a client after its running-game check
   passes.
+- Advanced video input ranges are separate from game-menu endpoints. The
+  texture budget has distinct runtime and serialized ladders. CSM coverage
+  starts at 1; disabling uses csm_enabled, not coverage=0. The 128/256 CSM
+  fields remain advanced choices, with a separate 512-minimum atlas calculation.
+  Full consumer-side extrema for model extensions remain unverified.
 - Apex quick presets run in the independent `/apex-quick-preset` Tauri WebView
   with the shared `VMain + AppTopBar` shell; the `apex-quick-preset-window`
   label must remain in the shared Tauri capability so its event listeners and
@@ -174,10 +179,19 @@ noncommercial mirrors and public modified versions are allowed.
   uniqueness before writing. The observed Apex settings file also contains
   lowercase `+weaponcycle`, spectator utility commands, and numbered controller
   `+ability`/`+ability_held` pairs; keyboard/mouse commands are editable while
-  doubled bracket tokens emitted by some Apex configs are normalized to their
-  single-key `[`/`]` form when loaded and repaired on the next binding write.
+  canonical engine names `[[` and `SEMICOLON` are kept for serialization while
+  the UI displays their physical punctuation. Untouched binding lines are preserved.
   Controller-button inputs remain read-only. Keyboard capture accepts the
   observed `KP_INS`, `KP_ENTER`, `NUMLOCK`, and `SCROLLLOCK` names.
+- The shared input catalog `src/data/apex_binding_inputs.ts` contains only the
+  supported browser-to-game input mapping. Raw research data stays outside this
+  repository. Reset/default initialization includes the game's MOUSE4 tactical
+  and MOUSE5 ultimate secondary slots alongside q/z primary slots.
+- DVS uses integer frame-time truncation; disabling it preserves stored min/max.
+  The supported 1 FPS endpoint needs up to 1,000,000 microseconds. Mouse
+  sensitivity starts at 0.1 and fadeDistScale at 1. Legacy supersampling,
+  depth-feather, and the game-owned shadow migration flag are excluded from
+  managed edits and snapshots.
 - Apex configuration snapshots use the version-1 JSON shape while export and
   import controls classify backend-supported keys into other game settings,
   keyboard/mouse aiming and sensitivity, controller settings and sensitivity,
@@ -192,7 +206,7 @@ noncommercial mirrors and public modified versions are allowed.
   APIs.
 - Snapshot import/export always excludes machine-local audio endpoint IDs
   `miles_output_device` and `voice_input_device`, and excludes the Apex-managed
-  video key `setting.configversion` in both directions.
+  video keys `setting.configversion` and `setting.new_shadow_settings` in both directions.
 - Snapshot Vitest automation covers timestamped export-to-import round trips,
   version rejection, serialized export filtering, keyboard/mouse versus
   controller import isolation, and an actual temporary-directory file write
@@ -216,14 +230,13 @@ noncommercial mirrors and public modified versions are allowed.
   rejected before no-op detection. Steam, EA, and unified launch-option writes
   reject control characters before history is mutated. Laser custom colors use
   `R + (G << 8) + (B << 16)`.
-- Apex-only reset clears launch options for the selected account after
-  recording history, then writes `videoconfig.txt`, `settings.cfg`, and
-  `profile.cfg` from the embedded current-build default templates
-  (`src-tauri/src/game/apex_defaults.rs`). Video quality uses the generic
-  default ladder; display resolution is taken from the current video file so
-  the monitor size is not changed. The frontend reloads video and game
-  settings immediately after reset. Every history restore records the current
-  state first so the restore is undoable.
+- Apex-only reset records all pre-change files, clears the selected account's
+  launch options, writes the default settings/profile templates, and removes
+  videoconfig.txt so Apex generates hardware-dependent video defaults on its
+  next launch. Subtitle defaults are also left to the game's language-specific
+  initialization. The UI exposes pending video generation rather than reporting
+  a fabricated generic quality preset as the game's defaults. Every history
+  restore records the current state first so the restore is undoable.
 - `npm.cmd run "tauri dev"` uses `scripts/tauri-dev.mjs` as a Windows
   single-instance development launcher: it removes only process trees proven to
   belong to this worktree, refuses to terminate an unknown owner of fixed Vite

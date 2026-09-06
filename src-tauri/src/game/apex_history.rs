@@ -930,19 +930,9 @@ fn reset_impl(
     )?;
     let result = (|| -> Result<(), String> {
         write_launch(&launcher, "")?;
-        let video_bytes = if video.existed {
-            verified_bytes(&video).ok()
-        } else {
-            None
-        };
-        let (width, height) =
-            apex_defaults::resolution_from_videoconfig_bytes(video_bytes.as_deref().unwrap_or(&[]));
-        write_default_config(
-            &video_path,
-            &apex_defaults::build_default_videoconfig(width, height),
-        )?;
-        write_default_config(&settings_path, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
-        write_default_config(&profile_path, apex_defaults::APEX_DEFAULT_PROFILE_CFG)?;
+        // The game owns hardware-dependent video defaults; history retains the
+        // original bytes so failure and user-requested restore remain reversible.
+        reset_default_files(&video_path, &settings_path, &profile_path)?;
         Ok(())
     })();
     if let Err(error) = result {
@@ -979,8 +969,14 @@ fn reset_impl(
     let _ = prune_locked(&dir);
     Ok(ApexResetResult {
         history_entry: entry,
-        pending_scopes: Vec::new(),
+        pending_scopes: vec![ApexConfigScope::Video],
     })
+}
+
+fn reset_default_files(video: &Path, settings: &Path, profile: &Path) -> Result<(), String> {
+    remove_config_file(video)?;
+    write_default_config(settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
+    write_default_config(profile, apex_defaults::APEX_DEFAULT_PROFILE_CFG)
 }
 
 fn rollback_game_files(
@@ -1853,4 +1849,8 @@ mod tests {
         }
         assert_eq!(value.load(Ordering::Relaxed), 400);
     }
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_reset_video_generation.rs"
+    ));
 }

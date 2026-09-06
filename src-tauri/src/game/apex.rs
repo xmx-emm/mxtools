@@ -92,7 +92,6 @@ fn video_value_rule(key: &str) -> Option<VideoValueRule> {
         "setting.fullscreen"
         | "setting.nowindowborder"
         | "setting.dvs_enable"
-        | "setting.dvs_supersample_enable"
         | "setting.dynamic_streaming_budget"
         | "setting.mat_mip_linear"
         | "setting.r_createmodeldecals"
@@ -100,8 +99,6 @@ fn video_value_rule(key: &str) -> Option<VideoValueRule> {
         | "setting.shadow_enable"
         | "setting.volumetric_lighting"
         | "setting.volumetric_fog"
-        | "setting.new_shadow_settings"
-        | "setting.mat_depthfeather_enable"
         | "setting.cl_gib_allow"
         | "setting.cl_ragdoll_self_collision" => Some(Enum(VIDEO_BOOL)),
         "setting.mat_antialias_mode" => Some(Enum(VIDEO_ANTIALIAS)),
@@ -110,14 +107,14 @@ fn video_value_rule(key: &str) -> Option<VideoValueRule> {
         "setting.mat_vsync_mode" => Some(Integer(0, 4)),
         "setting.mat_backbuffer_count" => Some(Integer(1, 2)),
         "setting.dvs_gpuframetime_min" | "setting.dvs_gpuframetime_max" => {
-            Some(Integer(0, 500_000))
+            Some(Integer(0, 1_000_000))
         }
         "setting.stream_memory" => Some(Integer(0, 9_999_999)),
         "setting.mat_picmip"
-        | "setting.csm_coverage"
         | "setting.shadow_depth_upres_factor_max"
         | "setting.ssao_quality"
         | "setting.particle_cpu_level" => Some(Integer(0, 4)),
+        "setting.csm_coverage" => Some(Integer(1, 4)),
         "setting.map_detail_level" => Some(Integer(1, 2)),
         "setting.mat_forceaniso" => Some(Integer(0, 16)),
         "setting.r_decals" => Some(Integer(0, 512)),
@@ -127,7 +124,7 @@ fn video_value_rule(key: &str) -> Option<VideoValueRule> {
         "setting.gamma" => Some(Number(0.5, 3.0)),
         "setting.sound_volume" => Some(Number(0.0, 1.0)),
         "setting.r_lod_switch_scale" => Some(Number(0.0, 4.0)),
-        "setting.fadeDistScale" => Some(Number(0.0, 2.0)),
+        "setting.fadeDistScale" => Some(Number(1.0, 2.0)),
         "setting.cl_particle_fallback_multiplier" => Some(Number(0.0, 8.0)),
         _ => None,
     }
@@ -579,4 +576,8 @@ mod tests {
             .is_err());
         }
     }
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_video_key_rules.rs"
+    ));
 }

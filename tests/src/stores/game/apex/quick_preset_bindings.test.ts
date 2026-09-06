@@ -39,6 +39,11 @@ describe('Apex quick preset binding replacement', () => {
       binding('cycle-down', 'MWHEELDOWN', '+weaponCycle', 1),
       binding('forward', 'w', '+forward'),
       binding('jump', 'SPACE', '+jump'),
+      binding('ping', 'MOUSE3', '+ping'),
+      binding('tactical', 'q', '+offhand1'),
+      binding('tactical-side', 'MOUSE4', '+offhand1', 1),
+      binding('ultimate', 'z', '+offhand4'),
+      binding('ultimate-side', 'MOUSE5', '+offhand4', 1),
     ];
     apex.game_settings_bindings = original.map(item => ({...item}));
     apex.original_game_settings_bindings = Object.fromEntries(
@@ -70,6 +75,10 @@ describe('Apex quick preset binding replacement', () => {
       .toEqual(['SPACE', 'MWHEELDOWN']);
 
     const mutation = buildApexGameSettingsMutation(apex);
+    for (const id of ['ping', 'tactical-side', 'ultimate-side']) {
+      expect(active.find(item => item.id === id)).toEqual(original.find(item => item.id === id));
+      expect(mutation?.bindingMutations.some(item => 'id' in item && item.id === id)).toBe(false);
+    }
     expect(mutation?.bindingMutations).toEqual(expect.arrayContaining([
       {operation: 'delete', id: 'toggle'},
       {operation: 'delete', id: 'cycle-up'},

@@ -145,7 +145,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('mouseAcceleration', 'settings', 'm_acceleration', 'aiming'),
   bool('mouseClamp', 'settings', 'm_clamp_to_window', 'aiming'),
   bool('lightingEffects', 'settings', 'chroma_enable', 'aiming'),
-  field('mouseSensitivity', 'settings', 'mouse_sensitivity', 'aiming', 'number', {min: 0.01, max: 20, step: 0.01}),
+  field('mouseSensitivity', 'settings', 'mouse_sensitivity', 'aiming', 'number', {min: 0.1, max: 20, step: 0.01}),
   field('mouseAdsMultiplier', 'settings', 'mouse_ads_multiplier', 'aiming', 'number', {
     min: 0.1,
     max: 10,
@@ -369,9 +369,7 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('obituary', 'profile', 'hud_setting_showObituary', 'hud'),
   bool('rotateMinimap', 'profile', 'hud_setting_minimapRotate', 'hud'),
   field('pingOpacity', 'profile', 'hud_setting_pingAlpha', 'hud', 'enum', {
-    // Apex writes this scalar with six fractional digits in profile.cfg.
-    // Keep the canonical UI values aligned with that representation while the
-    // native validator accepts equivalent decimal spellings from older files.
+    // Numeric spellings such as 1.0 and 1.000000 are equivalent on disk.
     options: describedOptions('pingOpacity', ['0.500000', 'transparent'], ['1.000000', 'default']),
   }),
   field('arsenalMapIcons', 'profile', 'player_setting_arsenals_maphudidentifiers', 'hud', 'enum', {

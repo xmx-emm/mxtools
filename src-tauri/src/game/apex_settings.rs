@@ -193,7 +193,7 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "voice_vox" => Some(Bool),
             "cc_linger_time" => Some(Number(0.0, 10.0)),
             "cc_predisplay_time" => Some(Number(0.0, 5.0)),
-            "mouse_sensitivity" => Some(Number(0.01, 20.0)),
+            "mouse_sensitivity" => Some(Number(0.1, 20.0)),
             "sound_volume_voice" => Some(Number(0.0, 2.0)),
             "voice_mixer_volume" | "voice_scale" => Some(Number(0.0, 1.0)),
             "ui_layout_mode" => Some(Enum(ZERO_TO_TWO)),
@@ -459,7 +459,8 @@ fn parse_binding(line: &str) -> Option<ParsedBinding> {
 /// Keep the frontend and mutation model on the canonical single-key value.
 fn normalize_loaded_binding_input(input: &str) -> String {
     match input {
-        "[[" => "[".to_string(),
+        "[" => "[[".to_string(),
+        ";" => "SEMICOLON".to_string(),
         "]]" => "]".to_string(),
         _ => input.to_string(),
     }
@@ -613,6 +614,8 @@ fn valid_binding_input(input: &str) -> bool {
     matches!(
         input,
         "SPACE"
+            | "[["
+            | "SEMICOLON"
             | "TAB"
             | "ENTER"
             | "ESCAPE"
@@ -675,6 +678,12 @@ fn valid_binding_input(input: &str) -> bool {
 }
 
 fn normalize_binding_input(input: &str) -> String {
+    if input == "[" || input == "[[" {
+        return "[[".to_string();
+    }
+    if input == ";" {
+        return "SEMICOLON".to_string();
+    }
     if input.len() == 1 {
         input.to_ascii_lowercase()
     } else {
@@ -981,17 +990,7 @@ fn apply_binding_mutations(
                 };
                 next_lines.push(ApexCfgLine::Raw(replace_binding_input(raw, input)?));
             } else {
-                // Repair doubled bracket tokens even when the user did not edit
-                // that particular slot, so the next write leaves a canonical cfg.
-                if let ApexCfgLine::Raw(raw) = line {
-                    if let Some(parsed) = parse_binding(raw) {
-                        if raw.contains("\"[[\"") || raw.contains("\"]]\"") {
-                            next_lines
-                                .push(ApexCfgLine::Raw(replace_binding_input(raw, &parsed.input)?));
-                            continue;
-                        }
-                    }
-                }
+                // Preserve untouched bindings byte-for-byte, including engine key names.
                 next_lines.push(line.clone());
             }
         }
@@ -1828,30 +1827,6 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_doubled_bracket_binding_for_display_and_writes_single_bracket() {
-        let mut doc = ApexCfgDocument::from_content(
-            "bind_US_standard \"[[\" \"in_spec_toggle_freecam\" 0\n",
-            ApexFileEncoding::Utf8,
-        )
-        .unwrap();
-        let groups = binding_groups(&doc);
-        assert_eq!(groups[0].public.input, "[");
-
-        apply_binding_mutations(
-            &mut doc,
-            &[ApexBindingMutation::Update {
-                id: groups[0].public.id.clone(),
-                input: "[".into(),
-            }],
-        )
-        .unwrap();
-        assert!(doc
-            .to_string()
-            .contains("bind_US_standard \"[\" \"in_spec_toggle_freecam\" 0"));
-        assert!(!doc.to_string().contains("bind_US_standard \"[[\""));
-    }
-
-    #[test]
     fn validates_only_whitelisted_values() {
         assert!(validate_value(ConfigFile::Settings, "m_acceleration", "0").is_ok());
         assert!(validate_value(ConfigFile::Settings, "m_acceleration", "2").is_err());
@@ -2244,5 +2219,13 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/apex_quick_preset_binding_bootstrap.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_quick_preset_mouse_preservation.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_binding_key_names.rs"
     ));
 }

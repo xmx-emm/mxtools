@@ -1,6 +1,5 @@
-/** 实测锚点：滑条值 → dvs_enable / gpuframetime_min / gpuframetime_max */
+/** Enabled-target examples; disabling DVS preserves the existing frame times. */
 export const APEX_DVS_FPS_LUT = [
-  { target: 0, enable: '0', min: 38000, max: 39200 },
   { target: 2, enable: '1', min: 475000, max: 490000 },
   { target: 10, enable: '1', min: 95000, max: 98000 },
   { target: 25, enable: '1', min: 38000, max: 39200 },
@@ -10,7 +9,6 @@ export const APEX_DVS_FPS_LUT = [
 ] as const;
 
 const FRAME_TIME_NUMERATOR = 950_000;
-const FRAME_TIME_MAX_RATIO = 39200 / 38000;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -18,18 +16,20 @@ function clamp(value: number, min: number, max: number): number {
 
 export interface DvsConfigValues {
   enable: string;
-  min: string;
-  max: string;
+  min?: string;
+  max?: string;
 }
 
 /** 滑条 0–100 → videoconfig 键值 */
 export function dvsTargetToConfig(target: number): DvsConfigValues {
   const rounded = Math.round(clamp(target, 0, 100));
   if (rounded <= 0) {
-    return { enable: '0', min: '38000', max: '39200' };
+    return { enable: '0' };
   }
-  const min = Math.round(FRAME_TIME_NUMERATOR / rounded);
-  const max = Math.round(min * FRAME_TIME_MAX_RATIO);
+  const frame = Math.trunc((1 / rounded) * 1_000_000);
+  const cut2 = Math.floor(frame * 2 / 100);
+  const max = frame - cut2;
+  const min = frame - Math.floor(frame * 3 / 100) - cut2;
   return { enable: '1', min: String(min), max: String(max) };
 }
 
@@ -59,10 +59,7 @@ function isDvsEnabled(enable: string): boolean {
 }
 
 function writeDvsOff(set: (key: string, value: string) => void) {
-  const off = dvsTargetToConfig(0);
-  set('setting.dvs_enable', off.enable);
-  set('setting.dvs_gpuframetime_min', off.min);
-  set('setting.dvs_gpuframetime_max', off.max);
+  set('setting.dvs_enable', '0');
 }
 
 /**

@@ -49,14 +49,8 @@ const ApexVideoVolumetricLightingTip = defineAsyncComponent(() =>
 const ApexVideoVolumetricFogTip = defineAsyncComponent(() =>
   import('@/components/game/apex/video_config/tips/ApexVideoVolumetricFogTip.vue'),
 );
-const ApexVideoNewShadowSettingsTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/video_config/tips/ApexVideoNewShadowSettingsTip.vue'),
-);
 const ApexVideoSsaoQualityTip = defineAsyncComponent(() =>
   import('@/components/game/apex/video_config/tips/ApexVideoSsaoQualityTip.vue'),
-);
-const ApexVideoMatDepthfeatherEnableTip = defineAsyncComponent(() =>
-  import('@/components/game/apex/video_config/tips/ApexVideoMatDepthfeatherEnableTip.vue'),
 );
 const ApexVideoFadeDistScaleTip = defineAsyncComponent(() =>
   import('@/components/game/apex/video_config/tips/ApexVideoFadeDistScaleTip.vue'),
@@ -160,7 +154,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
   },
 
   // 垂直同步 + 后缓冲：mat_backbuffer_count 随 mat_vsync_mode 联动
-  // 0 禁用 → backbuffer 1 / 1 双缓冲(需 DVS 帧率目标 0) → 1 / 2 三重缓冲 → 2 / 3 自适应 → 1 / 4 自适应半刷新率 → 1
   {
     identifier: 'setting.mat_vsync_mode',
     name: 'apexVideoConfig.matVsyncMode.name',
@@ -243,15 +236,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
   },
 
   // 自适应分辨率：目标非 0 时启用并写入帧时间上下限，同时禁用“双缓冲”垂直同步选项。
-  // 当前游戏菜单未写入 setting.dvs_supersample_enable。
-  // 0   "setting.dvs_enable"		"0"  "setting.dvs_gpuframetime_min"		"38000"  "setting.dvs_gpuframetime_max"		"39200"
-  // 2  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"475000"  "setting.dvs_gpuframetime_max"		"490000"
-  // 10   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"95000"  "setting.dvs_gpuframetime_max"		"98000"
-  // 25   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"38000"  "setting.dvs_gpuframetime_max"		"39200"
-  // 50  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"19000"  "setting.dvs_gpuframetime_max"		"19600"
-  // 60  "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"15834"  "setting.dvs_gpuframetime_max"		"16333"
-  // 75   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"12668"  "setting.dvs_gpuframetime_max"		"13067"
-  // 100   "setting.dvs_enable"		"1"  "setting.dvs_gpuframetime_min"		"9500"  "setting.dvs_gpuframetime_max"		"9800"
+  // 关闭时保留帧时间；只管理当前支持的 DVS 配置键。
   {
     identifier: 'group.dvs',
     name: 'apexVideoConfig.dvs.name',
@@ -268,7 +253,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         identifier: 'setting.dvs_gpuframetime_min',
         valueType: 'integer',
         min: 0,
-        max: 500000,
+        max: 1000000,
         step: 100,
         hide_in_linked_panel: true,
       },
@@ -276,15 +261,11 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
         identifier: 'setting.dvs_gpuframetime_max',
         valueType: 'integer',
         min: 0,
-        max: 500000,
+        max: 1000000,
         step: 100,
         hide_in_linked_panel: true,
       },
-      {
-        identifier: 'setting.dvs_supersample_enable',
-        valueType: 'boolean',
-        hide_in_normal_filter: true,
-      },
+
     ],
   },
 
@@ -312,8 +293,8 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
 
   // 纹理串流预算：stream_memory + mat_picmip + dynamic_streaming_budget 联动
   // 当前构建(R5pc_r5-300_J57)游戏菜单为 7 档:无/很低/低/中/高/很高/超高;
-  // 标签带官方 VRAM 注释。另实测到第二条取值阶梯(高/很高/超高 =
-  // 800000/1500000/2500000),用途未定,详见 docs/CHANGELOG.md。
+  // Config values use the serialized budget ladder. Runtime budgets use a
+  // different ladder; the game converts between them when loading/saving.
   {
     identifier: 'group.textureQuality',
     name: 'apexVideoConfig.textureQuality.name',
@@ -434,11 +415,11 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     tip: ApexVideoFadeDistScaleTip,
     not_in_game_settings: true,
     options: [
-      { label: '1', values: { 'setting.fadeDistScale': '1' }, outOfPreset: true },
+      { label: '1', values: { 'setting.fadeDistScale': '1' } },
       { label: '2', values: { 'setting.fadeDistScale': '2' } },
     ],
     fields: [
-      { identifier: 'setting.fadeDistScale', valueType: 'float', min: 0, max: 2, step: 0.05 },
+      { identifier: 'setting.fadeDistScale', valueType: 'float', min: 1, max: 2, step: 0.05 },
     ],
   },
 
@@ -491,7 +472,6 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     uiType: 'csm',
     tip: ApexVideoCsmTip,
     coverageOptions: [
-      { label: 'apexVideoConfig.options.disabled', values: { 'setting.csm_coverage': '0' } },
       { label: 'apexVideoConfig.options.low', values: { 'setting.csm_coverage': '1' } },
       { label: 'apexVideoConfig.options.medium', values: { 'setting.csm_coverage': '2' } },
       { label: 'apexVideoConfig.options.high', values: { 'setting.csm_coverage': '3' } },
@@ -508,7 +488,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
       {
         identifier: 'setting.csm_coverage',
         valueType: 'integer',
-        min: 0,
+        min: 1,
         max: 4,
         step: 1,
         hide_in_linked_panel: true,
@@ -638,28 +618,13 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
     tip: ApexVideoVolumetricFogTip,
     not_in_game_settings: true,
   },
-  {
-    identifier: 'setting.new_shadow_settings',
-    name: 'apexVideoConfig.newShadowSettings.name',
-    description: 'apexVideoConfig.newShadowSettings.description',
-    valueType: 'boolean',
-    hide_in_normal_filter: true,
-    tip: ApexVideoNewShadowSettingsTip,
-    not_in_game_settings: true,
-  },
+
 
   'apexVideoConfig.categories.effects',
 
-  {
-    identifier: 'setting.mat_depthfeather_enable',
-    name: 'apexVideoConfig.matDepthfeatherEnable.name',
-    description: 'apexVideoConfig.matDepthfeatherEnable.description',
-    valueType: 'boolean',
-    tip: ApexVideoMatDepthfeatherEnableTip,
-    not_in_game_settings: true,
-  },
 
-  // 特效细节：游戏内仅有低 0/3/2、中 1/0/1.75、高 2/0/1 三个联动档位。
+
+  // 特效细节：工具提供的三个联动预设，不宣称为当前游戏菜单写入档位。
   {
     identifier: 'group.particleDetail',
     name: 'apexVideoConfig.particleDetail.name',

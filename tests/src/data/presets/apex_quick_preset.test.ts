@@ -46,8 +46,6 @@ describe('Apex quick preset graphics values', () => {
     expect(antialias?.onValues).toEqual({
       'setting.mat_antialias_mode': '12',
       'setting.dvs_enable': '0',
-      'setting.dvs_gpuframetime_min': '38000',
-      'setting.dvs_gpuframetime_max': '39200',
     });
   });
 });
