@@ -95,7 +95,6 @@ export const apexLaunchActions = {
     if (parsed.lobby_max_fps !== undefined) this.lobby_max_fps = parsed.lobby_max_fps;
     if (parsed.mat_letterbox_aspect_min !== undefined) this.mat_letterbox_aspect_min = parsed.mat_letterbox_aspect_min;
     if (parsed.mat_letterbox_aspect_goal !== undefined) this.mat_letterbox_aspect_goal = parsed.mat_letterbox_aspect_goal;
-    if (parsed.mat_letterbox_aspect_threshold !== undefined) this.mat_letterbox_aspect_threshold = parsed.mat_letterbox_aspect_threshold;
     if (parsed.fps !== undefined) this.fps = parsed.fps;
     for (const [key, value] of Object.entries(parsed.settingsPatch)) {
       this.settings_config[key] = value;

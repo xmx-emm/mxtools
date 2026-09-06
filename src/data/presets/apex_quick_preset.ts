@@ -12,11 +12,8 @@ export const FPS_CAP_MIN = 24;
 /** Apex 锁帧上限(Hz) */
 export const FPS_CAP_MAX = 279;
 
-/** 快速预设比例：mat_letterbox_aspect_threshold 固定值 */
-export const ASPECT_LETTERBOX_THRESHOLD = 8;
-
-/** 最小宽高比下限默认值（放宽以避免强制黑边；goal 仍用所选比例） */
-export const ASPECT_LETTERBOX_MIN_DEFAULT = 0.1;
+/** 快速预设使用的最小宽高比；有效范围1–2，游戏缺省值为1.59。 */
+export const ASPECT_LETTERBOX_MIN_DEFAULT = 1;
 
 /** 比例预设(与启动项 letterbox aspect 一致; 仅宽≥高的横屏比例) */
 export const aspectPresets: ApexAspectPreset[] = [

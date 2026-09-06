@@ -17,7 +17,6 @@ export type ApexLaunchFpsRead = {
 export type ApexLaunchLetterboxRead = {
   min?: number;
   goal?: number;
-  threshold?: number;
 };
 
 export type ApexLaunchRead = {
@@ -351,10 +350,8 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
   const letterbox: ApexLaunchLetterboxRead = {};
   const aspectMin = takeValue(tokens, '+mat_letterbox_aspect_min', isNumber, claimed, protectedIndices);
   const aspectGoal = takeValue(tokens, '+mat_letterbox_aspect_goal', isNumber, claimed, protectedIndices);
-  const aspectThreshold = takeValue(tokens, '+mat_letterbox_aspect_threshold', isNumber, claimed, protectedIndices);
   if (aspectMin !== undefined) letterbox.min = Number(aspectMin);
   if (aspectGoal !== undefined) letterbox.goal = Number(aspectGoal);
-  if (aspectThreshold !== undefined) letterbox.threshold = Number(aspectThreshold);
   if (Object.keys(letterbox).length > 0) read.letterbox = letterbox;
 
   const unlimited = findValue(

@@ -1,4 +1,4 @@
-import {ASPECT_LETTERBOX_MIN_DEFAULT, ASPECT_LETTERBOX_THRESHOLD} from '@/data/presets/apex_quick_preset.ts';
+import {ASPECT_LETTERBOX_MIN_DEFAULT} from '@/data/presets/apex_quick_preset.ts';
 import type {ApexMilesDownloadProgress} from '@/ipc/commands.ts';
 import {ApexFilterEnum, ApexPageTypeEnum} from '@/enum.ts';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
@@ -90,7 +90,6 @@ export function createApexState() {
     //比例（min 默认放宽，避免窄于 goal 时强制黑边）
     mat_letterbox_aspect_min: ASPECT_LETTERBOX_MIN_DEFAULT,
     mat_letterbox_aspect_goal: 1.7778,
-    mat_letterbox_aspect_threshold: ASPECT_LETTERBOX_THRESHOLD,
 
     options_selection: <SteamLaunchOptionsImpl[]>[],//勾选的项
     /** 不属于工具内置选项的启动命令，追加在生成的启动字符串末尾。 */

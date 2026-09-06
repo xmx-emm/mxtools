@@ -71,13 +71,3 @@ export function match_apex_mat_letterbox_aspect_goal(launch_options: string): nu
   }
   return null;
 }
-
-export function match_apex_mat_letterbox_aspect_threshold(launch_options: string): number | null {
-  // 正则说明：
-  // \d+\.?\d* 匹配 整数(1)、浮点数(1.2、3.14 等)
-  const match = launch_options.match(/(?:^|\s)\+mat_letterbox_aspect_threshold\s+(\d+\.?\d*)(?=\s|$)/);
-  if (match) {
-    return Number(match[1]);
-  }
-  return null;
-}

@@ -62,6 +62,9 @@ noncommercial mirrors and public modified versions are allowed.
   quote-aware token classifier for both managed selections and the custom
   remainder: only complete supported command/value sequences are claimed, while
   `+exec` and its next argument are protected from catalog matching.
+- Apex letterbox launch options manage only min/goal. The minimum is clamped
+  to 1-2; omitted values use the game defaults 1.59/1.6, while quick presets
+  use a minimum of 1. Retired threshold tokens remain in custom launch input.
 - Miles one-click downloads use the local Steam/EA CEF clients in
   `src-tauri/src/game/apex_language_download{,_ea}.rs`, share one native
   progress gate whose `apex-miles-download-progress` event is restored by

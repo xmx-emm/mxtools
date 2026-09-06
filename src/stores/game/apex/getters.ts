@@ -44,7 +44,6 @@ export const apexGetters: ApexGetters = {
       height: state.height,
       mat_letterbox_aspect_min: state.mat_letterbox_aspect_min,
       mat_letterbox_aspect_goal: state.mat_letterbox_aspect_goal,
-      mat_letterbox_aspect_threshold: state.mat_letterbox_aspect_threshold,
       fps: state.fps,
       activeAcc,
     });

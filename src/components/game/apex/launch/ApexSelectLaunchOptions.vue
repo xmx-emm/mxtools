@@ -362,17 +362,9 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     >
                       {{ t('apexLaunchOptions.ui.aspectMinLabel') }}
                     </span>
-                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_min" :step="0.1"/>
+                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_min" :min="1" :max="2" :step="0.1"/>
                     </div>
-                    <div class="letterbox_aspect_field">
-                    <span
-                      class="letterbox_aspect_label"
-                      :title="t('apexLaunchOptions.ui.aspectThresholdLabel')"
-                    >
-                      {{ t('apexLaunchOptions.ui.aspectThresholdLabel') }}
-                    </span>
-                      <ApexNumberInput v-model="apex_store.mat_letterbox_aspect_threshold" :step="0.1"/>
-                    </div>
+
                   </div>
                   <v-spacer/>
                   <div
@@ -423,7 +415,6 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                   <template v-else-if="item?.identifier == 'letterbox_aspect'">
                     +mat_letterbox_aspect_min {{ apex_store.mat_letterbox_aspect_min }}
                     +mat_letterbox_aspect_goal {{ apex_store.mat_letterbox_aspect_goal }}
-                    +mat_letterbox_aspect_threshold {{ apex_store.mat_letterbox_aspect_threshold }}
                   </template>
                   <!--fov_scale-->
                   <template v-else-if="item?.identifier == 'fov_scale'">

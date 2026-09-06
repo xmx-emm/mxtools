@@ -47,14 +47,7 @@ const { t } = useI18n();
         </p>
       </div>
 
-      <div class="tip-item">
-        <p class="tip-title"><code>mat_letterbox_aspect_threshold</code></p>
-        <p class="tip-desc">
-          {{ t('apexTips.aspect.thresholdTitle') }}<br/>
-          {{ t('apexTips.aspect.thresholdExample') }}<br/>
-          {{ t('apexTips.aspect.thresholdDesc') }}
-        </p>
-      </div>
+
     </div>
   </ApexTipCard>
 </template>

@@ -1,7 +1,6 @@
 import {useToast} from 'vue-toastification';
 import {
   ASPECT_LETTERBOX_MIN_DEFAULT,
-  ASPECT_LETTERBOX_THRESHOLD,
   findGraphicsQualityPreset,
   QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
   QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
@@ -257,7 +256,6 @@ export const apexPresetActions = {
       this.height = height;
       this.mat_letterbox_aspect_min = ASPECT_LETTERBOX_MIN_DEFAULT;
       this.mat_letterbox_aspect_goal = selection.aspectValue;
-      this.mat_letterbox_aspect_threshold = ASPECT_LETTERBOX_THRESHOLD;
       ensure_option_in_selection(this.options_selection, 'forced_resolution');
       ensure_option_in_selection(this.options_selection, 'letterbox_aspect');
       for (const [key, value] of Object.entries(buildVideoResolutionValues(width, height))) {

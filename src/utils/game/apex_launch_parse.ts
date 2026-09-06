@@ -1,8 +1,4 @@
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
-import {
-  ASPECT_LETTERBOX_MIN_DEFAULT,
-  ASPECT_LETTERBOX_THRESHOLD,
-} from '@/data/presets/apex_quick_preset.ts';
 import {isSteamLaunchOptionsImpl, SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import {
   hasClaimedApexLaunchParameter,
@@ -18,7 +14,6 @@ export type ParsedApexLaunchOptions = {
   lobby_max_fps?: number;
   mat_letterbox_aspect_min?: number;
   mat_letterbox_aspect_goal?: number;
-  mat_letterbox_aspect_threshold?: number;
   fps?: number;
 };
 
@@ -47,7 +42,6 @@ export function parseApexLaunchOptionsString(start_launch_option: string): Parse
   let lobby_max_fps: number | undefined;
   let mat_letterbox_aspect_min: number | undefined;
   let mat_letterbox_aspect_goal: number | undefined;
-  let mat_letterbox_aspect_threshold: number | undefined;
   let fps: number | undefined;
 
   for (const option of ApexLaunchOptionsConfig) {
@@ -80,9 +74,9 @@ export function parseApexLaunchOptionsString(start_launch_option: string): Parse
 
     if (option.identifier === 'letterbox_aspect') {
       if (read.letterbox) {
-        mat_letterbox_aspect_min = read.letterbox.min ?? ASPECT_LETTERBOX_MIN_DEFAULT;
-        mat_letterbox_aspect_goal = read.letterbox.goal ?? 1.0;
-        mat_letterbox_aspect_threshold = read.letterbox.threshold ?? ASPECT_LETTERBOX_THRESHOLD;
+        // Omitted values inherit game defaults, not quick-preset preferences.
+        mat_letterbox_aspect_min = Math.min(2, Math.max(1, read.letterbox.min ?? 1.59));
+        mat_letterbox_aspect_goal = read.letterbox.goal ?? 1.6;
         selection.push(option);
       }
       continue;
@@ -129,7 +123,6 @@ export function parseApexLaunchOptionsString(start_launch_option: string): Parse
     lobby_max_fps,
     mat_letterbox_aspect_min,
     mat_letterbox_aspect_goal,
-    mat_letterbox_aspect_threshold,
     fps,
   };
 }

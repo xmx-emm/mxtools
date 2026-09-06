@@ -10,7 +10,6 @@ export type ApexLaunchBuildInput = {
   height: number;
   mat_letterbox_aspect_min: number;
   mat_letterbox_aspect_goal: number;
-  mat_letterbox_aspect_threshold: number;
   fps: number;
   activeAcc: ApexLauncherAccount | null;
 };
@@ -27,7 +26,6 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
     height,
     mat_letterbox_aspect_min,
     mat_letterbox_aspect_goal,
-    mat_letterbox_aspect_threshold,
     fps,
     activeAcc,
   } = input;
@@ -58,9 +56,8 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
     } else if (item?.identifier === 'forced_resolution') {//强制分辨率
       items.push(`-width ${width} -height ${height}`);
     } else if (item?.identifier === 'letterbox_aspect') {//宽高比
-      items.push(`+mat_letterbox_aspect_min ${mat_letterbox_aspect_min}`);
+      items.push(`+mat_letterbox_aspect_min ${Math.min(2, Math.max(1, mat_letterbox_aspect_min))}`);
       items.push(`+mat_letterbox_aspect_goal ${mat_letterbox_aspect_goal}`);
-      items.push(`+mat_letterbox_aspect_threshold ${mat_letterbox_aspect_threshold}`);
     } else if (item?.parameter) {
       if (typeof item.parameter === 'string') {
         items.push(item.parameter);

@@ -94,7 +94,7 @@ describe('parseApexLaunchOptionsString', () => {
     expect(parsed.height).toBe(900);
     expect(parsed.fps).toBe(144);
     expect(parsed.lobby_max_fps).toBe(0);
-    expect(parsed.customLaunchOptions).toBe('+exec "autoexec.cfg"');
+    expect(parsed.customLaunchOptions).toBe('+mat_letterbox_aspect_threshold 8 +exec "autoexec.cfg"');
   });
 
   it('leaves launch flags removed from the current game build in the custom remainder', () => {
@@ -167,7 +167,6 @@ describe('buildApexLaunchOptionsString', () => {
       height: 900,
       mat_letterbox_aspect_min: 1.7778,
       mat_letterbox_aspect_goal: 1.7778,
-      mat_letterbox_aspect_threshold: 0.01,
       fps: 144,
       activeAcc: null,
     });
@@ -189,7 +188,6 @@ describe('buildApexLaunchOptionsString', () => {
       height: parsed.height ?? 1080,
       mat_letterbox_aspect_min: parsed.mat_letterbox_aspect_min ?? 0.1,
       mat_letterbox_aspect_goal: parsed.mat_letterbox_aspect_goal ?? 1.7778,
-      mat_letterbox_aspect_threshold: parsed.mat_letterbox_aspect_threshold ?? 8,
       fps: parsed.fps ?? 144,
       activeAcc: null,
     });
