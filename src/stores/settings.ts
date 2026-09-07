@@ -33,6 +33,8 @@ export function normalizeApexVideoFabPosition(value: unknown): ApexVideoFabPosit
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
+    autoCheckUpdates: true,
+    lastAutoUpdateCheck: 0,
     /** 下次启动时是否恢复上次关闭时的页面 */
     restoreLastRoute: true,
     /** 上次关闭时的完整路由路径(仅当 restoreLastRoute 为 true 时使用) */

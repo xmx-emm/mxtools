@@ -12,8 +12,10 @@ pub mod apex_settings;
 pub mod apex_theta;
 pub mod download_manager;
 pub mod ea_desktop;
+mod ea_steam_voice;
 pub mod pubg;
 pub mod steam;
+mod steam_download_progress;
 pub mod version;
 
 pub use ea_desktop::{

@@ -129,14 +129,23 @@ async function restoreReleaseBinary() {
   await copyWithRetry(releaseBinarySnapshot, releaseBinary);
 }
 
+const signedUpdater = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY);
+if (signedUpdater && !process.env.MXTOOLS_UPDATER_PUBLIC_KEY?.trim()) {
+  throw new Error('MXTOOLS_UPDATER_PUBLIC_KEY is required for signed updater builds');
+}
+if (!signedUpdater && process.env.MXTOOLS_UPDATER_PUBLIC_KEY?.trim()) {
+  throw new Error('TAURI_SIGNING_PRIVATE_KEY is required when enabling the updater public key');
+}
 await runTauri(['build', '--no-bundle']);
 await saveReleaseBinary();
 
 try {
-  await runTauri(['bundle', '--bundles', 'nsis']);
+  await runTauri(['bundle', '--bundles', 'nsis', ...(signedUpdater
+    ? ['--config', JSON.stringify({bundle: {createUpdaterArtifacts: true}})] : [])]);
   await restoreReleaseBinary();
   await runNode('scripts/build-portable-sfx.mjs');
   await runNode('scripts/rename-release-builds.mjs');
+  if (signedUpdater) await runNode('scripts/updater-manifest.mjs');
 
   await ensureWebview2Installer();
   await runTauri(

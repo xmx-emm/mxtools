@@ -1,4 +1,5 @@
 import {appMessages} from './app.ts';
+import {updateMessages} from './updates.ts';
 import {gameVersionMessages} from './game-version.ts';
 import {downloadMessages} from './downloads.ts';
 import {windowsMessages} from './windows.ts';
@@ -11,6 +12,7 @@ import {razerPollingMessages} from './razer-polling.ts';
 
 export const enUS = {
   ...appMessages,
+  ...updateMessages,
   ...gameVersionMessages,
   ...downloadMessages,
   ...windowsMessages,

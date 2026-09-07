@@ -760,6 +760,9 @@ export interface ApexMilesDownloadProgress {
   totalBytes: number;
   percent: number;
   progressKnown?: boolean;
+  downloadedChunks?: number;
+  totalChunks?: number;
+  sourcePlatform?: 'steam' | 'ea' | '';
   /** 错误/信息码（i18n key） */
   message: string;
   /** 探测到的 Steam CEF 版本（诊断用） */
@@ -772,6 +775,7 @@ export interface DownloadJob {
   id: number;
   platform: 'steam' | 'ea';
   language: string;
+  eaUserId?: string | null;
   depot: number;
   status: string;
   progress: ApexMilesDownloadProgress;
@@ -787,7 +791,7 @@ export function getInstalledGameVersion(args: {game: 'apex' | 'pubg'; platform: 
 export function getDownloadQueue(): Promise<DownloadSnapshot> {
   return ipcInvoke<DownloadSnapshot>('get_download_queue');
 }
-export function enqueueApexDownload(args: {platform: 'steam' | 'ea'; language: string}): Promise<number> {
+export function enqueueApexDownload(args: {platform: 'steam' | 'ea'; language: string; eaUserId?: string | null}): Promise<number> {
   return ipcInvoke<number>('enqueue_apex_download', args);
 }
 export function controlDownload(args: {id: number; action: 'pause' | 'resume' | 'retry' | 'cancel'}): Promise<void> {
@@ -809,8 +813,8 @@ export function getApexLanguageDownloadState(): Promise<ApexMilesDownloadProgres
   return ipcInvoke<ApexMilesDownloadProgress | null>('get_apex_language_download_state');
 }
 
-/** EA：一键下载语音包（经 EA App 原生桥切换游戏语言触发增量下载，完成后切回）。 */
-export function startApexLanguageDownloadEa(args: {language: string}): Promise<void> {
+/** EA destination: prefer Steam transport; otherwise use the EA language workflow. */
+export function startApexLanguageDownloadEa(args: {language: string; eaUserId: string}): Promise<void> {
   return ipcInvoke<void>('start_apex_language_download_ea', args);
 }
 

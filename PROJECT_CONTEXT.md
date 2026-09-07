@@ -97,9 +97,26 @@ noncommercial mirrors and public modified versions are allowed.
   History is session-only, bounded, and is not evidence that files still exist.
   Reopening the Miles dialog discards stale terminal state and forces a file
   check. Both workers check audio availability before reporting completion.
-  Steam's console flow shows indeterminate progress until its correlated
-  completion message, not a percentage inferred from preallocated file sizes.
+  Steam's console flow polls `download_sources` for completed chunks and tails
+  only new `content_log.txt` records for the requested depot's chunk total.
+  `steam_download_progress.rs` rejects overlapping transfers, regressing/out-of-range
+  counters and unreadable/truncated logs, leaving those cases indeterminate.
+  UI percentages explicitly count chunks, not bytes or preallocated file sizes;
+  100% still requires correlated completion and successful file application.
+  `app_update_status` and the Downloads overview do not track console depot jobs.
   EA uses known byte progress when available and reports language-restore errors.
+  EA destination jobs carry their selected `eaUserId`. With Steam installed,
+  they prefer the Steam depot transport in `ea_steam_voice.rs`, including chunk
+  progress, then stage and copy only the requested voice pair to EA's audio
+  directory without changing EA language. `sourcePlatform` identifies transport
+  separately from destination; cancellation stops Steam for these EA jobs.
+  Steam failures remain explicit rather than silently triggering EA verification.
+  Without Steam (or when an interrupted native EA language restore is pending),
+  the EA bridge remains the native route; restore state is account-scoped.
+  EA audio discovery in the local `windows_tool` dependency validates Respawn's
+  machine installation registry (both views) before the account's default download
+  folder. A candidate requires an Apex executable and `audio/ship`; the account
+  preference alone is not evidence of the installed location.
 - Advanced video input ranges are separate from game-menu endpoints. The
   texture budget has distinct runtime and serialized ladders. CSM coverage
   starts at 1; disabling uses csm_enabled, not coverage=0. The 128/256 CSM

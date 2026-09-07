@@ -1,4 +1,5 @@
 mod app_info;
+mod app_update;
 mod app_repair;
 mod background_coordinator;
 mod background_runtime;
@@ -216,6 +217,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .args(["--autostart"])
@@ -381,6 +383,8 @@ pub fn run() {
             game::download_manager::enqueue_apex_download,
             game::download_manager::get_download_queue,
             game::version::get_installed_game_version,
+            app_update::check_app_update,
+            app_update::install_app_update,
             game::download_manager::control_download,
             game::download_manager::clear_finished_downloads,
             cancel_apex_language_download,

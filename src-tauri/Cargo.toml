@@ -19,6 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 # without product owner approval ? see also `lib.rs` / AppVersion.vue.
 tauri = { version = "2.11", features = ["default", "devtools", "tray-icon"] }
 tauri-plugin-opener = "2.5.3"
+tauri-plugin-updater = { version = "=2.10.1", default-features = false, features = ["native-tls"] }
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-global-shortcut = "2.3.1"
 tauri-plugin-clipboard-manager = "2.3.2"

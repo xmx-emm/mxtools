@@ -3,6 +3,12 @@
   "productName": "mxtools",
   "version": "0.0.6",
   "identifier": "online.0w0.mxtools",
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "windows": {"installMode": "passive"}
+    }
+  },
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:14200",

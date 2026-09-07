@@ -312,6 +312,16 @@ async function bootstrap() {
   }
 
   app.mount('#app');
+  if (isMainWindow) {
+    void import('@/stores/app_update.ts').then(async ({useAppUpdateStore}) => {
+      const updater = useAppUpdateStore();
+      await updater.autoCheck();
+      if (updater.phase === 'available') {
+        const {useToast} = await import('vue-toastification');
+        useToast().info(i18n.global.t('updates.available'));
+      }
+    }).catch(error => console.warn('automatic update check', error));
+  }
   vueApp = app;
   if (isTauriRuntime) {
     await Promise.all([
