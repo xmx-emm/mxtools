@@ -661,30 +661,6 @@ onMounted(() => {
   opacity: 0 !important;
 }
 
-.nav-tool-item::before {
-  content: '';
-  position: absolute;
-  top: 11px;
-  bottom: 11px;
-  left: 2px;
-  width: 3px;
-  border-radius: 999px;
-  background: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 0 rgba(var(--v-theme-primary), 0);
-  opacity: 0;
-  transform: scaleY(0.35);
-  transform-origin: center;
-  transition:
-    opacity var(--app-motion-base) var(--app-ease-standard),
-    transform var(--app-motion-base) var(--app-ease-emphasized),
-    box-shadow var(--app-motion-base) var(--app-ease-standard);
-}
-
-.nav-tool-item-active::before {
-  box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.32);
-  opacity: 0.3;
-  transform: scaleY(1);
-}
 
 .nav-tool-item :deep(.v-list-item__prepend > .v-icon) {
   width: 24px;
@@ -963,8 +939,7 @@ onMounted(() => {
     transition: none;
   }
 
-  .nav-panel--secondary > .nav-panel__scroll,
-  .nav-tool-item::before {
+  .nav-panel--secondary > .nav-panel__scroll {
     animation: none !important;
     transition: none !important;
   }

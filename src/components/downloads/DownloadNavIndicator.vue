@@ -24,7 +24,7 @@ const icon = computed(() => ({paused: 'mdi-pause-circle', error: 'mdi-alert-circ
 </template>
 
 <style scoped>
-.download-nav-indicator { position: relative; display: inline-grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; }
-.download-nav-ring { position: absolute; inset: 0; }
+.download-nav-indicator { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; }
+.download-nav-ring { position: absolute; top: -2px; left: -2px; }
 .download-nav-dot { position: absolute; right: 0; top: 0; width: 6px; height: 6px; background: rgb(var(--v-theme-primary)); border-radius: 50%; }
 </style>

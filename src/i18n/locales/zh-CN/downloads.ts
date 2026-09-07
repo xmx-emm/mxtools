@@ -1,6 +1,10 @@
 export const downloadMessages = {downloads: {
+  "steamToEa": "Steam 下载 · 安装到 EA",
+  "steamStopHint": "停止此任务将退出 Steam，影响 Steam 中的其他下载；已下载文件保留，EA App 不会退出，EA 语言设置保持不变。",
+  "eaAccountRequired": "请先选择 EA 账号再下载语音包",
   "title": "下载管理",
   "navProgress": "正在下载 {percent}%",
+  "chunkProgress": "已下载 {done} / {total} 个分块",
   "navStates": {"active":"下载任务进行中","queued":"下载任务排队中","paused":"下载已暂停","error":"下载失败","idle":"下载管理"},
   "queue": "队列",
   "openFullPage": "放大下载管理",

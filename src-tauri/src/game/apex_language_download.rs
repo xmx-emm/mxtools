@@ -5,6 +5,7 @@
 //! - 全程不弹出 Steam 窗口（必要时先 `-shutdown` 再以 `-cef-enable-debugging -silent` 重启到托盘）；
 //! - 每次运行做能力探测并记录客户端版本：Steam 更新导致内部 API 变化时明确报错、回退手动流程。
 
+use super::steam_download_progress::{parse_sources, ChunkProgress, ContentLog, SOURCES_JS};
 use crate::cef_debug::{browser_version, list_targets, CefPage};
 use crate::game::apex::{apex_is_running_sync, copy_miles_language_to_game};
 use crate::game::steam::steam_is_running_sync;
@@ -67,8 +68,11 @@ pub struct MilesDownloadProgress {
     pub depot: u32,
     pub downloaded_bytes: u64,
     pub total_bytes: u64,
+    pub downloaded_chunks: u64,
+    pub total_chunks: u64,
+    pub source_platform: String,
     pub percent: f64,
-    /// True only when the client reports transfer progress (not preallocated file length).
+    /// True for measured bytes or completed chunks, never preallocated file length.
     pub progress_known: bool,
     /// i18n key 或诊断信息（错误码放 message）
     pub message: String,
@@ -135,7 +139,7 @@ fn emit(app: &AppHandle, progress: &MilesDownloadProgress) {
     crate::game::download_manager::record_progress(app, "steam", progress);
 }
 
-fn steam_exe_path() -> Result<PathBuf, String> {
+pub(super) fn steam_exe_path() -> Result<PathBuf, String> {
     let dir = get_steam_path_by_registry().ok_or("apex.milesDl.steamNotFound")?;
     let exe = PathBuf::from(dir).join("steam.exe");
     if exe.is_file() {
@@ -146,7 +150,7 @@ fn steam_exe_path() -> Result<PathBuf, String> {
 }
 
 /// `HKCU\Software\Valve\Steam\ActiveProcess`：`RunningAppID` 非 0 表示有游戏在跑。
-fn steam_running_app_id() -> u32 {
+pub(super) fn steam_running_app_id() -> u32 {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
     RegKey::predef(HKEY_CURRENT_USER)
@@ -155,7 +159,7 @@ fn steam_running_app_id() -> u32 {
         .unwrap_or(0)
 }
 
-fn reject_running_steam_game(running_app_id: u32) -> Result<(), String> {
+pub(super) fn reject_running_steam_game(running_app_id: u32) -> Result<(), String> {
     if running_app_id != 0 {
         Err("apex.milesDl.gameRunning".to_string())
     } else {
@@ -242,17 +246,18 @@ fn save_probe_record(browser: &str, user_agent: &str, ok: bool) {
     }
 }
 
-async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String> {
+pub(super) async fn ensure_cef_debugging(
+    depot: u32,
+    cancel: &Arc<AtomicBool>,
+    report: &(dyn Fn(&MilesDownloadProgress) + Send + Sync),
+) -> Result<(), String> {
     reject_running_steam_game(steam_running_app_id())?;
     if list_targets(STEAM_CEF_PORT).await.is_ok() {
         return Ok(());
     }
 
     if steam_is_running_sync()? {
-        emit(
-            app,
-            &MilesDownloadProgress::new(depot, phase::RESTARTING_STEAM),
-        );
+        report(&MilesDownloadProgress::new(depot, phase::RESTARTING_STEAM));
         let exe = steam_exe_path()?;
         let _ = std::process::Command::new(&exe)
             .arg("-shutdown")
@@ -260,7 +265,7 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
             .spawn();
         let deadline = Instant::now() + STEAM_EXIT_TIMEOUT;
         while steam_is_running_sync()? {
-            if session_cancelled() {
+            if cancel.load(Ordering::Relaxed) {
                 return Err("cancelled".into());
             }
             if Instant::now() > deadline {
@@ -270,12 +275,9 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
         }
     }
 
-    emit(
-        app,
-        &MilesDownloadProgress::new(depot, phase::WAITING_STEAM),
-    );
+    report(&MilesDownloadProgress::new(depot, phase::WAITING_STEAM));
     let exe = steam_exe_path()?;
-    if session_cancelled() {
+    if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".into());
     }
     std::process::Command::new(&exe)
@@ -286,7 +288,7 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
 
     let deadline = Instant::now() + CEF_PORT_TIMEOUT;
     while list_targets(STEAM_CEF_PORT).await.is_err() {
-        if session_cancelled() {
+        if cancel.load(Ordering::Relaxed) {
             return Err("cancelled".into());
         }
         if Instant::now() > deadline {
@@ -298,7 +300,7 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
     // 等 Steam 完成登录（控制台 download_depot 需要已登录会话）
     let deadline = Instant::now() + STEAM_LOGIN_TIMEOUT;
     while steam_active_user() == 0 {
-        if session_cancelled() {
+        if cancel.load(Ordering::Relaxed) {
             return Err("cancelled".into());
         }
         if Instant::now() > deadline {
@@ -307,14 +309,6 @@ async fn ensure_cef_debugging(app: &AppHandle, depot: u32) -> Result<(), String>
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
     Ok(())
-}
-
-fn session_cancelled() -> bool {
-    session_cell()
-        .lock()
-        .ok()
-        .and_then(|s| s.as_ref().map(|s| s.cancel.load(Ordering::Relaxed)))
-        .unwrap_or(false)
 }
 
 /// 连接 SharedJSContext 并做能力探测 + 版本记录；探测失败返回回退错误。
@@ -382,7 +376,7 @@ fn parse_start_line(spew: &str, depot: u32) -> Result<Option<u64>, String> {
         {
             return Err(format!("apex.milesDl.downloadRejected: {line}"));
         }
-        let prefix = format!("Downloading depot {depot}");
+        let prefix = format!("Downloading depot {depot} (");
         if line.starts_with(&prefix) {
             // 形如 "Downloading depot 1172477 (2 files, 3619 MB) ..."
             let total_mb = line
@@ -401,7 +395,7 @@ fn is_complete_line(spew: &str) -> bool {
         .any(|l| l.trim().starts_with("Depot download complete"))
 }
 
-/// 经 CEF 控制台完成一次 depot 下载；进度经 `on_progress(downloaded, total)` 回报。
+/// Report completed/total chunks; (0, 0) means unknown. Return console byte total.
 /// 返回下载总字节数。调用前需确保 Steam 已以调试模式就绪（见 `ensure_cef_debugging`）。
 pub(crate) async fn download_depot_via_cef(
     target: &DownloadTarget,
@@ -411,6 +405,16 @@ pub(crate) async fn download_depot_via_cef(
     let started = Instant::now();
     let mut page = connect_and_probe().await?;
     let result = async {
+        let idle = page
+            .evaluate(SOURCES_JS)
+            .await
+            .ok()
+            .and_then(|value| value.as_str().and_then(parse_sources))
+            .is_some_and(|sources| !sources.busy);
+        let mut chunks = ChunkProgress::new(target.app_id, target.depot, idle);
+        let mut content_log = get_steam_path_by_registry().and_then(|root| {
+            ContentLog::open(&PathBuf::from(root).join("logs/content_log.txt")).ok()
+        });
         page.evaluate(&inject_and_start_js(target.app_id, target.depot))
             .await?;
         let mut total = 0;
@@ -441,7 +445,27 @@ pub(crate) async fn download_depot_via_cef(
                 return Err("apex.milesDl.downloadStartTimeout".to_string());
             }
             if acknowledged {
-                on_progress(0, total);
+                let sources = page
+                    .evaluate(SOURCES_JS)
+                    .await
+                    .ok()
+                    .and_then(|value| value.as_str().and_then(parse_sources));
+                let measured = if let Some(log) = content_log.as_mut() {
+                    match log.poll() {
+                        Ok(lines) => {
+                            chunks.observe_log(&lines);
+                            chunks.sample(sources)
+                        }
+                        Err(_) => {
+                            content_log = None;
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+                let (completed, count) = measured.unwrap_or((0, 0));
+                on_progress(completed, count);
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
@@ -505,14 +529,14 @@ async fn run_download_inner(
 
     let depot_dir =
         get_apex_depot_download_folder_path(depot as usize).ok_or("apex.milesDl.steamNotFound")?;
-    // 进度统计以 depot 根目录为准（audio/ship 的上一级）
+    // Match completion against the depot root, not its audio/ship subdirectory.
     let depot_root = depot_dir
         .parent()
         .and_then(|p| p.parent())
         .map(|p| p.to_path_buf())
         .unwrap_or(depot_dir.clone());
 
-    ensure_cef_debugging(app, depot).await?;
+    ensure_cef_debugging(depot, cancel, &|p| emit(app, p)).await?;
     if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".to_string());
     }
@@ -522,13 +546,14 @@ async fn run_download_inner(
         depot,
         depot_root,
     };
-    download_depot_via_cef(&target, cancel, &|downloaded, total| {
+    download_depot_via_cef(&target, cancel, &|completed, total| {
         let mut p = MilesDownloadProgress::new(depot, phase::DOWNLOADING);
-        p.downloaded_bytes = downloaded;
-        p.total_bytes = total;
-        // Steam's console does not expose continuous transfer bytes. Do not
-        // turn preallocated file lengths into a fictitious 99% progress value.
-        p.progress_known = false;
+        p.downloaded_chunks = completed;
+        p.total_chunks = total;
+        p.progress_known = total > 0;
+        if total > 0 {
+            p.percent = (completed as f64 / total as f64 * 100.0).min(99.9);
+        }
         emit(app, &p);
     })
     .await?;

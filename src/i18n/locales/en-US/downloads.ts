@@ -1,4 +1,8 @@
 export const downloadMessages = {downloads: {
+  "steamToEa": "Download via Steam · Install to EA",
+  "steamStopHint": "Stopping this task exits Steam and affects its other downloads. Downloaded files are kept. EA App stays open and its language setting is unchanged.",
+  "eaAccountRequired": "Select an EA account before downloading a voice pack",
+  "chunkProgress": "{done} / {total} chunks downloaded",
   "title": "Downloads",
   "navProgress": "Downloading {percent}%",
   "navStates": {"active":"Download in progress","queued":"Downloads queued","paused":"Downloads paused","error":"Download failed","idle":"Downloads"},

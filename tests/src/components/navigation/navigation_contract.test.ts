@@ -35,8 +35,8 @@ describe('shared navigation visual contract', () => {
     expect(navigation).toContain(
       'transition: width var(--app-motion-slow) var(--app-ease-standard)',
     );
-    expect(navigation).toMatch(/\.nav-tool-item::before \{[^}]*opacity: 0;/s);
-    expect(navigation).toMatch(/\.nav-tool-item-active::before \{[^}]*opacity: 0\.3;/s);
+    expect(navigation).not.toContain('.nav-tool-item::before');
+    expect(navigation).not.toContain('.nav-tool-item-active::before');
     expect(navigation).not.toContain('translateX(2px) scale(1.04)');
     expect(navigation).toMatch(
       /\.nav-tool-item:hover:not\(\.nav-tool-item-active\) :deep\(\.v-icon\) \{\s*transform: scale\(1\.04\);/,

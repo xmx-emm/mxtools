@@ -3,6 +3,7 @@ fn job(id: u64, platform: &str, status: &str) -> DownloadJob {
         id,
         platform: platform.into(),
         language: "japanese".into(),
+        ea_user_id: None,
         depot: 1172477,
         status: status.into(),
         requested: None,

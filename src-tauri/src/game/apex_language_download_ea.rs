@@ -1,6 +1,7 @@
 //! EA 版 Apex 语音包一键下载。
 //!
-//! 通过 CEF 调试端口调用 EA App 原生桥 `GamesManager.initiateLanguageChange`：
+//! Prefer Steam depot downloads copied to the selected EA installation.
+//! Without Steam, use the EA bridge `GamesManager.initiateLanguageChange`:
 //! EA 切换游戏语言时会增量下载该语言的语音文件（直接落入游戏目录，无需复制），
 //! 下载完成后再切回原语言。全程不操作 EA 窗口（我们拉起的会在就绪后最小化）。
 //!
@@ -170,6 +171,7 @@ fn ea_locale_to_slug(locale: &str) -> Option<&'static str> {
 
 struct EaDownloadSession {
     cancel: Arc<AtomicBool>,
+    via_steam: bool,
     last: MilesDownloadProgress,
 }
 
@@ -179,13 +181,15 @@ fn session_cell() -> &'static Mutex<Option<EaDownloadSession>> {
 }
 
 fn emit(app: &AppHandle, progress: &MilesDownloadProgress) {
+    let mut progress = progress.clone();
     if let Ok(mut guard) = session_cell().lock() {
         if let Some(session) = guard.as_mut() {
+            progress.source_platform = if session.via_steam { "steam" } else { "ea" }.into();
             session.last = progress.clone();
         }
     }
-    let _ = app.emit(APEX_MILES_DOWNLOAD_EVENT, progress);
-    crate::game::download_manager::record_progress(app, "ea", progress);
+    let _ = app.emit(APEX_MILES_DOWNLOAD_EVENT, &progress);
+    crate::game::download_manager::record_progress(app, "ea", &progress);
 }
 
 fn ea_desktop_exe() -> Result<PathBuf, String> {
@@ -542,8 +546,20 @@ fn parse_progress_payloads(items: &[String]) -> Option<(u64, u64)> {
     latest
 }
 
-async fn run_download(app: AppHandle, language: String, cancel: Arc<AtomicBool>) {
-    let result = run_download_inner(&app, &language, &cancel).await;
+async fn run_download(
+    app: AppHandle,
+    language: String,
+    ea_user_id: String,
+    destination: PathBuf,
+    via_steam: bool,
+    cancel: Arc<AtomicBool>,
+) {
+    let result = if via_steam {
+        emit(&app, &MilesDownloadProgress::new(0, phase::CHECKING));
+        super::ea_steam_voice::download(&language, &destination, &cancel, &|p| emit(&app, p)).await
+    } else {
+        run_download_inner(&app, &language, &ea_user_id, &cancel).await
+    };
     let final_progress = match result {
         Ok(()) => MilesDownloadProgress::new(0, phase::DONE),
         Err(e) if e == "cancelled" => MilesDownloadProgress::new(0, phase::CANCELLED),
@@ -558,6 +574,7 @@ async fn run_download(app: AppHandle, language: String, cancel: Arc<AtomicBool>)
     }
     release_download_gate();
     let mut final_progress = final_progress;
+    final_progress.source_platform = if via_steam { "steam" } else { "ea" }.into();
     if final_progress.phase == phase::DONE {
         final_progress.percent = 100.0;
         final_progress.progress_known = true;
@@ -585,6 +602,7 @@ fn bridge_result(value: Value) -> Result<Value, String> {
 async fn run_download_inner(
     app: &AppHandle,
     language: &str,
+    ea_user_id: &str,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), String> {
     if cancel.load(Ordering::Relaxed) {
@@ -595,6 +613,7 @@ async fn run_download_inner(
 
     let target_slug = ea_language_slug(language).ok_or("apex.milesDlEa.badLanguage")?;
     let target_locale = ea_slug_to_locale(target_slug).ok_or("apex.milesDlEa.badLanguage")?;
+    let restore_key = format!("{ea_user_id}:{language}");
 
     let mut page = ensure_ea_debugging(app).await?;
     wait_bridge_ready(&mut page).await?;
@@ -618,13 +637,13 @@ async fn run_download_inner(
     let previous_locale = restore_locales()
         .lock()
         .map_err(|e| e.to_string())?
-        .get(language)
+        .get(&restore_key)
         .cloned();
     if status.installed_locale == target_locale && previous_locale.is_none() {
         return if crate::game::apex::check_apex_miles_language(
             language.to_string(),
             Some("ea".into()),
-            None,
+            Some(ea_user_id.into()),
         )
         .await
         .map_err(|e| e.to_string())?
@@ -638,7 +657,7 @@ async fn run_download_inner(
     restore_locales()
         .lock()
         .map_err(|e| e.to_string())?
-        .insert(language.to_string(), restore_locale.clone());
+        .insert(restore_key.clone(), restore_locale.clone());
     let restore_slug = ea_locale_to_slug(&restore_locale);
 
     page.evaluate(PROGRESS_SUB_JS).await?;
@@ -712,7 +731,7 @@ async fn run_download_inner(
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
 
-    // 切回原语言（文件已在本地，快速校验即可）
+    // Restore the original locale; EA may verify the entire installation here.
     if let Some(restore_slug) = restore_slug {
         if !restore_locale.is_empty() && restore_locale != target_locale {
             emit(app, &MilesDownloadProgress::new(0, ea_phase::RESTORING));
@@ -750,26 +769,54 @@ async fn run_download_inner(
         }
     }
 
-    if !crate::game::apex::check_apex_miles_language(language.to_string(), Some("ea".into()), None)
-        .await
-        .map_err(|e| e.to_string())?
+    if !crate::game::apex::check_apex_miles_language(
+        language.to_string(),
+        Some("ea".into()),
+        Some(ea_user_id.into()),
+    )
+    .await
+    .map_err(|e| e.to_string())?
     {
         return Err("toast.milesLanguageNotFound".into());
     }
     restore_locales()
         .lock()
         .map_err(|e| e.to_string())?
-        .remove(language);
+        .remove(&restore_key);
     Ok(())
 }
 
 /// 开始 EA 一键下载：立即返回，进度经 `apex-miles-download-progress` 事件推送。
 #[tauri::command]
-pub async fn start_apex_language_download_ea(app: AppHandle, language: String) -> IpcResult<()> {
+pub async fn start_apex_language_download_ea(
+    app: AppHandle,
+    language: String,
+    ea_user_id: Option<String>,
+) -> IpcResult<()> {
     if ea_language_slug(&language).is_none() {
         return Err(IpcError::from_message("apex", "apex.milesDlEa.badLanguage"));
     }
-    ea_desktop_exe().map_err(|e| IpcError::from_message("apex", e))?;
+    let ea_user_id = ea_user_id
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| IpcError::from_message("apex", "downloads.eaAccountRequired"))?;
+    let destination = windows_tool::game::apex::get_apex_audio_folder_path_by_platform(
+        Some("ea"),
+        Some(&ea_user_id),
+    )
+    .filter(|path| path.is_dir())
+    .ok_or_else(|| IpcError::from_message("apex", "apex.milesDlEa.eaNotInstalled"))?;
+    let restore_pending = restore_locales()
+        .lock()
+        .map_err(|e| IpcError::from_message("apex", e.to_string()))?
+        .contains_key(&format!("{ea_user_id}:{language}"));
+    let via_steam = super::ea_steam_voice::prefer_steam(
+        &language,
+        super::apex_language_download::steam_exe_path().is_ok(),
+        restore_pending,
+    );
+    if !via_steam {
+        ea_desktop_exe().map_err(|e| IpcError::from_message("apex", e))?;
+    }
     if apex_is_running_sync().map_err(|e| IpcError::from_message("apex", e))? {
         return Err(IpcError::from_message("apex", "apex.milesDl.apexRunning"));
     }
@@ -793,6 +840,7 @@ pub async fn start_apex_language_download_ea(app: AppHandle, language: String) -
         }
         *guard = Some(EaDownloadSession {
             cancel: cancel.clone(),
+            via_steam,
             last: MilesDownloadProgress::new(0, phase::CHECKING),
         });
     }
@@ -800,28 +848,49 @@ pub async fn start_apex_language_download_ea(app: AppHandle, language: String) -
     if crate::game::download_manager::stop_requested("ea", 0) {
         cancel.store(true, Ordering::Relaxed);
     }
-    tauri::async_runtime::spawn(run_download(app, language, cancel));
+    tauri::async_runtime::spawn(run_download(
+        app,
+        language,
+        ea_user_id,
+        destination,
+        via_steam,
+        cancel,
+    ));
     Ok(())
 }
 
-/// 取消 EA 下载监控；`stop_ea` 为 true 时同时退出 EA App 以中止其后台下载。
+/// Stop the transport chosen for this EA destination (legacy IPC name retained).
 #[tauri::command]
 pub async fn cancel_apex_language_download_ea(stop_ea: bool) -> IpcResult<()> {
+    let session = session_cell()
+        .lock()
+        .map_err(|e| IpcError::from_message("apex", e.to_string()))?
+        .as_ref()
+        .map(|s| (s.via_steam, s.cancel.clone()));
+    let Some((via_steam, cancel)) = session else {
+        return Ok(());
+    };
+    if via_steam {
+        if stop_ea {
+            super::apex_language_download::reject_running_steam_game(
+                super::apex_language_download::steam_running_app_id(),
+            )
+            .map_err(|e| IpcError::from_message("apex", e))?;
+        }
+        cancel.store(true, Ordering::Relaxed);
+        return if stop_ea {
+            super::apex_language_download::cancel_apex_language_download(true).await
+        } else {
+            Ok(())
+        };
+    }
     if stop_ea && ea_other_game_running() {
         return Err(IpcError::from_message(
             "apex",
             "apex.milesDlEa.otherGameRunning",
         ));
     }
-    let cancel = {
-        let guard = session_cell()
-            .lock()
-            .map_err(|e| IpcError::from_message("apex", e.to_string()))?;
-        guard.as_ref().map(|s| s.cancel.clone())
-    };
-    if let Some(cancel) = cancel {
-        cancel.store(true, Ordering::Relaxed);
-    }
+    cancel.store(true, Ordering::Relaxed);
     if stop_ea {
         kill_processes_by_names(
             &[

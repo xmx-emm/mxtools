@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * EA：一键下载语音包（驱动 EA App 原生桥切换游戏语言触发增量下载，完成后切回）
+ * EA destination: prefer Steam depot transport without changing EA language.
  * 进度经 apex-miles-download-progress 事件推送；手动流程保留为回退。
  */
 import {computed, ref, watch} from 'vue';
@@ -36,6 +36,9 @@ const phase = computed(() => progress.value?.phase ?? 'intro');
 const is_running = computed(() =>
   [
     'checking',
+    'restartingSteam',
+    'waitingSteam',
+    'applying',
     'restartingEa',
     'waitingEa',
     'switchingLanguage',
@@ -55,6 +58,9 @@ const has_bytes = computed(() => progress.value?.progressKnown === true);
 const phase_text = computed(() => {
   switch (phase.value) {
     case 'checking': return t('apex.milesDownload.autoEaChecking');
+    case 'restartingSteam': return t('apex.milesDownload.autoRestarting');
+    case 'waitingSteam': return t('apex.milesDownload.autoWaiting');
+    case 'applying': return t('apex.milesDownload.autoApplying');
     case 'restartingEa': return t('apex.milesDownload.autoEaRestarting');
     case 'waitingEa': return t('apex.milesDownload.autoEaWaiting');
     case 'switchingLanguage': return t('apex.milesDownload.autoEaSwitching');
@@ -108,6 +114,7 @@ function open_audio_folder() {
   >
     <v-card :title="t('apex.milesDownload.autoEaTitle')">
       <v-card-text>
+        <p v-if="progress?.sourcePlatform === 'steam'" class="text-medium-emphasis mb-2">{{ t('downloads.steamToEa') }}</p>
         <!-- 初始介绍 -->
         <template v-if="phase === 'intro'">
           <p>{{ t('apex.milesDownload.autoEaIntro') }}</p>
@@ -119,7 +126,7 @@ function open_audio_folder() {
         </template>
 
         <!-- 进行中的非下载阶段 -->
-        <template v-else-if="['checking', 'restartingEa', 'waitingEa', 'switchingLanguage', 'restoringLanguage'].includes(phase)">
+        <template v-else-if="['checking', 'restartingSteam', 'waitingSteam', 'applying', 'restartingEa', 'waitingEa', 'switchingLanguage', 'restoringLanguage'].includes(phase)">
           <div class="d-flex align-center">
             <v-progress-circular indeterminate size="22" width="3" class="mr-3"/>
             <span>{{ phase_text }}</span>
@@ -137,7 +144,8 @@ function open_audio_folder() {
             rounded
           />
           <div v-if="has_bytes" class="d-flex justify-space-between mt-1 text-medium-emphasis">
-            <span>{{ downloaded_mb }} / {{ total_mb }} MB</span>
+            <span v-if="progress?.totalChunks">{{ t('downloads.chunkProgress', {done: progress.downloadedChunks, total: progress.totalChunks}) }}</span>
+            <span v-else>{{ downloaded_mb }} / {{ total_mb }} MB</span>
             <span>{{ (progress?.percent ?? 0).toFixed(1) }}%</span>
           </div>
           <p class="text-medium-emphasis mt-2" style="font-size: 12px">
@@ -180,7 +188,7 @@ function open_audio_folder() {
         <template v-if="show_cancel_confirm">
           <v-divider class="my-3"/>
           <p class="mb-2 font-weight-medium">{{ t('apex.milesDownload.autoCancelTitle') }}</p>
-          <p class="text-medium-emphasis mb-2">{{ t('downloads.stopHint') }}</p>
+          <p class="text-medium-emphasis mb-2">{{ t(progress?.sourcePlatform === 'steam' ? 'downloads.steamStopHint' : 'downloads.stopHint') }}</p>
           <div class="d-flex flex-column" style="gap: 6px">
             <v-btn size="small" variant="tonal" color="error" @click="confirm_cancel(true)">
               {{ t('downloads.confirmStop') }}
@@ -212,7 +220,7 @@ function open_audio_folder() {
           <v-btn @click="apex_store.download_miles_language_auto_dialog_ea = false">
             {{ t('apex.milesDownload.close') }}
           </v-btn>
-          <v-btn color="error" variant="tonal" @click="show_cancel_confirm = true">
+          <v-btn v-if="!['applying', 'restoringLanguage'].includes(phase)" color="error" variant="tonal" @click="show_cancel_confirm = true">
             {{ t('apex.milesDownload.autoCancel') }}
           </v-btn>
         </template>

@@ -125,10 +125,11 @@ function open_audio_folder() {
             rounded
           />
           <div v-if="progress?.progressKnown" class="d-flex justify-space-between mt-1 text-medium-emphasis">
-            <span>{{ downloaded_mb }} / {{ total_mb }} MB</span>
+            <span v-if="progress?.totalChunks">{{ t('downloads.chunkProgress', {done: progress.downloadedChunks, total: progress.totalChunks}) }}</span>
+            <span v-else-if="progress?.totalBytes">{{ downloaded_mb }} / {{ total_mb }} MB</span>
             <span>{{ (progress?.percent ?? 0).toFixed(1) }}%</span>
           </div>
-          <p class="text-medium-emphasis mt-2" style="font-size: 12px">
+          <p v-if="!progress?.progressKnown" class="text-medium-emphasis mt-2" style="font-size: 12px">
             {{ t('downloads.indeterminateHint') }}
           </p>
         </template>

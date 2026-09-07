@@ -36,7 +36,7 @@ describe('Download queue popover contract', () => {
     expect(list).toContain('v-model="confirmOpen"');
     expect(list).toContain("!['queued', 'paused'].includes(job.status)");
     expect(list).toContain("['applying', 'restoringLanguage', 'stopping'].includes(job.status)");
-    expect(list).toContain("t('downloads.stopHint')");
+    expect(list).toContain("sourcePlatform === 'steam' ? 'downloads.steamStopHint' : 'downloads.stopHint'");
     expect(list).toContain('catch (error) { showError(error); }');
   });
 

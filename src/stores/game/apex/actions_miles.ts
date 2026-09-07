@@ -103,7 +103,9 @@ export const apexMilesActions = {
     await downloads.initialize().catch(error => console.warn('initialize downloads', error));
     await downloads.refresh();
     if (this.language !== language || this.launcher_selection_key !== accountKey) return;
-    const job = downloads.jobs.find(job => job.platform === platform && job.language === language && !isFinishedDownload(job.status));
+    const account = this.active_apex_account;
+    const eaUserId = account?.kind === 'ea' ? account.user.id : null;
+    const job = downloads.jobs.find(job => job.platform === platform && job.language === language && (platform !== 'ea' || job.eaUserId === eaUserId) && !isFinishedDownload(job.status));
     this.miles_download_job_id = job?.id ?? null;
     const ready = await this.check_miles_language(true);
     if (this.language !== language || this.launcher_selection_key !== accountKey) return;
@@ -114,9 +116,11 @@ export const apexMilesActions = {
   async start_miles_auto_download_ea(this: ApexStoreThis): Promise<void> {
     this.miles_download_progress = null;
     const downloads = useDownloadsStore();
-    const job = downloads.jobs.find(job => job.id === this.miles_download_job_id && job.language === this.language && job.platform === 'ea');
+    const account = this.active_apex_account;
+    const eaUserId = account?.kind === 'ea' ? account.user.id : null;
+    const job = downloads.jobs.find(job => job.id === this.miles_download_job_id && job.language === this.language && job.platform === 'ea' && job.eaUserId === eaUserId);
     if (job?.status === 'paused') await downloads.control(job.id, 'resume');
-    else this.miles_download_job_id = await downloads.enqueue('ea', this.language);
+    else this.miles_download_job_id = await downloads.enqueue('ea', this.language, eaUserId);
   },
 
   async cancel_miles_auto_download_ea(this: ApexStoreThis, stopEa: boolean): Promise<void> {

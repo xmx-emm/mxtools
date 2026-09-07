@@ -42,9 +42,9 @@ export const useDownloadsStore = defineStore('downloads', {
       }
       await initialization;
     },
-    async enqueue(platform: 'steam' | 'ea', language: string) {
+    async enqueue(platform: 'steam' | 'ea', language: string, eaUserId: string | null = null) {
       await this.initialize();
-      const id = await enqueueApexDownload({platform, language});
+      const id = await enqueueApexDownload({platform, language, eaUserId});
       await this.refresh();
       return id;
     },

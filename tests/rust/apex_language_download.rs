@@ -73,8 +73,8 @@ fn live_tiny_depot_download() {
             depot_root: depot_root.clone(),
         };
         let cancel = Arc::new(AtomicBool::new(false));
-        let total = download_depot_via_cef(&target, &cancel, &|downloaded, total| {
-            println!("progress: {downloaded}/{total}");
+        let total = download_depot_via_cef(&target, &cancel, &|completed, total| {
+            println!("chunk progress: {completed}/{total}");
         })
         .await
         .expect("download succeeds");

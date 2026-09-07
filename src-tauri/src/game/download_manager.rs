@@ -14,6 +14,7 @@ pub struct DownloadJob {
     id: u64,
     platform: String,
     language: String,
+    ea_user_id: Option<String>,
     depot: u32,
     status: String,
     progress: steam::MilesDownloadProgress,
@@ -123,7 +124,7 @@ fn dispatch(app: &AppHandle) {
         let result = if job.platform == "steam" {
             steam::start_apex_language_download(app.clone(), job.depot).await
         } else {
-            ea::start_apex_language_download_ea(app.clone(), job.language).await
+            ea::start_apex_language_download_ea(app.clone(), job.language, job.ea_user_id).await
         };
         if let Err(e) = result {
             let mut progress = steam::MilesDownloadProgress::new(job.depot, "error");
@@ -178,22 +179,32 @@ pub async fn enqueue_apex_download(
     app: AppHandle,
     platform: String,
     language: String,
+    ea_user_id: Option<String>,
 ) -> IpcResult<u64> {
     if !matches!(platform.as_str(), "steam" | "ea") {
         return Err(error("downloads.invalidTarget"));
     }
+    let ea_user_id = if platform == "ea" {
+        Some(
+            ea_user_id
+                .filter(|id| !id.trim().is_empty())
+                .ok_or_else(|| error("downloads.eaAccountRequired"))?,
+        )
+    } else {
+        None
+    };
     let depots = apex::get_apex_languages_depots().await?;
     let depot = *depots
         .get(&language)
         .ok_or_else(|| error("downloads.invalidTarget"))? as u32;
     let (id, snapshot) = {
         let mut manager = cell().lock().map_err(|_| error("downloads.stateError"))?;
-        if let Some(job) = manager
-            .snapshot
-            .jobs
-            .iter()
-            .find(|j| j.platform == platform && j.language == language && !terminal(&j.status))
-        {
+        if let Some(job) = manager.snapshot.jobs.iter().find(|j| {
+            j.platform == platform
+                && j.language == language
+                && j.ea_user_id == ea_user_id
+                && !terminal(&j.status)
+        }) {
             return Ok(job.id);
         }
         if manager
@@ -224,6 +235,7 @@ pub async fn enqueue_apex_download(
             id,
             platform,
             language,
+            ea_user_id,
             depot,
             status: "queued".into(),
             progress: steam::MilesDownloadProgress::new(depot, "queued"),

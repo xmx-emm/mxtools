@@ -50,7 +50,7 @@ async function confirmStop() {
   await perform(request.job.id, request.action);
 }
 function openFolder(job: DownloadJob) {
-  void openApexAudioFolderPath({platform: job.platform, eaUserId: null}).catch(showError);
+  void openApexAudioFolderPath({platform: job.platform, eaUserId: job.eaUserId ?? null}).catch(showError);
 }
 
 </script>
@@ -61,6 +61,7 @@ function openFolder(job: DownloadJob) {
       <div class="download-job-heading">
         <div>
           <h2>Apex · {{ job.platform === 'steam' ? 'Steam' : 'EA' }} · {{ language(job) }}</h2>
+          <p v-if="job.platform === 'ea' && job.progress.sourcePlatform === 'steam'" class="text-medium-emphasis">{{ t('downloads.steamToEa') }}</p>
           <p v-if="!compact" class="text-medium-emphasis">{{ t('downloads.created') }} {{ new Date(job.createdAt).toLocaleString() }}</p>
         </div>
         <v-chip size="small" variant="tonal">{{ phase(job) }}</v-chip>
@@ -73,6 +74,7 @@ function openFolder(job: DownloadJob) {
       />
       <p v-if="job.progress.progressKnown" class="download-metrics">
         {{ job.progress.percent.toFixed(1) }}%
+        <span v-if="job.progress.totalChunks"> · {{ t('downloads.chunkProgress', {done: job.progress.downloadedChunks, total: job.progress.totalChunks}) }}</span>
         <span v-if="job.progress.totalBytes"> · {{ size(job.progress.downloadedBytes) }} / {{ size(job.progress.totalBytes) }}</span>
       </p>
       <p v-else-if="!compact && job.status === 'downloading'" class="text-medium-emphasis">{{ t('downloads.indeterminateHint') }}</p>
@@ -88,7 +90,7 @@ function openFolder(job: DownloadJob) {
     </article>
     <v-dialog v-model="confirmOpen" max-width="520">
       <v-card :title="t('downloads.confirmTitle')">
-        <v-card-text>{{ t('downloads.stopHint') }}</v-card-text>
+        <v-card-text>{{ t(pending?.job.progress.sourcePlatform === 'steam' ? 'downloads.steamStopHint' : 'downloads.stopHint') }}</v-card-text>
         <v-card-actions>
           <v-spacer/>
           <v-btn variant="text" @click="pending = null">{{ t('downloads.back') }}</v-btn>

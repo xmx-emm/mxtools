@@ -606,11 +606,11 @@ export const apexMessages = {
       autoOpenAudioFolder: 'Open audio folder',
       autoEaTitle: 'One-click voice pack download (EA)',
       autoEaIntro:
-        'Downloads the voice pack automatically via your locally signed-in EA App (EA downloads voice files straight into the game folder). No EA window interaction needed.',
+        'Prefers Steam to download the voice pack into the selected EA account\'s Apex installation, keeping the EA language unchanged.',
       autoEaIntroSwitch:
-        'How it works: the game language is switched to the target voice language to fetch its files, then switched back automatically (downloaded files are kept). If EA App is not running, it will be launched and minimized.',
+        'Requires a signed-in Steam account with access to the Apex depot. Without Steam, uses EA language switching. Steam download errors do not automatically trigger EA verification.',
       autoEaTarget: 'Target voice',
-      autoEaChecking: 'Checking EA App status…',
+      autoEaChecking: 'Checking download source and EA installation…',
       autoEaRestarting: 'Restarting EA App (with debug mode)…',
       autoEaWaiting: 'Waiting for EA App to be ready…',
       autoEaSwitching: 'Switching game language to fetch the voice pack…',
