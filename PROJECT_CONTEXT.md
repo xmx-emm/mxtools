@@ -239,8 +239,12 @@ noncommercial mirrors and public modified versions are allowed.
   Removing the EA native launch group stopped new realtime alerts, but EA
   alone and EA plus either of the other native groups also did not reproduce.
   EA plus preset writes without the updater hook passed a targeted Huorong
-  scan. These results do not identify a single offending function or prove a
-  false positive. See `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
+  scan. Cleaning this application's dev artifacts in the original directory
+  and rebuilding still triggered the same detection at 23:03:40, so stale
+  incremental output alone is not the cause. These results do not identify a
+  single offending function or prove a false positive. The isolated-directory
+  build has no completed targeted-scan verdict yet; absence of a realtime
+  alert is not a scan pass. See `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
 - Vite aliases resolve against `import.meta.dirname`; do not reintroduce
   `__dirname`, which the native config loader does not support.
 - Quick-preset reopen derives FPS, graphics level, and resolution enablement
