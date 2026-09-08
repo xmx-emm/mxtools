@@ -1,6 +1,6 @@
 mod app_info;
-mod app_update;
 mod app_repair;
+mod app_update;
 mod background_coordinator;
 mod background_runtime;
 mod backups;
@@ -378,6 +378,7 @@ pub fn run() {
             open_apex_audio_folder_path,
             open_apex_depot_download_folder_path,
             apex_is_running,
+            game::apex::start_apex_ea,
             thoroughly_kill_apex,
             start_apex_language_download,
             game::download_manager::enqueue_apex_download,

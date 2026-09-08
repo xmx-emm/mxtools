@@ -525,6 +525,11 @@ export function apexIsRunning(): Promise<boolean> {
   return ipcInvoke<boolean>('apex_is_running');
 }
 
+export function startApexEa(eaUserId: string): Promise<void> {
+  return ipcInvoke<void>('start_apex_ea', {eaUserId});
+}
+
+
 export function thoroughlyKillApex(): Promise<number> {
   return ipcInvoke<number>('thoroughly_kill_apex');
 }

@@ -5,17 +5,21 @@ import {sleep} from '@/utils/time.ts';
 import {ref} from 'vue';
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
+import {startApexEa} from '@/ipc/commands.ts';
 
 const { t } = useI18n();
 const is_launching = ref(false);
 const toast = useToast();
 const apex_store = useApexStore();
 
-/** 仅 Steam 帐户提供一键启动；EA 请在客户端内点「开始」。 */
 async function start_apex() {
+  if (is_launching.value) return;
   is_launching.value = true;
   try {
-    await openUrl(apex_store.open_apex_url);
+    const account = apex_store.active_apex_account;
+    if (account?.kind === 'ea') await startApexEa(account.user.id);
+    else if (account?.kind === 'steam') await openUrl(apex_store.open_apex_url);
+    else return;
     toast.info(t('apex.startApex'));
     await sleep(2000);
   } catch (e) {
@@ -29,10 +33,10 @@ async function start_apex() {
 
 <template>
   <v-btn
-    v-if="apex_store.active_account_is_steam"
+    v-if="apex_store.active_account_is_steam || apex_store.active_account_is_ea"
     @click="start_apex"
     :loading="is_launching"
-    :title="`${t('apex.startApex')} ${apex_store.open_apex_url}`"
+    :title="t('apex.startApex')"
   >
     {{ t('apex.startApex') }}
   </v-btn>

@@ -10,6 +10,17 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Architecture
 
+- EA Apex quick launch uses `start_apex_ea` IPC and Windows desktop
+  Explorer desktop automation (`FindWindowSW` then
+  `Document.Application.ShellExecute`) to invoke the installed EALauncher with
+  `origin://launchgame/194908`, show mode 7. Direct game child-process launch
+  previously led to EA CreateProcess access-denied errors. The Shell route was
+  tested through cold launch and normal game exit; EA restoring its window after
+  game exit is expected and intentionally unchanged. A plain Shell.Application
+  object still reproduced access-denied from tauri dev, so the desktop broker
+  is required; its integrated button launch needs separate runtime verification.
+  Steam uses its existing URI.
+
 - Frontend: Vue 3, TypeScript, Pinia, Vuetify, Vite. Desktop backend: Tauri 2
   and Rust under `src-tauri/`. Browser preview (non-Tauri Vite) mounts Vue with
   native window/system-info IPC skipped; desktop behavior is unchanged.

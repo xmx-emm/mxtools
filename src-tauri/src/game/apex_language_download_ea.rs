@@ -192,7 +192,7 @@ fn emit(app: &AppHandle, progress: &MilesDownloadProgress) {
     crate::game::download_manager::record_progress(app, "ea", &progress);
 }
 
-fn ea_desktop_exe() -> Result<PathBuf, String> {
+pub(super) fn ea_desktop_exe() -> Result<PathBuf, String> {
     use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
     let install_dir = RegKey::predef(HKEY_LOCAL_MACHINE)
