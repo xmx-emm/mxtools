@@ -30,6 +30,7 @@ import {
 import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
 import {apexIsRunning, mutateApexConfig} from '@/ipc/commands.ts';
 import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
+import {isApexVideoConfigInitialized} from '@/utils/game/apex_video_config.ts';
 import {
   adoptApexGameSettingsReport,
   buildApexGameSettingsMutation,
@@ -349,6 +350,9 @@ export const apexPresetActions = {
         : null;
       const videoUpdates = Object.fromEntries(Object.entries(this.build_video_config_updates())
         .filter(([key]) => this.quick_preset_video_keys === null || this.quick_preset_video_keys.includes(key)));
+      if (Object.keys(videoUpdates).length && !isApexVideoConfigInitialized(this.original_video_config)) {
+        throw new Error('apex.videoConfigNeedsGeneration');
+      }
       const result = await mutateApexConfig({request: {
         source: 'quickPreset',
         transactionId,
@@ -390,6 +394,9 @@ export const apexPresetActions = {
       // preset has just verified its full selected set, so preserve that set
       // regardless of whether any one value is outside the menu's presets.
       if (Object.keys(videoUpdates).length) {
+        if (!isApexVideoConfigInitialized(this.original_video_config)) {
+          throw new Error('apex.videoConfigNeedsGeneration');
+        }
         if (!await this.set_videoconfig_readonly(true)) {
           throw new Error('apexQuickPreset.videoProtectionFailed');
         }

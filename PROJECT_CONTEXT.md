@@ -176,6 +176,20 @@ noncommercial mirrors and public modified versions are allowed.
   other windows of changed scopes without a success notification. Failed
   refreshes cannot reuse cached game settings, and duplicate submissions are
   rejected. Focused workflow tests cover Steam/EA and post-write failures.
+  Video writes and read-only locking require the game's positive integer
+  `setting.configversion`; presets never invent that marker. Reset followed by
+  an immediate preset previously created and locked an incomplete video file,
+  which passed key-value readback despite the user's EA menu retaining defaults.
+  Missing/versionless files now remain pending, including on reopening the app.
+  The explicit `prepare_apex_video_config_regeneration` action backs up and
+  removes only an incomplete video file under the history mutex. It rejects a
+  running game or a file already regenerated, and leaves launch options,
+  settings and profile alone. The user starts Apex and exits normally before
+  applying video presets again. Both platforms share this machine-wide rule.
+  Native video integration tests run frontend selection through the production
+  Rust reader/writer in child processes with isolated USERPROFILE directories;
+  they cover all ten video toggles individually and together on Steam/EA with
+  two fresh-store reads. They do not replace user-controlled in-game acceptance.
 - When `settings.cfg` is missing, contains no bindings, or contains only the
   three bindings created by the old incomplete bootstrap path, the Rust
   mutation boundary initializes the document from the embedded current-build
@@ -446,6 +460,10 @@ noncommercial mirrors and public modified versions are allowed.
 
 - Frontend lint: `npm.cmd run lint`
 - Frontend tests: `npm.cmd test`
+- Apex video frontend/native integration: `npm.cmd run test:apex-video-native`;
+  builds the Rust test helper before running the 22 Steam/EA file cases. CI's
+  Windows Rust job runs this gate after cargo test. Ordinary frontend runs skip
+  these cases unless the helper executable is supplied by the runner.
 - Frontend types/build and bundle report: `npm.cmd run build`
 - Optional strict bundle diagnostic: `npm.cmd run bundle:check`
 - Rust formatting: run `cargo fmt --check` from `src-tauri/`

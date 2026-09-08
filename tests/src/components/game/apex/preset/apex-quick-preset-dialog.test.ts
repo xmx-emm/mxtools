@@ -52,7 +52,10 @@ function readyStore(kind: 'steam' | 'ea') {
   store.parse_loaded_launch_string('+fps_max 237 +lobby_max_fps 237');
   store.launch_loaded_for_key = `${kind}:1`;
   store.launch_load_status = 'ready';
-  store.video_config_values = {...graphicsQualityPresets.find(p => p.identifier === 'ultra')!.values};
+  store.video_config_values = {
+    ...graphicsQualityPresets.find(p => p.identifier === 'ultra')!.values,
+    'setting.configversion': '10',
+  };
   store.video_config_loaded = true;
   store.video_config_load_status = 'ready';
   mocks.getPrimaryDisplayInfo.mockResolvedValue(quickPresetScreen);

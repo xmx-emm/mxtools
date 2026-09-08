@@ -12,6 +12,7 @@ import {ApexFilterEnum} from '@/enum.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexVideoConfigFilter from '@/components/game/apex/video_config/ApexVideoConfigFilter.vue';
+import ApexVideoConfigRecoveryNotice from '@/components/game/apex/video_config/ApexVideoConfigRecoveryNotice.vue';
 import ApexVideoConfigLockFab from '@/components/game/apex/video_config/ApexVideoConfigLockFab.vue';
 import ApexGammaBrightnessSlider from '@/components/game/apex/video_config/ApexGammaBrightnessSlider.vue';
 import ApexDvsFpsSlider from '@/components/game/apex/video_config/ApexDvsFpsSlider.vue';
@@ -276,6 +277,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="d-flex flex-column h-100 min-height-0">
     <ApexVideoConfigFilter/>
+    <ApexVideoConfigRecoveryNotice/>
     <v-list
       class="rounded-0 apex-options-list flex-grow-1 min-height-0"
       style="overflow-y: auto"

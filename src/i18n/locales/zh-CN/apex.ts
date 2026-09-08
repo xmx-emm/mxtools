@@ -467,6 +467,11 @@ export const apexMessages = {
     applyVideoConfig: '应用画面配置',
     videoConfigNoChanges: '画面配置未更改',
     videoConfigLoadFailed: '无法读取画面配置文件',
+    videoConfigNeedsGeneration: '画面配置尚未由游戏完整生成。请先启动 Apex 并正常退出，再回来应用画面设置或快速预设。',
+    videoConfigRecoveryDescription: '检测到残缺的画面配置。先备份并移除这份文件，游戏才能重新生成；启动项、键位和其他游戏设置会保留。',
+    videoConfigRecoveryAction: '备份并移除残缺画面配置',
+    videoConfigGenerationReady: '已准备好重新生成画面配置。请启动 Apex 并正常退出，再回来应用预设。',
+    videoConfigAlreadyInitialized: '画面配置已生成，请刷新后重新应用预设。',
     apexRunningVideoConfig: 'Apex 正在运行，请先退出游戏后再应用画面配置',
     errors: {
       eaMilesDepotUnsupported: 'EA 平台不支持从 Steam depot 复制语音包，请在 EA App 内切换配音语言',

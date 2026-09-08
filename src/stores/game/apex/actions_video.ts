@@ -23,9 +23,13 @@ import {
   getApexConfigFile,
   getApexVideoConfig,
   getApexVideoconfigReadonly,
+  prepareApexVideoConfigRegeneration,
   setApexVideoConfig,
   setApexVideoconfigReadonly,
 } from '@/ipc/commands.ts';
+import {isApexVideoConfigInitialized} from '@/utils/game/apex_video_config.ts';
+import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
+import {formatIpcError} from '@/ipc/error.ts';
 
 let syncing_dvs_constraints = false;
 
@@ -58,7 +62,8 @@ export const apexVideoActions = {
       this.video_config_loaded = true;
       this.video_config_loaded_key = 'machine';
       this.video_config_load_status = 'ready';
-      this.reset_pending_scopes = this.reset_pending_scopes.filter(scope => scope !== 'video');
+      const pending = this.reset_pending_scopes.filter(scope => scope !== 'video');
+      this.reset_pending_scopes = isApexVideoConfigInitialized(map) ? pending : [...pending, 'video'];
       await this.load_videoconfig_readonly();
     } catch (err) {
       if (generation !== this.video_config_request_generation) return;
@@ -223,6 +228,10 @@ export const apexVideoActions = {
     options?: {silent?: boolean} & ApexConfigMutationMeta,
   ): Promise<boolean> {
     const toast = useToast();
+    if (!isApexVideoConfigInitialized(this.original_video_config)) {
+      toast.error('apex.videoConfigNeedsGeneration');
+      return false;
+    }
     let running: boolean;
     try {
       running = await apexIsRunning();
@@ -279,9 +288,38 @@ export const apexVideoActions = {
     }
   },
 
+  async prepare_video_config_regeneration(this: ApexStoreThis): Promise<boolean> {
+    if (this.is_video_config_saving || this.quick_preset_applying) return false;
+    let prepared = false;
+    this.is_video_config_saving = true;
+    try {
+      await prepareApexVideoConfigRegeneration();
+      prepared = true;
+      await this.load_apex_video_config({silent: true, force: true});
+      if (this.video_config_load_status !== 'ready') {
+        throw new Error('apex.videoConfigLoadFailed');
+      }
+      useToast().info('apex.videoConfigGenerationReady', {timeout: 8000});
+      return true;
+    } catch (error) {
+      useToast().error(formatIpcError(error), {timeout: 8000});
+      return false;
+    } finally {
+      if (prepared) {
+        await emitApexConfigChanged(['video'])
+          .catch(error => console.warn('notify video regeneration failed', error));
+      }
+      this.is_video_config_saving = false;
+    }
+  },
+
   /** 设置/取消 videoconfig.txt 只读 */
   async set_videoconfig_readonly(this: ApexStoreThis, locked: boolean): Promise<boolean> {
     const toast = useToast();
+    if (locked && !isApexVideoConfigInitialized(this.original_video_config)) {
+      toast.error('apex.videoConfigNeedsGeneration');
+      return false;
+    }
     this.is_videoconfig_readonly_busy = true;
     try {
       await setApexVideoconfigReadonly({locked});

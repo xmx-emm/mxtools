@@ -683,6 +683,10 @@ export function getApexVideoconfigReadonly(): Promise<boolean> {
   return ipcInvoke<boolean>('get_apex_videoconfig_readonly');
 }
 
+export function prepareApexVideoConfigRegeneration(): Promise<void> {
+  return ipcInvoke<void>('prepare_apex_video_config_regeneration');
+}
+
 export function setApexVideoconfigReadonly(args: {locked: boolean}): Promise<void> {
   return ipcInvoke<void>('set_apex_videoconfig_readonly', args);
 }

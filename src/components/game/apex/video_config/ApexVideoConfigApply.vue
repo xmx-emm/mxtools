@@ -41,6 +41,10 @@ const {
   apply: apply_video_config,
   beforeApply: () => {
     if (apex_store.is_video_config_loading) return false;
+    if (apex_store.video_config_needs_generation) {
+      toast.warning('apex.videoConfigNeedsGeneration');
+      return false;
+    }
     if (!apex_store.is_video_config_modified) {
       toast.info('apex.videoConfigNoChanges');
       return false;

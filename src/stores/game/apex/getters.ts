@@ -16,10 +16,13 @@ import {
   videoConfigValueEquals,
 } from '@/utils/game/apex_store_helpers.ts';
 import type {ApexGetters, ApexState, ApexStoreThis} from './types.ts';
+import {isApexVideoConfigInitialized} from '@/utils/game/apex_video_config.ts';
 
 const video_config_value_equals = videoConfigValueEquals;
 
 export const apexGetters: ApexGetters = {
+  video_config_needs_generation: (state) => state.video_config_loaded
+    && !isApexVideoConfigInitialized(state.original_video_config),
   /** Steam + EA Desktop 合并账户(来自 steamStore / eaStore) */
   apex_accounts(): ApexLauncherAccount[] {
     const steam = useSteamStore();

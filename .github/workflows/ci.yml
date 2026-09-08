@@ -56,3 +56,14 @@ jobs:
       - name: cargo test
         working-directory: tauri/mxtools/src-tauri
         run: cargo test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tauri/mxtools/package-lock.json
+      - name: Install frontend test dependencies
+        working-directory: tauri/mxtools
+        run: npm ci
+      - name: Apex presets through native video files
+        working-directory: tauri/mxtools
+        run: npm run test:apex-video-native

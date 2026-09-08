@@ -31,7 +31,7 @@ function setup() {
   mocks.getApexGameSettings.mockResolvedValue(JSON.parse(JSON.stringify(store.game_settings_report)));
   mocks.getApexLaunchOption.mockResolvedValue('+exec custom.cfg');
   mocks.getApexLaunchOptionEa.mockResolvedValue('+exec custom.cfg');
-  mocks.getApexVideoConfig.mockResolvedValue({'setting.fullscreen': '0'});
+  mocks.getApexVideoConfig.mockResolvedValue({'setting.fullscreen': '0', 'setting.configversion': '10'});
   mocks.mutateApexConfig.mockImplementation(async ({request}: {request: ApexConfigMutationRequest}) => ({
     historyEntry: null, changedScopes: ['launch', 'video', 'gameSettings'],
     launchOptions: request.launchOptions,
@@ -123,8 +123,8 @@ describe('Quick preset load, prepare, commit and synchronize workflow', () => {
 
   it.each(['mismatch', 'missing', 'readonly'])('synchronizes committed state without success on %s failure', async failure => {
     const store = setup();
-    store.video_config_values = {'setting.fullscreen': '1'};
-    store.original_video_config = {'setting.fullscreen': '0'};
+    store.video_config_values = {'setting.fullscreen': '1', 'setting.configversion': '10'};
+    store.original_video_config = {'setting.fullscreen': '0', 'setting.configversion': '10'};
     if (failure === 'readonly') mocks.setApexVideoconfigReadonly.mockRejectedValue(new Error('denied'));
     else mocks.mutateApexConfig.mockResolvedValue({
       historyEntry: null, changedScopes: ['video'], launchOptions: null,

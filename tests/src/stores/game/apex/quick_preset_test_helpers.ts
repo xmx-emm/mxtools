@@ -25,6 +25,8 @@ export function gameOnlyPreset(gameSettingOptions: Record<string, boolean>): Ape
 
 export function presetStore(profile: Record<string, string>, bindings: ApexBinding[] = []) {
   const store = useApexStore();
+  store.video_config_values = {'setting.configversion': '10'};
+  store.original_video_config = {'setting.configversion': '10'};
   adoptApexGameSettingsReport(store, {
     settings: {
       path: 'settings.cfg', revision: 'settings-1', exists: true,

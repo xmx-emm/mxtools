@@ -44,7 +44,7 @@ describe('Apex quick preset initial selection', () => {
     const videoToggle = quickPresetVideoConfigToggles.find(
       toggle => Object.keys(toggle.onValues).length > 1,
     )!;
-    const completeValues = {...videoToggle.onValues};
+    const completeValues: Record<string, string> = {...videoToggle.onValues, 'setting.configversion': '10'};
     expect(initVideoOptionsForDialog(completeValues)[videoToggle.key]).toBe(true);
     delete completeValues[Object.keys(completeValues)[0]!];
     expect(initVideoOptionsForDialog(completeValues)[videoToggle.key]).toBe(false);

@@ -21,6 +21,7 @@ import ApexAutoDownloadMilesLanguageEa
   from '@/components/game/apex/launch/language/ea/ApexAutoDownloadMilesLanguageEa.vue';
 import ApexVideoConfig from '@/components/game/apex/video_config/ApexVideoConfig.vue';
 import ApexVideoConfigApply from '@/components/game/apex/video_config/ApexVideoConfigApply.vue';
+import ApexVideoConfigRecoveryNotice from '@/components/game/apex/video_config/ApexVideoConfigRecoveryNotice.vue';
 import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.vue';
 import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSettingsApply.vue';
 import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
@@ -584,8 +585,11 @@ async function open_config_import() {
         <v-skeleton-loader type="list-item-two-line@7" />
       </div>
       <div v-else-if="is_waiting_for_game_defaults" class="apex-defaults-pending text-medium-emphasis">
-        <v-icon icon="mdi-progress-wrench" size="32"/>
-        <span>{{ t('apex.history.pendingDefaults') }}</span>
+        <ApexVideoConfigRecoveryNotice v-if="apex_store.is_video_config_page"/>
+        <template v-else>
+          <v-icon icon="mdi-progress-wrench" size="32"/>
+          <span>{{ t('apex.history.pendingDefaults') }}</span>
+        </template>
       </div>
       <ApexSelectLaunchOptions
         v-else-if="apex_store.is_launch_page"

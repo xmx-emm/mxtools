@@ -34,6 +34,7 @@ export type ApexGetters = {
   is_launch_options_modified: (state: ApexState) => boolean;
   has_out_of_preset_selection: (state: ApexState) => boolean;
   is_video_config_modified: (state: ApexState) => boolean;
+  video_config_needs_generation: (state: ApexState) => boolean;
   is_game_settings_modified: (state: ApexState) => boolean;
   is_launch_page: (state: ApexState) => boolean;
   is_video_config_page: (state: ApexState) => boolean;
@@ -97,6 +98,7 @@ export type ApexActions = {
   build_video_config_updates(): Record<string, string>;
   apply_apex_video_config(options?: {silent?: boolean} & ApexConfigMutationMeta): Promise<boolean>;
   load_videoconfig_readonly(): Promise<void>;
+  prepare_video_config_regeneration(): Promise<boolean>;
   set_videoconfig_readonly(locked: boolean): Promise<boolean>;
   load_apex_game_settings(options?: {
     silent?: boolean

@@ -22,6 +22,7 @@ import type {
 import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import type {ApexBinding} from '@/types/apex_game_settings.ts';
 import type {ApexLaunchBuildInput} from '@/utils/game/apex_launch_build.ts';
+import {isApexVideoConfigInitialized} from '@/utils/game/apex_video_config.ts';
 
 export function screenKey(width: number, height: number): string {
   return `${width}x${height}`;
@@ -245,7 +246,7 @@ export function initVideoOptionsForDialog(
   return Object.fromEntries(
     quickPresetVideoConfigToggles.map((opt) => [
       opt.key,
-      matchesVideoToggleValues(values, opt.onValues),
+      isApexVideoConfigInitialized(values) && matchesVideoToggleValues(values, opt.onValues),
     ]),
   );
 }
@@ -275,6 +276,7 @@ export function resolveQuickPresetInitialControls(
       return resolution.width === launch.width && resolution.height === launch.height;
     });
   const enableResolutionPreset = selected('forced_resolution') && selected('letterbox_aspect')
+    && isApexVideoConfigInitialized(videoValues)
     && matchingAxis != null && aspectValue != null
     && Math.abs(launch.mat_letterbox_aspect_goal - aspectValue) < 0.0001
     && Math.abs(launch.mat_letterbox_aspect_min - ASPECT_LETTERBOX_MIN_DEFAULT) < 0.000001
@@ -292,7 +294,7 @@ export function resolveQuickPresetInitialControls(
     aspectValue,
     lockAxis: matchingAxis ?? 'width' as ResolutionLockAxis,
     enableResolutionPreset,
-    enableGraphicsPreset: graphicsPreset != null,
+    enableGraphicsPreset: isApexVideoConfigInitialized(videoValues) && graphicsPreset != null,
     graphicsPresetId: graphicsPreset?.identifier ?? graphicsQualityPresets[0]!.identifier,
   };
 }

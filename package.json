@@ -17,6 +17,7 @@
     "release:size:check": "node scripts/release-size-budget.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:apex-video-native": "node scripts/test-apex-video-native.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

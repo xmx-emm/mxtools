@@ -469,6 +469,11 @@ export const apexMessages = {
     applyVideoConfig: 'Apply video config',
     videoConfigNoChanges: 'Video settings have not been changed',
     videoConfigLoadFailed: 'Could not read videoconfig.txt',
+    videoConfigNeedsGeneration: 'Apex has not generated a complete video config. Start Apex and exit normally, then return to apply video settings or a quick preset.',
+    videoConfigRecoveryDescription: 'An incomplete video config was found. Back up and remove it so Apex can regenerate it. Launch options, bindings and other game settings are preserved.',
+    videoConfigRecoveryAction: 'Back up and remove file',
+    videoConfigGenerationReady: 'Ready to regenerate video config. Start Apex and exit normally, then return to apply your preset.',
+    videoConfigAlreadyInitialized: 'Video config has already been generated. Refresh and apply your preset again.',
     apexRunningVideoConfig: 'Apex is running. Exit the game before applying video settings.',
     errors: {
       eaMilesDepotUnsupported:

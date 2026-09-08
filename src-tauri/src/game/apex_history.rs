@@ -866,8 +866,7 @@ fn remove_config_file(path: &Path) -> Result<(), String> {
     fs::remove_file(path).map_err(|error| error.to_string())
 }
 
-/// 写入默认配置模板(覆盖现有文件或新建)。settings.cfg / profile.cfg /
-/// videoconfig.txt 都直接写内置默认值;videoconfig 的分辨率由调用方按机器当前值填入。
+/// Write the settings/profile templates; the game generates video defaults.
 fn write_default_config(path: &Path, content: &str) -> Result<(), String> {
     if path.exists() {
         clear_readonly(path)?;
@@ -977,6 +976,55 @@ fn reset_default_files(video: &Path, settings: &Path, profile: &Path) -> Result<
     remove_config_file(video)?;
     write_default_config(settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
     write_default_config(profile, apex_defaults::APEX_DEFAULT_PROFILE_CFG)
+}
+
+// Only incomplete video files can take this recovery path. The user asks the
+// game to generate a fresh baseline; launch options, profile and bindings stay
+// outside this operation. Tests pass isolated paths and never touch Saved Games.
+fn prepare_video_regeneration_at_path(dir: &Path, path: &Path) -> Result<(), String> {
+    let before = capture_file(path)?;
+    if !before.existed {
+        return Ok(());
+    }
+    let doc = windows_tool::game::apex::config::ApexCfgDocument::load_from_file(path)?;
+    let values = doc
+        .key_values()
+        .into_iter()
+        .map(|(key, value)| (key.trim_matches('"').to_string(), value))
+        .collect();
+    if apex::video_config_is_initialized(&values) {
+        return Err("apex.videoConfigAlreadyInitialized".into());
+    }
+    let entry = record_locked(
+        dir,
+        ApexHistorySource::Reset,
+        None,
+        RecordParts {
+            video: Some(before.clone()),
+            launcher: None,
+            launch_options: None,
+            settings: None,
+            profile: None,
+        },
+    )?;
+    if let Err(error) = remove_config_file(path) {
+        let mut rollback_errors = Vec::new();
+        collect_rollback_error(
+            &mut rollback_errors,
+            "video",
+            restore_file_verified(&before, path),
+        );
+        if rollback_errors.is_empty() {
+            collect_rollback_error(
+                &mut rollback_errors,
+                "history cleanup",
+                restore_history_entry_file(&entry_path(dir, &entry.id)?, None),
+            );
+        }
+        return Err(with_rollback_failure(error, rollback_errors));
+    }
+    let _ = prune_locked(dir);
+    Ok(())
 }
 
 fn rollback_game_files(
@@ -1297,7 +1345,7 @@ fn mutate_impl(
     let current_video_values = if request.video_updates.is_empty() {
         None
     } else {
-        Some(apex::read_video_config_sync()?)
+        Some(apex::read_initialized_video_config_sync()?)
     };
     let video_changed = current_video_values.as_ref().is_some_and(|current| {
         request
@@ -1503,6 +1551,19 @@ pub async fn restore_apex_config_history(
     blocking_cmd(move || restore_impl(&app, request))
         .await
         .map_err(history_error)
+}
+
+#[tauri::command]
+pub async fn prepare_apex_video_config_regeneration(app: tauri::AppHandle) -> IpcResult<()> {
+    blocking_cmd(move || {
+        let _guard = lock_history()?;
+        if apex::apex_is_running_sync()? {
+            return Err("apex.history.errors.apexRunning".into());
+        }
+        prepare_video_regeneration_at_path(&history_dir(&app)?, &apex::apex_video_config_path()?)
+    })
+    .await
+    .map_err(history_error)
 }
 
 #[tauri::command]
@@ -1852,5 +1913,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_reset_video_generation.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_video_regeneration.rs"
     ));
 }

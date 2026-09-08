@@ -59,8 +59,8 @@ use crate::game::apex::{
     set_apex_videoconfig_readonly, thoroughly_kill_apex,
 };
 use crate::game::apex_history::{
-    list_apex_config_history, mutate_apex_config, reset_apex_to_game_defaults,
-    restore_apex_config_history,
+    list_apex_config_history, mutate_apex_config, prepare_apex_video_config_regeneration,
+    reset_apex_to_game_defaults, restore_apex_config_history,
 };
 use crate::game::apex_language_download::{
     cancel_apex_language_download, get_apex_language_download_state, start_apex_language_download,
@@ -424,6 +424,7 @@ pub fn run() {
             list_apex_config_history,
             restore_apex_config_history,
             reset_apex_to_game_defaults,
+            prepare_apex_video_config_regeneration,
             diagnose_apex_launch_repair_check,
             repair_apex_launch_issues,
             mutate_apex_config,

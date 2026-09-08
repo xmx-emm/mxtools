@@ -13,6 +13,7 @@ import {useApexStore} from '@/stores/game/apex.ts';
 import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
 import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
+import ApexVideoConfigRecoveryNotice from '@/components/game/apex/video_config/ApexVideoConfigRecoveryNotice.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
@@ -386,7 +387,13 @@ const {
 } = useCloseLauncherThenApply({
   apply: run_persist,
   beforeApply: async () => {
-    if (config_refreshing.value || display_loading.value) return false;
+    if (config_refreshing.value || display_loading.value || apex_store.is_video_config_saving) return false;
+    const hasVideoSelection = enable_resolution_preset.value || enable_graphics_preset.value
+      || Object.values(video_options.value).some(Boolean);
+    if (hasVideoSelection && apex_store.video_config_needs_generation) {
+      toast.warning('apex.videoConfigNeedsGeneration');
+      return false;
+    }
     if (!apex_store.active_apex_account) {
       toast.warning('apex.noLauncherAccount');
       return false;
@@ -473,6 +480,7 @@ onBeforeUnmount(() => {
 
       <main class="quick-preset-scroll">
         <template v-if="local_display">
+          <ApexVideoConfigRecoveryNotice :disabled="is_apply_running || config_refreshing"/>
           <section class="quick-preset-section quick-preset-overview-section">
             <dl class="info-grid">
               <div class="info-item">
@@ -821,7 +829,7 @@ onBeforeUnmount(() => {
           variant="flat"
           prepend-icon="mdi-check"
           :loading="apex_store.quick_preset_applying || is_apply_running"
-          :disabled="!isTauriRuntime || display_loading || config_refreshing || !local_display"
+          :disabled="!isTauriRuntime || display_loading || config_refreshing || !local_display || apex_store.is_video_config_saving"
           @click="apply_check"
         >
           {{ t('apex.apply') }}
