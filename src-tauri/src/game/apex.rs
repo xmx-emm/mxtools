@@ -342,7 +342,6 @@ pub async fn open_apex_audio_folder_path(
 #[tauri::command]
 pub async fn start_apex_ea(ea_user_id: String) -> IpcResult<()> {
     blocking_cmd(move || {
-        use std::os::windows::process::CommandExt;
         if apex_is_running_sync()? {
             return Err("apex.milesDl.apexRunning".into());
         }
@@ -354,21 +353,10 @@ pub async fn start_apex_ea(ea_user_id: String) -> IpcResult<()> {
         if !launcher.is_file() {
             return Err("apex.milesDlEa.eaNotFound".into());
         }
-        // Resolve Explorer's desktop automation object so launch is brokered by
-        // Explorer, not a Shell object hosted inside the dev process's job.
-        // Paths travel through environment variables, never interpolated script text.
-        let script = "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $s=New-Object -ComObject Shell.Application; $h=0; $desktop=$s.Windows().FindWindowSW(0,0,8,[ref]$h,1); if ($null -eq $desktop) { throw 'Windows desktop shell unavailable' }; $desktop.Document.Application.ShellExecute($env:MX_EA_LAUNCHER,'origin://launchgame/194908',$env:MX_EA_DIRECTORY,'open',7)";
-        let output = std::process::Command::new("powershell.exe")
-            .args(["-NoProfile", "-NonInteractive", "-Command", script])
-            .env("MX_EA_LAUNCHER", launcher)
-            .env("MX_EA_DIRECTORY", directory)
-            .creation_flags(0x08000000)
-            .output().map_err(|e| e.to_string())?;
-        if !output.status.success() {
-            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-        }
-        Ok(())
-    }).await.map_err(apex_error)
+        super::apex_launch_ea::launch(launcher)
+    })
+    .await
+    .map_err(apex_error)
 }
 
 #[tauri::command]

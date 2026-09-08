@@ -10,16 +10,17 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Architecture
 
-- EA Apex quick launch uses `start_apex_ea` IPC and Windows desktop
-  Explorer desktop automation (`FindWindowSW` then
-  `Document.Application.ShellExecute`) to invoke the installed EALauncher with
-  `origin://launchgame/194908`, show mode 7. Direct game child-process launch
-  previously led to EA CreateProcess access-denied errors. The Shell route was
-  tested through cold launch and normal game exit; EA restoring its window after
-  game exit is expected and intentionally unchanged. A plain Shell.Application
-  object still reproduced access-denied from tauri dev, so the desktop broker
-  is required; its integrated button launch needs separate runtime verification.
-  Steam uses its existing URI.
+- EA Apex quick launch uses `start_apex_ea` IPC and native Windows COM in
+  `game/apex_launch_ea.rs`. A dedicated STA thread locates Explorer's existing
+  desktop through `IShellWindows` / `IShellBrowser`, obtains `IDispatch` from
+  the background view, and queries `IShellFolderViewDual` / `IShellDispatch2`.
+  It invokes installed EALauncher with `origin://launchgame/194908`, show mode 7,
+  passing UTF-16 paths as separate COM values. Interfaces drop before the
+  apartment is uninitialized. No PowerShell child process is used for launch.
+  Direct game launch and a standalone Shell object previously reproduced EA
+  CreateProcess access-denied errors; retain Explorer as the launch broker.
+  The native desktop lookup passed a read-only interactive Windows test, and
+  the user confirmed EA start/exit without a new alert. Steam uses its existing URI.
 
 - Frontend: Vue 3, TypeScript, Pinia, Vuetify, Vite. Desktop backend: Tauri 2
   and Rust under `src-tauri/`. Browser preview (non-Tauri Vite) mounts Vue with
@@ -232,7 +233,7 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Important Workflows
 
-- Huorong investigation (2026-09-08): the complete current debug build in
+- Huorong investigation (2026-09-08): before the native EA launch fix, the debug build in
   `E:/tauri/mxtools` repeatedly triggers `Trojan/Lakaboy`, ID
   `02B902CA0B023F8A`, during linking. A zero Cargo exit code is not a scan pass:
   Huorong can delete `target/debug/deps/mxtools.exe` after Cargo succeeds.
@@ -246,8 +247,14 @@ noncommercial mirrors and public modified versions are allowed.
   The pre-change `d0bcfab` worktree build also passed a targeted scan. Thus
   neither stale build caches nor the executable's current location alone
   explains the result. Binary layout or embedded build-path differences
-  remain hypotheses; no single source function or false positive is proven.
-  See `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
+  remain hypotheses; the vendor's exact detection signature is not known.
+  After replacing the PowerShell launch with native COM, the original
+  `npm run "tauri dev"` workflow opened the app and kept running. Targeted
+  Huorong scan 16663 (23:46:35, same virus database) reported 1 file / 14 objects
+  / 0 threats for the new original-directory EXE. The user confirmed real EA
+  start/exit, and a second normal dev startup kept the app running without
+  another detection. These results validate this local build. See
+  `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
 - Vite aliases resolve against `import.meta.dirname`; do not reintroduce
   `__dirname`, which the native config loader does not support.
 - Quick-preset reopen derives FPS, graphics level, and resolution enablement

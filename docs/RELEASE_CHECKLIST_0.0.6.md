@@ -1,6 +1,25 @@
 # 0.0.6 候选发布筛查
 
-## 2026-09-08 火绒拦截调查（发布阻塞）
+## 2026-09-08 EA 启动修复与火绒验证
+
+已将新增 EA 启动中的 PowerShell 脚本改为 Windows 原生 COM 调用，保留通过
+Explorer 桌面启动 EALauncher 的方式，避免退回此前有访问拒绝问题的直接启动。
+实现位于 `src-tauri/src/game/apex_launch_ea.rs`，使用独立 STA 线程和明确的 COM
+资源释放顺序；路径、工作目录和启动参数通过独立 UTF-16/VARIANT 参数传递。
+接口选择参考 [Microsoft 的 Explorer 启动示例](https://devblogs.microsoft.com/oldnewthing/20131118-00/?p=2643)。
+
+- 原工作区执行用户的 `npm run "tauri dev"` 后，主窗口出现、进程保持运行，
+  没有复现原来的执行拦截和 `0xffffffff` 退出。
+- 同一病毒库的火绒定向扫描记录 `16663`（23:46:35）：1 文件、14 对象、0 威胁。
+  被测文件为原目录 `src-tauri/target/debug/mxtools.exe`，SHA-256 为
+  `9E1C8DFDB23C8D85994A6A09D50C605484A00FEA42B3B6941FDF7514018A23F1`。
+- Rust 常规测试 200 项通过；另行执行只读的真实 Explorer COM 查询测试通过。
+  其余 7 项受控实机测试未执行。启动入口前端测试、lint、Rust 格式和 clippy 通过。
+- 用户确认 EA 按钮能真实启动游戏并正常退出，无新告警；随后再次执行相同的
+  开发启动命令，进程和主窗口正常，未复现拦截。未操作信任列表或关闭防护；
+  这些结果验证的是本机当前构建，火绒具体命中特征尚未经厂商确认。
+
+## 修复前的 A/B 调查
 
 主仓库改动已按快速预设、EA 启动、更新器、通知样式、构建依赖、发布文档
 分别提交。A/B 使用 `cargo build --no-default-features --locked`；源码基线为

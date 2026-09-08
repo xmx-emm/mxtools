@@ -3,6 +3,7 @@ pub mod apex_defaults;
 pub mod apex_history;
 pub mod apex_language_download;
 pub mod apex_language_download_ea;
+mod apex_launch_ea;
 pub mod apex_launch_repair;
 pub mod apex_q;
 pub mod apex_q_ocr;
