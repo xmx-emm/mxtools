@@ -232,6 +232,17 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Important Workflows
 
+- Huorong investigation (2026-09-08): the complete current debug build in
+  `E:/tauri/mxtools` repeatedly triggers `Trojan/Lakaboy`, ID
+  `02B902CA0B023F8A`, during linking. A zero Cargo exit code is not a scan pass:
+  Huorong can delete `target/debug/deps/mxtools.exe` after Cargo succeeds.
+  Removing the EA native launch group stopped new realtime alerts, but EA
+  alone and EA plus either of the other native groups also did not reproduce.
+  EA plus preset writes without the updater hook passed a targeted Huorong
+  scan. These results do not identify a single offending function or prove a
+  false positive. See `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
+- Vite aliases resolve against `import.meta.dirname`; do not reintroduce
+  `__dirname`, which the native config loader does not support.
 - Quick-preset reopen derives FPS, graphics level, and resolution enablement
   from current configuration. Resolution requires launcher and all four video
   fields to agree; lock axis is inferred from dimensions (width wins ties).
