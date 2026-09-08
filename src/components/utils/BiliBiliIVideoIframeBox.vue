@@ -7,7 +7,7 @@ const props = defineProps<{
 
 <template>
   <iframe
-    style="min-height: 400px"
+    class="bilibili-video-frame"
     sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
     :src="props.src"
@@ -15,5 +15,10 @@ const props = defineProps<{
 </template>
 
 <style scoped>
-
+.bilibili-video-frame {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
 </style>

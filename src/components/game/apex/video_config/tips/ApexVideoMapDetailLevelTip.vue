@@ -9,22 +9,26 @@ import ApexTipCard from '@/components/game/apex/common/tips/ApexTipCard.vue';
 
 const { t } = useI18n();
 
+// Reserve the bundled images' dimensions before lazy loading so anchors stay put.
 const previewItems = [
   {
     labelKey: 'apexVideoTips.mapDetailLevel.previewLabels.wallAndDecals',
     src: mapDetailComparison1Img,
+    aspectRatio: 1080 / 850,
     altKey: 'apexVideoTips.mapDetailLevel.wallAndDecals.imageAlt',
     captionKey: 'apexVideoTips.mapDetailLevel.wallAndDecals.imageCaption',
   },
   {
     labelKey: 'apexVideoTips.mapDetailLevel.previewLabels.pipesAndGround',
     src: mapDetailComparison2Img,
+    aspectRatio: 1080 / 401,
     altKey: 'apexVideoTips.mapDetailLevel.pipesAndGround.imageAlt',
     captionKey: 'apexVideoTips.mapDetailLevel.pipesAndGround.imageCaption',
   },
   {
     labelKey: 'apexVideoTips.mapDetailLevel.previewLabels.lightAndVent',
     src: mapDetailComparison3Img,
+    aspectRatio: 1080 / 600,
     altKey: 'apexVideoTips.mapDetailLevel.lightAndVent.imageAlt',
     captionKey: 'apexVideoTips.mapDetailLevel.lightAndVent.imageCaption',
   },
@@ -125,7 +129,7 @@ watch(activeIndex, () => {
           class="preview-section"
         >
           <div class="preview-frame">
-            <ApexImage :src="item.src" :alt="t(item.altKey)" />
+            <ApexImage :src="item.src" :alt="t(item.altKey)" :aspect-ratio="item.aspectRatio" />
           </div>
           <p class="preview-caption text-caption text-medium-emphasis">
             {{ t(item.captionKey) }}
@@ -140,9 +144,8 @@ watch(activeIndex, () => {
 .map-detail-tip-body {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 280px);
-  min-height: 240px;
-  max-height: 72dvh;
+  height: min(480px, 50dvh);
+  min-height: 0;
 }
 
 .preview-toolbar {
@@ -168,7 +171,7 @@ watch(activeIndex, () => {
 
 .preview-type-toggle {
   flex-wrap: nowrap;
-  max-width: 100%;
+  max-width: none;
 }
 
 .preview-type-toggle :deep(.v-btn) {

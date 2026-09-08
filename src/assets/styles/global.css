@@ -425,6 +425,20 @@ html::-webkit-scrollbar {
 }
 
 /* Styled replacement for native title hovers used by toolbar buttons and compact controls. */
+.v-tooltip > .v-overlay__content.mx-tooltip,
+.mx-native-tooltip {
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.v-tooltip > .v-overlay__content.mx-tooltip {
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .mx-native-tooltip {
   position: fixed;
   z-index: 10050;
@@ -457,7 +471,7 @@ html::-webkit-scrollbar {
   letter-spacing: 0;
   overflow-wrap: anywhere;
   text-align: left;
-  white-space: normal;
+  white-space: pre-line;
 }
 
 .mx-native-tooltip[data-placement='top'] {
@@ -1052,14 +1066,6 @@ body .Vue-Toastification__progress-bar {
   align-self: center;
   height: var(--game-page-control-height);
   line-height: 1;
-}
-
-.apex-tip-dialog-no-ripple {
-  align-items: center;
-}
-
-.apex-tip-dialog-no-ripple .v-ripple__container {
-  display: none !important;
 }
 
 @media (max-width: 560px) {

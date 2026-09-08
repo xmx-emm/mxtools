@@ -14,8 +14,8 @@ const { t } = useI18n();
   >
     <p class="text-medium-emphasis mb-4">{{ t('apexVideoTips.textureFilter.description') }}</p>
     <v-btn
-      class="mt-4"
-      color="error"
+      class="game-tip-link"
+      color="primary"
       variant="tonal"
       prepend-icon="mdi-play"
       @click="openUrl(APEX_TEXTURE_FILTER_VIDEO_PAGE_URL)"

@@ -7,7 +7,7 @@ const { t } = useI18n();
 
 <template>
   <ApexTipCard :title="t('apexTips.inputLatency.title')">
-    <div class="text-body-2 mx-6">
+    <div class="text-body-2">
       {{ t('apexTips.inputLatency.line1') }}<br/>
       {{ t('apexTips.inputLatency.line2') }}<br/>
       <br/>

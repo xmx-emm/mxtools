@@ -19,7 +19,7 @@ const { t } = useI18n();
   >
     <div>
       {{ t('apexTips.milesLanguage.example') }}
-      <v-col>
+      <div class="game-tip-actions my-3">
         <template v-if="apex_store.active_account_is_ea">
           <v-btn @click="apex_store.open_miles_auto_download();apex_store.closeTip();">
             {{ t('apexTips.milesLanguage.downloadButton') }}
@@ -36,7 +36,7 @@ const { t } = useI18n();
             {{ t('apexTips.milesLanguage.manualButton') }}
           </v-btn>
         </template>
-      </v-col>
+      </div>
       <p class="error_color">{{ t('apexTips.milesLanguage.tip1') }}
         <br/>
         {{ t('apexTips.milesLanguage.tip2') }}

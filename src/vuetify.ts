@@ -75,6 +75,10 @@ const vuetify = createVuetify({
     VMenu: {
       contentClass: 'compact-menu',
     },
+    VTooltip: {
+      maxWidth: 320,
+      contentClass: 'mx-tooltip',
+    },
     VDialog: {
       maxWidth: 1000,
     },

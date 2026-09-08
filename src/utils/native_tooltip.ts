@@ -63,22 +63,29 @@ export function installNativeTooltip(className: string): () => void {
 
   const positionBubble = (target: HTMLElement) => {
     const targetRect = target.getBoundingClientRect();
-    const bubbleRect = bubble.getBoundingClientRect();
+    // Layout dimensions stay stable while the opening scale transition runs.
+    const bubbleWidth = bubble.offsetWidth;
+    const bubbleHeight = bubble.offsetHeight;
     let placement: 'top' | 'bottom' = 'bottom';
     let top = targetRect.bottom + TOOLTIP_GAP;
 
     if (
-      top + bubbleRect.height > window.innerHeight - VIEWPORT_MARGIN
-      && targetRect.top - TOOLTIP_GAP - bubbleRect.height >= VIEWPORT_MARGIN
+      top + bubbleHeight > window.innerHeight - VIEWPORT_MARGIN
+      && targetRect.top > window.innerHeight - targetRect.bottom
     ) {
       placement = 'top';
-      top = targetRect.top - TOOLTIP_GAP - bubbleRect.height;
+      top = targetRect.top - TOOLTIP_GAP - bubbleHeight;
     }
 
-    const idealLeft = targetRect.left + (targetRect.width - bubbleRect.width) / 2;
-    const left = Math.min(
-      window.innerWidth - bubbleRect.width - VIEWPORT_MARGIN,
-      Math.max(VIEWPORT_MARGIN, idealLeft),
+    top = Math.max(VIEWPORT_MARGIN, Math.min(
+      window.innerHeight - bubbleHeight - VIEWPORT_MARGIN,
+      top,
+    ));
+
+    const idealLeft = targetRect.left + (targetRect.width - bubbleWidth) / 2;
+    const left = Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(window.innerWidth - bubbleWidth - VIEWPORT_MARGIN, idealLeft),
     );
 
     bubble.dataset.placement = placement;

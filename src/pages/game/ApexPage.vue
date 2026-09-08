@@ -31,6 +31,7 @@ import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDef
 import {openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
+import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
 import {ApexPageTypeEnum} from '@/enum.ts';
@@ -671,17 +672,14 @@ async function open_config_import() {
       </template>
     </div>
 
-    <v-dialog
-      v-model="apex_store.tip_dialog"
-      content-class="apex-tip-dialog-no-ripple"
-    >
+    <GameTipDialog v-model="apex_store.tip_dialog">
       <component
         :is="apex_store.tip_view"
         v-bind="apex_store.tip_props"
         class="not_select"
         @contextmenu.prevent="apex_store.closeTip()"
       />
-    </v-dialog>
+    </GameTipDialog>
     <ApexSteamManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog"/>
     <ApexEaManualDownloadMilesLanguage v-if="apex_store.download_miles_language_manual_dialog_ea"/>
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>

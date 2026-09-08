@@ -46,6 +46,18 @@ noncommercial mirrors and public modified versions are allowed.
   actions are 32 px, and standard form fields are 40 px. User-facing `mdi-*`
   icons must be imported and registered in `src/icons/mdi-icons.ts` (the SVG
   icon resolver); an unknown name renders without its declared icon.
+- Apex, PUBG and the independent Apex quick-preset window share
+  `components/game/common/GameTipDialog.vue` and `GameTipCard.vue` for setting
+  explanations. Dialogs use a 720 px width bounded by 16 px viewport margins;
+  the title and 32 px close action remain fixed while descriptions and media
+  scroll together. Platform wrappers only bind their store's close action.
+  Do not let individual tips or the general VDialog defaults determine width.
+  Tip video frames keep a 16:9 ratio; galleries bound their preview height and
+  reserve each image's aspect ratio before lazy loading to keep anchors stable
+  (update these ratios when replacing gallery assets). Long action labels wrap.
+  Hover tips (Vuetify and native-title replacements)
+  share compact typography and a 320 px width limit; native-title positioning
+  uses untransformed layout dimensions and clamps both axes to the viewport.
 - All five Toastification notification types share a uniform thin border with
   no side stripe. Their surface, text, and icon colors use the global toast
   tokens, with dark overrides on `html.dark` for body-mounted notifications.

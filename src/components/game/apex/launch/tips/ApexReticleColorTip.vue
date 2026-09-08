@@ -19,14 +19,15 @@ import {
 
 const { t } = useI18n();
 
+// Reserve the bundled images' dimensions before lazy loading so anchors stay put.
 const aimPreviewItems = [
-  { labelKey: 'apexTips.reticleColor.previewLabels.aim', src: aimImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.lightRounds', src: lightRoundsImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.heavyRounds', src: heavyRoundsImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.energyAmmo', src: energyAmmoImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.shotgun', src: shotgunImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.sniper', src: sniperRifleImg },
-  { labelKey: 'apexTips.reticleColor.previewLabels.carePackageWeapon', src: lootBinWeaponImg },
+  { labelKey: 'apexTips.reticleColor.previewLabels.aim', src: aimImg, aspectRatio: 1080 / 1455 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.lightRounds', src: lightRoundsImg, aspectRatio: 1080 / 1319 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.heavyRounds', src: heavyRoundsImg, aspectRatio: 1080 / 1068 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.energyAmmo', src: energyAmmoImg, aspectRatio: 1080 / 1867 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.shotgun', src: shotgunImg, aspectRatio: 1080 / 998 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.sniper', src: sniperRifleImg, aspectRatio: 1080 / 1582 },
+  { labelKey: 'apexTips.reticleColor.previewLabels.carePackageWeapon', src: lootBinWeaponImg, aspectRatio: 1080 / 748 },
 ] as const;
 
 const activeIndex = ref(0);
@@ -90,29 +91,25 @@ watch(activeIndex, () => {
 <template>
   <ApexTipCard :title="t('apexTips.reticleColor.title')" :subtitle="t('apexTips.reticleColor.subtitle')">
     <template #text>
-      <v-container>
-        <v-row class="text-body-2 text-medium-emphasis">
-          {{ t('apexTips.reticleColor.line1') }}<br/>
-          {{ t('apexTips.reticleColor.line2') }}
-        </v-row>
-        <v-row>
-          <v-btn size="x-small"
-                 :title="t('apexTips.reticleColor.gameBarTips')"
-                 @click="openUrl(MICROSOFT_STORE_MURBONG_CROSSHAIR_URL)"
-                 prepend-icon="mdi-microsoft-xbox">Murbong Crosshair</v-btn>
-          <v-btn size="x-small"
-                 :title="t('apexTips.reticleColor.gameBarTips')"
-                 @click="openUrl(MICROSOFT_STORE_MYCROSSHAIR_URL)"
-                 prepend-icon="mdi-microsoft-xbox">My Crosshair</v-btn>
-          <v-spacer/>
-          <v-btn
-            size="x-small"
-            :title="t('apexTips.reticleColor.steamTips')"
-            @click="openUrl(STEAM_CROSSHAIR_V2_URL)"
-            prepend-icon="mdi-steam" text="Crosshair V2"></v-btn>
-          <v-spacer/>
-        </v-row>
-      </v-container>
+      <p class="text-body-2 text-medium-emphasis">
+        {{ t('apexTips.reticleColor.line1') }}<br/>
+        {{ t('apexTips.reticleColor.line2') }}
+      </p>
+      <div class="game-tip-actions mt-3">
+        <v-btn size="small"
+               :title="t('apexTips.reticleColor.gameBarTips')"
+               @click="openUrl(MICROSOFT_STORE_MURBONG_CROSSHAIR_URL)"
+               prepend-icon="mdi-microsoft-xbox">Murbong Crosshair</v-btn>
+        <v-btn size="small"
+               :title="t('apexTips.reticleColor.gameBarTips')"
+               @click="openUrl(MICROSOFT_STORE_MYCROSSHAIR_URL)"
+               prepend-icon="mdi-microsoft-xbox">My Crosshair</v-btn>
+        <v-btn
+          size="small"
+          :title="t('apexTips.reticleColor.steamTips')"
+          @click="openUrl(STEAM_CROSSHAIR_V2_URL)"
+          prepend-icon="mdi-steam" text="Crosshair V2"></v-btn>
+      </div>
     </template>
     <div class="reticle-tip-body">
       <div class="preview-toolbar bg-surface">
@@ -148,7 +145,7 @@ watch(activeIndex, () => {
           class="preview-section"
         >
           <div class="preview-frame">
-            <ApexImage :src="item.src" :alt="t(item.labelKey)" />
+            <ApexImage :src="item.src" :alt="t(item.labelKey)" :aspect-ratio="item.aspectRatio" />
           </div>
           <p class="preview-caption text-caption text-medium-emphasis">
             {{ t(item.labelKey) }}
@@ -163,13 +160,8 @@ watch(activeIndex, () => {
 .reticle-tip-body {
   display: flex;
   flex-direction: column;
-  /*
-   * 高度跟随弹窗可用视口空间,避免固定 520px 导致大屏偏矮/小屏拥挤.
-   * 这里保留上下限,保证在极端窗口尺寸下仍可用.
-   */
-  height: calc(100dvh - 280px);
-  min-height: 240px;
-  max-height: 72dvh;
+  height: min(480px, 50dvh);
+  min-height: 0;
 }
 
 .preview-toolbar {
@@ -195,7 +187,7 @@ watch(activeIndex, () => {
 
 .preview-type-toggle {
   flex-wrap: nowrap;
-  max-width: 100%;
+  max-width: none;
 }
 
 .preview-type-toggle :deep(.v-btn) {

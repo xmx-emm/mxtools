@@ -10,6 +10,7 @@ import PubgSelectLaunchOptions from '@/components/game/pubg/PubgSelectLaunchOpti
 import PubgStart from '@/components/game/pubg/PubgStart.vue';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
+import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
 import {useSteamStore} from '@/stores/game/steam.ts';
 import {usePubgStore} from '@/stores/game/pubg.ts';
 import {registerHmrCleanup} from '@/utils/hmr.ts';
@@ -127,24 +128,15 @@ onUnmounted(() => {
       </v-btn-group>
     </div>
 
-    <v-dialog
-      v-model="pubg_store.tip_dialog"
-      content-class="pubg-tip-dialog-no-ripple"
-    >
+    <GameTipDialog v-model="pubg_store.tip_dialog">
       <component
         :is="pubg_store.tip_view"
         class="not_select"
         @contextmenu.prevent="pubg_store.closeTip()"
       />
-    </v-dialog>
+    </GameTipDialog>
   </v-col>
 </template>
-
-<style>
-.pubg-tip-dialog-no-ripple .v-ripple__container {
-  display: none !important;
-}
-</style>
 
 <style scoped>
 .pubg-page-toolbar {

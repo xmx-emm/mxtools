@@ -11,7 +11,7 @@ const { t } = useI18n();
 <template>
   <ApexTipCard :title="t('apexTips.fov.title')" :subtitle="t('apexTips.fov.subtitle')">
     <template v-slot:text>
-      <div class="font-italic" style="color:rgba(var('--v-theme-on-surface'));">
+      <div class="font-italic text-medium-emphasis">
         {{ t('apexTips.fov.text1') }}
         <br>
         {{ t('apexTips.fov.text2') }}
@@ -19,11 +19,11 @@ const { t } = useI18n();
     </template>
     <template v-slot:default>
         <v-row>
-          <v-col>
+          <v-col cols="12" sm="6">
             <ApexImage :src="fov110Img" alt="fov 110"/>
             {{ t('apexTips.fov.label110') }}
           </v-col>
-          <v-col>
+          <v-col cols="12" sm="6">
             <ApexImage :src="fov120Img" alt="fov 120"/>
             {{ t('apexTips.fov.label120') }}
           </v-col>

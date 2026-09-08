@@ -7,7 +7,7 @@ const { t } = useI18n();
 
 <template>
   <ApexTipCard :title="t('apexTips.aspect.title')">
-    <div class="text-body-2 mx-6 aspect-tip">
+    <div class="text-body-2 aspect-tip">
       <p class="tip-intro">
         {{ t('apexTips.aspect.line1') }}
       </p>

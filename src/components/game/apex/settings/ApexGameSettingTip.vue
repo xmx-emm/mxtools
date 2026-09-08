@@ -62,7 +62,6 @@ function setLaserColorValue(value: string) {
 <template>
   <ApexTipCard
     v-if="field"
-    class="game-setting-tip"
     :title="t(field.labelKey)"
     :subtitle="t(field.descriptionKey)"
   >
@@ -104,10 +103,6 @@ function setLaserColorValue(value: string) {
 </template>
 
 <style scoped>
-.game-setting-tip {
-  width: min(680px, calc(100vw - 32px));
-}
-
 .tip-options {
   display: grid;
   gap: 6px;

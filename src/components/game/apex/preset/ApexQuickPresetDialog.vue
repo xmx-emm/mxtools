@@ -11,6 +11,7 @@ import {
 import {useToast} from 'vue-toastification';
 import {useApexStore} from '@/stores/game/apex.ts';
 import CloseRunningProcessesDialog from '@/components/game/common/CloseRunningProcessesDialog.vue';
+import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import ApexVideoConfig from '@/data/apex_video_config.ts';
@@ -829,17 +830,14 @@ onBeforeUnmount(() => {
     </section>
   </div>
 
-  <v-dialog
-    v-model="apex_store.tip_dialog"
-    content-class="apex-tip-dialog-no-ripple"
-  >
+  <GameTipDialog v-model="apex_store.tip_dialog">
     <component
       :is="apex_store.tip_view"
       v-bind="apex_store.tip_props"
       class="not_select"
       @contextmenu.prevent="apex_store.closeTip()"
     />
-  </v-dialog>
+  </GameTipDialog>
 
   <CloseRunningProcessesDialog
     v-model="dialog"
