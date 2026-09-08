@@ -1,4 +1,5 @@
 use crate::app_info::{get_app_info, AppDistribution};
+use crate::background_coordinator::BackgroundCoordinator;
 use crate::ipc_error::{IpcError, IpcResult};
 use serde::Serialize;
 use std::sync::Mutex;
@@ -83,8 +84,14 @@ pub async fn check_app_update(
     if state != "ready" {
         return Ok(info);
     }
+    let exit_app = app.clone();
     let update = app
         .updater_builder()
+        .on_before_exit(move || {
+            BackgroundCoordinator::shutdown_and_restore(&exit_app);
+            // This replaces the plugin's default hook, so retain Tauri cleanup.
+            exit_app.cleanup_before_exit();
+        })
         .pubkey(PUBLIC_KEY)
         .endpoints(vec![ENDPOINT.parse().map_err(|e| error(format!("{e}")))?])
         .map_err(|e| error(e.to_string()))?

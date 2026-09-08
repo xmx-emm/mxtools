@@ -214,10 +214,12 @@ noncommercial mirrors and public modified versions are allowed.
   job restores Cargo registry and dependency build artifacts from a
   toolchain/manifest-aware cache for `src-tauri/target`; only `master` saves
   entries, including warmed artifacts from failed runs.
-- The proposed, not-yet-implemented online updater design is documented in
-  `docs/TAURI_ONLINE_UPDATE_PLAN.md`; it keeps GitHub as the authoritative
-  release source and requires explicit runtime fallback rather than treating
-  the proposal as current application behavior.
+- Online updates are implemented in `src-tauri/src/app_update.rs` and
+  `src/stores/app_update.ts`, using GitHub Releases and signed downloads.
+  Installer builds require a configured public key; portable/Store builds
+  use manual/Store updates. The updater's Windows before-exit hook restores
+  background hardware state and retains Tauri cleanup. Gitee fallback remains
+  a proposal in `docs/TAURI_ONLINE_UPDATE_PLAN.md`, not current behavior.
 - Licensing scope is defined by root `LICENSE`, `NOTICE`, and
   `THIRD_PARTY_NOTICES.md`. The APEX Q calculation port is used under
   project-specific written permission granted by the upstream author on
