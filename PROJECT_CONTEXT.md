@@ -232,6 +232,17 @@ noncommercial mirrors and public modified versions are allowed.
 
 ## Important Workflows
 
+- Quick-preset reopen derives FPS, graphics level, and resolution enablement
+  from current configuration. Resolution requires launcher and all four video
+  fields to agree; lock axis is inferred from dimensions (width wins ties).
+  Refresh is blocked throughout launcher wait and apply. Missing/empty profiles
+  gain the embedded defaults inside the existing transaction, and the seven
+  allowlisted optimizations can insert missing bare profile keys, including
+  language-owned subtitles, without replacing partial personal profiles.
+- The September 2026 dependency audit fixes are pinned by `package-lock.json`
+  (Vite 8.2.2, PostCSS 8.5.28, nanoid 3.3.18, immutable 5.1.9 and development
+  parser fixes). Full and production-only npm audits pass with zero findings.
+
 - Closing the main window to the background checks the in-memory Apex and PUBG
   editors first. The shared confirmation can keep the window open and navigate
   back to the currently visible dirty editor; otherwise it selects the first

@@ -3,6 +3,8 @@ import vue from '@vitejs/plugin-vue';
 import path from 'path';
 import vuetify from 'vite-plugin-vuetify';
 
+const projectDir = import.meta.dirname;
+
 // ts-expect-error process is a Node.js global
 const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
@@ -59,8 +61,8 @@ export default defineConfig(async () => ({
     },
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, 'src'), // 设置 @ 指向 src
-            'ASSETS': path.join(path.resolve(__dirname, 'src'), "assets"), // 设置 @ 指向 src
+            '@': path.resolve(projectDir, 'src'), // 设置 @ 指向 src
+            'ASSETS': path.join(path.resolve(projectDir, 'src'), "assets"), // 设置 @ 指向 src
         },
     },
     test: {
