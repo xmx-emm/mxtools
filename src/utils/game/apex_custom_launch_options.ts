@@ -29,6 +29,7 @@ export type ApexLaunchRead = {
   lobbyMaxFps?: number;
   fps?: ApexLaunchFpsRead;
   letterbox?: ApexLaunchLetterboxRead;
+  simplifiedReticle?: boolean;
 };
 
 type TokenMatch = {
@@ -336,13 +337,13 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
     claimed,
     protectedIndices,
   );
-  takeValue(
+  read.simplifiedReticle = takeValue(
     tokens,
     '+reticle_color',
     candidate => RETICLE_VALUES.has(candidate),
     claimed,
     protectedIndices,
-  );
+  ) !== undefined;
 
   const lobby = takeValue(tokens, '+lobby_max_fps', isInteger, claimed, protectedIndices);
   if (lobby !== undefined) read.lobbyMaxFps = Number(lobby);

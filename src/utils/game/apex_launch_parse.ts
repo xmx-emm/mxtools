@@ -47,6 +47,13 @@ export function parseApexLaunchOptionsString(start_launch_option: string): Parse
   for (const option of ApexLaunchOptionsConfig) {
     if (!isSteamLaunchOptionsImpl(option)) continue;
 
+    if (option.identifier === 'reticle_color') {
+      // Steam's quoted RGB and EA's hyphenated RGB represent the same choice.
+      // The catalog contains only Steam spelling; use the classifier's result.
+      if (read.simplifiedReticle) selection.push(option);
+      continue;
+    }
+
     if (option.identifier === 'window') {
       if (read.window) {
         selection.push(option);

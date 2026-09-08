@@ -67,7 +67,7 @@ describe('Apex quick preset initial selection', () => {
 
   it('detects the three binding optimizations independently and rejects conflicts', () => {
     const bindings = [
-      binding('aim', 'mouse2', '+toggle_zoom'),
+      binding('aim', 'mouse2', '+zoom'),
       binding('forward', 'MWHEELUP', '+forward', 1),
       binding('jump', 'MWHEELDOWN', '+jump', 1),
     ];

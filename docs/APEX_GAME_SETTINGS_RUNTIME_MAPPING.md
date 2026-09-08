@@ -248,6 +248,15 @@ The same transaction removes `MOUSE2` from `+toggle_zoom`, assigns `MOUSE2` to
 `+forward`, and assigns `MWHEELDOWN` to `+jump`. It preserves the other slot for
 each action and still enforces the two-slot/global-conflict rules.
 
+Static verification against build `R5pc_r5-300_J57_CL11457258_2026_08_19_15_40`
+also confirms sprint view shake: the menu appends Normal then Minimal at
+RVAs `0x6a1736` and `0x6a1753`, reads the ConVar integer directly into the
+selection at `0x6a562b`, and saves that index at `0x6a6e2b`. Thus Normal is
+`sprint_view_shake_style=0` and Minimal is `1`. The quick preset writes `1`;
+the reset template keeps the game's registered default `0`. The original
+`cfg/config_default_pc.cfg:24` binds right mouse to `+toggle_zoom`, so reset
+also leaves the hold-aim quick preset unchecked; only `+zoom` matches it.
+
 `hud_setting_pingAlpha` remains excluded from this preset because it is a HUD
 preference rather than a launch optimization; its confirmed values are
 documented in the mapping table above.

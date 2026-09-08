@@ -753,6 +753,17 @@ fn apply_value_updates(
     for (key, value) in updates {
         validate_value(file, key, value)?;
         if !doc.path_exists(key) {
+            if file == ConfigFile::Profile && QUICK_PRESET_PROFILE_KEYS.contains(&key.as_str()) {
+                // Profile reports use bare keys. Do not insert a quoted video-style
+                // key, which would disappear from the frontend's option lookup.
+                doc.lines.push(ApexCfgLine::KeyValue {
+                    key: key.clone(),
+                    value: value.clone(),
+                    prefix: String::new(),
+                    separator: " ".into(),
+                });
+                continue;
+            }
             return Err(format!("apex.gameSettings.errors.keyMissing: {key}"));
         }
         doc.set(key, value.clone())?;
@@ -767,6 +778,40 @@ fn apply_value_updates(
         doc.set(CHANGED_KEY, "1".to_string())?;
     }
     Ok(())
+}
+
+const QUICK_PRESET_PROFILE_KEYS: &[&str] = &[
+    "player_setting_damage_closes_deathbox_menu",
+    "player_setting_stickysprintforward",
+    "player_setting_autosprint",
+    "hud_setting_minimapRotate",
+    "closecaption",
+    "fov_disableAbilityScaling",
+    "sprint_view_shake_style",
+];
+
+fn apply_profile_updates(
+    doc: &mut ApexCfgDocument,
+    updates: &HashMap<String, String>,
+) -> Result<(), String> {
+    if updates.is_empty() {
+        return Ok(());
+    }
+    for (key, value) in updates {
+        validate_value(ConfigFile::Profile, key, value)?;
+    }
+    // Missing/empty profiles gain the default baseline inside the same write
+    // transaction. Partial profiles retain all existing values and raw lines.
+    if doc.lines.iter().all(|line| {
+        matches!(line, ApexCfgLine::Raw(text) if text.trim().is_empty() || text.trim().starts_with("//"))
+    }) {
+        let defaults = ApexCfgDocument::from_content(
+            crate::game::apex_defaults::APEX_DEFAULT_PROFILE_CFG,
+            ApexFileEncoding::Utf8,
+        )?;
+        doc.lines.extend(defaults.lines);
+    }
+    apply_value_updates(ConfigFile::Profile, doc, updates)
 }
 
 fn apply_binding_mutations(
@@ -1540,11 +1585,7 @@ fn apply_request_inner(
         &mut settings.doc,
         &request.settings_updates,
     )?;
-    apply_value_updates(
-        ConfigFile::Profile,
-        &mut profile.doc,
-        &request.profile_updates,
-    )?;
+    apply_profile_updates(&mut profile.doc, &request.profile_updates)?;
     apply_binding_mutations(&mut settings.doc, &binding_mutations)?;
 
     let settings_changed =
@@ -2227,5 +2268,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_binding_key_names.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_quick_preset_profile.rs"
     ));
 }

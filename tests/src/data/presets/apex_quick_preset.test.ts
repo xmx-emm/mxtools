@@ -7,6 +7,18 @@ import {
 import {applyQuickPresetVideoOptions} from '@/utils/game/apex_quick_preset.ts';
 
 describe('Apex quick preset graphics values', () => {
+  it('disables sun shadows without emitting invalid zero coverage', () => {
+    const updates: Record<string, string> = {};
+    applyQuickPresetVideoOptions(
+      (key, value) => { updates[key] = value; },
+      buildDefaultVideoOptions(),
+    );
+    expect(updates).toMatchObject({
+      'setting.csm_enabled': '0',
+      'setting.csm_coverage': '1',
+    });
+  });
+
   it('keeps competitive textures minimal while using high model detail', () => {
     const competitive = findGraphicsQualityPreset('competitive');
 

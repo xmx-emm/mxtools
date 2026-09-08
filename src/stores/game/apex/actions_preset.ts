@@ -14,6 +14,7 @@ import {
   clampFpsCap,
   applyQuickPresetVideoOptions,
   buildVideoResolutionValues,
+  quickPresetVideoValueMismatches,
   uncheckedQuickPresetVideoKeys,
   resolveGameResolution,
 } from '@/utils/game/apex_quick_preset.ts';
@@ -49,7 +50,7 @@ function sameBindingAction(left: ApexBinding, right: ApexBinding): boolean {
 type PresetBindingTarget = {
   templateId?: string;
   binding?: ApexBinding;
-  command: '+zoom' | '+toggle_zoom' | '+forward' | '+jump';
+  command: '+zoom' | '+forward' | '+jump';
   input: 'MOUSE2' | 'MWHEELUP' | 'MWHEELDOWN';
   context: 0 | 1;
 };
@@ -68,41 +69,32 @@ function clearBinding(store: ApexStoreThis, binding: ApexBinding) {
 
 function resolvePresetAimBinding(store: ApexStoreThis): {
   binding?: ApexBinding;
-  command: '+zoom' | '+toggle_zoom';
+  command: '+zoom';
   context: 0 | 1;
 } {
-  const aimCommands = ['+zoom', '+toggle_zoom'];
-  const mouseAim = store.game_settings_bindings.find(binding => (
-    binding.editable
-    && binding.input.toUpperCase() === 'MOUSE2'
-    && aimCommands.some(command => sameBindingCommand(binding.command, command))
+  const candidates = store.game_settings_bindings.filter(binding => (
+    binding.editable && sameBindingCommand(binding.command, '+zoom')
   ));
+  const mouseAim = candidates.find(binding => binding.input.toUpperCase() === 'MOUSE2');
   if (mouseAim) {
     return {
       binding: mouseAim,
-      command: sameBindingCommand(mouseAim.command, '+toggle_zoom') ? '+toggle_zoom' : '+zoom',
+      command: '+zoom',
       context: mouseAim.context === 1 ? 1 : 0,
     };
   }
 
-  for (const command of aimCommands) {
-    const candidates = store.game_settings_bindings.filter(binding => (
-      binding.editable && sameBindingCommand(binding.command, command)
-    ));
-    if (!candidates.length) continue;
-    const binding = candidates.find(candidate => !candidate.heldCommand) ?? candidates[0]!;
-    const sameAction = candidates.filter(candidate => sameBindingAction(candidate, binding));
-    const contexts = new Set(sameAction.filter(candidate => candidate.input).map(candidate => candidate.context));
-    const resolvedCommand = command as '+zoom' | '+toggle_zoom';
-    if (!contexts.has(1)) return {binding, command: resolvedCommand, context: 1};
-    if (!contexts.has(0)) return {binding, command: resolvedCommand, context: 0};
-    return {
-      binding,
-      command: resolvedCommand,
-      context: binding.context === 1 ? 1 : 0,
-    };
-  }
-  return {command: '+zoom', context: 0};
+  const binding = candidates.find(candidate => !candidate.heldCommand) ?? candidates[0];
+  if (!binding) return {command: '+zoom', context: 0};
+  const sameAction = candidates.filter(candidate => sameBindingAction(candidate, binding));
+  const contexts = new Set(sameAction.filter(candidate => candidate.input).map(candidate => candidate.context));
+  if (!contexts.has(1)) return {binding, command: '+zoom', context: 1};
+  if (!contexts.has(0)) return {binding, command: '+zoom', context: 0};
+  return {
+    binding,
+    command: '+zoom',
+    context: binding.context === 1 ? 1 : 0,
+  };
 }
 
 function resolvePresetActionBinding(
@@ -206,7 +198,7 @@ function prepareQuickPresetGameSettings(
   enabledOptions: Record<string, boolean>,
 ) {
   for (const [id, key, value] of quickPresetGameSettingToggles) {
-    if (enabledOptions[id] && key in store.game_settings_values.profile) {
+    if (enabledOptions[id]) {
       store.set_game_setting_value('profile', key, value);
     }
   }
@@ -241,6 +233,11 @@ export const apexPresetActions = {
 
   /** 将快速预设选项写入内存状态(启动项 + 视频配置)，不落盘 */
   prepare_quick_preset(this: ApexStoreThis, screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection) {
+    const videoKeys = new Set<string>();
+    const setVideoValue = (key: string, value: string) => {
+      videoKeys.add(key);
+      this.set_video_config_value(key, value);
+    };
     // settings.cfg 缺失/不完整时不再阻塞:后端会从内置默认模板初始化完整键位再应用
     const fpsCap = clampFpsCap(selection.fpsCap);
     this.fps = fpsCap;
@@ -259,7 +256,7 @@ export const apexPresetActions = {
       ensure_option_in_selection(this.options_selection, 'forced_resolution');
       ensure_option_in_selection(this.options_selection, 'letterbox_aspect');
       for (const [key, value] of Object.entries(buildVideoResolutionValues(width, height))) {
-        this.set_video_config_value(key, value);
+        setVideoValue(key, value);
       }
     }
 
@@ -283,14 +280,15 @@ export const apexPresetActions = {
       }
       for (const [key, value] of Object.entries(gfx.values)) {
         if (skip_video_keys.has(key)) continue;
-        this.set_video_config_value(key, value);
+        setVideoValue(key, value);
       }
     }
     applyQuickPresetVideoOptions(
-      (key, value) => this.set_video_config_value(key, value),
+      setVideoValue,
       selection.videoOptions,
     );
     prepareQuickPresetGameSettings(this, selection.gameSettingOptions);
+    this.quick_preset_video_keys = [...videoKeys];
   },
 
   /**
@@ -312,15 +310,20 @@ export const apexPresetActions = {
       throw new Error('apex.videoConfigLoadFailed');
     }
     await this.load_apex_game_settings({silent: true, force: true, discardLocal: true});
-    if (!this.game_settings_report) {
+    if (this.game_settings_load_status !== 'ready' || !this.game_settings_report) {
       throw new Error('apex.gameSettings.errors.readFailed');
     }
+    if (this.launcher_selection_key !== key) throw new Error('LAUNCH_OPTIONS_LOAD_FAILED');
   },
 
   /** 快速预设落盘(调用前须 ensure_configs_loaded + prepare_quick_preset) */
   async apply_quick_preset_persist(this: ApexStoreThis): Promise<boolean> {
+    if (this.quick_preset_applying) return false;
     const toast = useToast();
     const transactionId = createApexHistoryTransactionId();
+    const accountKey = this.launcher_selection_key;
+    let committed: Awaited<ReturnType<typeof mutateApexConfig>> | undefined;
+    let completed = false;
     this.quick_preset_applying = true;
     try {
       if (!await this.check_miles_language()) {
@@ -336,6 +339,7 @@ export const apexPresetActions = {
 
       const account = this.active_apex_account;
       if (!account) throw new Error('NO_LAUNCHER_ACCOUNT');
+      if (this.launcher_selection_key !== accountKey) throw new Error('apexQuickPreset.accountUnavailable');
       const gameSettingsMutation = buildApexGameSettingsMutation(this);
       const gameSettings = gameSettingsMutation
         && (Object.keys(gameSettingsMutation.settingsUpdates).length
@@ -343,17 +347,22 @@ export const apexPresetActions = {
           || gameSettingsMutation.bindingMutations.length)
         ? gameSettingsMutation
         : null;
+      const videoUpdates = Object.fromEntries(Object.entries(this.build_video_config_updates())
+        .filter(([key]) => this.quick_preset_video_keys === null || this.quick_preset_video_keys.includes(key)));
       const result = await mutateApexConfig({request: {
         source: 'quickPreset',
         transactionId,
         launcher: toApexLauncherRef(account),
         launchOptions: this.launch_options,
-        videoUpdates: this.build_video_config_updates(),
+        videoUpdates,
         gameSettings,
       }});
-      this.original_launch_options = result.launchOptions ?? this.launch_options;
-      this.launch_loaded_for_key = this.launcher_selection_key;
-      this.launch_load_status = 'ready';
+      committed = result;
+      if (this.launcher_selection_key === accountKey) {
+        this.original_launch_options = result.launchOptions ?? this.launch_options;
+        this.launch_loaded_for_key = accountKey;
+        this.launch_load_status = 'ready';
+      }
       if (result.videoConfig) {
         const values = normalizeVideoConfigMap(result.videoConfig);
         this.video_config_values = {...values};
@@ -367,14 +376,27 @@ export const apexPresetActions = {
       if (result.gameSettingsReport) {
         adoptApexGameSettingsReport(this, result.gameSettingsReport);
       }
-      if (this.has_out_of_preset_selection) {
-        await this.set_videoconfig_readonly(true);
+      const mismatches = quickPresetVideoValueMismatches(
+        normalizeVideoConfigMap(result.videoConfig ?? {}), videoUpdates,
+      );
+      if (mismatches.length) {
+        if (!result.videoConfig) {
+          this.video_config_loaded = false;
+          this.video_config_load_status = 'error';
+        }
+        throw new Error(`apexQuickPreset.videoVerificationFailed: ${mismatches.join(', ')}`);
+      }
+      // Apex can rewrite even normal menu values when it starts. A quick
+      // preset has just verified its full selected set, so preserve that set
+      // regardless of whether any one value is outside the menu's presets.
+      if (Object.keys(videoUpdates).length) {
+        if (!await this.set_videoconfig_readonly(true)) {
+          throw new Error('apexQuickPreset.videoProtectionFailed');
+        }
       } else {
         await this.load_videoconfig_readonly();
       }
-      await emitApexConfigChanged(result.changedScopes, {
-        notification: 'quickPresetApplied',
-      }).catch(error => console.warn('notify Apex config change failed', error));
+      completed = true;
       return true;
     } catch (err) {
       console.warn('apply_quick_preset_persist failed', err);
@@ -385,6 +407,11 @@ export const apexPresetActions = {
       );
       return false;
     } finally {
+      if (committed) {
+        await emitApexConfigChanged(committed.changedScopes,
+          completed ? {notification: 'quickPresetApplied'} : undefined,
+        ).catch(error => console.warn('notify Apex config change failed', error));
+      }
       this.quick_preset_applying = false;
     }
   },

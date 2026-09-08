@@ -87,7 +87,6 @@ describe('Apex quick preset visual contract', () => {
   it('explains that occupied binding inputs are replaced', () => {
     expect(dialogSource).toContain("t('apexQuickPreset.bindingReplacementHint')");
     expect(dialogSource).toContain('class="preset-binding-replacement-hint"');
-    expect(presetActionsSource).toContain("const aimCommands = ['+zoom', '+toggle_zoom'];");
     expect(dialogSource).toContain('v-if="binding_settings_missing"');
     expect(dialogSource).toContain("t('apexQuickPreset.bindingSettingsMissing')");
     expect(dialogSource).toContain('binding_settings_missing"');

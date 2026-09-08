@@ -61,6 +61,7 @@ export function createApexState() {
     game_settings_loaded_key: <string | null>null,
     game_settings_request_generation: 0,
     game_settings_load_error: <string | null>null,
+    quick_preset_video_keys: <string[] | null>null,
     is_video_config_saving: false,
     is_game_settings_loading: false,
     is_game_settings_saving: false,

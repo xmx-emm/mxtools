@@ -211,7 +211,7 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
   },
   {
     key: 'antialias',
-    label: 'apexVideoConfig.matAntialiasMode.name',
+    label: 'apexQuickPreset.video.enableAntialias',
     tipIdentifier: 'setting.mat_antialias_mode',
     defaultEnabled: true,
     onValues: {
@@ -245,7 +245,7 @@ export const quickPresetVideoConfigToggles: ApexQuickPresetVideoToggle[] = [
     label: 'apexQuickPreset.video.disableSunShadows',
     tipIdentifier: 'group.csm',
     defaultEnabled: true,
-    onValues: { 'setting.csm_enabled': '0', 'setting.csm_coverage': '0' },
+    onValues: { 'setting.csm_enabled': '0', 'setting.csm_coverage': '1' },
   },
   {
     key: 'disable_decals',
@@ -296,7 +296,7 @@ export const quickPresetGameSettingToggles = [
   ['rotateMinimap', 'hud_setting_minimapRotate', '1', 'rotateMinimapOn'],
   ['subtitles', 'closecaption', '0', 'subtitlesOff'],
   ['abilityFovScaling', 'fov_disableAbilityScaling', '1', 'abilityFovScalingOff'],
-  ['viewShake', 'sprint_view_shake_style', '0', 'viewShakeLowest'],
+  ['viewShake', 'sprint_view_shake_style', '1', 'viewShakeLowest'],
 ] as const;
 
 export const QUICK_PRESET_AIM_MOUSE_RIGHT_KEY = 'aimMouseRight';

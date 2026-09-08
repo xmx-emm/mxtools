@@ -62,6 +62,14 @@ noncommercial mirrors and public modified versions are allowed.
   quote-aware token classifier for both managed selections and the custom
   remainder: only complete supported command/value sequences are claimed, while
   `+exec` and its next argument are protected from catalog matching.
+  Simplified-reticle selection uses the classifier's recognized state for both
+  Steam's quoted space-separated RGB and EA's hyphen-separated RGB. Reopen
+  tests cover every quick-preset optimization individually and all together
+  on both launchers, including two fresh-store launch serialization round trips.
+  Platform differences and required regression coverage are listed explicitly
+  in `docs/APEX_CONFIG_ALIGNMENT.md`: launcher files/accounts and process checks
+  differ; reticle delimiters and FOV quoting differ. Catalog literals use Steam
+  spelling, so they cannot alone identify EA readback selections.
 - Apex letterbox launch options manage only min/goal. The minimum is clamped
   to 1-2; omitted values use the game defaults 1.59/1.6, while quick presets
   use a minimum of 1. Retired threshold tokens remain in custom launch input.
@@ -125,7 +133,21 @@ noncommercial mirrors and public modified versions are allowed.
 - Apex quick presets run in the independent `/apex-quick-preset` Tauri WebView
   with the shared `VMain + AppTopBar` shell; the `apex-quick-preset-window`
   label must remain in the shared Tauri capability so its event listeners and
-  title-bar window APIs can initialize.
+  title-bar window APIs can initialize. Controls are grouped by their write
+  target: launcher config (including FPS caps), `videoconfig.txt` (including
+  graphics presets), `profile.cfg`, and `settings.cfg` bindings. The shared
+  resolution/aspect control explicitly identifies both launcher and video files.
+  Minimal sprint view shake selects `sprint_view_shake_style=1`; the game reset
+  remains Normal (`0`). The right-mouse hold-aim preset matches only `+zoom`
+  and replaces `+toggle_zoom` on that input instead of preserving toggle mode.
+  Reset keeps the game's original right-mouse `+toggle_zoom` binding, so both
+  quick-preset options are unchecked after resetting to game defaults.
+  Quick-preset video writes are limited to the fields selected in that session.
+  Successful native writes adopt the returned disk state before verification;
+  readback or read-only protection failures keep the window open and notify
+  other windows of changed scopes without a success notification. Failed
+  refreshes cannot reuse cached game settings, and duplicate submissions are
+  rejected. Focused workflow tests cover Steam/EA and post-write failures.
 - When `settings.cfg` is missing, contains no bindings, or contains only the
   three bindings created by the old incomplete bootstrap path, the Rust
   mutation boundary initializes the document from the embedded current-build
@@ -134,10 +156,10 @@ noncommercial mirrors and public modified versions are allowed.
   partial or absent file gains the complete default binding set; the
   initialization is recorded in the same history transaction. Mutations that
   were drafted against an empty or legacy three-binding document are rebased
-  onto the new template by action/held-command identity, with `+zoom` and
-  `+toggle_zoom` treated as equivalent; direct command mutations retain their
-  requested command. With a valid baseline, bindings apply in two explicit
-  phases: remove selected target inputs, duplicate physical inputs, and
+  onto the new template by action/held-command identity. If the template has
+  only the opposite aim mode, rebasing creates the requested command explicitly;
+  hold and toggle modes remain distinct. With a valid baseline, bindings apply
+  in two explicit phases: remove selected target inputs, duplicate physical inputs, and
   duplicate action/context slots, then create the new bindings from an
   existing template or an allowlisted direct command. Mutation order
   therefore contains all deletes before creates.

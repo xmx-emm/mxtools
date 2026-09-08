@@ -16,6 +16,7 @@ import {
   applyQuickPresetLaunchOptions,
   applyQuickPresetVideoOptions,
   findLaunchOptionRef,
+  quickPresetVideoValueMismatches,
 } from '@/utils/game/apex_quick_preset.ts';
 import type {SteamLaunchOptionsImpl} from '@/types/steam.ts';
 
@@ -107,6 +108,17 @@ describe('Apex quick preset effect coverage', () => {
       for (const [key, value] of Object.entries(enabledToggle.onValues)) {
         expect(updates[key], `${enabledToggle.key}:${key}`).toBe(value);
       }
+    }
+  });
+
+  it('verifies every persisted quick-preset video value after native readback', () => {
+    const expected = prepareVideoPreset('competitive', true, buildDefaultVideoOptions());
+
+    expect(quickPresetVideoValueMismatches({...expected}, expected)).toEqual([]);
+    for (const [key, value] of Object.entries(expected)) {
+      const changed = {...expected, [key]: value === '0' ? '1' : '0'};
+      expect(quickPresetVideoValueMismatches(changed, expected), key)
+        .toContain(`${key}=${value}`);
     }
   });
 

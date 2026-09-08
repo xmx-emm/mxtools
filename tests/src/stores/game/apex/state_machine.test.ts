@@ -201,35 +201,6 @@ describe('Apex cached loading state machine', () => {
 });
 
 describe('Apex unified mutations', () => {
-  it('applies a quick preset with one backend transaction', async () => {
-    const steam = useSteamStore();
-    const apex = useApexStore();
-    const user = steamUser('1');
-    steam.steam_users = [user];
-    apex.set_active_apex_account({kind: 'steam', user});
-    apex.launch_loaded_for_key = 'steam:1';
-    apex.video_config_values = {'setting.fullscreen': '1'};
-    apex.original_video_config = {'setting.fullscreen': '0'};
-    apex.check_miles_language = vi.fn().mockResolvedValue(true);
-    apex.set_videoconfig_readonly = vi.fn().mockResolvedValue(true);
-    mocks.mutateApexConfig.mockResolvedValue({
-      historyEntry: null,
-      changedScopes: ['launch', 'video'],
-      launchOptions: apex.launch_options,
-      videoConfig: {'setting.fullscreen': '1'},
-      gameSettingsReport: null,
-    });
-
-    expect(await apex.apply_quick_preset_persist()).toBe(true);
-    expect(mocks.mutateApexConfig).toHaveBeenCalledTimes(1);
-    expect(mocks.setApexLaunchOption).not.toHaveBeenCalled();
-    expect(mocks.setApexVideoConfig).not.toHaveBeenCalled();
-    expect(mocks.emitApexConfigChanged).toHaveBeenCalledWith(
-      ['launch', 'video'],
-      {notification: 'quickPresetApplied'},
-    );
-  });
-
   it('imports selected launch options with one backend transaction', async () => {
     const steam = useSteamStore();
     const apex = useApexStore();

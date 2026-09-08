@@ -14,7 +14,13 @@ export type ApexLaunchBuildInput = {
   activeAcc: ApexLauncherAccount | null;
 };
 
-/** 将勾选项组合为最终启动参数字符串 */
+/**
+ * 将勾选项组合为最终启动参数字符串。
+ * Steam: quoted RGB separated by spaces, quoted FOV value.
+ * EA: unquoted RGB separated by hyphens, unquoted FOV value.
+ * Keep both encodings covered by quick_preset_reopen.test.ts; catalog literals
+ * use Steam spelling and must not be the sole source of readback matching.
+ */
 export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): string {
   const items: string[] = [];
   const {

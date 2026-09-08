@@ -31,7 +31,7 @@ function binding(id: string, input: string, command: string, context = 0): ApexB
 beforeEach(() => setActivePinia(createPinia()));
 
 describe('Apex quick preset binding replacement', () => {
-  it('preserves toggle aim on right click and replaces occupied wheel inputs', () => {
+  it('replaces toggle aim and occupied wheel inputs while preserving other mouse buttons', () => {
     const apex = useApexStore();
     const original = [
       binding('toggle', 'MOUSE2', '+toggle_zoom'),
@@ -67,7 +67,8 @@ describe('Apex quick preset binding replacement', () => {
     const active = apex.game_settings_bindings.filter(item => item.input);
     expect(active.filter(item => ['weaponSelectPrimary0', '+weaponCycle']
       .includes(item.command))).toHaveLength(0);
-    expect(active.filter(item => item.command === '+toggle_zoom').map(item => item.input))
+    expect(active.filter(item => item.command === '+toggle_zoom')).toHaveLength(0);
+    expect(active.filter(item => item.command === '+zoom').map(item => item.input))
       .toEqual(['MOUSE2']);
     expect(active.filter(item => item.command === '+forward').map(item => item.input))
       .toEqual(['w', 'MWHEELUP']);
@@ -83,11 +84,13 @@ describe('Apex quick preset binding replacement', () => {
       {operation: 'delete', id: 'toggle'},
       {operation: 'delete', id: 'cycle-up'},
       {operation: 'delete', id: 'cycle-down'},
-      {operation: 'create', templateId: 'toggle', input: 'MOUSE2', context: 0},
+      {operation: 'createCommand', command: '+zoom', input: 'MOUSE2', context: 0},
       {operation: 'create', templateId: 'forward', input: 'MWHEELUP', context: 1},
       {operation: 'create', templateId: 'jump', input: 'MWHEELDOWN', context: 1},
     ]));
-    const firstCreate = mutation?.bindingMutations.findIndex(item => item.operation === 'create') ?? -1;
+    const firstCreate = mutation?.bindingMutations.findIndex(
+      item => item.operation === 'create' || item.operation === 'createCommand',
+    ) ?? -1;
     const lastDelete = mutation?.bindingMutations.reduce(
       (last, item, index) => item.operation === 'delete' ? index : last,
       -1,
@@ -280,7 +283,7 @@ describe('Apex quick preset binding replacement', () => {
     apex.prepare_quick_preset(screen, selection);
 
     const active = apex.game_settings_bindings.filter(item => item.input);
-    expect(active.filter(item => item.command === '+toggle_zoom' && item.context === 0)).toHaveLength(1);
+    expect(active.filter(item => item.command === '+zoom' && item.context === 0)).toHaveLength(1);
     expect(active.filter(item => item.command === '+forward' && item.context === 1)).toHaveLength(1);
     expect(active.filter(item => item.command === '+jump' && item.context === 1)).toHaveLength(1);
     expect(active.filter(item => item.command === 'ingamemenu_activate' && item.context === 0))

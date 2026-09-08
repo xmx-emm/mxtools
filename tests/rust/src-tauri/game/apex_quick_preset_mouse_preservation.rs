@@ -21,9 +21,11 @@ fn quick_preset_preserves_middle_and_skill_side_buttons() {
         &[
             ApexBindingMutation::Delete { id: id("MOUSE2") },
             ApexBindingMutation::Delete { id: id("MWHEELUP") },
-            ApexBindingMutation::Delete { id: id("MWHEELDOWN") },
-            ApexBindingMutation::Create {
-                template_id: id("MOUSE2"),
+            ApexBindingMutation::Delete {
+                id: id("MWHEELDOWN"),
+            },
+            ApexBindingMutation::CreateCommand {
+                command: "+zoom".into(),
                 input: "MOUSE2".into(),
                 context: 0,
             },
@@ -43,12 +45,22 @@ fn quick_preset_preserves_middle_and_skill_side_buttons() {
     // Reparse the serialized file, not only the mutation's in-memory model.
     let reloaded = ApexCfgDocument::from_content(&doc.to_string(), ApexFileEncoding::Utf8).unwrap();
     let result = binding_groups(&reloaded);
+    let mouse2: Vec<_> = result
+        .iter()
+        .filter(|group| group.public.input == "MOUSE2")
+        .collect();
+    assert_eq!(mouse2.len(), 1);
+    assert_eq!(mouse2[0].public.command, "+zoom");
+    assert_eq!(mouse2[0].public.context, 0);
     for (input, command, context) in [
         ("MOUSE3", "+ping", 0),
         ("MOUSE4", "+offhand1", 1),
         ("MOUSE5", "+offhand4", 1),
     ] {
-        let found = result.iter().find(|group| group.public.input == input).unwrap();
+        let found = result
+            .iter()
+            .find(|group| group.public.input == input)
+            .unwrap();
         assert_eq!(found.public.command, command);
         assert_eq!(found.public.context, context);
     }

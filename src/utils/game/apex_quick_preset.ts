@@ -1,9 +1,11 @@
 import ApexLaunchOptionsConfig from '@/data/apex_launch_options_config.ts';
 import {
   aspectResolutionTable,
+  ASPECT_LETTERBOX_MIN_DEFAULT,
   closestAspectPresetValue,
   FPS_CAP_MAX,
   FPS_CAP_MIN,
+  graphicsQualityPresets,
   QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
   QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
   QUICK_PRESET_JUMP_WHEEL_DOWN_KEY,
@@ -19,6 +21,7 @@ import type {
 } from '@/types/apex_quick_preset.ts';
 import {isSteamLaunchOptionsImpl, type SteamLaunchOptionsImpl} from '@/types/steam.ts';
 import type {ApexBinding} from '@/types/apex_game_settings.ts';
+import type {ApexLaunchBuildInput} from '@/utils/game/apex_launch_build.ts';
 
 export function screenKey(width: number, height: number): string {
   return `${width}x${height}`;
@@ -247,6 +250,53 @@ export function initVideoOptionsForDialog(
   );
 }
 
+type QuickPresetLaunchState = Pick<ApexLaunchBuildInput,
+  'options_selection' | 'settings_config' | 'fps' | 'lobby_max_fps'
+  | 'width' | 'height' | 'mat_letterbox_aspect_min' | 'mat_letterbox_aspect_goal'>;
+
+/** Reconstruct controls from current config, never from a previous dialog's defaults. */
+export function resolveQuickPresetInitialControls(
+  screen: PrimaryDisplayInfo,
+  launch: QuickPresetLaunchState,
+  videoValues: Record<string, string>,
+) {
+  const selected = (id: string) => launch.options_selection.some(item => item.identifier === id);
+  const hasFpsCap = selected('fps') && launch.settings_config.fps?.includes('X');
+  const configuredFps = hasFpsCap ? launch.fps
+    : !selected('fps') && selected('lobby_max_fps') ? launch.lobby_max_fps : undefined;
+  const fpsCap = configuredFps != null && Number.isFinite(configuredFps) && configuredFps > 0
+    ? clampFpsCap(configuredFps) : defaultFpsCap(screen.maxRefreshRate);
+  const aspectValue = resolveQuickPresetInitialAspectValue(
+    selected('letterbox_aspect'), launch.mat_letterbox_aspect_goal, screen.aspectRatio,
+  );
+  const matchingAxis = aspectValue == null ? undefined
+    : (['width', 'height'] as const).find(axis => {
+      const resolution = resolveGameResolution(screen, aspectValue, axis);
+      return resolution.width === launch.width && resolution.height === launch.height;
+    });
+  const enableResolutionPreset = selected('forced_resolution') && selected('letterbox_aspect')
+    && matchingAxis != null && aspectValue != null
+    && Math.abs(launch.mat_letterbox_aspect_goal - aspectValue) < 0.0001
+    && Math.abs(launch.mat_letterbox_aspect_min - ASPECT_LETTERBOX_MIN_DEFAULT) < 0.000001
+    && matchesVideoToggleValues(videoValues, buildVideoResolutionValues(launch.width, launch.height));
+
+  // Independent video toggles may override quality-preset fields. Only the
+  // fields owned exclusively by the quality control identify its level.
+  const toggleKeys = new Set(quickPresetVideoToggleKeys());
+  const graphicsPreset = graphicsQualityPresets.find(preset => {
+    const entries = Object.entries(preset.values).filter(([key]) => !toggleKeys.has(key));
+    return entries.length > 0 && matchesVideoToggleValues(videoValues, Object.fromEntries(entries));
+  });
+  return {
+    fpsCap,
+    aspectValue,
+    lockAxis: matchingAxis ?? 'width' as ResolutionLockAxis,
+    enableResolutionPreset,
+    enableGraphicsPreset: graphicsPreset != null,
+    graphicsPresetId: graphicsPreset?.identifier ?? graphicsQualityPresets[0]!.identifier,
+  };
+}
+
 function inputHasOnlyTargetBinding(
   bindings: ApexBinding[],
   input: string,
@@ -276,7 +326,7 @@ export function initGameSettingOptionsForDialog(
     [QUICK_PRESET_AIM_MOUSE_RIGHT_KEY]: inputHasOnlyTargetBinding(
       bindings,
       'MOUSE2',
-      ['+zoom', '+toggle_zoom'],
+      ['+zoom'],
     ),
     [QUICK_PRESET_FORWARD_WHEEL_UP_KEY]: inputHasOnlyTargetBinding(
       bindings,
@@ -305,6 +355,23 @@ export function applyQuickPresetVideoOptions(
       setValue(key, value);
     }
   }
+}
+
+/**
+ * Compare every selected quick-preset video option with a fresh videoconfig
+ * readback. This keeps an accepted file write separate from the game's actual
+ * serialized value and gives the caller a precise failed-key list.
+ */
+export function quickPresetVideoValueMismatches(
+  values: Record<string, string>,
+  expectedValues: Record<string, string>,
+): string[] {
+  return Object.entries(expectedValues).flatMap(([key, expected]) => {
+    const actual = getVideoConfigValue(values, key);
+    return actual == null || !videoConfigValueEquals(actual, expected)
+      ? [`${key}=${expected}`]
+      : [];
+  });
 }
 
 export function quickPresetVideoToggleKeys(): string[] {

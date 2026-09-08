@@ -42,6 +42,7 @@ import {
   initGameSettingOptionsForDialog,
   initLaunchOptionsForDialog,
   initVideoOptionsForDialog,
+  resolveQuickPresetInitialControls,
   resolveQuickPresetInitialAspectValue,
 } from '@/utils/game/apex_quick_preset.ts';
 import {
@@ -69,8 +70,8 @@ const local_display = ref<PrimaryDisplayInfo | null>(null);
 const fps_cap = ref(144);
 const aspect_value = ref<number | null>(null);
 const lock_axis = ref<ResolutionLockAxis>('width');
-const enable_resolution_preset = ref(true);
-const enable_graphics_preset = ref(true);
+const enable_resolution_preset = ref(false);
+const enable_graphics_preset = ref(false);
 const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competitive');
 const simplified_reticle = ref(false);
 const launch_options = ref<Record<string, boolean>>(initLaunchOptionsForDialog([]));
@@ -102,6 +103,12 @@ const target_account_label = computed(() => {
   const platform = account.kind === 'steam' ? 'Steam' : 'EA';
   const identity = account.user.name?.trim() || account.user.id;
   return `${platform} · ${identity}`;
+});
+const launch_config_file = computed(() => {
+  const account = target_account.value;
+  return account?.kind === 'ea'
+    ? account.user.config_path.split(/[\\/]/).pop() || 'user_*.ini'
+    : 'localconfig.vdf';
 });
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
@@ -151,14 +158,13 @@ const resolution_preview = computed(() => {
 });
 
 function sync_options_from_store(info: PrimaryDisplayInfo) {
-  const has_letterbox = apex_store.options_selection.some(
-    (item) => item.identifier === 'letterbox_aspect',
-  );
-  aspect_value.value = resolveQuickPresetInitialAspectValue(
-    has_letterbox,
-    apex_store.mat_letterbox_aspect_goal,
-    info.aspectRatio,
-  );
+  const controls = resolveQuickPresetInitialControls(info, apex_store, apex_store.video_config_values);
+  fps_cap.value = controls.fpsCap;
+  aspect_value.value = controls.aspectValue;
+  lock_axis.value = controls.lockAxis;
+  enable_resolution_preset.value = controls.enableResolutionPreset;
+  enable_graphics_preset.value = controls.enableGraphicsPreset;
+  graphics_preset_id.value = controls.graphicsPresetId;
   simplified_reticle.value = apex_store.options_selection.some(
     (item) => item.identifier === 'reticle_color',
   );
@@ -191,7 +197,8 @@ async function read_config_signature(): Promise<string> {
 }
 
 async function refresh_config(silent = false) {
-  if (!isTauriRuntime || config_refreshing.value || apex_store.quick_preset_applying) return;
+  if (!isTauriRuntime || display_loading.value || config_refreshing.value
+    || is_apply_running.value || apex_store.quick_preset_applying) return;
   config_refreshing.value = true;
   try {
     await Promise.all([
@@ -228,7 +235,8 @@ async function refresh_config(silent = false) {
 
 async function refresh_if_config_changed() {
   if (!isTauriRuntime || document.visibilityState !== 'visible'
-    || config_refreshing.value || apex_store.quick_preset_applying) return;
+    || display_loading.value || config_refreshing.value
+    || is_apply_running.value || apex_store.quick_preset_applying) return;
   try {
     const nextSignature = await read_config_signature();
     if (config_signature === null) {
@@ -265,7 +273,6 @@ async function load_display_info() {
     const info = await getPrimaryDisplayInfo();
     local_display.value = info;
     apex_store.set_quick_preset_display(info);
-    fps_cap.value = defaultFpsCap(info.maxRefreshRate);
     const key = apex_store.launcher_selection_key;
     if (!key) throw new Error(t('apexQuickPreset.launchLoadFailed'));
     if (apex_store.launch_loaded_for_key !== key
@@ -287,7 +294,7 @@ async function load_display_info() {
       || apex_store.game_settings_load_status !== 'ready') {
       await apex_store.load_apex_game_settings({silent: true, force: true});
     }
-    if (!apex_store.game_settings_report) {
+    if (!apex_store.game_settings_report || apex_store.game_settings_load_status !== 'ready') {
       throw new Error(t('apexQuickPreset.gameSettingsLoadFailed'));
     }
     sync_options_from_store(info);
@@ -378,6 +385,7 @@ const {
 } = useCloseLauncherThenApply({
   apply: run_persist,
   beforeApply: async () => {
+    if (config_refreshing.value || display_loading.value) return false;
     if (!apex_store.active_apex_account) {
       toast.warning('apex.noLauncherAccount');
       return false;
@@ -487,27 +495,11 @@ onBeforeUnmount(() => {
             </dl>
           </section>
 
-          <section class="quick-preset-section">
-            <header class="quick-preset-section__header quick-preset-section__header--split">
-              <h2>{{ t('apexQuickPreset.fpsCap') }}</h2>
-              <span class="quick-preset-range">
-                {{ t('apexQuickPreset.fpsCapRange', { min: FPS_CAP_MIN, max: FPS_CAP_MAX }) }}
-              </span>
-            </header>
-            <div class="quick-preset-field-row">
-              <ApexNumberInput
-                v-model="fps_cap"
-                :step="1"
-                :min="FPS_CAP_MIN"
-                :max="FPS_CAP_MAX"
-              />
-              <span class="quick-preset-unit">FPS</span>
-              <span class="quick-preset-hint">{{ t('apexQuickPreset.lobbyFpsHint') }}</span>
-            </div>
-          </section>
-
-          <section class="quick-preset-section quick-preset-section--collapsible">
-            <header class="quick-preset-section__toggle">
+          <section
+            class="quick-preset-section quick-preset-section--collapsible"
+            data-config-scope="launch video"
+          >
+            <header class="quick-preset-section__toggle quick-preset-file-header">
               <v-checkbox
                 v-model="enable_resolution_preset"
                 :label="t('apexQuickPreset.resolutionAspectSettings')"
@@ -516,6 +508,7 @@ onBeforeUnmount(() => {
                 color="primary"
                 class="quick-preset-section-checkbox"
               />
+              <span class="quick-preset-file-target">{{ launch_config_file }} + videoconfig.txt</span>
             </header>
             <v-expand-transition>
               <div v-show="enable_resolution_preset" class="quick-preset-section__body">
@@ -574,8 +567,88 @@ onBeforeUnmount(() => {
             </v-expand-transition>
           </section>
 
-          <section class="quick-preset-section quick-preset-section--collapsible">
-            <header class="quick-preset-section__toggle">
+          <section class="quick-preset-section" data-config-scope="launch">
+            <header class="quick-preset-section__header quick-preset-file-header">
+              <h2>{{ t('apexQuickPreset.launchOptionsLabel') }}</h2>
+              <span class="quick-preset-file-target">{{ launch_config_file }}</span>
+            </header>
+            <div class="quick-preset-fps-settings">
+              <div class="quick-preset-subsection-heading">
+                <label class="quick-preset-subsection-label" for="quick-preset-fps-cap">
+                  {{ t('apexQuickPreset.fpsCap') }}
+                </label>
+                <span class="quick-preset-range">
+                  {{ t('apexQuickPreset.fpsCapRange', { min: FPS_CAP_MIN, max: FPS_CAP_MAX }) }}
+                </span>
+              </div>
+              <div class="quick-preset-field-row">
+                <ApexNumberInput
+                  id="quick-preset-fps-cap"
+                  v-model="fps_cap"
+                  :step="1"
+                  :min="FPS_CAP_MIN"
+                  :max="FPS_CAP_MAX"
+                />
+                <span class="quick-preset-unit">FPS</span>
+                <span class="quick-preset-hint">{{ t('apexQuickPreset.lobbyFpsHint') }}</span>
+              </div>
+            </div>
+            <div class="quick-preset-option-list quick-preset-option-grid">
+              <div
+                v-for="opt in quickPresetLaunchOptionToggles"
+                :key="opt.key"
+                class="option-tip-wrap game-page-row-tip-host"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_launch_option_tip(opt)"
+              >
+                <v-checkbox
+                  v-model="launch_options[opt.key]"
+                  :label="t(opt.label)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+                <v-btn
+                  icon="mdi-information-variant"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button game-page-row-tip-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
+                  @click.stop="show_launch_option_tip(opt)"
+                />
+              </div>
+              <div
+                class="option-tip-wrap game-page-row-tip-host"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_reticle_tip()"
+              >
+                <v-checkbox
+                  v-model="simplified_reticle"
+                  :label="t('apexQuickPreset.simplifiedReticle')"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+                <v-btn
+                  icon="mdi-information-variant"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button game-page-row-tip-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t('apexQuickPreset.simplifiedReticle')})"
+                  @click.stop="show_reticle_tip()"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="quick-preset-section" data-config-scope="video">
+            <header class="quick-preset-section__header quick-preset-file-header">
+              <h2>{{ t('apexQuickPreset.videoConfigLabel') }}</h2>
+              <span class="quick-preset-file-target">videoconfig.txt</span>
+            </header>
+            <div class="quick-preset-graphics-toggle">
               <v-checkbox
                 v-model="enable_graphics_preset"
                 :label="t('apexQuickPreset.graphicsSettingsLabel')"
@@ -584,9 +657,9 @@ onBeforeUnmount(() => {
                 color="primary"
                 class="quick-preset-section-checkbox"
               />
-            </header>
+            </div>
             <v-expand-transition>
-              <div v-show="enable_graphics_preset" class="quick-preset-section__body">
+              <div v-show="enable_graphics_preset" class="quick-preset-graphics-body">
                 <div class="quick-preset-setting-line">
                   <div
                     class="quick-preset-segment-scroll"
@@ -623,155 +696,95 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </v-expand-transition>
-          </section>
-
-          <section class="quick-preset-section quick-preset-options-section">
-            <div class="preset-options-columns">
-              <section class="preset-options-column">
-                <header class="quick-preset-group-header">
-                  <h2>{{ t('apexQuickPreset.launchOptionsLabel') }}</h2>
-                </header>
-                <div class="quick-preset-option-list">
-                  <div
-                    v-for="opt in quickPresetLaunchOptionToggles"
-                    :key="opt.key"
-                    class="option-tip-wrap game-page-row-tip-host"
-                    :title="t('apexLaunchOptions.ui.rightClickTip')"
-                    @contextmenu.prevent="show_launch_option_tip(opt)"
-                  >
-                    <v-checkbox
-                      v-model="launch_options[opt.key]"
-                      :label="t(opt.label)"
-                      density="compact"
-                      hide-details
-                      color="primary"
-                      class="compact-checkbox"
-                    />
-                    <v-btn
-                      icon="mdi-information-variant"
-                      density="compact"
-                      variant="text"
-                      class="mx-compact-icon-button game-page-row-tip-button"
-                      :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
-                      @click.stop="show_launch_option_tip(opt)"
-                    />
-                  </div>
-                  <div
-                    class="option-tip-wrap game-page-row-tip-host"
-                    :title="t('apexLaunchOptions.ui.rightClickTip')"
-                    @contextmenu.prevent="show_reticle_tip()"
-                  >
-                    <v-checkbox
-                      v-model="simplified_reticle"
-                      :label="t('apexQuickPreset.simplifiedReticle')"
-                      density="compact"
-                      hide-details
-                      color="primary"
-                      class="compact-checkbox"
-                    />
-                    <v-btn
-                      icon="mdi-information-variant"
-                      density="compact"
-                      variant="text"
-                      class="mx-compact-icon-button game-page-row-tip-button"
-                      :aria-label="t('apexGameSettings.openTip', {setting: t('apexQuickPreset.simplifiedReticle')})"
-                      @click.stop="show_reticle_tip()"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section class="preset-options-column">
-                <header class="quick-preset-group-header">
-                  <h2>{{ t('apexQuickPreset.videoConfigLabel') }}</h2>
-                </header>
-                <div class="quick-preset-option-list">
-                  <div
-                    v-for="opt in quickPresetVideoConfigToggles"
-                    :key="opt.key"
-                    class="option-tip-wrap game-page-row-tip-host"
-                    :title="t('apexLaunchOptions.ui.rightClickTip')"
-                    @contextmenu.prevent="show_video_option_tip(opt)"
-                  >
-                    <v-checkbox
-                      v-model="video_options[opt.key]"
-                      :label="t(opt.label)"
-                      density="compact"
-                      hide-details
-                      color="primary"
-                      class="compact-checkbox"
-                    />
-                    <v-btn
-                      icon="mdi-information-variant"
-                      density="compact"
-                      variant="text"
-                      class="mx-compact-icon-button game-page-row-tip-button"
-                      :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
-                      @click.stop="show_video_option_tip(opt)"
-                    />
-                  </div>
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <section class="quick-preset-section quick-preset-optimizations-section">
-            <header class="quick-preset-section__header">
-              <h2>{{ t('apexQuickPreset.gameOptimizationsLabel') }}</h2>
-            </header>
-            <div class="preset-optimization-grid">
-              <div class="quick-preset-option-list">
-                <div
-                  v-for="opt in quickPresetGameSettingToggles"
-                  :key="opt[0]"
-                  class="option-tip-wrap game-page-row-tip-host"
-                  :title="t('apexLaunchOptions.ui.rightClickTip')"
-                  @contextmenu.prevent="show_game_setting_tip(opt[0])"
-                >
-                  <v-checkbox
-                    v-model="game_setting_options[opt[0]]"
-                    :label="t(`apexQuickPreset.optimizations.${opt[3]}`)"
-                    density="compact"
-                    hide-details
-                    color="primary"
-                    class="compact-checkbox"
-                  />
-                  <v-btn
-                    icon="mdi-information-variant"
-                    density="compact"
-                    variant="text"
-                    class="mx-compact-icon-button game-page-row-tip-button"
-                    :aria-label="t('apexGameSettings.openTip', {setting: t(`apexGameSettings.fields.${opt[0]}.name`)})"
-                    @click.stop="show_game_setting_tip(opt[0])"
-                  />
-                </div>
+            <div class="quick-preset-option-list quick-preset-option-grid">
+              <div
+                v-for="opt in quickPresetVideoConfigToggles"
+                :key="opt.key"
+                class="option-tip-wrap game-page-row-tip-host"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_video_option_tip(opt)"
+              >
+                <v-checkbox
+                  v-model="video_options[opt.key]"
+                  :label="t(opt.label)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+                <v-btn
+                  icon="mdi-information-variant"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button game-page-row-tip-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t(opt.label)})"
+                  @click.stop="show_video_option_tip(opt)"
+                />
               </div>
-              <aside class="preset-binding-summary">
-                <div class="preset-binding-details">
-                  <div
-                    v-for="binding in quickPresetBindingToggles"
-                    :key="binding.key"
-                    class="preset-binding-row"
-                  >
-                    <v-checkbox
-                      v-model="game_setting_options[binding.key]"
-                      :label="t(binding.actionLabel)"
-                      density="compact"
-                      hide-details
-                      color="primary"
-                      class="compact-checkbox preset-binding-checkbox"
-                    />
-                    <kbd>{{ t(binding.inputLabel) }}</kbd>
-                  </div>
-                  <p class="preset-binding-replacement-hint">
-                    {{ t('apexQuickPreset.bindingReplacementHint') }}
-                  </p>
-                  <p v-if="binding_settings_missing" class="preset-binding-missing-hint">
-                    {{ t('apexQuickPreset.bindingSettingsMissing') }}
-                  </p>
-                </div>
-              </aside>
             </div>
+          </section>
+
+          <section class="quick-preset-section" data-config-scope="profile">
+            <header class="quick-preset-section__header quick-preset-file-header">
+              <h2>{{ t('apexQuickPreset.gameOptimizationsLabel') }}</h2>
+              <span class="quick-preset-file-target">profile.cfg</span>
+            </header>
+            <div class="quick-preset-option-list quick-preset-option-grid">
+              <div
+                v-for="opt in quickPresetGameSettingToggles"
+                :key="opt[0]"
+                class="option-tip-wrap game-page-row-tip-host"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_game_setting_tip(opt[0])"
+              >
+                <v-checkbox
+                  v-model="game_setting_options[opt[0]]"
+                  :label="t(`apexQuickPreset.optimizations.${opt[3]}`)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox"
+                />
+                <v-btn
+                  icon="mdi-information-variant"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button game-page-row-tip-button"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t(`apexGameSettings.fields.${opt[0]}.name`)})"
+                  @click.stop="show_game_setting_tip(opt[0])"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="quick-preset-section" data-config-scope="settings">
+            <header class="quick-preset-section__header quick-preset-file-header">
+              <h2>{{ t('apexQuickPreset.bindingOptimizationsLabel') }}</h2>
+              <span class="quick-preset-file-target">settings.cfg</span>
+            </header>
+            <div class="preset-binding-details">
+              <div
+                v-for="binding in quickPresetBindingToggles"
+                :key="binding.key"
+                class="preset-binding-row"
+              >
+                <v-checkbox
+                  v-model="game_setting_options[binding.key]"
+                  :label="t(binding.actionLabel)"
+                  density="compact"
+                  hide-details
+                  color="primary"
+                  class="compact-checkbox preset-binding-checkbox"
+                />
+                <kbd>{{ t(binding.inputLabel) }}</kbd>
+              </div>
+            </div>
+            <p class="preset-binding-replacement-hint">
+              {{ t('apexQuickPreset.bindingReplacementHint') }}
+            </p>
+            <p v-if="binding_settings_missing" class="preset-binding-missing-hint">
+              {{ t('apexQuickPreset.bindingSettingsMissing') }}
+            </p>
           </section>
         </template>
       </main>
@@ -781,7 +794,7 @@ onBeforeUnmount(() => {
           class="quick-preset-action quick-preset-select-all"
           variant="text"
           prepend-icon="mdi-check-all"
-          :disabled="apex_store.quick_preset_applying"
+          :disabled="display_loading || config_refreshing || is_apply_running || apex_store.quick_preset_applying"
           @click="select_all_options"
         >{{ t('apexQuickPreset.selectAll') }}</v-btn>
         <v-btn
@@ -791,7 +804,7 @@ onBeforeUnmount(() => {
           :title="t('common.refresh')"
           :aria-label="t('common.refresh')"
           :loading="config_refreshing"
-          :disabled="!isTauriRuntime || display_loading || apex_store.quick_preset_applying"
+          :disabled="!isTauriRuntime || display_loading || is_apply_running || apex_store.quick_preset_applying"
           @click="refresh_config()"
         />
         <v-btn
@@ -807,7 +820,7 @@ onBeforeUnmount(() => {
           variant="flat"
           prepend-icon="mdi-check"
           :loading="apex_store.quick_preset_applying || is_apply_running"
-          :disabled="!isTauriRuntime || display_loading || !local_display"
+          :disabled="!isTauriRuntime || display_loading || config_refreshing || !local_display"
           @click="apply_check"
         >
           {{ t('apex.apply') }}
@@ -902,25 +915,31 @@ onBeforeUnmount(() => {
   background: var(--app-layer-raised);
 }
 
-.quick-preset-section--collapsible + .quick-preset-section--collapsible {
-  border-top: 0;
-}
-
-.quick-preset-section__header,
-.quick-preset-group-header {
+.quick-preset-section__header {
   display: flex;
   align-items: center;
   min-width: 0;
   margin-bottom: 8px;
 }
 
-.quick-preset-section__header--split {
+.quick-preset-file-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 
-.quick-preset-section h2,
-.quick-preset-group-header h2 {
+.quick-preset-file-target {
+  min-width: 0;
+  color: rgba(var(--v-theme-on-surface), 0.52);
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.quick-preset-section h2 {
   margin: 0;
   color: rgba(var(--v-theme-on-surface), 0.86);
   font-size: 13px;
@@ -942,6 +961,12 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.quick-preset-file-header .quick-preset-section-checkbox {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+
 .quick-preset-section-checkbox :deep(.v-selection-control) {
   min-height: var(--app-control-height-compact);
 }
@@ -951,11 +976,23 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 650;
   line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .quick-preset-section__body {
   min-width: 0;
   padding: 0 14px 8px;
+}
+
+.quick-preset-fps-settings,
+.quick-preset-graphics-body {
+  min-width: 0;
+  padding-bottom: 10px;
+}
+
+.quick-preset-graphics-toggle {
+  margin-bottom: 4px;
 }
 
 .quick-preset-subsection-label {
@@ -970,6 +1007,7 @@ onBeforeUnmount(() => {
   align-items: center;
   min-width: 0;
   gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 6px;
 }
 
@@ -1108,6 +1146,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   font-size: 12px;
   line-height: 1.4;
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
@@ -1126,42 +1165,14 @@ onBeforeUnmount(() => {
   border-top: 0;
 }
 
-.preset-options-columns {
+.quick-preset-option-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
 }
 
-.preset-options-column {
-  min-width: 0;
-}
-
-.preset-options-column + .preset-options-column {
-  margin-left: 14px;
-  padding-left: 14px;
-  border-left: 1px solid var(--app-border);
-}
-
-.quick-preset-group-header {
-  margin-bottom: 4px;
-}
-
-.preset-optimization-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.72fr);
-  gap: 16px;
-}
-
-.preset-binding-summary {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-self: start;
-  gap: 4px;
-  padding: 4px 0 4px 14px;
-  border-left: 1px solid var(--app-border);
-  font-size: 11px;
-  line-height: 1.45;
+.quick-preset-option-grid .option-tip-wrap:nth-child(2) {
+  border-top: 0;
 }
 
 .preset-binding-checkbox {
@@ -1170,6 +1181,7 @@ onBeforeUnmount(() => {
 
 .preset-binding-details {
   display: grid;
+  width: min(100%, 480px);
   min-width: 0;
   gap: 4px;
   padding-left: 2px;
@@ -1178,7 +1190,7 @@ onBeforeUnmount(() => {
 
 .preset-binding-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
   align-items: center;
   min-width: 0;
   column-gap: 12px;
@@ -1192,7 +1204,7 @@ onBeforeUnmount(() => {
   font-weight: 650;
   line-height: 1.45;
   text-align: left;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .preset-binding-replacement-hint {
@@ -1278,27 +1290,12 @@ onBeforeUnmount(() => {
     border-top: 1px solid var(--app-border);
   }
 
-  .preset-options-columns {
+  .quick-preset-option-grid {
     grid-template-columns: 1fr;
   }
 
-  .preset-options-column + .preset-options-column {
-    margin-top: 12px;
-    margin-left: 0;
-    padding-top: 12px;
-    padding-left: 0;
+  .quick-preset-option-grid .option-tip-wrap:nth-child(2) {
     border-top: 1px solid var(--app-border);
-    border-left: 0;
-  }
-
-  .preset-optimization-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .preset-binding-summary {
-    padding: 12px 0 0;
-    border-top: 1px solid var(--app-border);
-    border-left: 0;
   }
 }
 
@@ -1310,12 +1307,6 @@ onBeforeUnmount(() => {
 
   .quick-preset-section__body {
     padding-inline: 12px;
-  }
-
-  .quick-preset-section__header--split {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
   }
 
   .info-grid {
