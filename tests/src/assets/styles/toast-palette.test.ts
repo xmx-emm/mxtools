@@ -1,16 +1,20 @@
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {describe, expect, it} from 'vitest';
+import {parse} from 'postcss';
 
 const globalCss = readFileSync(
   fileURLToPath(new URL('../../../../src/assets/styles/global.css', import.meta.url)),
   'utf8',
 );
 
-function cssHexVariable(name: string): string {
-  const match = globalCss.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6});`, 'i'));
-  expect(match, `missing ${name}`).not.toBeNull();
-  return match?.[1] ?? '#000000';
+function cssHexVariable(name: string, selector: string): string {
+  let value = '';
+  parse(globalCss).walkRules(selector, rule => {
+    rule.walkDecls(name, declaration => { value = declaration.value; });
+  });
+  expect(value, `missing ${selector} ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
+  return value;
 }
 
 function relativeLuminance(hex: string): number {
@@ -31,23 +35,32 @@ function contrastRatio(left: string, right: string): number {
 }
 
 describe('Toastification semantic palette', () => {
-  it('uses readable orange warning and pale-blue info surfaces', () => {
-    const warningBackground = cssHexVariable('--mx-toast-warning-bg');
-    const warningForeground = cssHexVariable('--mx-toast-warning-fg');
-    const infoBackground = cssHexVariable('--mx-toast-info-bg');
-    const infoForeground = cssHexVariable('--mx-toast-info-fg');
-
-    expect(warningBackground.toLowerCase()).not.toBe('#ffc107');
-    expect(infoBackground.toLowerCase()).not.toBe('#2196f3');
-    expect(contrastRatio(warningBackground, warningForeground)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(infoBackground, infoForeground)).toBeGreaterThanOrEqual(4.5);
+  it.each(['default', 'success', 'error', 'warning', 'info'])('keeps %s readable in both themes', type => {
+    for (const selector of [':root', 'html.dark']) {
+      const background = cssHexVariable(`--mx-toast-${type}-bg`, selector);
+      const foreground = cssHexVariable(`--mx-toast-${type}-fg`, selector);
+      const accent = cssHexVariable(`--mx-toast-${type}-accent`, selector);
+      expect(contrastRatio(background, foreground)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(background, accent)).toBeGreaterThanOrEqual(3);
+    }
   });
 
-  it('applies matching foregrounds to close buttons and progress bars', () => {
-    expect(globalCss).toContain('body .Vue-Toastification__toast--warning {');
-    expect(globalCss).toContain('body .Vue-Toastification__toast--info {');
+  it('uses one uniform border instead of a left status stripe', () => {
+    const toastCss = globalCss.slice(globalCss.indexOf('body .Vue-Toastification__container {'),
+      globalCss.indexOf('/* \u5168\u5c40\u83dc\u5355'));
+    expect(toastCss).not.toMatch(/border-(?:inline-start|left)\s*:/);
+    expect(toastCss).toContain('border: 1px solid color-mix(');
+    for (const type of ['success', 'error', 'warning', 'info']) {
+      expect(toastCss).toContain(`body .Vue-Toastification__toast--${type} {`);
+      expect(toastCss).toContain(`--mx-toast-accent: var(--mx-toast-${type}-accent);`);
+    }
+  });
+
+  it('keeps matching icons and the progress clock without changing dismissal behavior', () => {
     expect(globalCss).toContain('color: currentColor;');
-    expect(globalCss).toContain('var(--mx-toast-warning-progress)');
-    expect(globalCss).toContain('var(--mx-toast-info-progress)');
+    expect(globalCss).toContain('color: var(--mx-toast-accent);');
+    expect(globalCss).toContain('background-color: var(--mx-toast-accent);');
+    expect(globalCss).toContain('*:not(.Vue-Toastification__progress-bar)');
+    expect(globalCss).toContain('overflow-wrap: anywhere;');
   });
 });

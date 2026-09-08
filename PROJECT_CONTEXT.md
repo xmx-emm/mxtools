@@ -45,6 +45,10 @@ noncommercial mirrors and public modified versions are allowed.
   actions are 32 px, and standard form fields are 40 px. User-facing `mdi-*`
   icons must be imported and registered in `src/icons/mdi-icons.ts` (the SVG
   icon resolver); an unknown name renders without its declared icon.
+- All five Toastification notification types share a uniform thin border with
+  no side stripe. Their surface, text, and icon colors use the global toast
+  tokens, with dark overrides on `html.dark` for body-mounted notifications.
+  The subtle bottom progress bar remains the notification dismissal clock.
 - External application protocol actions use the opener URL API; the Tauri
   capability allows only the exact Steam `rungameid`/`validate`/
   downloads-settings/console and Crosshair V2 store URI families plus the two

@@ -26,14 +26,39 @@
   --app-page-max-width: 1080px;
   --app-page-padding-x: clamp(20px, 3vw, 36px);
   --app-page-padding-y: 24px;
-  --mx-toast-warning-bg: #a64b0a;
-  --mx-toast-warning-fg: #fff7ed;
-  --mx-toast-warning-edge: #fdba74;
-  --mx-toast-warning-progress: rgba(255, 247, 237, 0.58);
-  --mx-toast-info-bg: #93c5fd;
-  --mx-toast-info-fg: #172554;
-  --mx-toast-info-edge: #2563eb;
-  --mx-toast-info-progress: rgba(23, 37, 84, 0.34);
+  --mx-toast-default-bg: #f8fafc;
+  --mx-toast-default-fg: #303943;
+  --mx-toast-default-accent: #64717d;
+  --mx-toast-success-bg: #eff8f2;
+  --mx-toast-success-fg: #244b36;
+  --mx-toast-success-accent: #23794a;
+  --mx-toast-error-bg: #fff1f2;
+  --mx-toast-error-fg: #752d3a;
+  --mx-toast-error-accent: #ab3650;
+  --mx-toast-warning-bg: #fff7e7;
+  --mx-toast-warning-fg: #6c4b17;
+  --mx-toast-warning-accent: #946311;
+  --mx-toast-info-bg: #eef5ff;
+  --mx-toast-info-fg: #294b76;
+  --mx-toast-info-accent: #3069aa;
+}
+
+html.dark {
+  --mx-toast-default-bg: #292d33;
+  --mx-toast-default-fg: #e5e9ed;
+  --mx-toast-default-accent: #b0bbc6;
+  --mx-toast-success-bg: #202e28;
+  --mx-toast-success-fg: #d2ebdb;
+  --mx-toast-success-accent: #82c79d;
+  --mx-toast-error-bg: #35262c;
+  --mx-toast-error-fg: #f4d5dc;
+  --mx-toast-error-accent: #ec93a5;
+  --mx-toast-warning-bg: #332e22;
+  --mx-toast-warning-fg: #f2e2bd;
+  --mx-toast-warning-accent: #d7b562;
+  --mx-toast-info-bg: #242e3b;
+  --mx-toast-info-fg: #d6e6fa;
+  --mx-toast-info-accent: #89b7ed;
 }
 
 html,
@@ -573,23 +598,34 @@ body .Vue-Toastification__container {
 }
 
 body .Vue-Toastification__toast {
+  --mx-toast-bg: var(--mx-toast-default-bg);
+  --mx-toast-fg: var(--mx-toast-default-fg);
+  --mx-toast-accent: var(--mx-toast-default-accent);
   min-height: 0;
   min-width: 0;
   max-width: 100%;
   margin-bottom: 8px;
   padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--mx-toast-accent) 22%, var(--mx-toast-bg));
   border-radius: var(--app-radius-md);
+  background-color: var(--mx-toast-bg);
+  color: var(--mx-toast-fg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   font-family: inherit;
   font-size: 13px;
   line-height: 1.45;
 }
 
 body .Vue-Toastification__toast-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 1.45;
 }
 
 body .Vue-Toastification__icon {
+  color: var(--mx-toast-accent);
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   margin: 1px 10px 0 0;
@@ -597,38 +633,42 @@ body .Vue-Toastification__icon {
 }
 
 body .Vue-Toastification__close-button {
+  color: currentColor;
   align-self: flex-start;
   padding: 0 0 0 8px;
   font-size: 16px;
   line-height: 1.2;
 }
 
-/* Toastification defaults pair saturated yellow/blue surfaces with white text.
-   Use a quieter orange warning and a pale-blue info surface with explicit
-   foregrounds so compact 13 px notifications stay readable in both themes. */
+/* All toast types share the same border geometry; color and icons convey status. */
+body .Vue-Toastification__toast--success {
+  --mx-toast-bg: var(--mx-toast-success-bg);
+  --mx-toast-fg: var(--mx-toast-success-fg);
+  --mx-toast-accent: var(--mx-toast-success-accent);
+}
+
+body .Vue-Toastification__toast--error {
+  --mx-toast-bg: var(--mx-toast-error-bg);
+  --mx-toast-fg: var(--mx-toast-error-fg);
+  --mx-toast-accent: var(--mx-toast-error-accent);
+}
+
 body .Vue-Toastification__toast--warning {
-  border-inline-start: 3px solid var(--mx-toast-warning-edge);
-  background-color: var(--mx-toast-warning-bg);
-  color: var(--mx-toast-warning-fg);
+  --mx-toast-bg: var(--mx-toast-warning-bg);
+  --mx-toast-fg: var(--mx-toast-warning-fg);
+  --mx-toast-accent: var(--mx-toast-warning-accent);
 }
 
 body .Vue-Toastification__toast--info {
-  border-inline-start: 3px solid var(--mx-toast-info-edge);
-  background-color: var(--mx-toast-info-bg);
-  color: var(--mx-toast-info-fg);
+  --mx-toast-bg: var(--mx-toast-info-bg);
+  --mx-toast-fg: var(--mx-toast-info-fg);
+  --mx-toast-accent: var(--mx-toast-info-accent);
 }
 
-body .Vue-Toastification__toast--warning .Vue-Toastification__close-button,
-body .Vue-Toastification__toast--info .Vue-Toastification__close-button {
-  color: currentColor;
-}
-
-body .Vue-Toastification__toast--warning .Vue-Toastification__progress-bar {
-  background-color: var(--mx-toast-warning-progress);
-}
-
-body .Vue-Toastification__toast--info .Vue-Toastification__progress-bar {
-  background-color: var(--mx-toast-info-progress);
+body .Vue-Toastification__progress-bar {
+  height: 2px;
+  background-color: var(--mx-toast-accent);
+  opacity: 0.3;
 }
 
 /* 窄窗口(如各修复工具独立窗)沿用库的整宽通知，避免固定宽度溢出。 */
