@@ -98,7 +98,7 @@ describe('parseApexLaunchOptionsString', () => {
   });
 
   it('leaves launch flags removed from the current game build in the custom remainder', () => {
-    // 已从当前构建(R5pc_r5-300_J57)二进制确认删除的 token 不再被认领,
+    // 当前不支持的 token 不再被认领,
     // 留在自定义输入框里由用户自行清理。证据见 docs/CHANGELOG.md。
     const parsed = parseApexLaunchOptionsString(
       '-freq 144 -forcenovsync +cl_ragdoll_collide 0 -limitvsconst '

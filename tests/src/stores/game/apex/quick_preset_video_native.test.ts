@@ -26,7 +26,14 @@ import {gameOnlyPreset, presetStore, quickPresetScreen} from './quick_preset_tes
 // Supply the lib test EXE built by cargo test --lib --no-run. Each bridge call
 // uses real production video I/O in a child process with its own Saved Games.
 const nativeExe = process.env.MXTOOLS_APEX_VIDEO_TEST_EXE;
+// All 42 J57 serialized fields, with deliberate test preferences. This is not
+// a hardware-default template. Unknown keys and the CRLF form must survive.
+const completeFixture = readFileSync(new URL('../../../../fixtures/apex/videoconfig-v10.txt', import.meta.url), 'utf8')
+  .replace(/\r\n/g, '\n')
+  .replace(/\n}\s*$/, '\n\t"setting.future_setting"\t\t"keep"\n}\n')
+  .replace(/\n/g, '\r\n');
 let root: string;
+let baselineValues: Record<string, string>;
 function native(request: {updates?: Record<string, string>; locked?: boolean} = {}) {
   writeFileSync(join(root, 'video-request.json'), JSON.stringify(request));
   execFileSync(nativeExe!, ['--exact', 'game::apex::tests::video_preset_native_bridge', '--ignored'], {
@@ -45,14 +52,10 @@ describe.skipIf(!nativeExe).each(['steam', 'ea'] as const)('%s preset through na
     root = mkdtempSync(join(tmpdir(), 'mxtools-native-preset-'));
     const video = join(root, 'Saved Games/Respawn/Apex/local/videoconfig.txt');
     mkdirSync(dirname(video), {recursive: true});
-    const baseline = {
-      'setting.configversion': '10', 'setting.new_shadow_settings': '1', 'setting.sound_volume': '0.35',
-      'setting.mat_vsync_mode': '3', 'setting.mat_backbuffer_count': '1',
-      'setting.shadow_enable': '1', 'setting.shadow_depth_dimen_min': '256',
-      'setting.shadow_depth_upres_factor_max': '3', 'setting.future_setting': 'keep',
-    };
-    writeFileSync(video, `"VideoConfig"\r\n{\r\n${Object.entries(baseline)
-      .map(([key, value]) => `\t"${key}"\t\t"${value}"`).join('\r\n')}\r\n}\r\n`);
+    writeFileSync(video, completeFixture);
+    baselineValues = native().values;
+    expect(Object.keys(baselineValues)).toHaveLength(43);
+    expect(Object.values(initVideoOptionsForDialog(baselineValues)).every(value => !value)).toBe(true);
     mocks.getApexVideoConfig.mockImplementation(async () => native().values);
     mocks.getApexVideoconfigReadonly.mockImplementation(async () => native().readonly);
     mocks.setApexVideoconfigReadonly.mockImplementation(async ({locked}) => { native({locked}); });
@@ -87,6 +90,8 @@ describe.skipIf(!nativeExe).each(['steam', 'ea'] as const)('%s preset through na
     });
     expect(await store.apply_quick_preset_persist()).toBe(true);
     expect(native().readonly).toBe(true);
+    const writtenKeys = new Set(Object.keys(mocks.mutateApexConfig.mock.calls[0]![0].request.videoUpdates));
+    const untouched = Object.fromEntries(Object.entries(baselineValues).filter(([key]) => !writtenKeys.has(key)));
     const launch = store.launch_options;
     for (let round = 0; round < 2; round += 1) {
       setActivePinia(createPinia());
@@ -94,6 +99,8 @@ describe.skipIf(!nativeExe).each(['steam', 'ea'] as const)('%s preset through na
       fresh.parse_loaded_launch_string(launch);
       await fresh.load_apex_video_config();
       expect(initVideoOptionsForDialog(fresh.video_config_values)).toEqual(videoOptions);
+      expect(Object.keys(fresh.video_config_values)).toHaveLength(43);
+      expect(fresh.video_config_values).toMatchObject(untouched);
       expect(fresh.video_config_values).toMatchObject({
         'setting.configversion': '10', 'setting.new_shadow_settings': '1',
         'setting.sound_volume': '0.35', 'setting.future_setting': 'keep',

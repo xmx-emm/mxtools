@@ -24,6 +24,7 @@ if (!executable) throw new Error('Cargo did not return the Apex native test exec
 const tests = spawnSync(process.execPath, [
   path.join(root, 'node_modules/vitest/vitest.mjs'), 'run',
   'tests/src/stores/game/apex/quick_preset_video_native.test.ts',
+  'tests/src/stores/game/apex/reset_preset_native.test.ts',
 ], {
   cwd: root, env: {...process.env, MXTOOLS_APEX_VIDEO_TEST_EXE: executable},
   stdio: 'inherit', windowsHide: true,

@@ -204,6 +204,9 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             _ => None,
         },
         ConfigFile::Profile => match key {
+            // J57 consumers distinguish integer zero/nonzero, not a scale or
+            // three-state enum. Write canonical booleans; reads preserve raw values.
+            "cl_safearea" | "hudchat_visibility" => Some(Bool),
             "cl_deathhints_enabled"
             | "cl_anim_always_play_nonlobby_sfx"
             | "closecaption"
@@ -218,7 +221,6 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "gamepad_togglecrouch_hold"
             | "gamepad_use_per_scope_ads_settings"
             | "gamepad_use_per_scope_sensitivity_scalars"
-            | "hud_setting_accessibleChat"
             | "hud_setting_adsDof"
             | "hud_setting_anonymousMode"
             | "hud_setting_compactOverHeadNames"
@@ -260,7 +262,8 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "dialogue_cat_legend_flavor"
             | "dialogue_cat_legend_important"
             | "dialogue_cat_ping_flavor"
-            | "dialogue_cat_ping_important" => Some(Enum(BOOL)),
+            | "dialogue_cat_ping_important"
+            | "dialogue_cat_weapon_flavor" => Some(Enum(BOOL)),
             "cc_text_size"
             | "gamepad_deadzone_index_look"
             | "gamepad_use_type"
@@ -269,12 +272,12 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             | "joy_rumble"
             | "hud_setting_chainHeal"
             | "hud_setting_streamerMode"
-            | "hudchat_visibility"
             | "player_setting_arsenals_maphudidentifiers"
             | "player_setting_gamestateawareness_callouts"
             | "player_setting_lowammo_setting"
             | "player_setting_tutorialization" => Some(Enum(ZERO_TO_TWO)),
             "hud_setting_damageTextStyle"
+            | "hud_setting_accessibleChat"
             | "mantle_boost_input_setting"
             | "mantle_boost_ui_setting" => Some(Enum(ZERO_TO_THREE)),
             "gamepad_deadzone_index_move" => Some(Enum(ONE_TO_TWO)),
@@ -286,7 +289,6 @@ fn rule_for(file: ConfigFile, key: &str) -> Option<ValueRule> {
             "gamepad_look_curve" => Some(Integer(0, 4)),
             "gamepad_trigger_threshold" => Some(Enum(TRIGGER_THRESHOLDS)),
             "cl_fovScale" => Some(Number(1.0, 1.7)),
-            "cl_safearea" => Some(Number(0.0, 1.0)),
             "gameCursor_Velocity" => Some(Number(1300.0, 4300.0)),
             "miles_mix" => Some(Enum(BOOL)),
             "sound_volume_dialogue"
@@ -380,6 +382,10 @@ fn backup_path(path: &Path) -> PathBuf {
 
 fn load_file(file: ConfigFile) -> Result<LoadedFile, String> {
     let path = get_apex_config_path(file.kind())?;
+    load_file_at_path(path)
+}
+
+fn load_file_at_path(path: PathBuf) -> Result<LoadedFile, String> {
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
@@ -1531,8 +1537,16 @@ impl From<String> for RestoreRequestFailure {
 }
 
 pub(crate) fn load_report() -> Result<ApexGameSettingsReport, String> {
-    let settings = load_file(ConfigFile::Settings)?;
-    let profile = load_file(ConfigFile::Profile)?;
+    let (settings, profile) = apex_game_settings_paths()?;
+    load_report_at_paths(&settings, &profile)
+}
+
+pub(crate) fn load_report_at_paths(
+    settings: &Path,
+    profile: &Path,
+) -> Result<ApexGameSettingsReport, String> {
+    let settings = load_file_at_path(settings.to_path_buf())?;
+    let profile = load_file_at_path(profile.to_path_buf())?;
     let bindings = binding_groups(&settings.doc)
         .into_iter()
         .map(|group| group.public)
@@ -2272,5 +2286,13 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_quick_preset_profile.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_menu_evidence_fields.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_review_settings.rs"
     ));
 }

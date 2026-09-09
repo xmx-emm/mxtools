@@ -281,8 +281,10 @@ export const apexVideoActions = {
 
   /** 读取 videoconfig.txt 当前只读状态 */
   async load_videoconfig_readonly(this: ApexStoreThis) {
+    const generation = this.video_config_request_generation;
     try {
-      this.is_videoconfig_readonly = await getApexVideoconfigReadonly();
+      const readonly = await getApexVideoconfigReadonly();
+      if (generation === this.video_config_request_generation) this.is_videoconfig_readonly = readonly;
     } catch (e) {
       console.warn('load_videoconfig_readonly failed', e);
     }

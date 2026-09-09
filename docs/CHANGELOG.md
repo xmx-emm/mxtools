@@ -56,7 +56,7 @@
 ### 移除
 
 - **Apex 失效启动项**(对照当前构建 `R5pc_r5-300_J57_CL11457258_2026_08_19_15_40` 逐项实测核实):
-  - 优化鼠标四件套 `+m_rawinput 1` / `-noforcemaccel` / `-noforcemspd` / `-noforcemparms`(原始输入在当前版本恒为开启,相关 convar/flag 均已从游戏二进制删除)
+  - 优化鼠标四件套 `+m_rawinput 1` / `-noforcemaccel` / `-noforcemspd` / `-noforcemparms`(原始输入在当前版本恒为开启,这些旧参数不再受工具管理)
   - 强制禁用垂直同步 `-forcenovsync`(flag 已不存在;垂直同步请用游戏内视频设置)
   - 禁用布娃娃 `+cl_ragdoll_collide 0`(convar 已不存在)
   - 图形 API 切换 `-anticheat_settings=SettingsDX11.json / SettingsDX12.json`(DX11 已被官方移除,当前仅有 DX12;且 EAC 目录只剩 `Settings.json`,该参数引用的文件不存在)

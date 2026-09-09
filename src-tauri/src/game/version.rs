@@ -74,19 +74,7 @@ fn read_version(
     platform: &str,
     ea_user_id: Option<&str>,
 ) -> Result<GameVersion, String> {
-    let found = match (game, platform) {
-        (Game::Apex, "ea") => {
-            if !ea_user_id
-                .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
-            {
-                return Err("invalid EA account".into());
-            }
-            windows_tool::game::apex::get_apex_audio_folder_path_by_platform(Some("ea"), ea_user_id)
-                .and_then(|p| p.parent()?.parent().map(|root| (root.to_path_buf(), None)))
-        }
-        (_, "steam") => steam_install(game),
-        _ => return Err("invalid game platform".into()),
-    };
+    let found = installed_root(game, platform, ea_user_id)?;
     let Some((root, steam_build)) = found.filter(|(root, _)| root.is_dir()) else {
         return Ok(GameVersion {
             version: None,
@@ -106,6 +94,27 @@ fn read_version(
         build: build.filter(|value| valid_version_text(value)),
         installed: true,
     })
+}
+
+pub(crate) fn installed_root(
+    game: Game,
+    platform: &str,
+    ea_user_id: Option<&str>,
+) -> Result<Option<(PathBuf, Option<String>)>, String> {
+    let found = match (game, platform) {
+        (Game::Apex, "ea") => {
+            if !ea_user_id
+                .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+            {
+                return Err("invalid EA account".into());
+            }
+            windows_tool::game::apex::get_apex_audio_folder_path_by_platform(Some("ea"), ea_user_id)
+                .and_then(|p| p.parent()?.parent().map(|root| (root.to_path_buf(), None)))
+        }
+        (_, "steam") => steam_install(game),
+        _ => return Err("invalid game platform".into()),
+    };
+    Ok(found)
 }
 
 #[tauri::command]

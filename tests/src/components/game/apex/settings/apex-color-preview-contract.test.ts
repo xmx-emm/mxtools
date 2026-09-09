@@ -47,7 +47,7 @@ describe('Apex reticle and laser color preview contract', () => {
     expect(laserInputSource).toContain('class="laser-impact"');
   });
 
-  it('bundles the 800 x 438 JPEG re-encode of the extracted Apex preview background', () => {
+  it('bundles the 800 x 438 JPEG Apex preview background', () => {
     expect(laserInputSource).toContain("@/assets/images/apex/laser_sight_preview.jpg");
     expect(laserBackground.readUInt16BE(0)).toBe(0xFF_D8);
     expect(readJpegSize(laserBackground)).toEqual({width: 800, height: 438});

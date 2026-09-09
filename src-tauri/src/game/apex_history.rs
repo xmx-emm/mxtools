@@ -123,8 +123,10 @@ pub struct ApexHistoryRestoreResult {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApexResetResult {
-    pub history_entry: ApexConfigHistoryEntry,
+    pub history_entry: Option<ApexConfigHistoryEntry>,
     pub pending_scopes: Vec<ApexConfigScope>,
+    pub video_config: HashMap<String, String>,
+    pub game_settings_report: apex_settings::ApexGameSettingsReport,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -866,7 +868,7 @@ fn remove_config_file(path: &Path) -> Result<(), String> {
     fs::remove_file(path).map_err(|error| error.to_string())
 }
 
-/// Write the settings/profile templates; the game generates video defaults.
+/// All generated files must remain writable so the game can save them normally.
 fn write_default_config(path: &Path, content: &str) -> Result<(), String> {
     if path.exists() {
         clear_readonly(path)?;
@@ -875,9 +877,24 @@ fn write_default_config(path: &Path, content: &str) -> Result<(), String> {
     let mut permissions = fs::metadata(path)
         .map_err(|error| error.to_string())?
         .permissions();
-    #[allow(clippy::permissions_set_readonly_false)]
-    permissions.set_readonly(false);
-    fs::set_permissions(path, permissions).map_err(|error| error.to_string())
+    make_permissions_writable(&mut permissions);
+    fs::set_permissions(path, permissions).map_err(|error| error.to_string())?;
+    verify_default_config(path, content)
+}
+
+fn verify_default_config(path: &Path, content: &str) -> Result<(), String> {
+    if fs::read(path).map_err(|e| e.to_string())? != content.as_bytes()
+        || fs::metadata(path)
+            .map_err(|e| e.to_string())?
+            .permissions()
+            .readonly()
+    {
+        return Err(format!(
+            "apex.history.errors.defaultVerifyFailed: {}",
+            path.display()
+        ));
+    }
+    Ok(())
 }
 
 fn restore_file(file: &StoredFile, target: &Path) -> Result<(), String> {
@@ -905,18 +922,46 @@ fn reset_impl(
         return Err("apex.history.errors.apexRunning".to_string());
     }
     ensure_launcher_stopped(&launcher)?;
+    // Finish discovery and generation before history or any user file changes.
+    let defaults = apex_defaults::generate(&launcher)?;
     let dir = history_dir(app)?;
-    let launch_options = read_launch(&launcher)?;
     let video_path = apex::apex_video_config_path()?;
     let (settings_path, profile_path) = apex_settings::apex_game_settings_paths()?;
-    let video = capture_file(&video_path)?;
-    let settings = capture_file(&settings_path)?;
-    let profile = capture_file(&profile_path)?;
-    if launch_options.is_empty() && !video.existed && !settings.existed && !profile.existed {
-        return Err("apex.history.errors.noChanges".to_string());
+    reset_at_paths(
+        &dir,
+        launcher.clone(),
+        (&video_path, &settings_path, &profile_path),
+        &defaults,
+        || read_launch(&launcher),
+        |value| write_launch(&launcher, value),
+    )
+}
+
+fn reset_at_paths(
+    dir: &Path,
+    launcher: ApexLauncherRef,
+    paths: (&Path, &Path, &Path),
+    defaults: &apex_defaults::ApexDefaultConfigs,
+    read_options: impl Fn() -> Result<String, String>,
+    write_options: impl Fn(&str) -> Result<(), String>,
+) -> Result<ApexResetResult, String> {
+    let (video_path, settings_path, profile_path) = paths;
+    let launch_options = read_options()?;
+    let video = capture_file(video_path)?;
+    let settings = capture_file(settings_path)?;
+    let profile = capture_file(profile_path)?;
+    let unchanged = |file: &StoredFile, content: &str| {
+        file.existed && !file.readonly && file.sha256 == sha256(content.as_bytes())
+    };
+    if launch_options.is_empty()
+        && unchanged(&video, &defaults.video)
+        && unchanged(&settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)
+        && unchanged(&profile, &defaults.profile)
+    {
+        return reset_readback(paths, defaults, None);
     }
     let entry = record_locked(
-        &dir,
+        dir,
         ApexHistorySource::Reset,
         None,
         RecordParts {
@@ -927,55 +972,87 @@ fn reset_impl(
             profile: Some(profile.clone()),
         },
     )?;
-    let result = (|| -> Result<(), String> {
-        write_launch(&launcher, "")?;
-        // The game owns hardware-dependent video defaults; history retains the
-        // original bytes so failure and user-requested restore remain reversible.
-        reset_default_files(&video_path, &settings_path, &profile_path)?;
-        Ok(())
+    let result = (|| -> Result<ApexResetResult, String> {
+        write_options("")?;
+        reset_default_files(video_path, settings_path, profile_path, defaults)?;
+        if !read_options()?.is_empty() {
+            return Err("apex.history.errors.defaultVerifyFailed: launch".into());
+        }
+        reset_readback(paths, defaults, Some(entry.clone()))
     })();
-    if let Err(error) = result {
-        let mut rollback_errors = Vec::new();
-        collect_rollback_error(
-            &mut rollback_errors,
-            "launch",
-            restore_launch_verified(&launcher, &launch_options),
-        );
-        collect_rollback_error(
-            &mut rollback_errors,
-            "video",
-            restore_file_verified(&video, &video_path),
-        );
-        collect_rollback_error(
-            &mut rollback_errors,
-            "settings",
-            restore_file_verified(&settings, &settings_path),
-        );
-        collect_rollback_error(
-            &mut rollback_errors,
-            "profile",
-            restore_file_verified(&profile, &profile_path),
-        );
-        if rollback_errors.is_empty() {
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => {
+            let mut rollback_errors = Vec::new();
+            let launch_restore = write_options(&launch_options);
+            let launch_restore = match read_options() {
+                Ok(value) if value == launch_options => Ok(()),
+                _ => Err(launch_restore
+                    .err()
+                    .unwrap_or_else(|| "launch readback mismatch".into())),
+            };
+            collect_rollback_error(&mut rollback_errors, "launch", launch_restore);
             collect_rollback_error(
                 &mut rollback_errors,
-                "history cleanup",
-                restore_history_entry_file(&entry_path(&dir, &entry.id)?, None),
+                "video",
+                restore_file_verified(&video, video_path),
             );
+            collect_rollback_error(
+                &mut rollback_errors,
+                "settings",
+                restore_file_verified(&settings, settings_path),
+            );
+            collect_rollback_error(
+                &mut rollback_errors,
+                "profile",
+                restore_file_verified(&profile, profile_path),
+            );
+            if rollback_errors.is_empty() {
+                collect_rollback_error(
+                    &mut rollback_errors,
+                    "history cleanup",
+                    restore_history_entry_file(&entry_path(dir, &entry.id)?, None),
+                );
+            }
+            return Err(with_rollback_failure(error, rollback_errors));
         }
-        return Err(with_rollback_failure(error, rollback_errors));
-    }
-    let _ = prune_locked(&dir);
+    };
+    let _ = prune_locked(dir);
+    Ok(result)
+}
+
+fn reset_readback(
+    paths: (&Path, &Path, &Path),
+    defaults: &apex_defaults::ApexDefaultConfigs,
+    entry: Option<ApexConfigHistoryEntry>,
+) -> Result<ApexResetResult, String> {
+    verify_default_config(paths.0, &defaults.video)?;
+    verify_default_config(paths.1, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
+    verify_default_config(paths.2, &defaults.profile)?;
+    let doc = windows_tool::game::apex::config::ApexCfgDocument::load_from_file(paths.0)?;
+    let video_config = doc
+        .key_values()
+        .into_iter()
+        .map(|(key, value)| (key.trim_matches('"').to_string(), value))
+        .collect();
+    let game_settings_report = apex_settings::load_report_at_paths(paths.1, paths.2)?;
     Ok(ApexResetResult {
         history_entry: entry,
-        pending_scopes: vec![ApexConfigScope::Video],
+        pending_scopes: vec![],
+        video_config,
+        game_settings_report,
     })
 }
 
-fn reset_default_files(video: &Path, settings: &Path, profile: &Path) -> Result<(), String> {
-    remove_config_file(video)?;
+fn reset_default_files(
+    video: &Path,
+    settings: &Path,
+    profile: &Path,
+    defaults: &apex_defaults::ApexDefaultConfigs,
+) -> Result<(), String> {
+    write_default_config(video, &defaults.video)?;
     write_default_config(settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
-    write_default_config(profile, apex_defaults::APEX_DEFAULT_PROFILE_CFG)
+    write_default_config(profile, &defaults.profile)
 }
 
 // Only incomplete video files can take this recovery path. The user asks the

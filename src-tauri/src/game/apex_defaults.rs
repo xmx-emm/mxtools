@@ -1,8 +1,51 @@
 //! Apex reset and missing-config defaults.
 //!
 //! Keyboard/mouse bindings follow the game defaults, including both skill side buttons.
-//! Device/account-local values are omitted. Language-dependent subtitles and
-//! hardware-dependent video settings are initialized by the game.
+//! Device/account-local values are omitted. Reset generates video settings from
+//! the supported hardware settings and subtitles from the installed game language.
+
+mod environment;
+pub(crate) mod video;
+
+use crate::game::apex_history::ApexLauncherRef;
+
+pub(crate) struct ApexDefaultConfigs {
+    pub video: String,
+    pub profile: String,
+}
+
+pub(crate) fn generate(launcher: &ApexLauncherRef) -> Result<ApexDefaultConfigs, String> {
+    let (root, language) = environment::installation(launcher)?;
+    let dxsupport = environment::initialization_resources(&root)?;
+    let hardware = environment::hardware()?;
+    from_inputs(&dxsupport, &hardware, &language)
+}
+
+pub(crate) fn from_inputs(
+    dxsupport: &str,
+    hardware: &video::Hardware,
+    language: &str,
+) -> Result<ApexDefaultConfigs, String> {
+    Ok(ApexDefaultConfigs {
+        video: video::generate(dxsupport, hardware)?,
+        profile: profile_for_language(language)?,
+    })
+}
+
+fn profile_for_language(language: &str) -> Result<String, String> {
+    let caption = match language {
+        "english" | "en_US" => 0,
+        "schinese" | "tchinese" | "japanese" | "koreana" | "french" | "german" | "italian"
+        | "spanish" | "latam" | "brazilian" | "russian" | "polish" | "arabic" | "zh_CN"
+        | "zh_TW" | "ja_JP" | "ko_KR" | "fr_FR" | "de_DE" | "it_IT" | "es_ES" | "es_MX"
+        | "pt_BR" | "ru_RU" | "pl_PL" | "ar_SA" => 1,
+        _ => return Err("apex.history.errors.defaultLanguageUnavailable".into()),
+    };
+    Ok(format!(
+        "{}\nclosecaption \"{caption}\"\n",
+        APEX_DEFAULT_PROFILE_CFG.trim_end()
+    ))
+}
 
 /// 完整默认 settings.cfg。
 pub const APEX_DEFAULT_SETTINGS_CFG: &str = include_str!("apex_defaults/settings.cfg");

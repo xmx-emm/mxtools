@@ -46,3 +46,20 @@ fn video_regeneration_refuses_a_baseline_generated_while_the_ui_was_open() {
     assert_eq!(fs::read_to_string(&video).unwrap(), content);
     assert!(!dir.0.join("history").exists());
 }
+
+#[test]
+fn video_regeneration_keeps_a_recoverable_copy_of_legacy_preferences() {
+    let dir = TestDir::new("video-regeneration-legacy");
+    let video = dir.0.join("videoconfig.txt");
+    let history = dir.0.join("history");
+    let content = b"\"VideoConfig\"\n{\n\"setting.configversion\" \"9\"\n\"setting.ssao_enabled\" \"0\"\n\"setting.sound_volume\" \"0.35\"\n}\n";
+    fs::write(&video, content).unwrap();
+    prepare_video_regeneration_at_path(&history, &video).unwrap();
+    let entries = load_entries(&history).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(!video.exists());
+    let before = entries[0].video.as_ref().unwrap();
+    assert_eq!(verified_bytes(before).unwrap(), content);
+    restore_file_verified(before, &video).unwrap();
+    assert_eq!(fs::read(&video).unwrap(), content);
+}

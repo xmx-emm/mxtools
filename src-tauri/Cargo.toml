@@ -59,13 +59,17 @@ tar = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
-winapi = { version = "0.3", features = ["ntdef", "consoleapi", "devpkey", "devpropdef", "errhandlingapi", "fileapi", "handleapi", "hidclass", "hidpi", "hidsdi", "lmaccess", "lmapibuf", "lmcons", "lmshare", "minwinbase", "namedpipeapi", "processenv", "processthreadsapi", "sddl", "setupapi", "shellapi", "synchapi", "winbase", "wincred", "winnetwk", "winuser", "wincon", "wingdi", "winnt"] }
+winapi = { version = "0.3", features = ["ntdef", "consoleapi", "devpkey", "devpropdef", "errhandlingapi", "fileapi", "handleapi", "hidclass", "hidpi", "hidsdi", "lmaccess", "lmapibuf", "lmcons", "lmshare", "minwinbase", "namedpipeapi", "processenv", "processthreadsapi", "sddl", "setupapi", "shellapi", "synchapi", "sysinfoapi", "winbase", "wincred", "winnetwk", "winuser", "wincon", "wingdi", "winnt"] }
 windows = { version = "0.61", features = [
   "Media_Ocr",
   "Graphics_Imaging",
   "Storage_Streams",
   "Foundation",
   "Globalization",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Direct3D",
+  "Win32_Graphics_Direct3D12",
   "Win32_System_Com",
   "Win32_System_Ole",
   "Win32_System_Variant",

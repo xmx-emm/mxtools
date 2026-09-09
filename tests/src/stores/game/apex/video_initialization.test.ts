@@ -43,7 +43,9 @@ describe.each(['steam', 'ea'] as const)('%s video initialization', kind => {
     return store;
   }
 
-  it.each([{}, presetValues])('rejects missing or legacy partial video without accepting a no-op as success', async values => {
+  it.each([{}, presetValues, ...['1', '6', '7', '8', '9', '2147483648'].map(version => ({
+    ...presetValues, 'setting.configversion': version,
+  }))])('rejects missing, partial or legacy-format video without accepting a no-op as success', async values => {
     const store = setup(values);
     await store.load_apex_video_config();
     expect(store.video_config_needs_generation).toBe(true);
@@ -111,11 +113,11 @@ describe.each(['steam', 'ea'] as const)('%s video initialization', kind => {
   });
 });
 
-it('recognizes game versions without assigning a fixed version to new files', () => {
-  for (const version of ['1', '10', '11', '4294967295']) {
+it('requires the current field semantics and the signed version range', () => {
+  for (const version of ['10', '11', '2147483647']) {
     expect(isApexVideoConfigInitialized({'setting.configversion': version})).toBe(true);
   }
-  for (const version of ['', '0', '-1', '+10', '10.0', ' 10', '4294967296', 'bad']) {
+  for (const version of ['', '0', '1', '6', '7', '8', '9', '-1', '+10', '10.0', ' 10', '2147483648', '4294967295', '4294967296', 'bad']) {
     expect(isApexVideoConfigInitialized({'setting.configversion': version})).toBe(false);
   }
 });

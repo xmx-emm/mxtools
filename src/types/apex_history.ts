@@ -34,8 +34,10 @@ export interface ApexHistoryRestoreResult {
 }
 
 export interface ApexResetResult {
-  historyEntry: ApexConfigHistoryEntry;
+  historyEntry: ApexConfigHistoryEntry | null;
   pendingScopes: ApexConfigScope[];
+  videoConfig: Record<string, string>;
+  gameSettingsReport: import('./apex_game_settings.ts').ApexGameSettingsReport;
 }
 
 export interface ApexConfigMutationMeta {

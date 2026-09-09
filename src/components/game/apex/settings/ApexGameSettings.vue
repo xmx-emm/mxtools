@@ -4,13 +4,11 @@ import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import ApexGameSettingsData, {
   apexBindingCommandLabels,
-  apexGameSettingsReviewIgnoredKeys,
   apexGameSettingsSections,
 } from '@/data/apex_game_settings.ts';
 import type {
   ApexBinding,
   ApexGameSettingDefinition,
-  ApexGameSettingsFile,
   ApexGameSettingsSection,
 } from '@/types/apex_game_settings.ts';
 import {
@@ -19,6 +17,7 @@ import {
   isApexGameSettingToggleEnabled,
   matchingApexGameSettingOptionValue,
 } from '@/utils/game/apex_game_settings.ts';
+import {getApexGameSettingsReviewEntries} from '@/utils/game/apex_game_settings_review.ts';
 import {useApexStore} from '@/stores/game/apex.ts';
 import ApexNumberInput from '@/components/game/apex/common/ApexNumberInput.vue';
 import ApexRangeInput from '@/components/game/apex/common/ApexRangeInput.vue';
@@ -228,26 +227,9 @@ const visibleFields = computed(() => ApexGameSettingsData.filter(field => (
   && matchesField(field)
 )));
 
-const knownKeys = new Set([
-  ...ApexGameSettingsData.flatMap(field => [
-    field.key,
-    field.readKey,
-    ...(field.writeKeys ?? []),
-  ].filter((key): key is string => Boolean(key)).map(key => `${field.file}:${key}`)),
-  'profile:toggle_on_jump_to_deactivate_changed',
-]);
-const unknownEntries = computed(() => {
-  const entries: {file: ApexGameSettingsFile; key: string; value: string}[] = [];
-  for (const file of ['settings', 'profile'] as const) {
-    for (const [key, value] of Object.entries(apex_store.game_settings_values[file])) {
-      const qualifiedKey = `${file}:${key}`;
-      if (knownKeys.has(qualifiedKey) || apexGameSettingsReviewIgnoredKeys.has(qualifiedKey)) continue;
-      const haystack = `${file} ${key} ${value}`.toLowerCase();
-      if (!query.value || haystack.includes(query.value)) entries.push({file, key, value});
-    }
-  }
-  return entries.sort((a, b) => a.key.localeCompare(b.key));
-});
+const unknownEntries = computed(() => getApexGameSettingsReviewEntries(
+  apex_store.game_settings_values, query.value, key => t(key),
+));
 
 function bindingName(binding: ApexBinding): string {
   const suffix = apexBindingCommandLabels[binding.command];
@@ -552,7 +534,7 @@ function enumValueFor(field: ApexGameSettingDefinition): string {
               <v-chip size="x-small" variant="tonal">{{ entry.file }}.cfg</v-chip>
             </div>
           </template>
-          <template #subtitle><div class="setting-description">{{ t('apexGameSettings.unknownDescription') }}</div></template>
+          <template #subtitle><div class="setting-description">{{ t(entry.descriptionKey) }}</div></template>
           <template #append>
             <div class="setting-row-append">
               <code

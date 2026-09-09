@@ -351,6 +351,8 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
       ['important', 'importantOnly', {dialogue_cat_host_flavor: '0', dialogue_cat_host_important: '1'}],
       ['all', 'all', {dialogue_cat_host_flavor: '1', dialogue_cat_host_important: '1'}]),
   }),
+  // Weapon dialogue uses one boolean, without an important-dialogue companion.
+  bool('weaponDialogue', 'profile', 'dialogue_cat_weapon_flavor', 'audio'),
   bool('emotePreviewSound', 'profile', 'cl_anim_always_play_nonlobby_sfx', 'audio'),
   field('voiceVolume', 'settings', 'sound_volume_voice', 'audio', 'number', {min: 0, max: 2, step: 0.01}),
   bool('soundWithoutFocus', 'profile', 'sound_without_focus', 'audio'),
@@ -389,6 +391,11 @@ const ApexGameSettings: ApexGameSettingDefinition[] = [
   bool('subtitles', 'profile', 'closecaption', 'accessibility'),
   field('subtitleSize', 'profile', 'cc_text_size', 'accessibility', 'enum', {
     options: options(['0', 'normal'], ['1', 'large'], ['2', 'extraLarge']),
+  }),
+  // Accessible chat supports all four menu choices.
+  field('accessibleChat', 'profile', 'hud_setting_accessibleChat', 'accessibility', 'enum', {
+    options: describedOptions('accessibleChat',
+      ['0', 'off'], ['1', 'chatHintText'], ['2', 'chatVoiceNarration'], ['3', 'chatTextAndVoice']),
   }),
   field('healthAmmoVoice', 'profile', 'player_setting_gamestateawareness_callouts', 'accessibility', 'enum', {
     options: describedOptions('healthAmmoVoice', ['0', 'off'], ['1', 'limited'], ['2', 'on']),
@@ -455,6 +462,8 @@ export const apexGameSettingsReviewIgnoredKeys = new Set([
   'profile:mp_player_level',
   'profile:noise_filter_scale',
   'profile:pin_telemetry_report_date',
+  // This initialization flag is separate from editable trigger preferences.
+  'profile:ps5_force_enable_adth',
   'profile:speechtotext_disable_time',
   'profile:voice_enabled',
   'profile:xlog_tls_allow_vip_upload',

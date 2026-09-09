@@ -176,20 +176,33 @@ noncommercial mirrors and public modified versions are allowed.
   other windows of changed scopes without a success notification. Failed
   refreshes cannot reuse cached game settings, and duplicate submissions are
   rejected. Focused workflow tests cover Steam/EA and post-write failures.
-  Video writes and read-only locking require the game's positive integer
-  `setting.configversion`; presets never invent that marker. Reset followed by
+  Video writes and read-only locking require `setting.configversion >=10`
+  within positive signed int32. Current J57 loads versions >=7, but 7-9 still
+  read legacy map-detail/SSAO fields; a positive version alone is insufficient.
+  This checks field compatibility, not completeness. Reset followed by
   an immediate preset previously created and locked an incomplete video file,
   which passed key-value readback despite the user's EA menu retaining defaults.
-  Missing/versionless files now remain pending, including on reopening the app.
+  Missing/versionless and legacy-format files remain pending on reopening.
   The explicit `prepare_apex_video_config_regeneration` action backs up and
-  removes only an incomplete video file under the history mutex. It rejects a
+  removes only an incomplete or legacy-format video file under the history mutex.
+  Its UI states that regeneration resets video preferences. It rejects a
   running game or a file already regenerated, and leaves launch options,
-  settings and profile alone. The user starts Apex and exits normally before
-  applying video presets again. Both platforms share this machine-wide rule.
+  settings and profile alone. This optional game-regeneration action still
+  requires launching Apex. Full reset instead initializes all three files
+  immediately, so presets can be applied without an intervening game launch.
+  Both platforms share this machine-wide rule.
   Native video integration tests run frontend selection through the production
   Rust reader/writer in child processes with isolated USERPROFILE directories;
   they cover all ten video toggles individually and together on Steam/EA with
-  two fresh-store reads. They do not replace user-controlled in-game acceptance.
+  two fresh-store reads. Fixtures contain all 42 current serialized fields plus
+  an unknown field and verify preservation of every unedited key. A second
+  integration suite runs real reset transactions, video/profile/binding writes,
+  two fresh-store reads, and another reset; only launcher storage is a fixture.
+  Its all-selected case checks platform option recognition; the reopen suite
+  separately checks exact reticle/FOV spelling. These tests do not replace
+  user-controlled in-game acceptance. Product format and reset requirements are
+  in `docs/APEX_VIDEO_CONFIG_FORMAT.md`. Hardware-dependent defaults cannot be
+  replaced by a universal mid-quality template.
 - When `settings.cfg` is missing, contains no bindings, or contains only the
   three bindings created by the old incomplete bootstrap path, the Rust
   mutation boundary initializes the document from the embedded current-build
@@ -214,6 +227,17 @@ noncommercial mirrors and public modified versions are allowed.
   Accessibility, and Privacy groups alongside the aiming, binding, controller,
   and audio groups. Runtime-observed encodings and confirmed numeric ranges are
   recorded in `docs/APEX_GAME_SETTINGS_RUNTIME_MAPPING.md`.
+  The catalog supports weapon dialogue as a single 0/1 profile key,
+  and accessible-chat navigation as the four values 0/1/2/3 (Off / Hint Text /
+  Voice Narration / Text and Voice); the latter is visible under the game's
+  English-language condition. Rust must accept all four values, not treat it
+  as a boolean. `ps5_force_enable_adth` is a consumed initialization flag,
+  separate from the editable vibration and trigger preferences, and is excluded
+  from Review later. The other 18 unowned keys remain read-only with localized,
+  searchable compatibility notes. Unknown keys and same-name keys in other files
+  remain visible. Writes to cl_safearea and hudchat_visibility accept canonical
+  0/1; reading or editing another key preserves noncanonical existing values.
+  See `docs/APEX_SETTINGS_REVIEW_AUDIT.md` for the product handling rules.
 - Apex history and configuration transactions are implemented by
   `src-tauri/src/game/apex_history.rs`, exposed through typed wrappers in
   `src/ipc/commands.ts`, and adopted by `src/stores/game/apex/actions_history.ts`.
@@ -332,8 +356,7 @@ noncommercial mirrors and public modified versions are allowed.
   Controller-button inputs remain read-only. Keyboard capture accepts the
   observed `KP_INS`, `KP_ENTER`, `NUMLOCK`, and `SCROLLLOCK` names.
 - The shared input catalog `src/data/apex_binding_inputs.ts` contains only the
-  supported browser-to-game input mapping. Raw research data stays outside this
-  repository. Reset/default initialization includes the game's MOUSE4 tactical
+  supported browser-to-game input mapping. Reset/default initialization includes the game's MOUSE4 tactical
   and MOUSE5 ultimate secondary slots alongside q/z primary slots.
 - DVS uses integer frame-time truncation; disabling it preserves stored min/max.
   The supported 1 FPS endpoint needs up to 1,000,000 microseconds. Mouse
@@ -378,13 +401,24 @@ noncommercial mirrors and public modified versions are allowed.
   rejected before no-op detection. Steam, EA, and unified launch-option writes
   reject control characters before history is mutated. Laser custom colors use
   `R + (G << 8) + (B << 16)`.
-- Apex-only reset records all pre-change files, clears the selected account's
-  launch options, writes the default settings/profile templates, and removes
-  videoconfig.txt so Apex generates hardware-dependent video defaults on its
-  next launch. Subtitle defaults are also left to the game's language-specific
-  initialization. The UI exposes pending video generation rather than reporting
-  a fabricated generic quality preset as the game's defaults. Every history
-  restore records the current state first so the restore is undoable.
+- Apex-only reset first generates defaults in memory using the verified J57
+  build rules in `game/apex_defaults/{environment,video}.rs`. It discovers the
+  selected Steam/EA installation, reads its `bin/dxsupport.cfg`, and rejects
+  unverified builds or unexpected optional PC tier overlays before any write.
+  Native DXGI adapter 0/output 0, GPU memory (including Intel UMA), total
+  memory, primary desktop size, and rational display modes drive the 42-field
+  video config. Windows DXGI/Direct3D12 and sysinfoapi feature flags support
+  this read-only probe; there is no shell child or game-process interaction.
+  Steam game language comes from account settings with appmanifest fallback;
+  EA uses the matching Respawn installation registry Locale. Reset adds the
+  corresponding closecaption value to the default profile and writes all 107
+  raw default binding lines. It saves history, clears the selected account's
+  launch options, and immediately writes/reads back all three writable files.
+  Failure triggers verified rollback. Completely absent files are initialized;
+  identical writable defaults return fresh state without creating history.
+  The reset IPC returns verified video and settings reports with empty pending
+  scopes; frontend adoption invalidates older reads and notifies other windows.
+  Every history restore records current state first so the restore is undoable.
 - `npm.cmd run "tauri dev"` uses `scripts/tauri-dev.mjs` as a Windows
   single-instance development launcher: it removes only process trees proven to
   belong to this worktree, refuses to terminate an unknown owner of fixed Vite
@@ -407,6 +441,10 @@ noncommercial mirrors and public modified versions are allowed.
   carry SHA-256 values.
 
 ## Constraints
+
+- Keep this repository limited to product implementation, configuration contracts,
+  compatibility limits, tests, and required third-party notices. External analysis
+  materials and their working paths belong in their own project.
 
 - The worktree has extensive unrelated user changes. Never reset, revert, or
   broadly reformat it.
@@ -461,7 +499,7 @@ noncommercial mirrors and public modified versions are allowed.
 - Frontend lint: `npm.cmd run lint`
 - Frontend tests: `npm.cmd test`
 - Apex video frontend/native integration: `npm.cmd run test:apex-video-native`;
-  builds the Rust test helper before running the 22 Steam/EA file cases. CI's
+  builds the Rust test helper before running the 44 Steam/EA file cases. CI's
   Windows Rust job runs this gate after cargo test. Ordinary frontend runs skip
   these cases unless the helper executable is supplied by the runner.
 - Frontend types/build and bundle report: `npm.cmd run build`
@@ -504,9 +542,11 @@ noncommercial mirrors and public modified versions are allowed.
 - Microsoft Store package registration/reset, UAC-batched service recovery,
   OneDrive reset/restart, and post-reboot `CldFlt` verification still require a
   controlled Windows machine smoke test before release.
-- Full Apex reset, launcher-running rejection, game-generated defaults, and the
-  31st-entry retention boundary still require controlled Steam and EA smoke
-  tests in addition to the isolated Rust and Vitest coverage.
+- Reset/default generation and preset files pass isolated Rust/Vitest coverage,
+  and the installed Steam/EA language/hardware discovery passes a read-only
+  host probe. Actual in-game acceptance of the generated defaults, hybrid GPU
+  driver routing, launcher-running rejection and the 31st-entry retention
+  boundary still require controlled Steam/EA smoke tests.
 - Steam and EA install discovery, real EAC repair/UAC behavior, driver
   recovery, restart messaging, and the Apex repair window at 100%/125% scaling
   still need controlled Windows acceptance before release.

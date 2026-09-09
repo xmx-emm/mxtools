@@ -59,6 +59,11 @@ fn video_initialization_child() {
     for content in [
         "".to_string(),
         "\"VideoConfig\"\n{\n\t\"setting.mat_vsync_mode\"\t\"0\"\n}\n".into(),
+        "\"VideoConfig\"\n{\n\"setting.configversion\" \"6\"\n}\n".into(),
+        "\"VideoConfig\"\n{\n\"setting.configversion\" \"7\"\n}\n".into(),
+        "\"VideoConfig\"\n{\n\"setting.configversion\" \"8\"\n}\n".into(),
+        "\"VideoConfig\"\n{\n\"setting.configversion\" \"9\"\n\"setting.ssao_quality\" \"0\"\n}\n".into(),
+        "\"VideoConfig\"\n{\n\"setting.configversion\" \"2147483648\"\n}\n".into(),
     ] {
         std::fs::write(&path, &content).unwrap();
         assert!(patch_video_config_sync(&updates).is_err());
@@ -66,15 +71,30 @@ fn video_initialization_child() {
         assert!(!path.with_extension("txt.bak").exists());
     }
 
-    // Game-generated baseline, including game-owned fields and an unknown
-    // future setting. A full write must preserve them and the original .bak.
-    let content = "\"VideoConfig\"\r\n{\r\n\t\"setting.configversion\"\t\t\"10\"\r\n\t\"setting.new_shadow_settings\"\t\t\"1\"\r\n\t\"setting.sound_volume\"\t\t\"0.35\"\r\n\t\"setting.future_setting\"\t\t\"keep\"\r\n\t\"setting.mat_vsync_mode\"\t\t\"3\"\r\n\t\"setting.shadow_enable\"\t\t\"1\"\r\n}\r\n";
-    std::fs::write(&path, content).unwrap();
+    // Complete game-format fixture with test preferences, not hardware defaults.
+    // Preserve every unedited field, unknown keys, and the original CRLF/NUL .bak.
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/fixtures/apex/videoconfig-v10.txt"
+    ))
+    .replace("\r\n", "\n")
+    .replace("\n}", "\n\t\"setting.future_setting\"\t\t\"keep\"\n}")
+    .replace('\n', "\r\n")
+        + "\0";
+    std::fs::write(&path, &content).unwrap();
+    let baseline = read_initialized_video_config_sync().unwrap();
+    assert_eq!(baseline.len(), 43);
     set_videoconfig_readonly(true).unwrap();
     patch_video_config_sync(&updates).unwrap();
     let readback = read_initialized_video_config_sync().unwrap();
     for (key, value) in &updates {
         assert_eq!(readback.get(key), Some(value));
+    }
+    assert_eq!(readback.len(), baseline.len());
+    for (key, value) in &baseline {
+        if !updates.contains_key(key) {
+            assert_eq!(readback.get(key), Some(value), "changed unedited {key}");
+        }
     }
     assert_eq!(readback["setting.configversion"], "10");
     assert_eq!(readback["setting.new_shadow_settings"], "1");
@@ -95,14 +115,17 @@ fn video_initialization_child() {
 }
 
 #[test]
-fn video_initialization_uses_the_game_version_without_hardcoding_it() {
-    for version in ["1", "10", "11", "4294967295"] {
+fn video_initialization_requires_current_field_semantics_and_signed_version() {
+    for version in ["10", "11", "2147483647"] {
         assert!(video_config_is_initialized(&HashMap::from([(
             "setting.configversion".into(),
             version.into()
         )])));
     }
-    for version in ["", "0", "-1", "+10", "10.0", " 10", "4294967296", "bad"] {
+    for version in [
+        "", "0", "1", "6", "7", "8", "9", "-1", "+10", "10.0", " 10",
+        "2147483648", "4294967295", "4294967296", "bad",
+    ] {
         assert!(!video_config_is_initialized(&HashMap::from([(
             "setting.configversion".into(),
             version.into()
