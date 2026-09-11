@@ -37,14 +37,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: xmx-emm/windows_tool
-          ref: 5695e89d2a5e23475787c9df5ef5c58ba71e3205
+          ref: 63be28c24cc093a8d160d902cb983331dc9c9e2e
           path: rust/windows_tool
       - uses: dtolnay/rust-toolchain@stable
       - name: Restore Rust dependency cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: tauri/mxtools/src-tauri -> target
-          key: windows-tool-5695e89d2a5e23475787c9df5ef5c58ba71e3205
+          key: windows-tool-63be28c24cc093a8d160d902cb983331dc9c9e2e
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: cargo fmt --check

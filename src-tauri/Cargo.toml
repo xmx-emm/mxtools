@@ -1,6 +1,6 @@
 [package]
 name = "mxtools"
-version = "0.0.6"
+version = "0.0.7"
 description = "Windows-focused Tauri desktop toolbox"
 authors = ["xmx-emm"]
 edition = "2021"
