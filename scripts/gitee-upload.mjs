@@ -7,7 +7,7 @@ import {Buffer} from 'node:buffer';
 function curl(args, config) {
   return new Promise(resolve => {
     const child = execFile(process.platform === 'win32' ? 'curl.exe' : 'curl', args,
-      {timeout: 210_000, maxBuffer: 2_000_000, windowsHide: true},
+      {timeout: 930_000, maxBuffer: 2_000_000, windowsHide: true},
       (error, stdout) => resolve({code: error ? error.code : 0, stdout}));
     // Credentials stay off command lines, disk and logs. Never enable curl tracing.
     child.stdin.on('error', () => {});
@@ -28,7 +28,7 @@ export async function uploadGiteeAttachment(url, form, token, runCurl = curl) {
     await writeFile(filename, Buffer.from(await file.arrayBuffer()));
     const escape = value => value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
     const args = ['--config', '-', '--silent', '--http1.1', '--proto', '=https',
-      '--connect-timeout', '20', '--max-time', '180', '--speed-limit', '1024', '--speed-time', '30',
+      '--connect-timeout', '20', '--max-time', '900', '--speed-limit', '1024', '--speed-time', '30',
       '--header', 'Accept: application/json', '--header', 'Expect:',
       '--form', `file=@"${escape(filename)}";filename="${escape(file.name)}"`,
       '--write-out', '\n%{http_code} %{size_upload}', url];

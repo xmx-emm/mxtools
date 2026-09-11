@@ -21,7 +21,7 @@ jobs:
   sync:
     if: github.repository == 'xmx-emm/mxtools' && (github.event_name == 'workflow_dispatch' || !github.event.release.prerelease)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       # Use the maintained sync script, including when backfilling an old tag.
       - uses: actions/checkout@v4
