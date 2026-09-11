@@ -288,6 +288,8 @@ noncommercial mirrors and public modified versions are allowed.
   the default 100 MB limit back to GitHub. See `docs/GITEE_RELEASE_SYNC.md`.
   Multipart uploads use `scripts/gitee-upload.mjs` with curl HTTP/1.1 and
   credentials on stdin after native fetch uploads timed out against Gitee.
+  Gitee can return HTTP 200 with an empty array for an absent contents/ref;
+  the feed publisher treats that response as missing, while rejecting malformed file objects.
   Signed releases also publish `updates/latest.json` on Gitee after verifying the
   installer and `.sig`. Old-release backfills never downgrade that feed.
 - Online updates are implemented in `src-tauri/src/app_update.rs` and

@@ -36,8 +36,13 @@ export function compareVersions(a, b) {
 export async function publishDomesticManifest(tag, verified, request) {
   const manifest = domesticManifest(tag, verified);
   if (!manifest) return false;
-  const current = await request(`${API}/contents/latest.json?ref=updates`, {allow404: true});
+  const response = await request(`${API}/contents/latest.json?ref=updates`, {allow404: true});
+  // Gitee returns HTTP 200 with [] when the requested ref/file is absent.
+  const current = Array.isArray(response) && response.length === 0 ? null : response;
   if (current) {
+    if (typeof current.content !== 'string' || typeof current.sha !== 'string') {
+      throw new Error('Unexpected Gitee updater file response');
+    }
     const old = JSON.parse(Buffer.from(current.content, 'base64').toString('utf8'));
     const order = compareVersions(manifest.version, old.version);
     if (order < 0) return false; // Backfilling an old release must never downgrade the feed.

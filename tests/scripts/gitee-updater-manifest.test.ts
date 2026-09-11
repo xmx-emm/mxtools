@@ -27,11 +27,12 @@ describe('Domestic signed updater feed', () => {
     expect(() => domesticManifest('v0.0.8', map)).toThrow();
   });
 
-  it('creates the dedicated branch and publishes only after receiving verified artifacts', async () => {
+  it.each([null, []])('creates the dedicated branch for a missing file response %j', async (missing) => {
     let committed = '';
     const request = vi.fn(async (url: string, options: {method?: string; body?: {content?: string}} = {}) => {
       if (options.body?.content) committed = Buffer.from(options.body.content, 'base64').toString();
       if (url.includes('/raw/updates/')) return Buffer.from(committed);
+      if (url.includes('?ref=updates')) return missing;
       return null;
     });
     expect(await publishDomesticManifest('v0.0.8', verified(), request)).toBe(true);
