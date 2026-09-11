@@ -15,4 +15,12 @@ describe('Signed NSIS update manifest', () => {
     expect(() => makeUpdaterManifest('0.0.7', '')).toThrow();
     expect(() => makeUpdaterManifest('../version', 'abc')).toThrow();
   });
+  it('keeps portable and installer URLs and signatures separate', () => {
+    const manifest = makeUpdaterManifest('0.0.9', 'aW5zdGFsbGVy', '', 'cG9ydGFibGU=');
+    expect(manifest.platforms['windows-x86_64-portable']).toEqual({
+      signature: 'cG9ydGFibGU=', url: 'https://github.com/xmx-emm/mxtools/releases/download/v0.0.9/MxTools_0.0.9_x64_portable.exe',
+    });
+    expect(manifest.platforms['windows-x86_64'].signature).toBe('aW5zdGFsbGVy');
+    expect(() => makeUpdaterManifest('0.0.9', 'abc', '', '')).toThrow();
+  });
 });

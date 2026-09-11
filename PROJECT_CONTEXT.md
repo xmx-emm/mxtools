@@ -291,16 +291,32 @@ noncommercial mirrors and public modified versions are allowed.
   Gitee can return HTTP 200 with an empty array for an absent contents/ref;
   the feed publisher treats that response as missing, while rejecting malformed file objects.
   Signed releases also publish `updates/latest.json` on Gitee after verifying the
-  installer and `.sig`. Old-release backfills never downgrade that feed.
+  installer/portable files and their separate `.sig` attachments. Old-release
+  backfills never downgrade that feed; installer-only 0.0.8 manifests remain supported.
 - Online updates are implemented in `src-tauri/src/app_update.rs` and
   `src/stores/app_update.ts`: Gitee checks precede GitHub; failed Gitee downloads
   retry GitHub only for the exact confirmed version and signature. The public
   key is committed in `tauri.conf.json`; private keys stay outside Git and in
-  GitHub Secrets. Portable/Store builds use manual/Store updates. The Windows
+  GitHub Secrets. New portable launchers pass their original EXE path and PID to
+  the cached payload. `portable_update.rs` verifies the live parent image, selects
+  `windows-x86_64-portable`, stages the signed SFX beside the original launcher,
+  and runs the cached payload as a pre-Tauri helper. The helper re-verifies the
+  signature, acquires both process handles before the exit handshake, waits for
+  the app and launcher to exit, preserves the original file on replacement/start
+  failure, and restarts the original user filename. No installer or registry
+  installation is used. Legacy portable launchers/development builds remain
+  manual; packaged Store apps use Store updates. Portable autostart targets the
+  quoted original launcher path; updating migrates an already-enabled entry only
+  when it points to the current cached payload, preserving unrelated installations.
+  `auto-launch` and `minisign-verify` directly reuse versions already in the lockfile.
+  The Windows
   before-exit hook restores background hardware state and retains Tauri cleanup.
   `Publish signed Windows release` builds, verifies tamper rejection, upgrades
   an actual 0.0.7 installation on a disposable Windows runner, then publishes
   and explicitly calls Gitee mirroring. See `docs/ONLINE_UPDATE_RELEASE.md`.
+  `scripts/test-portable-update.ps1` builds signed isolated NSIS fixtures and
+  checks parent identity, exit ordering, original-path replacement, restart and
+  subsequent launch. It is also a release gate; it does not claim real app UI coverage.
   Debug/test executables embed the Common Controls v6 manifest dependency in
   `build.rs`; otherwise Windows 10 cannot resolve the native dialog import.
 - Licensing scope is defined by root `LICENSE`, `NOTICE`, and

@@ -13,6 +13,17 @@ const verified = () => new Map([
 ]);
 
 describe('Domestic signed updater feed', () => {
+  it('requires verified portable bytes and their own signature before publishing either target', () => {
+    const map = verified();
+    const portable = 'MxTools_0.0.8_x64_portable.exe';
+    map.set('latest.json', {text: JSON.stringify(makeUpdaterManifest('0.0.8', 'c2lnbmF0dXJl', '', 'cG9ydGFibGU='))});
+    expect(() => domesticManifest('v0.0.8', map)).toThrow();
+    map.set(portable, {url: `https://gitee.com/mengxin_code/mxtools/releases/download/v0.0.8/${portable}`});
+    map.set(`${portable}.sig`, {text: 'cG9ydGFibGU='});
+    expect(domesticManifest('v0.0.8', map).platforms['windows-x86_64-portable'].url).toContain(portable);
+    map.set(`${portable}.sig`, {text: 'wrong'});
+    expect(() => domesticManifest('v0.0.8', map)).toThrow();
+  });
   it('rewrites only the URL of a verified installer and keeps the signature and version', () => {
     const result = domesticManifest('v0.0.8', verified());
     expect(result.version).toBe(source.version);

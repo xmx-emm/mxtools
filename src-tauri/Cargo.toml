@@ -42,6 +42,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 # 体积优化：关闭 Unicode 数据表（正则仅匹配 ASCII 数字，见 game/apex_q_ocr.rs）
 regex = { version = "1", default-features = false, features = ["std", "perf"] }
 base64 = "0.22"
+minisign-verify = "=0.2.5"
 # RapidOCR-compatible ONNX OCR via ort 2.0.0-rc.9.
 # ppocr-rs enables ort/coreml (macOS-only); use load-dynamic to avoid Windows LNK2019.
 # ORT DLL is downloaded at runtime into AppData (not bundled).
@@ -58,6 +59,7 @@ flate2 = "1"
 tar = "0.4"
 
 [target.'cfg(windows)'.dependencies]
+auto-launch = "=0.5.0"
 winreg = "0.56.0"
 winapi = { version = "0.3", features = ["ntdef", "consoleapi", "devpkey", "devpropdef", "errhandlingapi", "fileapi", "handleapi", "hidclass", "hidpi", "hidsdi", "lmaccess", "lmapibuf", "lmcons", "lmshare", "minwinbase", "namedpipeapi", "processenv", "processthreadsapi", "sddl", "setupapi", "shellapi", "synchapi", "sysinfoapi", "winbase", "wincred", "winnetwk", "winuser", "wincon", "wingdi", "winnt"] }
 windows = { version = "0.61", features = [

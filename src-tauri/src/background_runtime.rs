@@ -400,6 +400,12 @@ impl<R: Runtime> AutostartControl for TauriAutostartControl<'_, R> {
     }
 
     fn enable(&self) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(launcher) =
+            crate::portable_update::autostart_launcher(&self.app.package_info().name)
+        {
+            return launcher.enable().map_err(|error| error.to_string());
+        }
         self.app
             .autolaunch()
             .enable()

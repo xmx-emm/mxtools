@@ -141,6 +141,7 @@ try {
     ? ['--config', JSON.stringify({bundle: {createUpdaterArtifacts: true}})] : [])]);
   await restoreReleaseBinary();
   await runNode('scripts/build-portable-sfx.mjs');
+  await runTauri(['signer', 'sign', path.join(releaseDir, 'bundle/nsis', `${conf.productName}_${conf.version}_x64-portable.exe`)]);
   await runNode('scripts/rename-release-builds.mjs');
   if (signedUpdater) await runNode('scripts/updater-manifest.mjs');
 
@@ -165,7 +166,7 @@ try {
     await copyFile(path.join(releaseDir, conf.version, `萌新工具箱 ${conf.version} ${source}.exe`),
       path.join(publishDir, `MxTools_${conf.version}_x64_${target}.exe`));
   }
-  for (const name of [`MxTools_${conf.version}_x64_setup.exe.sig`, 'latest.json']) {
+  for (const name of [`MxTools_${conf.version}_x64_setup.exe.sig`, `MxTools_${conf.version}_x64_portable.exe.sig`, 'latest.json']) {
     await copyFile(path.join(releaseDir, conf.version, 'updater', name), path.join(publishDir, name));
   }
 } finally {

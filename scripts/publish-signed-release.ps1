@@ -16,6 +16,7 @@ $assets = @(
     "$directory/MxTools_$($config.version)_x64_portable.exe#萌新工具箱 $($config.version) 便携版",
     "$directory/MxTools_$($config.version)_x64_offline.exe#萌新工具箱 $($config.version) 离线 WebView2 版",
     "$directory/MxTools_$($config.version)_x64_setup.exe.sig",
+    "$directory/MxTools_$($config.version)_x64_portable.exe.sig",
     "$directory/latest.json"
 )
 & gh release upload $tag @assets

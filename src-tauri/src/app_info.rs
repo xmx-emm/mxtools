@@ -28,7 +28,7 @@ fn detect_distribution() -> AppDistribution {
         return AppDistribution::Development;
     }
 
-    if is_portable_exe_name() {
+    if is_portable_exe_name() || crate::portable_update::context().is_some() {
         return AppDistribution::Portable;
     }
 
@@ -48,7 +48,7 @@ fn exe_stem() -> Option<String> {
 
 fn is_portable_exe_name() -> bool {
     exe_stem()
-        .map(|name| name.contains("便携版"))
+        .map(|name| name.contains("便携版") || name.eq_ignore_ascii_case("mxtools-portable"))
         .unwrap_or(false)
 }
 

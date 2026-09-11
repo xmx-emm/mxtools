@@ -13,7 +13,7 @@ $previousKey = $env:TAURI_SIGNING_PRIVATE_KEY
 $previousPassword = $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 try {
     $secure = (Get-Content -LiteralPath $passwordPath -Raw) | ConvertTo-SecureString
-    $env:TAURI_SIGNING_PRIVATE_KEY = $keyPath
+    $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content -LiteralPath $keyPath -Raw).Trim()
     $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [Net.NetworkCredential]::new('', $secure).Password
     & npm.cmd run 'build window release'
     if ($LASTEXITCODE -ne 0) { throw 'Signed release build failed.' }

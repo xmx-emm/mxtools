@@ -16,6 +16,7 @@ mod logger;
 mod network_repair;
 mod online;
 mod port_forwarding;
+mod portable_update;
 mod razer_polling;
 mod rdp;
 mod registry;
@@ -194,6 +195,9 @@ fn init_windows_console_utf8() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if let Some(exit_code) = portable_update::try_run_helper() {
+        std::process::exit(exit_code);
+    }
     if let Some(exit_code) = crate::folder_sharing::try_run_elevated_helper() {
         std::process::exit(exit_code);
     }

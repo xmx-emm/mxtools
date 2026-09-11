@@ -58,7 +58,10 @@ fn availability(app: &tauri::AppHandle) -> &'static str {
     if packaged_windows_app() {
         return "store";
     }
-    if get_app_info().distribution != AppDistribution::Installer {
+    if get_app_info().distribution != AppDistribution::Installer
+        && (get_app_info().distribution != AppDistribution::Portable
+            || crate::portable_update::context().is_none())
+    {
         return "manual";
     }
     if app
@@ -119,7 +122,11 @@ pub async fn check_app_update(
 
 fn update_builder(app: &tauri::AppHandle) -> UpdaterBuilder {
     let exit_app = app.clone();
-    app.updater_builder().on_before_exit(move || {
+    let mut builder = app.updater_builder();
+    if get_app_info().distribution == AppDistribution::Portable {
+        builder = builder.target("windows-x86_64-portable");
+    }
+    builder.on_before_exit(move || {
         BackgroundCoordinator::shutdown_and_restore(&exit_app);
         // This replaces the plugin's default hook, so retain Tauri cleanup.
         exit_app.cleanup_before_exit();
@@ -142,6 +149,14 @@ async fn check_source(
         .map_err(|e| error(e.to_string()))?;
     if let Some(mut update) = update {
         if !valid_update_url(&update.download_url, source) {
+            return Err(error("updates.invalidSource"));
+        }
+        if update.target == "windows-x86_64-portable"
+            && !update.download_url.path().ends_with(&format!(
+                "/v{0}/MxTools_{0}_x64_portable.exe",
+                update.version
+            ))
+        {
             return Err(error("updates.invalidSource"));
         }
         update.timeout = Some(Duration::from_secs(180));
@@ -246,6 +261,11 @@ pub async fn install_app_update(
     if pending.update.version != version {
         return Err(error("updates.checkFirst"));
     }
+    let portable = if get_app_info().distribution == AppDistribution::Portable {
+        Some(crate::portable_update::context().ok_or_else(|| error("updates.checkFirst"))?)
+    } else {
+        None
+    };
     let (update, bytes) = download_with_fallback(
         pending,
         || update_builder(&app),
@@ -260,6 +280,18 @@ pub async fn install_app_update(
     )
     .await?;
     // Update::download verifies the signature before install is reached.
+    if let Some(context) = portable {
+        #[cfg(windows)]
+        crate::portable_update::migrate_cached_autostart(&app.package_info().name)
+            .map_err(error)?;
+        crate::portable_update::prepare(context, &bytes, &update.signature)
+            .await
+            .map_err(error)?;
+        let _ = app.emit_to("main", "app-update-installing", ());
+        BackgroundCoordinator::shutdown_and_restore(&app);
+        app.cleanup_before_exit();
+        std::process::exit(0);
+    }
     let _ = app.emit_to("main", "app-update-installing", ());
     update.install(bytes).map_err(|e| error(e.to_string()))
 }
@@ -271,4 +303,11 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/app_update.rs"
     ));
+    mod portable_release {
+        use super::*;
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/portable_release.rs"
+        ));
+    }
 }

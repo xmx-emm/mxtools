@@ -134,6 +134,9 @@ extract:
   FileClose $0
 
 launch:
+  System::Call 'kernel32::SetEnvironmentVariableW(w "MXTOOLS_PORTABLE_LAUNCHER", w "$EXEPATH") i.r0'
+  System::Call 'kernel32::GetCurrentProcessId() i.r0'
+  System::Call 'kernel32::SetEnvironmentVariableW(w "MXTOOLS_PORTABLE_PID", w r0) i.r1'
   \${GetParameters} $ChildArgs
   SetOutPath "$EXEDIR"
   ClearErrors

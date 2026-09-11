@@ -1,5 +1,5 @@
 import {Buffer} from 'node:buffer';
-import {installerName} from './updater-manifest.mjs';
+import {installerName, portableName} from './updater-manifest.mjs';
 
 const API = 'https://gitee.com/api/v5/repos/mengxin_code/mxtools';
 const RAW = 'https://gitee.com/mengxin_code/mxtools/raw/updates/latest.json';
@@ -9,18 +9,23 @@ export function domesticManifest(tag, verified) {
   if (!source) return null; // Old unsigned releases still mirror normally.
   const manifest = JSON.parse(source.text);
   const version = tag.slice(1);
-  const name = installerName(version);
-  const installer = verified.get(name);
-  const signature = verified.get(`${name}.sig`);
-  const platform = manifest.platforms?.['windows-x86_64'];
-  if (manifest.version !== version || Object.keys(manifest.platforms || {}).length !== 1
-    || !installer || !signature?.text || !platform?.signature
-    || platform.signature !== signature.text.trim()
-    || platform.url !== `https://github.com/xmx-emm/mxtools/releases/download/${tag}/${name}`
-    || installer.url !== `https://gitee.com/mengxin_code/mxtools/releases/download/${tag}/${name}`) {
+  const names = {'windows-x86_64': installerName(version), 'windows-x86_64-portable': portableName(version)};
+  if (manifest.version !== version || !manifest.platforms?.['windows-x86_64']
+    || Object.keys(manifest.platforms).some(key => !names[key])) {
     throw new Error('Signed manifest does not match verified installer and signature attachments');
   }
-  return {...manifest, platforms: {'windows-x86_64': {...platform, url: installer.url}}};
+  const platforms = {};
+  for (const [target, platform] of Object.entries(manifest.platforms)) {
+    const name = names[target], artifact = verified.get(name), signature = verified.get(`${name}.sig`);
+    if (!artifact || !signature?.text || !platform?.signature
+      || platform.signature !== signature.text.trim()
+      || platform.url !== `https://github.com/xmx-emm/mxtools/releases/download/${tag}/${name}`
+      || artifact.url !== `https://gitee.com/mengxin_code/mxtools/releases/download/${tag}/${name}`) {
+      throw new Error('Signed manifest does not match verified installer and signature attachments');
+    }
+    platforms[target] = {...platform, url: artifact.url};
+  }
+  return {...manifest, platforms};
 }
 
 export function compareVersions(a, b) {

@@ -60,6 +60,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - name: Verify signature rejection and real Windows upgrade
         run: ./scripts/test-release-upgrade.ps1
+      - name: Verify portable launcher replacement and restart
+        run: |
+          ./scripts/test-portable-update.ps1
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $env:MXTOOLS_VERIFY_RELEASE_DIR = Join-Path (Get-Location) "src-tauri/target/release/$version/publish"
+          cargo test --manifest-path src-tauri/Cargo.toml --lib app_update::tests::portable_release::verify_signed_portable_release -- --ignored --exact --nocapture
       - uses: actions/upload-artifact@v4
         with:
           name: signed-windows-release
