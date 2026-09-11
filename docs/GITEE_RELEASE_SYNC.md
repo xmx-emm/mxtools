@@ -43,10 +43,13 @@ Actions variable `GITEE_MAX_ASSET_BYTES`。仓库总附件配额仍由 Gitee 执
 
 ## 与应用内在线更新的关系
 
-此工作流只镜像发行。若原发行含 `.sig` 和 `latest.json`，会原样复制，
-并将 `latest.json` 排在其它附件后上传；不会制造缺失签名、改写清单下载 URL，
-也不会发布 Gitee 分支上的国内 `latest.json`。客户端目前仍只检查 GitHub。
-Tauri 签名构建、国内清单及客户端回退需要另外接入，不能以附件同步成功代替升级验收。
+若原发行含 `.sig` 和 `latest.json`，附件仍原样复制，`latest.json` 最后上传。
+全部附件校验成功后，`gitee-updater-manifest.mjs` 核对版本、安装包名和签名，
+生成只替换下载地址的国内清单，写入独立的 `updates` 分支 `latest.json`。
+该分支不移动代码主分支，旧版本补同步不会降低更新清单版本。
+公开读取地址为 `https://gitee.com/mengxin_code/mxtools/raw/updates/latest.json`。
+v0.0.7 等没有签名清单的历史发行只同步附件，不生成更新清单。
+0.0.8 客户端优先 Gitee，异常时回退 GitHub；操作说明见 `ONLINE_UPDATE_RELEASE.md`。
 
 ## 本地检查
 

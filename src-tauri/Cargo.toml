@@ -1,6 +1,6 @@
 [package]
 name = "mxtools"
-version = "0.0.7"
+version = "0.0.8"
 description = "Windows-focused Tauri desktop toolbox"
 authors = ["xmx-emm"]
 edition = "2021"
@@ -75,6 +75,9 @@ windows = { version = "0.61", features = [
   "Win32_System_Variant",
   "Win32_UI_Shell",
 ] }
+
+[dev-dependencies]
+tauri = { version = "2.11", features = ["test"] }
 
 [profile.release]
 codegen-units = 1

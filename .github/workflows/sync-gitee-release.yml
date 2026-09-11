@@ -1,6 +1,14 @@
 name: Sync release to Gitee
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      GITEE_TOKEN:
+        required: true
   release:
     types: [published]
   workflow_dispatch:

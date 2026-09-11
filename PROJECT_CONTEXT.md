@@ -288,13 +288,19 @@ noncommercial mirrors and public modified versions are allowed.
   the default 100 MB limit back to GitHub. See `docs/GITEE_RELEASE_SYNC.md`.
   Multipart uploads use `scripts/gitee-upload.mjs` with curl HTTP/1.1 and
   credentials on stdin after native fetch uploads timed out against Gitee.
-  This does not enable the app's Gitee updater or produce a domestic manifest.
+  Signed releases also publish `updates/latest.json` on Gitee after verifying the
+  installer and `.sig`. Old-release backfills never downgrade that feed.
 - Online updates are implemented in `src-tauri/src/app_update.rs` and
-  `src/stores/app_update.ts`, using GitHub Releases and signed downloads.
-  Installer builds require a configured public key; portable/Store builds
-  use manual/Store updates. The updater's Windows before-exit hook restores
-  background hardware state and retains Tauri cleanup. Gitee fallback remains
-  a proposal in `docs/TAURI_ONLINE_UPDATE_PLAN.md`, not current behavior.
+  `src/stores/app_update.ts`: Gitee checks precede GitHub; failed Gitee downloads
+  retry GitHub only for the exact confirmed version and signature. The public
+  key is committed in `tauri.conf.json`; private keys stay outside Git and in
+  GitHub Secrets. Portable/Store builds use manual/Store updates. The Windows
+  before-exit hook restores background hardware state and retains Tauri cleanup.
+  `Publish signed Windows release` builds, verifies tamper rejection, upgrades
+  an actual 0.0.7 installation on a disposable Windows runner, then publishes
+  and explicitly calls Gitee mirroring. See `docs/ONLINE_UPDATE_RELEASE.md`.
+  Debug/test executables embed the Common Controls v6 manifest dependency in
+  `build.rs`; otherwise Windows 10 cannot resolve the native dialog import.
 - Licensing scope is defined by root `LICENSE`, `NOTICE`, and
   `THIRD_PARTY_NOTICES.md`. The APEX Q calculation port is used under
   project-specific written permission granted by the upstream author on

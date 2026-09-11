@@ -7,6 +7,7 @@ import path from 'node:path';
 import {promisify} from 'node:util';
 import {fileURLToPath, URL} from 'node:url';
 import {uploadGiteeAttachment} from './gitee-upload.mjs';
+import {publishDomesticManifest} from './gitee-updater-manifest.mjs';
 
 const SOURCE = 'xmx-emm/mxtools';
 const DESTINATION = 'mengxin_code/mxtools';
@@ -163,6 +164,7 @@ export async function syncRelease({tag, githubToken = '', giteeToken = '', maxBy
   await request(`${GT}/releases/${target.id}`, {method: 'PATCH', body: fields});
   const attachmentUrl = `${GT}/releases/${target.id}/attach_files`;
   const existing = await listAll(request, attachmentUrl);
+  const verified = new Map();
   for (const asset of plan.mirrored) {
     log(`Downloading source attachment ${asset.id} (${asset.size} bytes)`);
     const bytes = await request(asset.browser_download_url, {binary: true, maxBytes: asset.size});
@@ -187,11 +189,16 @@ export async function syncRelease({tag, githubToken = '', giteeToken = '', maxBy
       throw new Error('Gitee attachment differs from GitHub; refusing to overwrite it. Resolve the conflicting attachment before retrying');
     }
     log(`Verified attachment ${asset.id} (${asset.size} bytes)${matches.length ? ' — reused' : ''}`);
+    verified.set(asset.name, {url: downloadUrl.href,
+      ...((asset.name === 'latest.json' || asset.name.endsWith('.sig')) && bytes.length <= 65536
+        ? {text: bytes.toString('utf8')} : {}),
+    });
   }
   // Detect source edits during transfer before reporting the mirror as complete.
   const after = await listAll(request, `${GH}/releases/${release.id}/assets`);
   const identity = list => JSON.stringify(list.map(a => [a.id, a.name, a.size, a.updated_at, a.digest]).sort((a, b) => a[0] - b[0]));
   if (identity(after) !== identity(assets)) throw new Error('GitHub attachments changed during sync; rerun after publishing is complete');
+  if (await publishDomesticManifest(tag, verified, request)) log('Published verified Gitee update feed');
   await request(`${GT}/releases/${target.id}`, {method: 'PATCH', body: {...fields, body: releaseBody(release, plan.linked, true)}});
   log(`Synced ${tag}: ${plan.mirrored.length} verified attachments, ${plan.linked.length} GitHub-only links`);
   return plan;

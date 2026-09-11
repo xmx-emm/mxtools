@@ -1,0 +1,78 @@
+name: Publish signed Windows release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-signed-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'xmx-emm/mxtools' && github.ref == 'refs/heads/master'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    defaults:
+      run:
+        working-directory: tauri/mxtools
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: tauri/mxtools
+      - uses: actions/checkout@v4
+        with:
+          repository: xmx-emm/windows_tool
+          ref: 63be28c24cc093a8d160d902cb983331dc9c9e2e
+          path: rust/windows_tool
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tauri/mxtools/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: tauri/mxtools/src-tauri -> target
+          key: windows-tool-63be28c24cc093a8d160d902cb983331dc9c9e2e
+      - name: Validate release version
+        id: version
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $cargo = Get-Content src-tauri/Cargo.toml -Raw
+          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $package.version -ne $version -or $cargo -notmatch ('(?m)^version = "' + [regex]::Escape($version) + '"')) { throw 'Release versions differ' }
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      - name: Build signed release artifacts
+        run: npm run "build window release"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Verify signature rejection and real Windows upgrade
+        run: ./scripts/test-release-upgrade.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows-release
+          path: tauri/mxtools/src-tauri/target/release/*/publish/*
+          if-no-files-found: error
+      - name: Publish validated release
+        run: ./scripts/publish-signed-release.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+  mirror:
+    needs: publish
+    uses: ./.github/workflows/sync-gitee-release.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}
+    secrets:
+      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}

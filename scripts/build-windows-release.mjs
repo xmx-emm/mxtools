@@ -130,11 +130,8 @@ async function restoreReleaseBinary() {
 }
 
 const signedUpdater = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY);
-if (signedUpdater && !process.env.MXTOOLS_UPDATER_PUBLIC_KEY?.trim()) {
-  throw new Error('MXTOOLS_UPDATER_PUBLIC_KEY is required for signed updater builds');
-}
-if (!signedUpdater && process.env.MXTOOLS_UPDATER_PUBLIC_KEY?.trim()) {
-  throw new Error('TAURI_SIGNING_PRIVATE_KEY is required when enabling the updater public key');
+if (!signedUpdater || !conf.plugins?.updater?.pubkey?.trim()) {
+  throw new Error('Release builds require TAURI_SIGNING_PRIVATE_KEY and the committed updater public key');
 }
 await runTauri(['build', '--no-bundle']);
 await saveReleaseBinary();
@@ -160,6 +157,17 @@ try {
   );
   await runNode('scripts/rename-release-builds.mjs', ['--store-only']);
   await runNode('scripts/release-size-budget.mjs');
+  const publishDir = path.join(releaseDir, conf.version, 'publish');
+  await mkdir(publishDir, {recursive: true});
+  for (const [source, target] of [
+    ['安装版', 'setup'], ['便携版', 'portable'], ['微软商店版', 'offline'],
+  ]) {
+    await copyFile(path.join(releaseDir, conf.version, `萌新工具箱 ${conf.version} ${source}.exe`),
+      path.join(publishDir, `MxTools_${conf.version}_x64_${target}.exe`));
+  }
+  for (const name of [`MxTools_${conf.version}_x64_setup.exe.sig`, 'latest.json']) {
+    await copyFile(path.join(releaseDir, conf.version, 'updater', name), path.join(publishDir, name));
+  }
 } finally {
   await restoreReleaseBinary();
   await rm(releaseBinarySnapshot, {force: true});
