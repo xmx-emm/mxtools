@@ -360,10 +360,9 @@ noncommercial mirrors and public modified versions are allowed.
   language-owned subtitles, without replacing partial personal profiles.
 - The September 2026 dependency audit fixes are pinned by `package-lock.json`
   (Vite 8.2.2, PostCSS 8.5.28, nanoid 3.3.18, immutable 5.1.9 and development
-  parser fixes). On 2026-09-11 the production-only npm audit has zero findings;
-  the full audit reports two moderate Vitest/@vitest/mocker development-only
-  findings (GHSA-82fw-gwwq-j7x9). The desktop bundle does not include them;
-  upgrading the test runner to a patched major remains follow-up work.
+  parser fixes). Vitest is upgraded to the patched 4.1.11 line for
+  GHSA-82fw-gwwq-j7x9; full npm audit reports zero findings. The Node test
+  environment and frontend/native integration runner remain unchanged.
 
 - Closing the main window to the background checks the in-memory Apex and PUBG
   editors first. The shared confirmation can keep the window open and navigate
