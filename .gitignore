@@ -39,3 +39,7 @@ components.d.ts
 .codex-v4-patchtest-*/
 .codex-v4-verified-patchtest-*/
 /mxtools-web-v4-*.patch
+
+# Local release and marketing covers
+/artifacts/marketing/covers/
+/docs/releases/covers/
