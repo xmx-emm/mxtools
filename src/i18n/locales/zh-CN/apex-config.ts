@@ -27,6 +27,7 @@ export const apexConfigMessages = {
     },
     empty: '没有匹配的设置',
     bindingConflict: '按键 {key} 已被“{action}”占用',
+    bindingReassigned: '按键 {key} 已从“{previous}”改绑到“{action}”，原绑定已清除。点击“应用”后保存。',
     bindingRecording: '请按下按键…',
     bindingEdit: '点击后直接按下新的键盘、鼠标或滚轮按键',
     bindingEditSlot: '编辑“{action}”的第 {slot} 个键位',

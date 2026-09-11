@@ -293,12 +293,25 @@ function updateBinding(action: ApexBindingAction, slot: 0 | 1, input: string) {
     toast.error(t('apexGameSettings.bindingConflict', {key: input, action: bindingName(conflict)}));
     return;
   }
+  const replaced = input && binding?.input !== input
+    ? apex_store.game_settings_bindings.filter(item => (
+      item.id !== binding?.id && item.editable && item.input.toUpperCase() === input.toUpperCase()
+    )).map(item => ({binding: item, name: bindingName(item)}))
+    : [];
   apex_store.set_game_binding_slot(
     action.template.id,
     binding?.id ?? null,
     input,
     slot,
   );
+  const cleared = replaced.filter(item => !item.binding.input);
+  if (cleared.length) {
+    toast.warning(t('apexGameSettings.bindingReassigned', {
+      key: input,
+      previous: [...new Set(cleared.map(item => item.name))].join(' / '),
+      action: bindingName(action.template),
+    }), {timeout: 6000});
+  }
 }
 
 function enumItems(field: ApexGameSettingDefinition) {

@@ -27,6 +27,7 @@ export const apexConfigMessages = {
     },
     empty: 'No matching settings',
     bindingConflict: 'Key {key} is already used by "{action}"',
+    bindingReassigned: 'Key {key} was reassigned from "{previous}" to "{action}" and the previous binding was cleared. Click Apply to save.',
     bindingRecording: 'Press a key…',
     bindingEdit: 'Click, then press the new keyboard, mouse, or wheel input',
     bindingEditSlot: 'Edit binding {slot} for “{action}”',

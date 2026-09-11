@@ -225,6 +225,8 @@ noncommercial mirrors and public modified versions are allowed.
   Manual binding edits take over an occupied editable input across both slots:
   the previous binding is cleared in the draft and deleted in the same apply
   request. Non-editable bindings remain protected from reassignment.
+  The editor warns after taking over an editable input, naming the old/new actions
+  and clarifying that the draft still needs Apply to save.
   The first binding-button click starts recording; the next left click on that
   button records MOUSE1 on click, preventing its trailing click from restarting
   capture. Clicking another interactive control exits capture without binding it.
