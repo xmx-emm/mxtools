@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {promisify} from 'node:util';
 import {fileURLToPath, URL} from 'node:url';
+import {uploadGiteeAttachment} from './gitee-upload.mjs';
 
 const SOURCE = 'xmx-emm/mxtools';
 const DESTINATION = 'mengxin_code/mxtools';
@@ -49,6 +50,9 @@ function releaseBody(release, linked, complete) {
 
 export function createTransport({githubToken = '', giteeToken = '', fetchImpl = globalThis.fetch, sleep = delay} = {}) {
   async function request(url, {method = 'GET', body, allow404 = false, binary = false, maxBytes = 100_000_000} = {}) {
+    if (method === 'POST' && body instanceof globalThis.FormData) {
+      return uploadGiteeAttachment(url, body, giteeToken);
+    }
     const headers = {};
     if (!binary) {
       headers.Accept = 'application/json';
@@ -61,8 +65,7 @@ export function createTransport({githubToken = '', giteeToken = '', fetchImpl = 
     for (let attempt = 0; attempt < attempts; attempt++) {
       let response;
       try {
-        response = await fetchImpl(url, {...options, redirect: 'manual',
-          signal: globalThis.AbortSignal.timeout(body instanceof globalThis.FormData ? 300_000 : 120_000)});
+        response = await fetchImpl(url, {...options, redirect: 'manual', signal: globalThis.AbortSignal.timeout(120_000)});
         // Public download redirects never carry either API token.
         if (binary) {
           for (let hop = 0; response.status >= 300 && response.status < 400 && hop < 5; hop++) {

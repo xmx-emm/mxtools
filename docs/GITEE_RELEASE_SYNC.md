@@ -32,6 +32,8 @@ Actions variable `GITEE_MAX_ASSET_BYTES`。仓库总附件配额仍由 Gitee 执
 不会自动删除或覆盖。请先核查冲突，避免改写已经分发的正式版本。
 
 读取请求对网络错误、429 和 5xx 最多尝试三次；写入请求不盲目自动重试。
+附件上传使用 runner 自带的 curl（HTTP/1.1），令牌经 stdin 传入，不放在参数或文件中。
+上传有连接、低速和总时限；Node fetch 在实际 Gitee 上传中持续超时，未用于附件 POST。
 同步中断时发行说明保留未完成提示。下载和校验完成后才写入完成提示。
 若发布后继续添加附件，需要手动补同步；`release.published` 不监听附件上传事件。
 若未来由另一个工作流使用默认 `GITHUB_TOKEN` 发布 Release，该事件不会触发

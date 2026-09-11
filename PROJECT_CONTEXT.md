@@ -286,6 +286,8 @@ noncommercial mirrors and public modified versions are allowed.
   It pushes only the release tag (no force or branch mirror), verifies attachment
   SHA-256 on both sides, reuses identical uploads on retry, and links files above
   the default 100 MB limit back to GitHub. See `docs/GITEE_RELEASE_SYNC.md`.
+  Multipart uploads use `scripts/gitee-upload.mjs` with curl HTTP/1.1 and
+  credentials on stdin after native fetch uploads timed out against Gitee.
   This does not enable the app's Gitee updater or produce a domestic manifest.
 - Online updates are implemented in `src-tauri/src/app_update.rs` and
   `src/stores/app_update.ts`, using GitHub Releases and signed downloads.
