@@ -80,7 +80,8 @@ use crate::game::apex_q::{
     apex_q_suggested_screenshot_dir, apex_q_test_ocr,
 };
 use crate::game::apex_settings::{
-    apply_apex_game_settings, get_apex_game_settings, restore_apex_game_settings,
+    apply_apex_game_settings, get_apex_game_settings, get_apex_snapshot_defaults,
+    restore_apex_game_settings,
 };
 use crate::game::pubg::{
     check_pubg_skip_intro_movies_disabled, get_pubg_launch_option, get_pubg_logs_folder_path,
@@ -419,6 +420,7 @@ pub fn run() {
             set_apex_videoconfig_readonly,
             get_apex_config_file,
             get_apex_game_settings,
+            get_apex_snapshot_defaults,
             apply_apex_game_settings,
             restore_apex_game_settings,
             list_apex_config_history,

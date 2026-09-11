@@ -56,8 +56,9 @@ noncommercial mirrors and public modified versions are allowed.
   reserve each image's aspect ratio before lazy loading to keep anchors stable
   (update these ratios when replacing gallery assets). Long action labels wrap.
   Hover tips (Vuetify and native-title replacements)
-  share compact typography and a 320 px width limit; native-title positioning
-  uses untransformed layout dimensions and clamps both axes to the viewport.
+  share compact typography and a 320 px width limit, except game-version build
+  identities, which stay on one line; native-title positioning uses untransformed
+  layout dimensions and clamps both axes to the viewport.
 - All five Toastification notification types share a uniform thin border with
   no side stripe. Their surface, text, and icon colors use the global toast
   tokens, with dark overrides on `html.dark` for body-mounted notifications.
@@ -218,6 +219,12 @@ noncommercial mirrors and public modified versions are allowed.
   duplicate action/context slots, then create the new bindings from an
   existing template or an allowlisted direct command. Mutation order
   therefore contains all deletes before creates.
+  Manual binding edits take over an occupied editable input across both slots:
+  the previous binding is cleared in the draft and deleted in the same apply
+  request. Non-editable bindings remain protected from reassignment.
+  The first binding-button click starts recording; the next left click on that
+  button records MOUSE1 on click, preventing its trailing click from restarting
+  capture. Clicking another interactive control exits capture without binding it.
 - Apex startup repair is Beta-gated and runs in the independent
   `/repair-apex-launch` WebView; `src-tauri/src/game/apex_launch_repair.rs`
   owns install discovery, log classification, the action allowlist, the repair
@@ -263,6 +270,10 @@ noncommercial mirrors and public modified versions are allowed.
   dashboard, command search, category indexes, shortcuts, tray entries, and
   direct main-window routes as applicable.
 - GitHub Actions release gates are defined in `.github/workflows/ci.yml`. The
+  0.0.7 release pins windows_tool revision
+  `63be28c24cc093a8d160d902cb983331dc9c9e2e`, including EA installation validation.
+  Both the local dependency and the published GitHub mirror contain this fix.
+  The
   Rust job pins the GitHub mirror revision of the external `windows_tool` path
   dependency because `Cargo.lock` does not record a Git revision for path
   packages; dependency upgrades must sync that mirror and advance the pin. The
@@ -316,7 +327,10 @@ noncommercial mirrors and public modified versions are allowed.
   language-owned subtitles, without replacing partial personal profiles.
 - The September 2026 dependency audit fixes are pinned by `package-lock.json`
   (Vite 8.2.2, PostCSS 8.5.28, nanoid 3.3.18, immutable 5.1.9 and development
-  parser fixes). Full and production-only npm audits pass with zero findings.
+  parser fixes). On 2026-09-11 the production-only npm audit has zero findings;
+  the full audit reports two moderate Vitest/@vitest/mocker development-only
+  findings (GHSA-82fw-gwwq-j7x9). The desktop bundle does not include them;
+  upgrading the test runner to a patched major remains follow-up work.
 
 - Closing the main window to the background checks the in-memory Apex and PUBG
   editors first. The shared confirmation can keep the window open and navigate
@@ -375,6 +389,28 @@ noncommercial mirrors and public modified versions are allowed.
   whole export. Snapshot parsing rejects launch-option control characters and
   invalid values for known game-setting keys before calling native mutation
   APIs.
+  Import and export use dedicated Tauri windows with normal
+  ApexConfigImportPage / ApexConfigExportPage components, without dialog mode.
+  ApexConfigWindow owns account initialization, load/error states, fixed title
+  and action bars, and scrolling content. Both window labels belong to the
+  shared capability. Window-ready events request transient file/account/snapshot
+  payloads from the opener; repeated opens and reloads use the same handshake.
+  Export takes the opener's current draft and writes that exact preview, so
+  unsaved edits are included without rereading the disk in the new window.
+  Both pages use ApexSnapshotSection: initially collapsed native details,
+  full-row summaries with right-side chevrons and independent selection boxes.
+  Expanded tables show every value, file, binding context, and occurrence.
+  Loading failures show an error and retry; native close is blocked during writes.
+  Online presets use the same import page.
+  Export defaults to comparing against game defaults (including saved custom
+  values), with an inline opt-out at the end of the hint. The read-only
+  get_apex_snapshot_defaults IPC reuses hardware/language default generation in
+  memory and parses the embedded binding template; it never resets game files.
+  Unknown defaults remain included. Preview counts and serialization share the
+  filtered snapshot. Sparse binding exports use version 2 with bindingsMode=patch
+  and empty inputs for explicit removals; imports merge these into the destination
+  instead of clearing unrelated bindings. Version 1 remains full binding replacement.
+  Older readers reject version 2 rather than misinterpreting a partial binding list.
 - Snapshot import/export always excludes machine-local audio endpoint IDs
   `miles_output_device` and `voice_input_device`, and excludes the Apex-managed
   video keys `setting.configversion` and `setting.new_shadow_settings` in both directions.

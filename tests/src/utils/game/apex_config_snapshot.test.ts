@@ -137,10 +137,10 @@ describe('parseApexConfigSnapshot', () => {
     ).toThrow('apex.configSnapshot.errors.unknownKind');
   });
 
-  it('rejects version 2 snapshots', () => {
+  it('rejects unsupported future snapshots', () => {
     expect(() =>
       parseApexConfigSnapshot(JSON.stringify({
-        version: 2,
+        version: 3,
         kind: 'apex-config-snapshot',
         exportedAt: '2026-07-14T00:00:00.000Z',
         launchOptions: {raw: ''},
@@ -248,7 +248,7 @@ describe('parseApexConfigSnapshot', () => {
     }
   });
 
-  it('rejects duplicate binding identities and contexts outside the two slots', () => {
+  it('rejects duplicate binding identities and accepts repeated action slots', () => {
     const base = {
       version: 1,
       kind: 'apex-config-snapshot',
@@ -261,7 +261,7 @@ describe('parseApexConfigSnapshot', () => {
         settings: {}, profile: {},
         bindings: [binding, {...binding, input: 'S', occurrence: 1}],
       },
-    }))).toThrow('apex.configSnapshot.errors.invalidBindings');
+    }))).not.toThrow();
     expect(() => parseApexConfigSnapshot(JSON.stringify({
       ...base,
       gameSettings: {

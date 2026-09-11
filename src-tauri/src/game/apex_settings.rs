@@ -1757,6 +1757,61 @@ pub async fn get_apex_game_settings() -> IpcResult<ApexGameSettingsReport> {
     blocking_cmd(load_report).await.map_err(apex_settings_error)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApexSnapshotDefaults {
+    video_config: HashMap<String, String>,
+    settings: HashMap<String, String>,
+    profile: HashMap<String, String>,
+    bindings: Vec<ApexBinding>,
+}
+
+fn snapshot_defaults_from_configs(
+    defaults: &crate::game::apex_defaults::ApexDefaultConfigs,
+) -> Result<ApexSnapshotDefaults, String> {
+    let settings = ApexCfgDocument::from_content(
+        crate::game::apex_defaults::APEX_DEFAULT_SETTINGS_CFG,
+        ApexFileEncoding::Utf8,
+    )?;
+    let profile = ApexCfgDocument::from_content(&defaults.profile, ApexFileEncoding::Utf8)?;
+    let video = windows_tool::vdf::parse_vdf_string(&defaults.video)?;
+    let root = video
+        .get("VideoConfig")
+        .ok_or("apex.history.errors.defaultResourcesChanged")?;
+    let windows_tool::vdf::VdfValue::Object(entries) = root else {
+        return Err("apex.history.errors.defaultResourcesChanged".into());
+    };
+    Ok(ApexSnapshotDefaults {
+        video_config: entries
+            .keys()
+            .filter_map(|key| {
+                root.get_value(key)
+                    .map(|value| (key.clone(), value.to_string()))
+            })
+            .collect(),
+        settings: settings.key_values().into_iter().collect(),
+        profile: profile.key_values().into_iter().collect(),
+        bindings: binding_groups(&settings)
+            .into_iter()
+            .map(|group| group.public)
+            .filter(|binding| binding.editable)
+            .collect(),
+    })
+}
+
+/// Read installation/hardware and construct defaults in memory. Never resets files.
+#[tauri::command]
+pub async fn get_apex_snapshot_defaults(
+    launcher: crate::game::apex_history::ApexLauncherRef,
+) -> IpcResult<ApexSnapshotDefaults> {
+    blocking_cmd(move || {
+        let defaults = crate::game::apex_defaults::generate(&launcher)?;
+        snapshot_defaults_from_configs(&defaults)
+    })
+    .await
+    .map_err(apex_settings_error)
+}
+
 #[tauri::command]
 pub async fn apply_apex_game_settings(
     app: tauri::AppHandle,
@@ -2294,5 +2349,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_review_settings.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_snapshot_defaults.rs"
     ));
 }

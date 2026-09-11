@@ -439,6 +439,13 @@ html::-webkit-scrollbar {
   line-height: 1.45;
 }
 
+/* Build identifiers are easier to scan as one continuous value. */
+.v-tooltip > .v-overlay__content.game-version-tooltip {
+  max-width: none;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .mx-native-tooltip {
   position: fixed;
   z-index: 10050;

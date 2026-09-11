@@ -33,7 +33,7 @@ onBeforeUnmount(() => { generation++; window.removeEventListener('focus', onFocu
 </script>
 
 <template>
-  <v-tooltip :text="tooltip" location="top">
+  <v-tooltip :text="tooltip" content-class="mx-tooltip game-version-tooltip" location="top" max-width="none">
     <template #activator="{props: tooltipProps}">
       <span v-bind="tooltipProps" class="game-version-status" :class="{'text-warning': status === 'unverified'}" role="status">
         <v-icon v-if="status === 'unverified'" icon="mdi-alert-outline" size="14"/>

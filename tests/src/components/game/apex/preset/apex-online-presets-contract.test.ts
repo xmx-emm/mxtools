@@ -22,8 +22,7 @@ describe('apex online presets contract', () => {
   it('uses anonymous use flow that lands in the existing import preview transaction', () => {
     expect(dialog).toContain('onlinePresetUse(preset.id)');
     expect(dialog).toContain('parseApexConfigSnapshot(JSON.stringify(result.payload))');
-    expect(dialog).toContain('apex_store.set_config_import_snapshot(snapshot)');
-    expect(dialog).toContain('apex_store.open_config_import_dialog()');
+    expect(dialog).toContain("await openApexConfigSnapshotWindow('import', undefined, apex_store.launcher_selection_key, JSON.stringify(snapshot))");
   });
 
   it('gates publish, comment, and report on the online account state', () => {

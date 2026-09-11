@@ -19,6 +19,7 @@ import type {
   OnlinePresetScope,
 } from '@/types/online.ts';
 import {parseApexConfigSnapshot} from '@/utils/game/apex_config_snapshot.ts';
+import {openApexConfigSnapshotWindow} from '@/utils/windows.ts';
 
 const props = defineProps<{modelValue: boolean}>();
 const emit = defineEmits<{(event: 'update:modelValue', value: boolean): void}>();
@@ -152,8 +153,7 @@ async function use_preset(preset: OnlinePresetListItem) {
   try {
     const result = await onlinePresetUse(preset.id);
     const snapshot = parseApexConfigSnapshot(JSON.stringify(result.payload));
-    apex_store.set_config_import_snapshot(snapshot);
-    apex_store.open_config_import_dialog();
+    await openApexConfigSnapshotWindow('import', undefined, apex_store.launcher_selection_key, JSON.stringify(snapshot));
     close();
   } catch (error) {
     toast_error(error);

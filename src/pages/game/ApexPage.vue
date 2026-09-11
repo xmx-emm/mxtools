@@ -24,12 +24,10 @@ import ApexVideoConfigApply from '@/components/game/apex/video_config/ApexVideoC
 import ApexVideoConfigRecoveryNotice from '@/components/game/apex/video_config/ApexVideoConfigRecoveryNotice.vue';
 import ApexGameSettings from '@/components/game/apex/settings/ApexGameSettings.vue';
 import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSettingsApply.vue';
-import ApexConfigExportDialog from '@/components/game/apex/preset/ApexConfigExportDialog.vue';
-import ApexConfigImportDialog from '@/components/game/apex/preset/ApexConfigImportDialog.vue';
 import ApexOnlinePresetsDialog from '@/components/game/apex/preset/ApexOnlinePresetsDialog.vue';
 import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
 import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
-import {openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
+import {openApexConfigSnapshotWindow, openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
 import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
@@ -402,8 +400,12 @@ function open_apex_q() {
   void openApexQWindow().catch((error) => toast.error(String(error)));
 }
 
-function open_config_export() {
-  apex_store.open_config_export_dialog();
+async function open_config_export() {
+  try {
+    const snapshot = await apex_store.build_config_snapshot({launchOptions: true, videoConfig: true,
+      gameSettings: true, aiming: true, controller: true, bindings: true});
+    await openApexConfigSnapshotWindow('export', undefined, apex_store.launcher_selection_key, JSON.stringify(snapshot));
+  } catch (error) { toast.error(String(error)); }
 }
 
 const online_presets_dialog = ref(false);
@@ -426,9 +428,8 @@ async function open_config_import() {
     });
     if (!filepath || typeof filepath !== 'string') return;
     const text = await readUtf8File({path: filepath});
-    const snapshot = parseApexConfigSnapshot(text);
-    apex_store.set_config_import_snapshot(snapshot);
-    apex_store.open_config_import_dialog();
+    parseApexConfigSnapshot(text);
+    void openApexConfigSnapshotWindow('import', filepath, apex_store.launcher_selection_key).catch((error) => toast.error(String(error)));
   } catch (e) {
     console.warn('open apex config import failed', e);
     const key =
@@ -689,8 +690,6 @@ async function open_config_import() {
     <ApexSemiAutomaticDownloadLanguage v-if="apex_store.download_miles_language_semi_automatic_dialog"/>
     <ApexAutoDownloadLanguage v-if="apex_store.download_miles_language_auto_dialog"/>
     <ApexAutoDownloadMilesLanguageEa v-if="apex_store.download_miles_language_auto_dialog_ea"/>
-    <ApexConfigExportDialog v-if="apex_store.config_export_dialog"/>
-    <ApexConfigImportDialog v-if="apex_store.config_import_dialog"/>
     <ApexOnlinePresetsDialog v-model="online_presets_dialog"/>
     <ApexConfigHistoryDialog/>
     <ApexResetDefaultsDialog/>

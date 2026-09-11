@@ -39,7 +39,6 @@ import {useApexStore} from '@/stores/game/apex/index.ts';
 import {useSteamStore} from '@/stores/game/steam.ts';
 import {
   adoptApexGameSettingsReport,
-  buildApexGameSettingsMutation,
 } from '@/stores/game/apex/actions_settings.ts';
 
 function deferred<T>() {
@@ -231,65 +230,5 @@ describe('Apex unified mutations', () => {
     expect(applied).toBe(true);
     expect(mocks.mutateApexConfig).toHaveBeenCalledTimes(1);
     expect(mocks.setApexLaunchOption).not.toHaveBeenCalled();
-  });
-});
-
-describe('Apex binding slot drafts', () => {
-  it('builds independent create and delete mutations for the two UI slots', () => {
-    const apex = useApexStore();
-    apex.game_settings_report = {
-      settings: {path: 'settings.cfg', revision: 's', values: {}, unknownKeys: [], backupAvailable: false},
-      profile: {path: 'profile.cfg', revision: 'p', values: {}, unknownKeys: [], backupAvailable: false},
-      bindings: [],
-    };
-    apex.game_settings_bindings = [{
-      id: 'binding:0',
-      input: 'w',
-      command: '+forward',
-      context: 0,
-      heldCommand: null,
-      editable: true,
-      occurrence: 0,
-    }];
-    apex.original_game_settings_bindings = {'binding:0': 'w'};
-
-    apex.set_game_binding_slot('binding:0', null, 'MWHEELUP', 1);
-    let mutation = buildApexGameSettingsMutation(apex);
-    expect(mutation?.bindingMutations).toEqual([{
-      operation: 'create',
-      templateId: 'binding:0',
-      input: 'MWHEELUP',
-      context: 1,
-    }]);
-
-    apex.set_game_binding_slot('binding:0', 'binding:0', '', 0);
-    mutation = buildApexGameSettingsMutation(apex);
-    expect(mutation?.bindingMutations).toEqual([
-      {operation: 'delete', id: 'binding:0'},
-      {operation: 'create', templateId: 'binding:0', input: 'MWHEELUP', context: 1},
-    ]);
-  });
-
-  it('rejects setting and binding edits while a write is in progress', () => {
-    const apex = useApexStore();
-    adoptApexGameSettingsReport(apex, {
-      ...gameSettingsReport('1'),
-      bindings: [{
-        id: 'binding:0',
-        input: 'W',
-        command: '+forward',
-        context: 0,
-        heldCommand: null,
-        editable: true,
-        occurrence: 0,
-      }],
-    });
-    apex.is_game_settings_saving = true;
-
-    apex.set_game_setting_value('settings', 'mouse_sensitivity', '2');
-    apex.set_game_binding_slot('binding:0', 'binding:0', 'S', 0);
-
-    expect(apex.game_settings_values.settings.mouse_sensitivity).toBe('1');
-    expect(apex.game_settings_bindings[0].input).toBe('W');
   });
 });

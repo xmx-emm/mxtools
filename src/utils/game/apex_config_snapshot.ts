@@ -158,6 +158,7 @@ function validateGameSettingRecord(
 ): void {
   if (Object.entries(value).some(([key, item]) => (
     !isValidApexGameSettingValue(ApexGameSettingsData, file, key, item)
+      && !(file === 'profile' && key === 'reticle_color' && /^\d+(?:\s+\d+){2}$/.test(item))
   ))) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidGameSettings');
   }
@@ -192,13 +193,13 @@ function validateVideoConfigRecord(value: Record<string, string>): void {
   }
 }
 
-function isApexBindingSnapshot(value: unknown): value is ApexBindingSnapshot {
+function isApexBindingSnapshot(value: unknown, allowRemoval = false): value is ApexBindingSnapshot {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;
   }
   const item = value as Record<string, unknown>;
   return typeof item.input === 'string'
-    && item.input.length > 0
+    && (item.input.length > 0 || allowRemoval)
     && typeof item.command === 'string'
     && item.command.length > 0
     && typeof item.context === 'number'
@@ -221,14 +222,6 @@ function apexBindingSnapshotIdentity(binding: ApexBindingSnapshot): string {
   ].join('\u001f');
 }
 
-function apexBindingSnapshotSlot(binding: ApexBindingSnapshot): string {
-  return [
-    binding.command.toLowerCase(),
-    (binding.heldCommand ?? '').toLowerCase(),
-    binding.context,
-  ].join('\u001f');
-}
-
 /** 从当前状态组装快照（未勾选的块省略字段） */
 export function buildApexConfigSnapshot(input: {
   selection: ApexConfigSnapshotExportSelection;
@@ -245,7 +238,7 @@ export function buildApexConfigSnapshot(input: {
   }
 
   const snapshot: ApexConfigSnapshot = {
-    version: APEX_CONFIG_SNAPSHOT_VERSION,
+    version: selection.bindings && input.gameSettings?.bindingsMode === 'patch' ? 2 : APEX_CONFIG_SNAPSHOT_VERSION,
     kind: APEX_CONFIG_SNAPSHOT_KIND,
     exportedAt: input.exportedAt ?? new Date().toISOString(),
   };
@@ -279,6 +272,7 @@ export function buildApexConfigSnapshot(input: {
       ...(selection.bindings
         ? {bindings: (input.gameSettings?.bindings ?? []).map(binding => ({...binding}))}
         : {}),
+      ...(selection.bindings && input.gameSettings?.bindingsMode === 'patch' ? {bindingsMode: 'patch' as const} : {}),
     };
     if (hasGameSettingsSnapshotContent(gameSettings)) snapshot.gameSettings = gameSettings;
   }
@@ -307,7 +301,7 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
   if (obj.kind !== APEX_CONFIG_SNAPSHOT_KIND) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.unknownKind');
   }
-  if (obj.version !== APEX_CONFIG_SNAPSHOT_VERSION) {
+  if (obj.version !== APEX_CONFIG_SNAPSHOT_VERSION && obj.version !== 2) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.unsupportedVersion');
   }
   if (typeof obj.exportedAt !== 'string') {
@@ -315,7 +309,7 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
   }
 
   const snapshot: ApexConfigSnapshot = {
-    version: APEX_CONFIG_SNAPSHOT_VERSION,
+    version: obj.version,
     kind: APEX_CONFIG_SNAPSHOT_KIND,
     exportedAt: obj.exportedAt,
   };
@@ -359,20 +353,22 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
     validateGameSettingRecord('settings', gameSettings);
     validateGameSettingRecord('profile', gameProfile);
     let bindings: ApexGameSettingsSnapshot['bindings'];
+    if (game.bindingsMode !== undefined && (game.bindingsMode !== 'patch' || obj.version !== 2)) {
+      throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidBindings');
+    }
     if (game.bindings !== undefined) {
-      if (!Array.isArray(game.bindings) || !game.bindings.every(isApexBindingSnapshot)) {
+      if (!Array.isArray(game.bindings) || !game.bindings.every(binding => isApexBindingSnapshot(binding, game.bindingsMode === 'patch'))) {
         throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidBindings');
       }
       const identities = new Set<string>();
-      const slots = new Set<string>();
       for (const binding of game.bindings) {
         const identity = apexBindingSnapshotIdentity(binding);
-        const slot = apexBindingSnapshotSlot(binding);
-        if (identities.has(identity) || slots.has(slot)) {
+        // Apex legitimately stores multiple bindings for one action/context
+        // (distinguished by occurrence), e.g. F6/F8 markers and ESCAPE/START.
+        if (identities.has(identity)) {
           throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidBindings');
         }
         identities.add(identity);
-        slots.add(slot);
       }
       bindings = game.bindings.map(binding => ({...binding}));
     }
@@ -380,6 +376,7 @@ export function parseApexConfigSnapshot(text: string): ApexConfigSnapshot {
       settings: {...gameSettings},
       profile: {...gameProfile},
       ...(bindings !== undefined ? {bindings} : {}),
+      ...(game.bindingsMode === 'patch' ? {bindingsMode: 'patch' as const} : {}),
     };
     if (hasGameSettingsSnapshotContent(parsedGameSettings)) {
       snapshot.gameSettings = parsedGameSettings;

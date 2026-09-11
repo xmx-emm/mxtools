@@ -111,6 +111,8 @@ export interface ApexBindingSnapshot {
 }
 
 export interface ApexGameSettingsSnapshot {
+  /** Sparse binding changes; an empty input explicitly removes that identity. */
+  bindingsMode?: 'patch';
   settings: Record<string, string>;
   profile: Record<string, string>;
   bindings?: ApexBindingSnapshot[];

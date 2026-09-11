@@ -110,7 +110,9 @@ function startRecording() {
 
 function toggleRecording() {
   if (props.disabled) return;
-  if (recording.value) stopRecording();
+  // The opening click only arms capture; the next click records the left button.
+  // Commit on click so its trailing event cannot immediately restart recording.
+  if (recording.value) commit('MOUSE1');
   else startRecording();
 }
 

@@ -717,6 +717,15 @@ export function resetApexToGameDefaults(args: {
   return ipcInvoke<ApexResetResult>('reset_apex_to_game_defaults', args);
 }
 
+export function getApexSnapshotDefaults(args: {launcher: ApexLauncherRef}): Promise<{
+  videoConfig: Record<string, string>;
+  settings: Record<string, string>;
+  profile: Record<string, string>;
+  bindings: import('@/types/apex_game_settings.ts').ApexBindingSnapshot[];
+}> {
+  return ipcInvoke('get_apex_snapshot_defaults', args);
+}
+
 export function getPrimaryDisplayInfo(): Promise<PrimaryDisplayInfo> {
   return ipcInvoke<PrimaryDisplayInfo>('get_primary_display_info');
 }

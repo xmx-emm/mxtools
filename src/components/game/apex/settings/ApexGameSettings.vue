@@ -285,7 +285,9 @@ function updateBinding(action: ApexBindingAction, slot: 0 | 1, input: string) {
   if (settingsBusy.value) return;
   const binding = action.slots[slot];
   const conflict = input
-    ? findApexBindingConflict(apex_store.game_settings_bindings, binding?.id ?? '', input)
+    ? findApexBindingConflict(
+      apex_store.game_settings_bindings.filter(item => !item.editable), binding?.id ?? '', input,
+    )
     : undefined;
   if (conflict) {
     toast.error(t('apexGameSettings.bindingConflict', {key: input, action: bindingName(conflict)}));

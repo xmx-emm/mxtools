@@ -6,6 +6,8 @@
     "main",
     "about-window",
     "apex-quick-preset-window",
+    "apex-config-export-window",
+    "apex-config-import-window",
     "repair-store-window",
     "repair-onedrive-window",
     "repair-icon-cache-window",

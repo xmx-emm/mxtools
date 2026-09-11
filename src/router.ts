@@ -34,6 +34,8 @@ const AboutView = () => import('./views/AboutView.vue');
 const ApexQOverlayView = () => import('./views/ApexQOverlayView.vue');
 const ApexQWindowView = () => import('./views/ApexQWindowView.vue');
 const ApexQuickPresetWindowView = () => import('./views/ApexQuickPresetWindowView.vue');
+const ApexConfigExportWindowView = () => import('./views/ApexConfigExportWindowView.vue');
+const ApexConfigImportWindowView = () => import('./views/ApexConfigImportWindowView.vue');
 const SettingsView = () => import('./views/SettingsView.vue');
 const DownloadsPage = () => import('./pages/DownloadsPage.vue');
 const GamePage = () => import('./pages/GamePage.vue');
@@ -61,6 +63,8 @@ export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = [
   '/apex-q-overlay',
   '/apex-q',
   '/apex-quick-preset',
+  '/apex-config-import',
+  '/apex-config-export',
   '/repair-store',
   '/repair-onedrive',
   '/repair-icon-cache',
@@ -226,6 +230,8 @@ const routes = [
   { path: '/about', component: AboutView },
   { path: '/apex-q', component: ApexQWindowView },
   { path: '/apex-quick-preset', component: ApexQuickPresetWindowView },
+  { path: '/apex-config-export', component: ApexConfigExportWindowView },
+  { path: '/apex-config-import', component: ApexConfigImportWindowView },
   { path: '/apex-q-overlay', component: ApexQOverlayView },
   { path: '/repair-store', component: AppRepairPage, meta: {repairToolTarget: 'store'} },
   { path: '/repair-onedrive', component: AppRepairPage, meta: {repairToolTarget: 'onedrive'} },

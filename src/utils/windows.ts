@@ -1,8 +1,9 @@
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
 import type {WebviewOptions} from '@tauri-apps/api/webview';
 import type {WindowOptions} from '@tauri-apps/api/window';
-import {emit} from '@tauri-apps/api/event';
+import {emit, emitTo} from '@tauri-apps/api/event';
 import i18n from '@/i18n/i18n.ts';
+import {prepareSnapshotWindow, SNAPSHOT_WINDOW_PROBE} from '@/utils/game/apex_snapshot_window.ts';
 import {
   APEX_Q_WINDOW_NAVIGATE_EVENT,
   type ApexQWindowTarget,
@@ -149,6 +150,24 @@ async function openApexQuickPresetWindow(accountKey: string | null = null) {
   await emitApexQuickPresetAccount(accountKey).catch(() => undefined);
 }
 
+async function openApexConfigSnapshotWindow(kind: 'import' | 'export', path?: string, account?: string | null, snapshot?: string) {
+  const route = `apex-config-${kind}`;
+  const request = {path: path ?? '', account: account ?? '', snapshot: snapshot ?? ''};
+  await prepareSnapshotWindow(kind, request);
+  await openWebWindow(route, {
+    url: `#/${route}`,
+    width: 760,
+    height: 760,
+    minWidth: 620,
+    minHeight: 520,
+    title: String(i18n.global.t(`apex.configSnapshot.${kind}Title`)),
+    decorations: false,
+    center: true,
+    preventOverflow: true,
+  });
+  await emitTo(`${route}-window`, SNAPSHOT_WINDOW_PROBE, {});
+}
+
 async function openRepairToolWindow(
   target: RepairToolTarget,
   accountKey?: string | null,
@@ -232,5 +251,6 @@ export {
   openAboutWindow,
   openApexQWindow,
   openApexQuickPresetWindow,
+  openApexConfigSnapshotWindow,
   openRepairToolWindow,
 };

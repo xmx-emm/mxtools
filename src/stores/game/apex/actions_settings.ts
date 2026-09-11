@@ -31,6 +31,16 @@ function gameSettingsWriteInProgress(store: ApexStoreThis): boolean {
     || store.quick_preset_applying;
 }
 
+function releaseBindingInput(store: ApexStoreThis, targetId: string | null, input: string): boolean {
+  if (!input) return true;
+  const conflicts = store.game_settings_bindings.filter(binding => (
+    binding.id !== targetId && binding.input.toUpperCase() === input.toUpperCase()
+  ));
+  if (conflicts.some(binding => !binding.editable)) return false;
+  for (const binding of conflicts) binding.input = '';
+  return true;
+}
+
 export function adoptApexGameSettingsReport(
   store: ApexStoreThis,
   report: ApexGameSettingsReport,
@@ -197,6 +207,7 @@ export const apexSettingsActions = {
       const binding = this.game_settings_bindings[index];
       if (!binding.editable) return;
       if (binding.input === input) return;
+      if (!releaseBindingInput(this, bindingId, input)) return;
       invalidateGameSettingsLoad(this);
       if (binding.templateId && !input) {
         this.game_settings_bindings.splice(index, 1);
@@ -208,6 +219,7 @@ export const apexSettingsActions = {
     if (!input) return;
     const template = this.game_settings_bindings.find(item => item.id === templateId);
     if (!template?.editable) return;
+    if (!releaseBindingInput(this, null, input)) return;
     invalidateGameSettingsLoad(this);
     const sequence = ++this.game_settings_binding_draft_sequence;
     this.game_settings_bindings.push({

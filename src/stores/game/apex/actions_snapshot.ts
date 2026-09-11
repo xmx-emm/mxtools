@@ -30,6 +30,7 @@ import {
   toApexLauncherRef,
 } from '@/utils/game/apex_history.ts';
 import {normalizeVideoConfigMap} from '@/utils/game/apex_store_helpers.ts';
+import {mergeBindingPatch} from '@/utils/game/apex_snapshot_changes.ts';
 import {
   adoptApexGameSettingsReport,
 } from './actions_settings.ts';
@@ -192,16 +193,13 @@ function buildSnapshotBindingMutations(
   }
 
   const savedByIdentity = new Map<string, ApexBindingSnapshot>();
-  const savedSlots = new Set<string>();
   const actionKeys = new Set(baselineEditable.map(bindingActionKey));
   for (const binding of saved) {
     const identity = bindingIdentityKey(binding);
-    const slot = `${bindingActionKey(binding)}\u001f${binding.context}`;
-    if (savedByIdentity.has(identity) || savedSlots.has(slot)) {
+    if (savedByIdentity.has(identity)) {
       throw new Error(`apex.gameSettings.errors.duplicateBindingIdentity: ${binding.command}`);
     }
     savedByIdentity.set(identity, binding);
-    savedSlots.add(slot);
     actionKeys.add(bindingActionKey(binding));
   }
 
@@ -213,7 +211,13 @@ function buildSnapshotBindingMutations(
     );
     const template = current[0];
     if (!template) {
-      throw new Error(`apex.gameSettings.errors.bindingMissing: ${desired[0]?.command ?? actionKey}`);
+      for (const binding of desired) {
+        if (binding.heldCommand || (binding.context !== 0 && binding.context !== 1)) {
+          throw new Error(`apex.gameSettings.errors.bindingMissing: ${binding.command}`);
+        }
+        mutations.push({operation: 'createCommand', command: binding.command, input: binding.input, context: binding.context});
+      }
+      continue;
     }
 
     for (const binding of current) {
@@ -457,7 +461,9 @@ export const apexSnapshotActions = {
           throw new Error('apex.configSnapshot.errors.invalidBindings');
         }
         const bindingMutations = selection.importBindings
-          ? buildSnapshotBindingMutations(report.bindings, snapshot.gameSettings.bindings ?? [])
+          ? buildSnapshotBindingMutations(report.bindings, snapshot.gameSettings.bindingsMode === 'patch'
+            ? mergeBindingPatch(report.bindings.filter(binding => binding.editable), snapshot.gameSettings.bindings ?? [])
+            : snapshot.gameSettings.bindings ?? [])
           : [];
         gameSettings = {
           settingsRevision: report.settings.revision,

@@ -2,7 +2,7 @@
 
 export const APEX_CONFIG_SNAPSHOT_KIND = 'apex-config-snapshot' as const;
 export const APEX_CONFIG_SNAPSHOT_VERSION = 1 as const;
-export type ApexConfigSnapshotVersion = typeof APEX_CONFIG_SNAPSHOT_VERSION;
+export type ApexConfigSnapshotVersion = typeof APEX_CONFIG_SNAPSHOT_VERSION | 2;
 
 import type {ApexGameSettingsSnapshot} from './apex_game_settings.ts';
 
