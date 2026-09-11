@@ -1,0 +1,40 @@
+name: Sync release to Gitee
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'GitHub stable release tag to sync (for example v0.0.7)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-gitee-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'xmx-emm/mxtools' && (github.event_name == 'workflow_dispatch' || !github.event.release.prerelease)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Use the maintained sync script, including when backfilling an old tag.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Mirror release and verify attachments
+        run: node scripts/sync-gitee-release.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          GITEE_MAX_ASSET_BYTES: ${{ vars.GITEE_MAX_ASSET_BYTES || '100000000' }}

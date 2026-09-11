@@ -280,6 +280,13 @@ noncommercial mirrors and public modified versions are allowed.
   job restores Cargo registry and dependency build artifacts from a
   toolchain/manifest-aware cache for `src-tauri/target`; only `master` saves
   entries, including warmed artifacts from failed runs.
+- Release mirroring uses `.github/workflows/sync-gitee-release.yml` and
+  `scripts/sync-gitee-release.mjs`: stable GitHub Release publication or manual
+  tag backfill copies releases to `mengxin_code/mxtools` using `GITEE_TOKEN`.
+  It pushes only the release tag (no force or branch mirror), verifies attachment
+  SHA-256 on both sides, reuses identical uploads on retry, and links files above
+  the default 100 MB limit back to GitHub. See `docs/GITEE_RELEASE_SYNC.md`.
+  This does not enable the app's Gitee updater or produce a domestic manifest.
 - Online updates are implemented in `src-tauri/src/app_update.rs` and
   `src/stores/app_update.ts`, using GitHub Releases and signed downloads.
   Installer builds require a configured public key; portable/Store builds
