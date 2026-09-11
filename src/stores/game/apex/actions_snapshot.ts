@@ -525,7 +525,6 @@ export const apexSnapshotActions = {
         toast.info('apex.configSnapshot.noChanges');
         return false;
       }
-      toast.success('toast.importApexConfigSnapshotSuccess');
       return true;
     } catch (err) {
       console.warn('apply_config_snapshot failed', err);

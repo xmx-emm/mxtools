@@ -122,7 +122,7 @@ async function run_apply() {
   try {
     const ok = await apex_store.apply_config_snapshot(snap, build_selection());
     if (ok) {
-      await emitApexConfigChanged(['launch', 'video', 'gameSettings']).catch(error => {
+      await emitApexConfigChanged(['launch', 'video', 'gameSettings'], {notification: 'snapshotImported'}).catch(error => {
         console.warn('notify snapshot import failed', error);
       });
       emit('busy', false);
@@ -227,7 +227,7 @@ function rows(id: string) { return snapshot.value ? snapshotDetails(snapshot.val
         <v-btn
           color="primary"
           :loading="applying"
-          :disabled="!can_apply"
+          :disabled="!can_apply || applying"
           @click="apply_check"
         >
           {{ t('apex.configSnapshot.importAction') }}

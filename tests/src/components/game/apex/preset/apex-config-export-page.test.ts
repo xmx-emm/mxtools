@@ -1,6 +1,8 @@
-import {describe, expect, it, vi} from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import type {Ref} from 'vue';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
+import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
+vi.mock('@/utils/game/apex_config_events.ts', () => ({emitApexConfigChanged: vi.fn().mockResolvedValue(undefined)}));
 const mocks = vi.hoisted(() => ({writeUtf8File: vi.fn(), save: vi.fn(), explorerFolder: vi.fn()}));
 vi.mock('@/ipc/commands.ts', () => mocks);
 vi.mock('@tauri-apps/plugin-dialog', () => ({save: mocks.save}));
@@ -12,6 +14,7 @@ vi.mock('vuetify/components/VCard', () => ({VCard: {}, VCardText: {}, VCardActio
 vi.mock('vuetify/components/VBtn', () => ({VBtn: {}}));
 vi.mock('vuetify/components/VGrid', () => ({VSpacer: {}}));
 import Component from '@/components/game/apex/preset/ApexConfigExportPage.vue';
+beforeEach(() => vi.clearAllMocks());
 
 describe('export displayed snapshot', () => {
   it('writes previewed draft values and omits deselected blocks', async () => {
@@ -33,5 +36,21 @@ describe('export displayed snapshot', () => {
     expect(written.videoConfig).toEqual(snapshot.videoConfig);
     expect(written.gameSettings.settings.mouse_sensitivity).toBe('1.5');
     expect(emit).toHaveBeenCalledWith('close');
+    expect(emitApexConfigChanged).toHaveBeenCalledWith([], {notification: 'snapshotExported'});
+    expect(mocks.writeUtf8File.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(emitApexConfigChanged).mock.invocationCallOrder[0]);
+    expect(vi.mocked(emitApexConfigChanged).mock.invocationCallOrder[0]).toBeLessThan(emit.mock.invocationCallOrder[1]);
+  });
+  it.each(['cancel', 'write failure'])('does not notify success or close on %s', async outcome => {
+    const snapshot: ApexConfigSnapshot = {kind: 'apex-config-snapshot', version: 1, exportedAt: '',
+      launchOptions: {raw: '+fps_max 279'}};
+    const emit = vi.fn();
+    const state = (Component as unknown as {setup(props: object, context: object): {
+      confirmExport(): Promise<void>;
+    }}).setup({snapshot, defaults: {...snapshot, launchOptions: {raw: ''}}}, {expose: vi.fn(), emit});
+    mocks.save.mockResolvedValue(outcome === 'cancel' ? null : 'C:/fixture/output.json');
+    mocks.writeUtf8File.mockRejectedValue(new Error('write failed'));
+    await state.confirmExport();
+    expect(emitApexConfigChanged).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalledWith('close');
   });
 });

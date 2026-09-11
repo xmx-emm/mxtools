@@ -3,6 +3,7 @@ import {computed, onMounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {save} from '@tauri-apps/plugin-dialog';
 import {useToast} from 'vue-toastification';
+import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 import {explorerFolder, getApexSnapshotDefaults, writeUtf8File} from '@/ipc/commands.ts';
 import {changedSnapshot} from '@/utils/game/apex_snapshot_changes.ts';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
@@ -66,7 +67,9 @@ async function confirmExport() {
       gameSettings: displayed.gameSettings,
     });
     await writeUtf8File({path: output, content: stringifyApexConfigSnapshot(snapshot)});
-    toast.success('toast.exportApexConfigSnapshotSuccess');
+    await emitApexConfigChanged([], {notification: 'snapshotExported'}).catch(error => {
+      console.warn('notify snapshot export failed', error);
+    });
     emit('busy', false);
     emit('close');
   } catch (error) { toast.error('toast.exportApexConfigSnapshotError\n' + String(error)); }

@@ -441,6 +441,11 @@ noncommercial mirrors and public modified versions are allowed.
   Expanded tables show every value, file, binding context, and occurrence.
   Loading failures show an error and retry; native close is blocked during writes.
   Online presets use the same import page.
+  Successful import sends snapshotImported through the existing config-changed
+  event before closing its window. The main-window listener displays the success
+  toast independently of the active route or configuration refresh outcome.
+  Export uses the same channel with snapshotExported and empty changed scopes,
+  notifying only after the file write succeeds and before closing its window.
   Export defaults to comparing against game defaults (including saved custom
   values), with an inline opt-out at the end of the hint. The read-only
   get_apex_snapshot_defaults IPC reuses hardware/language default generation in

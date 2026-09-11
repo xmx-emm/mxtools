@@ -1,7 +1,7 @@
 import {emit, listen, type UnlistenFn} from '@tauri-apps/api/event';
 
 export type ApexExternalConfigScope = 'launch' | 'video' | 'gameSettings';
-export type ApexConfigNotification = 'quickPresetApplied';
+export type ApexConfigNotification = 'quickPresetApplied' | 'snapshotImported' | 'snapshotExported';
 
 export const APEX_CONFIG_CHANGED_EVENT = 'mx-apex-config-changed';
 export const APEX_QUICK_PRESET_ACCOUNT_EVENT = 'mx-apex-quick-preset-account';

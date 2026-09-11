@@ -6,7 +6,8 @@ import '@/assets/styles/search.css';
 import '@/assets/styles/styles.css';
 import '@/assets/styles/utils.css';
 // Toast
-import Toast from 'vue-toastification';
+import Toast, {useToast} from 'vue-toastification';
+import {listenApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 import 'vue-toastification/dist/index.css';
 // Vuetify
 import 'vuetify/styles';
@@ -313,6 +314,17 @@ async function bootstrap() {
 
   app.mount('#app');
   if (isMainWindow) {
+    const stopSnapshotNotifications = await listenApexConfigChanged(payload => {
+      if (payload.notification === 'snapshotImported') {
+        useToast().success('toast.importApexConfigSnapshotSuccess');
+      } else if (payload.notification === 'snapshotExported') {
+        useToast().success('toast.exportApexConfigSnapshotSuccess');
+      }
+    }).catch(error => {
+      console.warn('register snapshot notifications failed', error);
+      return () => {};
+    });
+    registerHmrCleanup(stopSnapshotNotifications);
     void import('@/stores/app_update.ts').then(async ({useAppUpdateStore}) => {
       const updater = useAppUpdateStore();
       await updater.autoCheck();
