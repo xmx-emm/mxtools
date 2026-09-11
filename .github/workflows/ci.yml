@@ -9,8 +9,8 @@ jobs:
   frontend:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: npm
@@ -20,7 +20,7 @@ jobs:
       - run: npm run build
       - name: Upload bundle report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bundle-report
           path: dist/bundle-report.json
@@ -31,10 +31,10 @@ jobs:
   rust-backend:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: tauri/mxtools
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: xmx-emm/windows_tool
           ref: 63be28c24cc093a8d160d902cb983331dc9c9e2e
@@ -56,7 +56,7 @@ jobs:
       - name: cargo test
         working-directory: tauri/mxtools/src-tauri
         run: cargo test
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: npm

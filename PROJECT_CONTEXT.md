@@ -285,6 +285,9 @@ noncommercial mirrors and public modified versions are allowed.
   job restores Cargo registry and dependency build artifacts from a
   toolchain/manifest-aware cache for `src-tauri/target`; only `master` saves
   entries, including warmed artifacts from failed runs.
+  CI, signed releases and Gitee mirroring use checkout/setup-node/upload-artifact
+  v6 where applicable, with Node.js 24 action runtimes on GitHub-hosted runners.
+  The application build and sync scripts still explicitly use Node.js 22.
 - Release mirroring uses `.github/workflows/sync-gitee-release.yml` and
   `scripts/sync-gitee-release.mjs`: stable GitHub Release publication or manual
   tag backfill copies releases to `mengxin_code/mxtools` using `GITEE_TOKEN`.

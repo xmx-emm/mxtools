@@ -21,15 +21,15 @@ jobs:
       run:
         working-directory: tauri/mxtools
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: tauri/mxtools
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: xmx-emm/windows_tool
           ref: 63be28c24cc093a8d160d902cb983331dc9c9e2e
           path: rust/windows_tool
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: npm
@@ -66,7 +66,7 @@ jobs:
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           $env:MXTOOLS_VERIFY_RELEASE_DIR = Join-Path (Get-Location) "src-tauri/target/release/$version/publish"
           cargo test --manifest-path src-tauri/Cargo.toml --lib app_update::tests::portable_release::verify_signed_portable_release -- --ignored --exact --nocapture
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: signed-windows-release
           path: tauri/mxtools/src-tauri/target/release/*/publish/*
