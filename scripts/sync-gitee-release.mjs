@@ -61,7 +61,8 @@ export function createTransport({githubToken = '', giteeToken = '', fetchImpl = 
     for (let attempt = 0; attempt < attempts; attempt++) {
       let response;
       try {
-        response = await fetchImpl(url, {...options, redirect: 'manual', signal: globalThis.AbortSignal.timeout(120_000)});
+        response = await fetchImpl(url, {...options, redirect: 'manual',
+          signal: globalThis.AbortSignal.timeout(body instanceof globalThis.FormData ? 300_000 : 120_000)});
         // Public download redirects never carry either API token.
         if (binary) {
           for (let hop = 0; response.status >= 300 && response.status < 400 && hop < 5; hop++) {
@@ -96,7 +97,9 @@ export function createTransport({githubToken = '', giteeToken = '', fetchImpl = 
       } catch (error) {
         if (error.httpStatus || attempt + 1 === attempts) {
           // Do not expose remote response bodies, URLs or credentials in errors.
-          throw new Error(error.httpStatus ? error.message : `Remote ${method} failed: network, response or download validation error`);
+          const code = error.name === 'TimeoutError' ? 'timeout'
+            : /^[A-Z_]+$/.test(error.cause?.code || '') ? error.cause.code : 'network/response validation';
+          throw new Error(error.httpStatus ? error.message : `Remote ${method} failed (${code}); rerun to resume verified attachments`);
         }
         await sleep(1000 * 2 ** attempt);
       }
@@ -158,6 +161,7 @@ export async function syncRelease({tag, githubToken = '', giteeToken = '', maxBy
   const attachmentUrl = `${GT}/releases/${target.id}/attach_files`;
   const existing = await listAll(request, attachmentUrl);
   for (const asset of plan.mirrored) {
+    log(`Downloading source attachment ${asset.id} (${asset.size} bytes)`);
     const bytes = await request(asset.browser_download_url, {binary: true, maxBytes: asset.size});
     if (bytes.length !== asset.size) throw new Error('GitHub attachment length mismatch');
     const sha = digest(bytes);
@@ -166,6 +170,7 @@ export async function syncRelease({tag, githubToken = '', giteeToken = '', maxBy
     if (matches.length > 1) throw new Error('Duplicate Gitee attachment names; resolve before retrying');
     let uploaded = matches[0];
     if (!uploaded) {
+      log(`Uploading attachment ${asset.id} to Gitee`);
       const form = new globalThis.FormData();
       form.set('file', new Blob([bytes], {type: 'application/octet-stream'}), asset.name);
       uploaded = await request(attachmentUrl, {method: 'POST', body: form});
@@ -173,6 +178,7 @@ export async function syncRelease({tag, githubToken = '', giteeToken = '', maxBy
     if (!uploaded || uploaded.name !== asset.name || !Number.isSafeInteger(uploaded.id)) throw new Error('Unexpected Gitee upload response');
     const downloadUrl = new URL(uploaded.browser_download_url);
     if (downloadUrl.origin !== 'https://gitee.com' || downloadUrl.username || downloadUrl.password) throw new Error('Unexpected Gitee download URL');
+    log(`Verifying Gitee attachment ${uploaded.id}`);
     const mirrored = await request(downloadUrl.href, {binary: true, maxBytes: asset.size});
     if (mirrored.length !== bytes.length || digest(mirrored) !== sha) {
       throw new Error('Gitee attachment differs from GitHub; refusing to overwrite it. Resolve the conflicting attachment before retrying');
