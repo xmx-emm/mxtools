@@ -52,7 +52,7 @@ jobs:
       - run: npm test
       - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Build signed release artifacts
         run: npm run "build window release"
         env:

@@ -324,6 +324,10 @@ noncommercial mirrors and public modified versions are allowed.
   subsequent launch. It is also a release gate; it does not claim real app UI coverage.
   Debug/test executables embed the Common Controls v6 manifest dependency in
   `build.rs`; otherwise Windows 10 cannot resolve the native dialog import.
+  The linker alone owns the Windows debug manifest: Tauri's resource manifest
+  is disabled for that profile to avoid duplicate manifest #1 in binary tests.
+  Release builds retain Tauri's default manifest. CI and the signed release gate
+  run full `cargo test`, including the binary test harness, not only library tests.
 - Licensing scope is defined by root `LICENSE`, `NOTICE`, and
   `THIRD_PARTY_NOTICES.md`. The APEX Q calculation port is used under
   project-specific written permission granted by the upstream author on
