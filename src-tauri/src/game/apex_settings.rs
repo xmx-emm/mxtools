@@ -353,6 +353,8 @@ fn validate_value(file: ConfigFile, key: &str, value: &str) -> Result<(), String
         ValueRule::Enum(values) => values.contains(&value),
         ValueRule::RgbOrDefault => {
             value.is_empty()
+                // The quick preset's simplified reticle is persisted in profile.cfg.
+                || value == "2147483648 2147483648 2147483648"
                 || (value.split_ascii_whitespace().count() == 3
                     && value
                         .split_ascii_whitespace()
@@ -1944,10 +1946,6 @@ mod tests {
         assert!(validate_value(ConfigFile::Profile, "cl_fovScale", "1.7").is_ok());
         assert!(validate_value(ConfigFile::Profile, "cl_fovScale", "2.0").is_err());
         assert!(validate_value(ConfigFile::Profile, "laserSightColorCustomized", "1").is_ok());
-        assert!(validate_value(ConfigFile::Profile, "reticle_color", "").is_ok());
-        assert!(validate_value(ConfigFile::Profile, "reticle_color", "210 190 17").is_ok());
-        assert!(validate_value(ConfigFile::Profile, "reticle_color", "256 190 17").is_err());
-        assert!(validate_value(ConfigFile::Profile, "reticle_color", "210 190").is_err());
         assert!(validate_value(ConfigFile::Profile, "toggle_on_jump_to_deactivate", "1").is_ok());
         assert!(validate_value(ConfigFile::Profile, "cl_comms_filter", "-1").is_ok());
         assert!(validate_value(ConfigFile::Profile, "cl_comms_filter", "2").is_err());
@@ -2353,5 +2351,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_snapshot_defaults.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_reticle_snapshot.rs"
     ));
 }

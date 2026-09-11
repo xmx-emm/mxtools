@@ -158,7 +158,6 @@ function validateGameSettingRecord(
 ): void {
   if (Object.entries(value).some(([key, item]) => (
     !isValidApexGameSettingValue(ApexGameSettingsData, file, key, item)
-      && !(file === 'profile' && key === 'reticle_color' && /^\d+(?:\s+\d+){2}$/.test(item))
   ))) {
     throw new ApexConfigSnapshotParseError('apex.configSnapshot.errors.invalidGameSettings');
   }

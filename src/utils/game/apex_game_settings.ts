@@ -73,6 +73,8 @@ export function isValidApexGameSettingValue(
     }
     if (field.control === 'rgb') {
       if (!value) return true;
+      if (file === 'profile' && key === 'reticle_color'
+        && value === '2147483648 2147483648 2147483648') return true;
       const channels = value.split(/\s+/);
       return channels.length === 3 && channels.every(channel => {
         if (!UNSIGNED_INTEGER_SETTING_VALUE.test(channel)) return false;

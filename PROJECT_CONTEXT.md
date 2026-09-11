@@ -424,6 +424,10 @@ noncommercial mirrors and public modified versions are allowed.
   whole export. Snapshot parsing rejects launch-option control characters and
   invalid values for known game-setting keys before calling native mutation
   APIs.
+  Profile reticle_color accepts empty/default, ordinary RGB channels 0-255,
+  and the exact simplified-reticle value `2147483648 2147483648 2147483648`.
+  Frontend and native validators share acceptance/rejection fixtures; arbitrary
+  oversized RGB triples and EA launch-option hyphen syntax are not profile values.
   Import and export use dedicated Tauri windows with normal
   ApexConfigImportPage / ApexConfigExportPage components, without dialog mode.
   ApexConfigWindow owns account initialization, load/error states, fixed title
