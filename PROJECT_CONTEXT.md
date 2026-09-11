@@ -111,6 +111,9 @@ noncommercial mirrors and public modified versions are allowed.
   unverified builds remain distinct. No PUBG build is marked verified yet.
   Version reads refresh on target changes and window focus, with stale responses
   ignored. This is an advisory indicator, not an application-blocking gate.
+- The shared CEF transport probes both IPv4 and IPv6 loopback without proxies
+  and pins WebSocket discovery to the responding address. On Windows, NVIDIA
+  Broadcast can own IPv4 port 8080 while Steam listens on IPv6 port 8080.
 - Miles one-click downloads use the local Steam/EA CEF clients in
   `src-tauri/src/game/apex_language_download{,_ea}.rs`, share one native
   progress gate whose `apex-miles-download-progress` event is restored by

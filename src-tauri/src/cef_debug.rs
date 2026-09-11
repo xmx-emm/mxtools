@@ -36,6 +36,7 @@ pub struct CefVersion {
 
 fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
+        .no_proxy()
         .timeout(HTTP_TIMEOUT)
         .build()
         .map_err(|e| e.to_string())
@@ -43,32 +44,66 @@ fn http_client() -> Result<reqwest::Client, String> {
 
 /// 列出调试端口上的所有页面目标；端口未开时返回 Err。
 pub async fn list_targets(port: u16) -> Result<Vec<CefTarget>, String> {
-    let url = format!("http://127.0.0.1:{port}/json");
-    let resp = http_client()?
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("CEF /json HTTP {}", resp.status()));
+    let client = http_client()?;
+    let mut errors = Vec::new();
+    for host in ["127.0.0.1", "[::1]"] {
+        let result = async {
+            let response = client
+                .get(format!("http://{host}:{port}/json"))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let mut targets = response
+                .json::<Vec<CefTarget>>()
+                .await
+                .map_err(|e| e.to_string())?;
+            for target in &mut targets {
+                if let Some(ws_url) = &mut target.ws_url {
+                    // Keep the socket on the endpoint that actually answered discovery.
+                    let mut url = reqwest::Url::parse(ws_url).map_err(|e| e.to_string())?;
+                    url.set_host(Some(host)).map_err(|e| e.to_string())?;
+                    url.set_port(Some(port))
+                        .map_err(|()| "Invalid CEF port".to_string())?;
+                    *ws_url = url.to_string();
+                }
+            }
+            Ok::<_, String>(targets)
+        }
+        .await;
+        match result {
+            Ok(targets) => return Ok(targets),
+            Err(error) => errors.push(error),
+        }
     }
-    resp.json::<Vec<CefTarget>>()
-        .await
-        .map_err(|e| e.to_string())
+    Err(errors.join("; "))
 }
 
 /// 读取 CEF 版本信息（Browser / User-Agent），用于版本校验记录。
 pub async fn browser_version(port: u16) -> Result<CefVersion, String> {
-    let url = format!("http://127.0.0.1:{port}/json/version");
-    let resp = http_client()?
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("CEF /json/version HTTP {}", resp.status()));
+    let client = http_client()?;
+    let mut errors = Vec::new();
+    for host in ["127.0.0.1", "[::1]"] {
+        let result = async {
+            client
+                .get(format!("http://{host}:{port}/json/version"))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?
+                .json::<CefVersion>()
+                .await
+                .map_err(|e| e.to_string())
+        }
+        .await;
+        match result {
+            Ok(version) => return Ok(version),
+            Err(error) => errors.push(error),
+        }
     }
-    resp.json::<CefVersion>().await.map_err(|e| e.to_string())
+    Err(errors.join("; "))
 }
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -151,5 +186,14 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/cef_debug.rs"
+    ));
+}
+
+#[cfg(test)]
+mod loopback_tests {
+    use super::*;
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/cef_loopback.rs"
     ));
 }
