@@ -59,10 +59,6 @@ const gameItems = computed(() => ([
     description: t('game.razerPollingDescription'),
     action: t('game.openTool'),
     iconComponent: RazerIcon,
-    beta: {
-      label: t('common.beta'),
-      hint: t('settings.betaFeaturesHint'),
-    },
     features: [
       t('game.razerPollingFeatureManual'),
       t('game.razerPollingFeatureAuto'),

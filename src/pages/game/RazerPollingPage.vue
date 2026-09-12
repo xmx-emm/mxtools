@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue';
+import {computed, onMounted, onUnmounted, ref} from 'vue';
+import {storeToRefs} from 'pinia';
+import {useRazerGameScanStore} from '@/stores/razer_game_scan.ts';
+import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {open} from '@tauri-apps/plugin-dialog';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue';
 import RazerPollingRateControl from '@/components/game/razer/RazerPollingRateControl.vue';
+import LocalGameIcon from '@/components/game/razer/LocalGameIcon.vue';
 import {
   probeRazerPolling,
   restoreRazerPollingRate,
@@ -18,7 +22,7 @@ import type {
   RazerBackgroundConfig,
   RazerBackgroundGame,
 } from '@/types/background_runtime.ts';
-import type {InstalledGame, InstalledGameScanReport} from '@/types/game_scan.ts';
+import type {InstalledGame} from '@/types/game_scan.ts';
 import type {RazerPollingStatus} from '@/types/razer_polling.ts';
 import {
   createManualGame,
@@ -29,6 +33,7 @@ import {
   verifiedRatesForStatus,
 } from '@/utils/razer_polling_config.ts';
 import {cloneRazerBackgroundConfig} from '@/utils/background_runtime.ts';
+import {createRazerStatusRefresh} from '@/utils/razer_status_refresh.ts';
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -47,15 +52,18 @@ const config = ref<RazerBackgroundConfig>({
 });
 const loading = ref(false);
 const applying = ref(false);
-const scanning = ref(false);
+const {scanReport, showOtherGames, otherSearch, scanning} = storeToRefs(useRazerGameScanStore());
 const feedback = ref('');
-const scanReport = ref<InstalledGameScanReport | null>(null);
-const showOtherGames = ref(false);
-const otherSearch = ref('');
 const manualDialog = ref(false);
 const manualName = ref('');
 const manualExecutables = ref<string[]>([]);
 const verifyDialogDeviceId = ref<string | null>(null);
+let unlistenStatus: UnlistenFn | undefined;
+let disposed = false;
+let saveQueue: Promise<unknown> = Promise.resolve();
+let saveRevision = 0;
+let statusRevision = 0;
+const statusRefresh = createRazerStatusRefresh(probeRazerPolling, value => { statuses.value = value; });
 
 const connected = computed(() => statuses.value.filter(status => status.available));
 const selectedStatus = computed(() => connected.value.find(
@@ -95,21 +103,40 @@ function ensureDeviceProfiles() {
 }
 
 async function persistConfig() {
-  const result = await runtime.configureRazer(cloneRazerBackgroundConfig(config.value));
-  if (result) statuses.value = result.statuses;
-  ensureDeviceProfiles();
+  const revision = ++saveRevision;
+  const draft = cloneRazerBackgroundConfig(config.value);
+  const pending = saveQueue.then(async () => {
+    const previousStatusRevision = statusRevision;
+    try {
+      const result = await runtime.configureRazer(draft);
+      if (revision === saveRevision && previousStatusRevision === statusRevision && result) {
+        statuses.value = result.statuses;
+        ensureDeviceProfiles();
+      }
+      return true;
+    } catch (error) {
+      if (revision === saveRevision && runtime.snapshot) {
+        config.value = cloneRazerBackgroundConfig(runtime.snapshot.config.razer);
+      }
+      feedback.value = errorMessage(error);
+      return false;
+    }
+  });
+  saveQueue = pending;
+  return pending;
 }
 
 async function refreshDevices() {
   if (!isTauriRuntime || loading.value) return;
   const previousConfig = cloneRazerBackgroundConfig(config.value);
+  const previousEventRevision = statusRefresh.eventRevision;
   loading.value = true;
   feedback.value = '';
   try {
-    statuses.value = await probeRazerPolling();
-    if (ensureDeviceProfiles() && config.value.enabled) await persistConfig();
+    if (await statusRefresh.refresh()
+      && ensureDeviceProfiles() && config.value.enabled) await persistConfig();
   } catch (error) {
-    config.value = previousConfig;
+    if (previousEventRevision === statusRefresh.eventRevision) config.value = previousConfig;
     feedback.value = errorMessage(error);
   } finally {
     loading.value = false;
@@ -117,6 +144,7 @@ async function refreshDevices() {
 }
 
 async function setRate(deviceId: string, rateHz: number) {
+  if (applying.value || loading.value) return;
   applying.value = true;
   feedback.value = '';
   try {
@@ -125,14 +153,15 @@ async function setRate(deviceId: string, rateHz: number) {
     if (status) status.currentRateHz = result.currentRateHz;
     toast.success(t('razerPolling.applied', {rate: result.currentRateHz}));
   } catch (error) {
-    feedback.value = errorMessage(error);
     await refreshDevices();
+    feedback.value = errorMessage(error);
   } finally {
     applying.value = false;
   }
 }
 
 async function restore(deviceId: string) {
+  if (applying.value || loading.value) return;
   applying.value = true;
   feedback.value = '';
   try {
@@ -179,7 +208,7 @@ async function verifyCapabilities() {
       feedback.value = t('razerPolling.capabilitiesNotRecorded');
       return;
     }
-    await persistConfig();
+    if (!await persistConfig()) return;
     toast.success(t('razerPolling.capabilitiesVerified', {
       model: targetStatus.device.name,
       rate: result.highestConfirmedRateHz ?? '-',
@@ -223,11 +252,6 @@ async function chooseExecutable() {
 }
 
 async function addScannedGame(game: InstalledGame) {
-  if (!game.matchers.length) {
-    const executable = await chooseExecutable();
-    if (!executable) return;
-    game = {...game, matchers: [{kind: 'executablePath', value: executable}]};
-  }
   addOrRefreshScannedGame(game, true);
   await persistConfig();
 }
@@ -295,12 +319,24 @@ async function toggleAutomatic(value: boolean | null) {
 onMounted(async () => {
   if (!isTauriRuntime) return;
   try {
+    const unlisten = await listen<RazerPollingStatus[]>('razer-polling-status-changed', ({payload}) => {
+      statusRevision += 1;
+      statusRefresh.onEvent(payload);
+      ensureDeviceProfiles();
+    });
+    if (disposed) { unlisten(); return; }
+    unlistenStatus = unlisten;
     if (!runtime.snapshot) await runtime.refresh();
     if (runtime.snapshot) config.value = cloneRazerBackgroundConfig(runtime.snapshot.config.razer);
     await refreshDevices();
   } catch (error) {
     feedback.value = errorMessage(error);
   }
+});
+
+onUnmounted(() => {
+  disposed = true;
+  unlistenStatus?.();
 });
 </script>
 
@@ -311,7 +347,6 @@ onMounted(async () => {
         <div class="app-page__eyebrow">{{ t('game.eyebrow') }}</div>
         <h1 class="app-page__title">
           {{ t('razerPolling.title') }}
-          <span class="mx-beta-badge" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
         </h1>
         <p class="app-page__subtitle">{{ t('razerPolling.subtitle') }}</p>
       </div>
@@ -363,6 +398,15 @@ onMounted(async () => {
               @update:model-value="toggleAutomatic"
             />
           </header>
+          <p v-if="config.enabled && selectedStatus" class="razer-auto-status" role="status">
+            {{ selectedStatus.faulted ? t('razerPolling.faulted')
+              : selectedStatus.activeProfileId
+                ? t('razerPolling.autoGame', {
+                  name: config.games.find(game => game.id === selectedStatus?.activeProfileId)?.name ?? selectedStatus.activeProfileId,
+                  rate: selectedStatus.currentRateHz ?? '-',
+                })
+                : t('razerPolling.autoDesktop', {rate: selectedStatus.currentRateHz ?? '-'}) }}
+          </p>
           <div class="razer-autostart-row">
             <BackgroundAutostartSwitch compact />
           </div>
@@ -399,11 +443,17 @@ onMounted(async () => {
                 @update:model-value="game.enabled = $event ?? false; markGameEdited(game)"
               />
               <div class="razer-game-copy">
-                <strong>{{ game.name }}</strong>
+                <div class="razer-game-name">
+                  <LocalGameIcon :paths="game.matchers.flatMap(matcher => matcher.executable ? [matcher.executable] : [])" />
+                  <strong>{{ game.name }}</strong>
+                </div>
                 <span>
                   {{ game.matchers.length
                     ? t('razerPolling.matcherCount', {count: game.matchers.length})
                     : t('razerPolling.executableRequired') }}
+                </span>
+                <span v-if="selectedDeviceId && selectedProfile && game.deviceRatesHz[selectedDeviceId] === selectedProfile.idleRateHz">
+                  {{ t('razerPolling.sameAsDesktop') }}
                 </span>
               </div>
               <v-select
@@ -459,6 +509,7 @@ onMounted(async () => {
               clearable
             />
             <article v-for="game in otherGames" :key="game.logicalId" class="razer-other-row">
+              <LocalGameIcon :paths="game.matchers.filter(matcher => matcher.kind === 'executablePath').map(matcher => matcher.value)" />
               <div>
                 <strong>{{ game.name }}</strong>
                 <span>{{ game.sources.map(source => t(`razerPolling.sources.${source}`)).join(' · ') }}</span>
@@ -562,6 +613,7 @@ onMounted(async () => {
 .razer-background h2, .razer-section-heading h2 { margin: 0; font-size: 12px; font-weight: 680; }
 .razer-background p, .razer-section-heading p { margin: 3px 0 0; color: rgba(var(--v-theme-on-surface), .5); font-size: 10px; line-height: 1.45; }
 .razer-autostart-row { border-top: 1px solid var(--app-border); }
+.razer-auto-status { margin: 0; padding: 0 16px 12px; color: rgb(var(--v-theme-primary)); font-size: 11px; }
 .razer-autostart-row :deep(.background-autostart--compact) { min-width: 0; padding: 8px 16px; box-sizing: border-box; }
 .razer-idle-rate { display: grid; grid-template-columns: minmax(0, 1fr) 180px; align-items: center; gap: 16px; min-height: 58px; padding: 8px 16px; border-top: 1px solid var(--app-border); font-size: 11px; }
 .razer-games, .razer-scan-results { border-top: 1px solid var(--app-border); border-bottom: 1px solid var(--app-border); }
@@ -570,6 +622,8 @@ onMounted(async () => {
 .razer-game-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 180px; align-items: center; gap: 12px; min-height: 68px; padding: 9px 16px; }
 .razer-game-row + .razer-game-row, .razer-other-row + .razer-other-row { border-top: 1px solid rgba(var(--v-border-color), .075); }
 .razer-game-copy, .razer-other-row > div { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.razer-game-name { display: flex; align-items: center; gap: 8px; }
+.razer-other-row > div { flex: 1; }
 .razer-game-copy strong, .razer-other-row strong { overflow-wrap: anywhere; font-size: 11px; font-weight: 640; }
 .razer-game-copy span, .razer-other-row span { color: rgba(var(--v-theme-on-surface), .48); font-size: 9px; line-height: 1.4; }
 .razer-source-statuses { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }

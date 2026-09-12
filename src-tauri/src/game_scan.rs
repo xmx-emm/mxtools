@@ -241,7 +241,17 @@ impl FileAccess for RealFileAccess {
     }
 
     fn is_dir(&self, path: &Path) -> bool {
-        path.is_dir()
+        std::fs::symlink_metadata(path).is_ok_and(|metadata| {
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                metadata.is_dir() && metadata.file_attributes() & 0x400 == 0
+            }
+            #[cfg(not(windows))]
+            {
+                metadata.is_dir() && !metadata.file_type().is_symlink()
+            }
+        })
     }
 }
 
@@ -1093,6 +1103,9 @@ fn executable_matchers(
             }
         }
     }
+    if paths.is_empty() && catalog.is_none() {
+        paths = discover_game_executables(files, install_location);
+    }
     let mut matchers = paths.into_iter().map(executable_matcher).collect();
     sort_deduplicate_matchers(&mut matchers);
     matchers
@@ -1103,6 +1116,65 @@ fn executable_matcher(path: impl Into<PathBuf>) -> InstalledGameMatcher {
         kind: InstalledGameMatcherKind::ExecutablePath,
         value: path.into().to_string_lossy().into_owned(),
     }
+}
+
+// Only inspect a known game's installation, with fixed work/depth bounds.
+// Never treat redistributables, crash reporters or uninstallers as game processes.
+fn discover_game_executables(files: &dyn FileAccess, root: &Path) -> Vec<PathBuf> {
+    if !files.is_dir(root) {
+        return Vec::new();
+    }
+    let mut queue = std::collections::VecDeque::from([(root.to_path_buf(), 0)]);
+    let mut found = Vec::new();
+    let mut visited = 0;
+    while let Some((directory, depth)) = queue.pop_front() {
+        visited += 1;
+        if visited > 64 {
+            break;
+        }
+        let Ok(Some(mut entries)) = files.list_dir(&directory, 512) else {
+            continue;
+        };
+        entries.sort();
+        for entry in entries {
+            let name = entry
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_ascii_lowercase();
+            if [
+                "unins",
+                "uninstall",
+                "setup",
+                "install",
+                "redist",
+                "crash",
+                "report",
+                "anticheat",
+                "easyanticheat",
+                "battleye",
+                "cef",
+                "unitycrash",
+                "dotnet",
+                "directx",
+                "vcredist",
+            ]
+            .iter()
+            .any(|part| name.contains(part))
+            {
+                continue;
+            }
+            if has_exe_extension(&entry) && files.is_file(&entry) {
+                found.push(entry);
+                if found.len() >= 32 {
+                    return found;
+                }
+            } else if depth < 4 && files.is_dir(&entry) && queue.len() < 64 {
+                queue.push_back((entry, depth + 1));
+            }
+        }
+    }
+    found
 }
 
 fn display_icon_path(value: &str) -> Option<PathBuf> {
@@ -1414,7 +1486,7 @@ const SHOOTER_CATALOG: &[ShooterCatalogEntry] = &[
         display_name: "Apex Legends",
         aliases: &["apex legends"],
         steam_ids: &["1172470"],
-        executables: &["r5apex.exe"],
+        executables: &["r5apex.exe", "r5apex_dx12.exe"],
     },
     ShooterCatalogEntry {
         logical_id: "counter-strike-2",
@@ -2253,5 +2325,19 @@ mod tests {
             );
             assert_ne!(report.status, GameScanSourceStatus::Failed);
         }
+    }
+    mod apex_dx12 {
+        use super::*;
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/game_scan_apex_dx12.rs"
+        ));
+    }
+    mod other_games {
+        use super::*;
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/game_scan_other_games.rs"
+        ));
     }
 }

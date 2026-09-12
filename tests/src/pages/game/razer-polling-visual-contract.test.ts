@@ -19,14 +19,14 @@ const configSource = readFileSync(
 );
 
 describe('Razer polling page visual contract', () => {
-  it('uses an independent Beta page shell with one scroll owner', () => {
+  it('uses an independent stable page shell with one scroll owner', () => {
     expect(pageSource).toContain('class="app-page razer-polling-page"');
     expect(pageSource).toContain('class="app-page__header razer-page-header"');
     expect(pageSource.match(/class="app-page__scroll"/g)).toHaveLength(1);
     expect(pageSource).toContain('class="app-page__content razer-page-content"');
-    expect(pageSource).toContain('class="mx-beta-badge"');
-    expect(pageSource).toContain(':title="t(\'settings.betaFeaturesHint\')"');
-    expect(pageSource).toContain("{{ t('common.beta') }}");
+    expect(pageSource).not.toContain('class="mx-beta-badge"');
+    expect(pageSource).not.toContain(':title="t(\'settings.betaFeaturesHint\')"');
+    expect(pageSource).not.toContain("{{ t('common.beta') }}");
     expect(pageSource).not.toContain('gameOptimizer.');
   });
 
@@ -51,7 +51,7 @@ describe('Razer polling page visual contract', () => {
       "import {cloneRazerBackgroundConfig} from '@/utils/background_runtime.ts'",
     );
     expect(pageSource).toContain(
-      'runtime.configureRazer(cloneRazerBackgroundConfig(config.value))',
+      'runtime.configureRazer(draft)',
     );
     expect(pageSource).toContain(
       'config.value = cloneRazerBackgroundConfig(runtime.snapshot.config.razer)',

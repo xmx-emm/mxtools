@@ -1278,8 +1278,6 @@ fn snapshot_from_known_state(
     };
     let razer_state = if !config.razer.enabled {
         BackgroundFeatureState::Disabled
-    } else if !config.beta_features_enabled {
-        BackgroundFeatureState::BlockedByBeta
     } else {
         BackgroundFeatureState::Ready
     };

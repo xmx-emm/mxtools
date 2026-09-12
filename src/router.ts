@@ -130,7 +130,6 @@ const game_tools: ToolChild[] = [
     nameKey: 'nav.razerPolling',
     component: RazerPollingPage,
     iconComponent: markRaw(RazerIcon),
-    beta: true,
   },
 ];
 const windows_tools: ToolChild[] = [

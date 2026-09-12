@@ -181,6 +181,10 @@ export function getRazerPollingStatus(): Promise<RazerPollingStatus[]> {
   return ipcInvoke<RazerPollingStatus[]>('razer_polling_status');
 }
 
+export function readGameExecutableIcon(path: string): Promise<string | null> {
+  return ipcInvoke<string | null>('read_game_executable_icon', {path});
+}
+
 export function configureRazerPolling(config: RazerPollingConfig): Promise<RazerPollingStatus[]> {
   return ipcInvoke<RazerPollingStatus[]>('razer_polling_configure', {config});
 }

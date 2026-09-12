@@ -146,9 +146,7 @@ fn system_runtime_locale_tag() -> &'static str {
 }
 
 fn native_razer_config(config: &BackgroundRuntimeConfig) -> RazerPollingConfig {
-    let mut native = to_native_razer_config(&config.razer);
-    native.enabled &= config.beta_features_enabled;
-    native
+    to_native_razer_config(&config.razer)
 }
 
 fn to_native_razer_config(config: &RazerBackgroundConfig) -> RazerPollingConfig {
@@ -581,4 +579,17 @@ mod tests {
         drop(second);
         assert!(!APEX_Q_CAPTURE_BUSY.load(Ordering::Acquire));
     }
+}
+
+#[cfg(test)]
+mod razer_stable_tests {
+    use super::*;
+    use crate::background_runtime::{
+        RazerDevicePollingConfig, RazerGameMatcher, RazerGamePollingConfig,
+    };
+    use std::collections::BTreeMap;
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/razer_stable_config.rs"
+    ));
 }

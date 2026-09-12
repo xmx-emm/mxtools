@@ -8,6 +8,7 @@ mod cef_debug;
 mod elevated;
 mod folder_sharing;
 mod game;
+mod game_icon;
 mod game_optimizer;
 mod game_scan;
 mod input_method;
@@ -363,6 +364,7 @@ pub fn run() {
             apply_game_optimizer,
             benchmark_game_network,
             scan_installed_games,
+            game_icon::read_game_executable_icon,
             // Razer polling rate
             razer_polling_probe,
             razer_polling_status,

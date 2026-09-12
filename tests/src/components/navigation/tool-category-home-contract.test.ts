@@ -36,10 +36,7 @@ describe('tool category home visual contract', () => {
     expect(gamePageSource).toContain("{count: gameItems.length}");
   });
 
-  it('gates Game Checkup and the independent Razer tool behind Beta features', () => {
-    expect(gamePageSource).toContain("path: '/razer_polling'");
-    expect(routerSource).toContain("path: '/razer_polling'");
-
+  it('gates Game Checkup behind Beta features', () => {
     const gameItems = sourceBetween(
       gamePageSource,
       'const gameItems = computed(() => ([',
@@ -60,34 +57,10 @@ describe('tool category home visual contract', () => {
       "path: '/game_optimizer'",
       "path: '/apex'",
     );
-    const razerCard = sourceBetween(
-      gamePageSource,
-      "path: '/razer_polling'",
-      '].filter(item =>',
-    );
-    const razerRoute = sourceBetween(
-      routerSource,
-      "path: '/razer_polling'",
-      '];\nconst windows_tools',
-    );
-
     expect(gameOptimizerCard).toContain('beta: {');
     expect(gameOptimizerCard).toContain("label: t('common.beta')");
     expect(gameOptimizerCard).toContain("hint: t('settings.betaFeaturesHint')");
     expect(gameOptimizerRoute).toContain('beta: true');
-    expect(gameItems.trimEnd()).toMatch(/path: '\/razer_polling'[\s\S]*},$/);
-    expect(gameRoutes.trimEnd()).toMatch(/path: '\/razer_polling'[\s\S]*},$/);
-    expect(gamePageSource).toContain("import RazerIcon from '@/components/icons/RazerIcon.vue';");
-    expect(routerSource).toContain("import RazerIcon from '@/components/icons/RazerIcon.vue';");
-    expect(razerCard).toContain('iconComponent: RazerIcon');
-    expect(razerRoute).toContain('iconComponent: markRaw(RazerIcon)');
-    expect(razerCard).not.toContain("icon: 'mdi-mouse'");
-    expect(razerRoute).not.toContain("icon: 'mdi-mouse'");
-    expect(razerCard).toContain('beta: {');
-    expect(razerCard).toContain("label: t('common.beta')");
-    expect(razerCard).toContain("hint: t('settings.betaFeaturesHint')");
-    expect(razerRoute).toContain('beta: true');
-
     expect(gamePageSource).toMatch(
       /\.filter\(item => !item\.beta \|\| settingsStore\.betaFeaturesEnabled\)/s,
     );

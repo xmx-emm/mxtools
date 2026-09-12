@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
-use tauri::{Manager, Runtime};
+use tauri::{Emitter, Manager, Runtime};
 
 const REPORT_LENGTH: usize = 91;
 const RAZER_VENDOR_ID: u16 = 0x1532;
@@ -24,6 +24,14 @@ const RESPONSE_RETRY_DELAY_MS: u64 = 15;
 const CONFIG_SCHEMA_VERSION: u32 = 1;
 const JOURNAL_SCHEMA_VERSION: u32 = 1;
 const SUPPORTED_RATES: [u32; 7] = [125, 250, 500, 1000, 2000, 4000, 8000];
+
+static STATUS_NOTIFIER: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+
+fn notify_auto_status() {
+    if let Some(notify) = STATUS_NOTIFIER.get() {
+        notify();
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2160,6 +2168,8 @@ fn submit_auto_target(device_id: &str, target: AutoTarget) -> IpcResult<()> {
             && runtime.auto_target_rate_hz == Some(target.rate_hz)
         {
             runtime.active_profile_id = target.profile_id;
+            drop(runtime);
+            notify_auto_status();
             return Ok(());
         }
     }
@@ -2174,7 +2184,9 @@ fn submit_auto_target(device_id: &str, target: AutoTarget) -> IpcResult<()> {
                 if let Ok(slot) = slot_by_id(&worker_device_id) {
                     if let Ok(runtime) = slot.runtime.lock() {
                         if runtime.faulted {
+                            drop(runtime);
                             worker_inbox.complete(&target);
+                            notify_auto_status();
                             continue;
                         }
                         if runtime.current_rate_hz == Some(target.rate_hz)
@@ -2185,6 +2197,7 @@ fn submit_auto_target(device_id: &str, target: AutoTarget) -> IpcResult<()> {
                                 runtime.active_profile_id = target.profile_id.clone();
                             }
                             worker_inbox.complete(&target);
+                            notify_auto_status();
                             continue;
                         }
                     }
@@ -2204,6 +2217,7 @@ fn submit_auto_target(device_id: &str, target: AutoTarget) -> IpcResult<()> {
                     }
                 }
                 worker_inbox.complete(&target);
+                notify_auto_status();
             }
         });
         workers.insert(device_id.to_string(), TargetWorker { inbox, handle });
@@ -2526,6 +2540,14 @@ pub async fn razer_polling_configure<R: Runtime>(
     config: RazerPollingConfig,
 ) -> IpcResult<Vec<RazerPollingStatus>> {
     ensure_recovery_journal(&app)?;
+    let event_app = app.clone();
+    STATUS_NOTIFIER.get_or_init(|| {
+        Box::new(move || {
+            if let Ok(statuses) = snapshots() {
+                let _ = event_app.emit("razer-polling-status-changed", statuses);
+            }
+        })
+    });
     validate_config(&config)?;
     tauri::async_runtime::spawn_blocking(move || {
         stop_auto_worker();

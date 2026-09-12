@@ -1,5 +1,8 @@
 export const razerPollingMessages = {
   razerPolling: {
+    autoGame: 'Matched {name} · Current {rate} Hz',
+    autoDesktop: 'No foreground game matched · Current {rate} Hz',
+    sameAsDesktop: 'Same as desktop; entering this game will not change the rate',
     title: 'Razer polling rate',
     subtitle: 'Configure each device and switch rates from foreground-window events.',
     deviceTitle: 'Device polling rate',

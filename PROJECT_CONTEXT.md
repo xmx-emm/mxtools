@@ -75,9 +75,15 @@ noncommercial mirrors and public modified versions are allowed.
   and `--autostart` modes.
 - Installed game discovery: `src-tauri/src/game_scan.rs` runs a user-triggered,
   bounded local scan of Steam/Epic/Xbox manifests and EA/Ubisoft/Battle.net
-  registry or local manifests without recursive disk traversal, networking, or
+  registry or local manifests without disk-wide traversal, networking, or
   a resident watcher. User-edited profiles are preserved when a later scan
   refreshes results.
+  Uncatalogued games without a declared EXE use a bounded installation-only
+  search (depth 4, 64 directories, 512 entries each, 32 EXEs), excluding
+  installer/crash/redistributable helpers and directory reparse points.
+  Razer scan reports, Other Games expansion and search live in the persisted
+  `razer-game-scan` Pinia store. Adding a scanned game never opens a file picker;
+  unresolved games are added disabled with an explicit Add executable action.
 - Accent palettes and their accessible Vuetify color derivation live in
   `src/themes.ts`. APEX red is the default for new or reset preferences.
 - `settings.performanceMode` is a persisted, default-off preference that
@@ -280,11 +286,28 @@ noncommercial mirrors and public modified versions are allowed.
   tray behavior: `src-tauri/src/tray.rs`; frontend event listeners:
   `src/main.ts`.
 - `settings.betaFeaturesEnabled` is the persisted, default-off feature gate for
-  in-development UI. APEX Q, Game Checkup, Razer polling rate, LAN sharing,
+  in-development UI. APEX Q, Game Checkup, LAN sharing,
   Remote Desktop, Input Method, and Explorer context-menu management are
   currently behind this gate; gated tools are removed from navigation,
   dashboard, command search, category indexes, shortcuts, tray entries, and
   direct main-window routes as applicable.
+- Razer polling is available without Beta, including its native automatic worker.
+  The built-in exact USB model preset `1532:00e6` uses the locally saved verified
+  125/250/500/1000/2000/4000/8000 Hz ladder; explicit local model verification
+  takes precedence. This does not waive device GET/readback and recovery guards.
+  Apex discovery includes both `r5apex.exe` and `r5apex_dx12.exe` in every
+  installation; scan again to refresh previously incomplete automatic profiles.
+  Matching remains by full executable path, so Steam and EA paths are distinct.
+  Automatic results use `razer-polling-status-changed` Tauri events to update
+  the page without polling. Equal desktop/game rates are explicitly labeled.
+  Page configuration saves are serialized; failed saves restore the last
+  accepted configuration, and older save or device-probe responses cannot
+  overwrite newer events. The probe/event guard lives in
+  `src/utils/razer_status_refresh.ts` with deferred-response regression coverage.
+  Game rows read existing local EXE icons with `read_game_executable_icon`;
+  plain absolute drive paths must resolve through local drives without reparse
+  points. The background thread initializes COM before calling the Shell API.
+  Icons are transient PNG data URLs with a generic fallback, never executed.
 - GitHub Actions release gates are defined in `.github/workflows/ci.yml`. The
   0.0.7 release pins windows_tool revision
   `63be28c24cc093a8d160d902cb983331dc9c9e2e`, including EA installation validation.
@@ -372,6 +395,11 @@ noncommercial mirrors and public modified versions are allowed.
   start/exit, and a second normal dev startup kept the app running without
   another detection. These results validate this local build. See
   `docs/RELEASE_CHECKLIST_0.0.6.md` before release.
+- During the 2026-09-12 source review, Huorong quarantined an intermediate
+  library test EXE with the same detection despite Cargo completing compilation.
+  An isolated source copy could execute tests. After the review fixes, the
+  original-directory build passed all 251 enabled Rust tests. This does not
+  establish the detector's cause or general antivirus clearance.
 - Vite aliases resolve against `import.meta.dirname`; do not reintroduce
   `__dirname`, which the native config loader does not support.
 - Quick-preset reopen derives FPS, graphics level, and resolution enablement
@@ -721,7 +749,7 @@ graph TD
   Prefs --> Hotkey["Global Hotkey"]
   Tray["Rust Tray Menu"] --> Main["main.ts event listeners"]
   Main --> Workbench
-  RazerPollingPage["Razer Polling Beta Page"] --> RazerPollingControl["Manual / Foreground Auto Control"]
+  RazerPollingPage["Razer Polling Page"] --> RazerPollingControl["Manual / Foreground Auto Control"]
   RazerPollingControl --> IPC
   IPC --> RazerPollingNative["Verified Protocol 2.5 HID Transactions"]
   Rust --> IPC

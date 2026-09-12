@@ -9,6 +9,12 @@ import type {
   RazerPollingStatus,
 } from '@/types/razer_polling.ts';
 
+// Exact USB model verified on the development machine, including restoration.
+// Do not generalize these rates to other receivers or wired product IDs.
+export const BUILTIN_RAZER_MODEL_PRESETS: Readonly<Record<string, readonly number[]>> = {
+  '1532:00e6': [125, 250, 500, 1000, 2000, 4000, 8000],
+};
+
 function normalizedRates(rates: readonly number[]): number[] {
   return [...new Set(rates)].sort((left, right) => left - right);
 }
@@ -40,7 +46,8 @@ export function verifiedRatesForStatus(
   status: RazerPollingStatus,
 ): number[] {
   const profileRates = config.deviceProfiles[status.device.deviceId]?.verifiedRatesHz ?? [];
-  const modelRates = config.modelPresets?.[razerModelKey(status.device)] ?? [];
+  const modelRates = config.modelPresets?.[razerModelKey(status.device)]
+    ?? BUILTIN_RAZER_MODEL_PRESETS[razerModelKey(status.device)] ?? [];
   return normalizedRates([...profileRates, ...modelRates, ...confirmedRates(status)]);
 }
 
@@ -48,7 +55,8 @@ export function hasModelPreset(
   config: RazerBackgroundConfig,
   status: RazerPollingStatus,
 ): boolean {
-  return Boolean(config.modelPresets?.[razerModelKey(status.device)]?.length);
+  return Boolean((config.modelPresets?.[razerModelKey(status.device)]
+    ?? BUILTIN_RAZER_MODEL_PRESETS[razerModelKey(status.device)])?.length);
 }
 
 export function recordVerifiedModelPreset(
@@ -117,7 +125,8 @@ export function mergeScannedGame(
   const matchers = scannedGameMatchers(game);
   const deviceRatesHz = {...existing?.deviceRatesHz};
   for (const status of connectedRazerStatuses(statuses)) {
-    const rate = highestConfirmedRate(status);
+    const rates = verifiedRatesForStatus(config, status);
+    const rate = rates[rates.length - 1];
     if (rate != null) deviceRatesHz[status.device.deviceId] ??= rate;
   }
   const next: RazerBackgroundGame = {
