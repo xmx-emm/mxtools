@@ -30,23 +30,33 @@ async function install() {
 
 <template>
   <section class="app-section settings-section">
-    <header class="update-heading"><h2>{{ t('updates.title') }}</h2><span v-if="update.info">{{ update.info.currentVersion }}</span></header>
-    <label class="update-preference">
-      <span>{{ t('updates.automatic') }}</span>
-      <v-switch v-model="settings.autoCheckUpdates" hide-details density="compact" color="primary"/>
-    </label>
-    <p role="status">{{ t('updates.' + status) }}</p>
-    <p v-if="update.info?.version">{{ t('updates.newVersion', {version: update.info.version}) }}</p>
-    <pre v-if="update.info?.notes" class="update-notes">{{ update.info.notes }}</pre>
-    <p v-if="update.error" class="text-error">{{ update.error }}</p>
-    <v-progress-linear v-if="update.phase === 'downloading'" :model-value="update.percent ?? 0"
-      :indeterminate="update.percent === null" color="primary" height="6"/>
-    <p v-if="update.percent !== null && update.phase === 'downloading'">{{ update.percent.toFixed(1) }}%</p>
-    <p v-if="blocked && update.info?.version" class="text-warning">{{ t('updates.pendingWork') }}</p>
-    <div class="update-actions">
-      <v-btn variant="text" :disabled="!isTauri() || update.busy" :loading="update.phase === 'checking'" @click="update.check()">{{ t('updates.check') }}</v-btn>
-      <v-btn v-if="update.phase === 'available'" variant="tonal" color="primary" :disabled="blocked" @click="confirm = true">{{ t('updates.install') }}</v-btn>
-      <v-btn variant="text" :disabled="!isTauri() || update.busy" @click="releasePage">{{ t('updates.releases') }}</v-btn>
+    <header class="settings-section-header">
+      <span class="settings-section-icon"><v-icon icon="mdi-download" size="18"/></span>
+      <div>
+        <h2>{{ t('updates.title') }}</h2>
+        <p role="status">{{ t('updates.' + status) }}</p>
+      </div>
+      <span v-if="update.info" class="update-version">{{ update.info.currentVersion }}</span>
+    </header>
+    <div class="settings-rows">
+      <label class="setting-row">
+        <span><strong>{{ t('updates.automatic') }}</strong></span>
+        <v-switch v-model="settings.autoCheckUpdates" hide-details color="primary"/>
+      </label>
+    </div>
+    <div class="update-details">
+      <p v-if="update.info?.version">{{ t('updates.newVersion', {version: update.info.version}) }}</p>
+      <pre v-if="update.info?.notes" class="update-notes">{{ update.info.notes }}</pre>
+      <p v-if="update.error" class="text-error">{{ update.error }}</p>
+      <v-progress-linear v-if="update.phase === 'downloading'" :model-value="update.percent ?? 0"
+        :indeterminate="update.percent === null" color="primary" height="6"/>
+      <p v-if="update.percent !== null && update.phase === 'downloading'">{{ update.percent.toFixed(1) }}%</p>
+      <p v-if="blocked && update.info?.version" class="text-warning">{{ t('updates.pendingWork') }}</p>
+      <div class="update-actions">
+        <v-btn variant="text" :disabled="!isTauri() || update.busy" :loading="update.phase === 'checking'" @click="update.check()">{{ t('updates.check') }}</v-btn>
+        <v-btn v-if="update.phase === 'available'" variant="tonal" color="primary" :disabled="blocked" @click="confirm = true">{{ t('updates.install') }}</v-btn>
+        <v-btn variant="text" :disabled="!isTauri() || update.busy" @click="releasePage">{{ t('updates.releases') }}</v-btn>
+      </div>
     </div>
     <v-dialog v-model="confirm" max-width="480">
       <v-card :title="t('updates.install')">
@@ -58,11 +68,26 @@ async function install() {
 </template>
 
 <style scoped>
-.update-heading,.update-preference { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.update-heading h2 { font-size:15px; }
-.update-heading span,p,.update-preference { font-size:12px; }
-.update-preference :deep(.v-input) { flex:0 0 auto; }
+.settings-section { overflow: hidden; }
+.settings-section-header { display: flex; align-items: flex-start; gap: 11px; padding: 17px 18px 14px; }
+.settings-section-header > div { min-width: 0; }
+.settings-section-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px;
+  color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.09);
+}
+.settings-section-header h2 { margin: 0; font-size: 13px; font-weight: 680; }
+.settings-section-header p { margin: 3px 0 0; color: rgba(var(--v-theme-on-surface), 0.5); font-size: 10px; line-height: 1.5; }
+.update-version { margin-left: auto; color: rgba(var(--v-theme-on-surface), 0.5); font-size: 10px; }
+.settings-rows { border-top: 1px solid var(--app-border); }
+.setting-row { display: flex; align-items: center; justify-content: space-between; min-height: 60px; gap: 20px; padding: 10px 18px; }
+.setting-row > span { min-width: 0; }
+.setting-row strong { font-size: 11px; font-weight: 620; }
+.setting-row :deep(.v-switch) { flex: 0 0 auto; }
+.update-details { padding: 0 18px 18px; font-size: 11px; line-height: 1.5; }
+.update-details p { margin: 0 0 8px; overflow-wrap: anywhere; }
 .update-notes { white-space:pre-wrap; overflow-wrap:anywhere; max-height:180px; overflow:auto; font:inherit; font-size:12px; }
-.update-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.update-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .update-actions :deep(.v-btn) { height:var(--app-control-height-compact); }
+.v-card-actions :deep(.v-btn) { height: var(--app-control-height-action); }
 </style>
