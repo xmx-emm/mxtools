@@ -114,6 +114,17 @@ noncommercial mirrors and public modified versions are allowed.
 - The shared CEF transport probes both IPv4 and IPv6 loopback without proxies
   and pins WebSocket discovery to the responding address. On Windows, NVIDIA
   Broadcast can own IPv4 port 8080 while Steam listens on IPv6 port 8080.
+- Apex launch writes through `apex_history.rs`: applying launch options
+  without an explicit `+miles_language` also clears the archived `miles_language`
+  in `profile.cfg`, even when the launch string is unchanged. Steam/EA setters
+  and quick presets use the history mutation engine so the profile change is
+  backed up and rolled back with other writes; running-game and read-only
+  checks apply. Launch parsing respects quoted tokens and protects `+exec`
+  arguments. A verified launch-only profile repair can succeed without a full
+  settings report if the unrelated `settings.cfg` is unreadable; combined
+  game-setting writes still require that report. Downloaded audio files are
+  retained. Focused native coverage is
+  in `tests/rust/apex_miles_language_reset.rs`.
 - Miles one-click downloads use the local Steam/EA CEF clients in
   `src-tauri/src/game/apex_language_download{,_ea}.rs`, share one native
   progress gate whose `apex-miles-download-progress` event is restored by

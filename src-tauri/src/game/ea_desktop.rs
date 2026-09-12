@@ -1,8 +1,7 @@
 //! Tauri 封装；实现位于 `windows_tool::game::ea`.
 
 use crate::game::apex_history::{
-    discard_scope_locked_for_app, lock_history, prune_history_locked, record_launch_before_locked,
-    ApexConfigScope, ApexHistorySource, ApexLauncherRef,
+    persist_launch_with_voice_reset, ApexHistorySource, ApexLauncherRef,
 };
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::utils::{blocking_cmd, thoroughly_kill_named, ProcessNameMatchMode};
@@ -44,38 +43,17 @@ pub async fn set_apex_launch_option_ea(
     transaction_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
-        crate::game::apex::validate_launch_options(&launch_option)?;
-        let _guard = lock_history()?;
-        let current = read_ea_launch_options(&ea_user_id)?;
-        if current == launch_option {
-            return Ok(());
-        }
-        if ea_desktop_is_running_sync()? {
-            return Err("apex.history.errors.launcherRunning".to_string());
-        }
-        let entry = record_launch_before_locked(
+        persist_launch_with_voice_reset(
             &app,
             history_source.unwrap_or_default(),
-            transaction_id.as_deref(),
+            transaction_id,
             ApexLauncherRef {
                 kind: "ea".to_string(),
                 id: ea_user_id.clone(),
                 name: String::new(),
             },
-            current.clone(),
-        )?;
-        if let Err(error) = write_ea_launch_options(&ea_user_id, &launch_option) {
-            let unchanged = read_ea_launch_options(&ea_user_id)
-                .map(|after| after == current)
-                .unwrap_or(false);
-            if unchanged && entry.scope_added {
-                let _ =
-                    discard_scope_locked_for_app(&app, &entry.entry.id, ApexConfigScope::Launch);
-            }
-            return Err(error);
-        }
-        let _ = prune_history_locked(&app);
-        Ok(())
+            launch_option,
+        )
     })
     .await
     .map_err(|error| IpcError::operation_failed("ea_desktop", error))

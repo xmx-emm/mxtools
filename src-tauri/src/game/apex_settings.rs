@@ -1321,6 +1321,80 @@ fn encode_doc(doc: &ApexCfgDocument) -> Vec<u8> {
     doc.encoding.encode(&doc.to_string())
 }
 
+/// Removing the launch override does not clear the value archived by the game.
+pub(crate) fn miles_language_reset_needed(path: &Path, launch: &str) -> Result<bool, String> {
+    // Quoted +exec arguments may contain text that looks like a launch option.
+    let mut tokens = Vec::new();
+    let mut token = String::new();
+    let mut quoted = false;
+    let mut started = false;
+    for ch in launch.chars() {
+        match ch {
+            '"' => {
+                quoted = !quoted;
+                started = true;
+            }
+            ch if ch.is_whitespace() && !quoted => {
+                if started {
+                    tokens.push(std::mem::take(&mut token));
+                    started = false;
+                }
+            }
+            _ => {
+                token.push(ch);
+                started = true;
+            }
+        }
+    }
+    if started {
+        tokens.push(token);
+    }
+    // Preserve explicit overrides, including custom/unknown language values.
+    let mut index = 0;
+    while index < tokens.len() {
+        if tokens[index].eq_ignore_ascii_case("+exec") {
+            index += 2;
+            continue;
+        }
+        if tokens[index].eq_ignore_ascii_case("+miles_language") && index + 1 < tokens.len() {
+            return Ok(false);
+        }
+        index += 1;
+    }
+    let profile = load_file_at_path(path.to_path_buf())?;
+    Ok(profile
+        .doc
+        .get("miles_language")
+        .is_some_and(|value| !value.is_empty()))
+}
+
+pub(crate) fn reset_miles_language_at_path(path: &Path) -> Result<(), String> {
+    let mut profile = load_file_at_path(path.to_path_buf())?;
+    if profile.doc.get("miles_language").is_none_or(str::is_empty) {
+        return Ok(());
+    }
+    profile.doc.set("miles_language", "")?;
+    let bytes = encode_doc(&profile.doc);
+    ensure_revision(path, &profile.revision)?;
+    atomic_write(path, &bytes)?;
+    verify_file_bytes(path, &bytes)
+}
+
+pub(crate) fn report_after_miles_reset(
+    settings: &Path,
+    profile: &Path,
+    require_report: bool,
+) -> Result<Option<ApexGameSettingsReport>, String> {
+    let report = load_report_at_paths(settings, profile);
+    if require_report {
+        report.map(Some)
+    } else {
+        // The profile write was verified; unreadable unrelated settings do not
+        // invalidate a launch-only repair.
+        Ok(report.ok())
+    }
+}
+
 fn unique_temp_path(path: &Path) -> PathBuf {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -2355,5 +2429,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_reticle_snapshot.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/apex_miles_language_reset.rs"
     ));
 }

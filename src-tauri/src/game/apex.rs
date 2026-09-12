@@ -18,10 +18,10 @@
 */
 
 use crate::game::apex_history::{
-    discard_scope_locked_for_app, lock_history, prune_history_locked, record_launch_before_locked,
-    record_video_before_locked, ApexConfigScope, ApexHistorySource, ApexLauncherRef,
+    discard_scope_locked_for_app, lock_history, persist_launch_with_voice_reset,
+    prune_history_locked, record_video_before_locked, ApexConfigScope, ApexHistorySource,
+    ApexLauncherRef,
 };
-use crate::game::steam::steam_is_running_sync;
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::log_info;
 use crate::utils::{blocking_cmd, blocking_value, thoroughly_kill_named, ProcessNameMatchMode};
@@ -231,38 +231,17 @@ pub async fn set_apex_launch_option(
     transaction_id: Option<String>,
 ) -> IpcResult<()> {
     blocking_cmd(move || {
-        validate_launch_options(&launch_option)?;
-        let _guard = lock_history()?;
-        let current = read_steam_launch_options(id)?;
-        if current == launch_option {
-            return Ok(());
-        }
-        if steam_is_running_sync()? {
-            return Err("apex.history.errors.launcherRunning".to_string());
-        }
-        let entry = record_launch_before_locked(
+        persist_launch_with_voice_reset(
             &app,
             history_source.unwrap_or_default(),
-            transaction_id.as_deref(),
+            transaction_id,
             ApexLauncherRef {
                 kind: "steam".to_string(),
                 id: id.to_string(),
                 name: String::new(),
             },
-            current.clone(),
-        )?;
-        if let Err(error) = write_steam_launch_options(id, &launch_option) {
-            let unchanged = read_steam_launch_options(id)
-                .map(|after| after == current)
-                .unwrap_or(false);
-            if unchanged && entry.scope_added {
-                let _ =
-                    discard_scope_locked_for_app(&app, &entry.entry.id, ApexConfigScope::Launch);
-            }
-            return Err(error);
-        }
-        let _ = prune_history_locked(&app);
-        Ok(())
+            launch_option,
+        )
     })
     .await
     .map_err(apex_error)

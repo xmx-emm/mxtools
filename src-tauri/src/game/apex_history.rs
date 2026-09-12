@@ -611,27 +611,25 @@ fn discard_scope_locked(dir: &Path, id: &str, scope: ApexConfigScope) -> Result<
     Ok(())
 }
 
-pub(crate) fn record_launch_before_locked(
+pub(crate) fn persist_launch_with_voice_reset(
     app: &tauri::AppHandle,
     source: ApexHistorySource,
-    transaction_id: Option<&str>,
+    transaction_id: Option<String>,
     launcher: ApexLauncherRef,
-    current: String,
-) -> Result<ApexScopedHistoryRecord, String> {
-    let dir = history_dir(app)?;
-    record_scope_locked(
-        &dir,
-        source,
-        transaction_id,
-        ApexConfigScope::Launch,
-        RecordParts {
+    launch_options: String,
+) -> Result<(), String> {
+    mutate_impl(
+        app,
+        ApexConfigMutationRequest {
+            source,
+            transaction_id,
             launcher: Some(launcher),
-            launch_options: Some(current),
-            video: None,
-            settings: None,
-            profile: None,
+            launch_options: Some(launch_options),
+            video_updates: HashMap::new(),
+            game_settings: None,
         },
     )
+    .map(|_| ())
 }
 
 pub(crate) fn record_video_before_locked(
@@ -1437,6 +1435,16 @@ fn mutate_impl(
             || !game.binding_mutations.is_empty()
     });
 
+    // Also repair an already-unchecked launch option: the old implementation
+    // could leave Japanese archived in profile.cfg even when launch is unchanged.
+    let voice_reset = if let Some(launch) = &request.launch_options {
+        let (_, profile) = apex_settings::apex_game_settings_paths()?;
+        apex_settings::miles_language_reset_needed(&profile, launch)?
+    } else {
+        false
+    };
+    let game_files_changed = game_changed || voice_reset;
+
     let mut changed_scopes = Vec::new();
     if launch_changed {
         changed_scopes.push(ApexConfigScope::Launch);
@@ -1444,7 +1452,7 @@ fn mutate_impl(
     if video_changed {
         changed_scopes.push(ApexConfigScope::Video);
     }
-    if game_changed {
+    if game_files_changed {
         changed_scopes.push(ApexConfigScope::GameSettings);
     }
     if changed_scopes.is_empty() {
@@ -1457,7 +1465,7 @@ fn mutate_impl(
         });
     }
 
-    if (video_changed || game_changed) && apex::apex_is_running_sync()? {
+    if (video_changed || game_files_changed) && apex::apex_is_running_sync()? {
         return Err("apex.history.errors.apexRunning".to_string());
     }
     if launch_changed {
@@ -1476,11 +1484,12 @@ fn mutate_impl(
         .as_ref()
         .map(|path| capture_file(path))
         .transpose()?;
-    let game_paths = game_changed
+    let game_paths = game_files_changed
         .then(apex_settings::apex_game_settings_paths)
         .transpose()?;
     let settings_before = game_paths
         .as_ref()
+        .filter(|_| game_changed)
         .map(|(path, _)| capture_file(path))
         .transpose()?;
     let profile_before = game_paths
@@ -1533,6 +1542,13 @@ fn mutate_impl(
                 .clone()
                 .ok_or_else(|| "apex.gameSettings.errors.noChanges".to_string())?;
             game_settings_report = Some(apex_settings::apply_request_without_history(game)?);
+        }
+        if voice_reset {
+            if let Some((settings, profile)) = &game_paths {
+                apex_settings::reset_miles_language_at_path(profile)?;
+                game_settings_report =
+                    apex_settings::report_after_miles_reset(settings, profile, game_changed)?;
+            }
         }
         Ok(())
     })();
