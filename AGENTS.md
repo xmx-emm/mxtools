@@ -1,8 +1,10 @@
 # Project Agent Guide
 
-Before reading or searching source code, read `PROJECT_CONTEXT.md`.
-Use it to choose the smallest relevant scope, then verify every important
-claim against current source files because the summary never overrides code.
+For architecture, cross-module, build/package, handoff, or explicitly requested
+context work, read `PROJECT_CONTEXT.md` before source. For a self-contained
+local, read-only, or documentation-only task, read only the relevant files and
+use the context when it affects scope. Verify every important claim against
+current source files because the summary never overrides code.
 
 Keep changes scoped to the requested workflow. Preserve unrelated changes in
 this frequently dirty worktree. Use `apply_patch` for manual edits and do not
@@ -68,7 +70,9 @@ the context describes the committed tree and include it when changed.
   mapped in `src/icons/mdi-icons.ts`. When changing an action group, audit every
   icon in that component family against the registry so a declared icon cannot
   silently render as missing.
-- When changing a repeated control, search all instances in the affected tool
-  and migrate the whole interaction family in the same change. Compare Apex and
-  PUBG equivalents and run lint plus `git diff --check` before reporting the UI
-  change complete.
+- When changing a repeated control, search all instances only when the control
+  is shared by, or its contract explicitly covers, multiple pages or games.
+  For a local control, keep the change and verification local. Compare Apex
+  and PUBG equivalents only when both implement the same interaction contract;
+  run the smallest affected lint/check plus `git diff --check` before reporting
+  the UI change complete.
