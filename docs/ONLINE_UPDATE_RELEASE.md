@@ -15,7 +15,7 @@ Windows Authenticode，不能据此宣称已获得受信任发布者证书。
 
 工作流只构建已提交的源码，固定检出 `windows_tool` 依赖版本。它执行代码检查、
 单元测试、三种 Windows 产物构建和体积门禁，再在临时 Windows runner 上安装
-已知 SHA-256 的 0.0.7 安装包，通过真实 updater 插件验证新包、拒绝修改后的包、
+已知 SHA-256 的 0.0.8 安装包，通过真实 updater 插件验证新包、拒绝修改后的包、
 调用 NSIS 更新，并检查新版本进程重新启动。只有这些步骤成功才发布 GitHub Release。
 该测试验证原生更新和安装路径，不代表用户主窗口中的每个交互都经过自动化点击。
 
@@ -90,3 +90,10 @@ GitHub 仓库需配置 `TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_
 Rust 测试使用独立测试公钥/签名，覆盖网络和非法清单回退、版本比较、真实签名下载、
 篡改拒绝及下载回退时的版本/签名锁定。
 需要实际安装的 Rust 测试默认 ignored，仅由发布工作流在隔离 Windows runner 显式运行。
+
+发布后可显式运行 `app_update::tests::published_update` 下的 ignored 测试。
+设置 `MXTOOLS_UPDATE_FROM_VERSION` 为模拟的已安装版本、
+`MXTOOLS_EXPECT_PUBLISHED_VERSION` 为预期新版本，再执行
+`cargo test --manifest-path src-tauri/Cargo.toml --lib app_update::tests::published_update -- --ignored --nocapture`。
+该检查分别读取 GitHub/Gitee 的公开清单，通过真实更新器下载并验证安装版、便携版签名；
+不安装、不启动下载的文件。它不能证明旧便携启动器具备更新能力，旧版限制仍按上文处理。

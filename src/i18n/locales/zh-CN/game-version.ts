@@ -1,1 +1,1 @@
-export const gameVersionMessages = {gameVersion: {"current":"游戏版本","checking":"读取中","unknown":"版本未知","notInstalled":"未检测到安装","verified":"已适配","unverified":"尚未验证适配"}};
+export const gameVersionMessages = {gameVersion: {"current":"游戏版本","checking":"读取中","unknown":"版本未知","notInstalled":"未检测到安装","verified":"已适配","unverified":"尚未验证适配","launchReviewed":"启动项已静态核对","launchPartial":"启动项部分核对，效果待验证"}};

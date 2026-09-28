@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import {useUiStyleStore} from '@/stores/style.ts';
-import {nextTick, onBeforeUnmount, onMounted, watch} from 'vue';
+import {defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {useStateStore} from '@/stores/state.ts';
 import {useSettingsStore} from '@/stores/settings.ts';
-import AppConfirmationDialog from '@/components/common/AppConfirmationDialog.vue';
+import {appConfirmationState} from '@/utils/app_confirmation.ts';
+
+const AppConfirmationDialog = defineAsyncComponent(
+  () => import('@/components/common/AppConfirmationDialog.vue'),
+);
+const confirmationLoaded = ref(false);
+// Keep the dialog mounted while its hidden asynchronous action is still pending.
+watch(() => appConfirmationState.open, (open) => {
+  if (open) confirmationLoaded.value = true;
+}, {immediate: true});
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -56,7 +65,7 @@ onBeforeUnmount(() => {
 <template>
   <v-app :theme="ui.themeStyle" class="not_select">
     <router-view class="not_scrollbar"/>
-    <AppConfirmationDialog/>
+    <AppConfirmationDialog v-if="confirmationLoaded"/>
   </v-app>
 </template>
 

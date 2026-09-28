@@ -29,6 +29,7 @@ export const pubgGetters: PubgGetters = {
       options_selection: state.options_selection,
       settings_config: state.settings_config,
       parameter_overrides: state.parameter_overrides,
+      custom_launch_options: state.custom_launch_options,
       max_mem: state.max_mem,
       max_mem_safe_limit_mb: state.max_mem_safe_limit_mb,
       refresh_rate: state.refresh_rate,

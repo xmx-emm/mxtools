@@ -43,8 +43,9 @@ function graphicsPreviewTokens(item: SteamLaunchOptionsImpl): string {
   const mode = String(pubg_store.settings_config.graphics_api || 'dx11');
   const sub = item.parameters?.find((p) => p.identifier === mode);
   if (!sub) return '';
+  if (sub.default_parameter) return sub.default_parameter;
   const par = sub.parameter;
-  if (Array.isArray(par)) return par.join(' ');
+  if (Array.isArray(par)) return par[0] ?? '';
   return typeof par === 'string' ? par : '';
 }
 
@@ -148,6 +149,9 @@ const maxMemDisplayProxy = computed({
     class="rounded-0 pubg-options-list h-100 min-height-0"
     style="overflow-y: auto"
   >
+    <p class="text-caption text-medium-emphasis px-4 py-2" role="note">
+      {{ t('pubgLaunchOptions.ui.validationNotice') }}
+    </p>
     <template v-for="raw in PubgLaunchOptionsConfig" :key="typeof raw === 'string' ? raw : raw.name">
       <template v-if="isSteamLaunchOptionsImpl(raw)">
         <v-list-item

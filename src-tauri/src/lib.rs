@@ -107,7 +107,7 @@ use crate::logger::{get_log_folder_path, get_logs_for_feedback, write_frontend_l
 use crate::network_repair::{diagnose_network_repair_check, repair_network};
 use crate::online::auth::{
     online_auth_cancel_device_login, online_auth_get_account, online_auth_logout,
-    online_auth_poll_device_login, online_auth_start_device_login,
+    online_auth_open_verification, online_auth_poll_device_login, online_auth_start_device_login,
 };
 use crate::online::presets::{
     online_preset_comment_create, online_preset_comments, online_preset_publish,
@@ -145,15 +145,21 @@ use crate::user::{
 };
 use crate::windows_shell::repair_windows_icon_cache;
 
-/// INTENTIONAL (product requirement): DevTools must remain available in
-/// **release** builds for field debugging. Triggered from the frontend
-/// (`AppVersion.vue` Konami sequence). Cargo.toml enables the `devtools`
-/// feature on purpose — do NOT gate this behind `cfg(debug_assertions)`
-/// or strip it in audits without owner approval.
+#[cfg(feature = "devtools")]
 #[tauri::command]
-fn open_devtools(window: tauri::WebviewWindow) {
+fn open_devtools(window: tauri::WebviewWindow) -> crate::ipc_error::IpcResult<()> {
     log_info!("Opening devtools...");
     window.open_devtools();
+    Ok(())
+}
+
+#[cfg(not(feature = "devtools"))]
+#[tauri::command]
+fn open_devtools(_window: tauri::WebviewWindow) -> crate::ipc_error::IpcResult<()> {
+    Err(crate::ipc_error::IpcError::new(
+        "devtools.unavailable",
+        "DevTools are disabled in this build",
+    ))
 }
 
 /// 是否由开机自启拉起（注册自启时会带 `--autostart`）。
@@ -277,6 +283,7 @@ pub fn run() {
             destroy_main_window,
             // Online account (apex.0w0.online)
             online_auth_start_device_login,
+            online_auth_open_verification,
             online_auth_poll_device_login,
             online_auth_cancel_device_login,
             online_auth_get_account,

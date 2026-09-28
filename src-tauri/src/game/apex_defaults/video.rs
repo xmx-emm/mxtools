@@ -16,7 +16,7 @@ pub(crate) struct Hardware {
     pub video_memory_mb: u64,
     pub vendor_id: u32,
     pub device_id: u32,
-    // J57 treats Intel non-UMA adapters as level 3 after dxsupport lookup.
+    // Intel non-UMA adapters use level 3 after dxsupport lookup.
     pub intel_non_uma: bool,
     pub desktop_width: u32,
     pub desktop_height: u32,

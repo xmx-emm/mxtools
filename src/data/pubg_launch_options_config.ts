@@ -131,7 +131,7 @@ const GraphicsApi = {
     {
       identifier: 'dx11',
       name: 'pubgLaunchOptions.graphicsApi.dx11',
-      parameter: ['-force-feature-level-11-0', '-dx11'],
+      parameter: ['-d3d11', '-dx11'],
       default_parameter: '-dx11'
     },
     {
@@ -171,7 +171,7 @@ const Window = {
     },
     {
       name: 'pubgLaunchOptions.window.windowed',
-      parameter: '-window',
+      parameter: '-windowed',
     },
     {
       name: 'pubgLaunchOptions.window.borderless',
@@ -238,7 +238,11 @@ export const DepthOfFieldQuality = {
   tip: PubgDepthOfFieldQualityTip,
 };
 
-/** 分类标题为 i18n key；项顺序：系统与进程 → 图形与显示 → 启动与调试 → 渲染与画质 */
+/**
+ * Build 25449918 audit: literals/help text are not proof of Shipping behavior.
+ * Compatibility limits are documented in docs/GAME_LAUNCH_COMPATIBILITY.md.
+ * Graphics parameter arrays are read aliases; emit only default_parameter.
+ */
 const PubgLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   'pubgLaunchOptions.categories.display',
   Refresh,

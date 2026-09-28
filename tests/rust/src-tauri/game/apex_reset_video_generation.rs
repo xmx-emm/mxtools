@@ -59,12 +59,13 @@ fn reset_creates_all_missing_files_and_repeated_reset_returns_verified_defaults(
                 .filter(|line| line.starts_with("bind_US_standard ")
                     || line.starts_with("bind_held_US_standard "))
                 .count(),
-            107
+            108
         );
         for (input, command) in [
             ("MOUSE4", "+offhand1"),
             ("MOUSE5", "+offhand4"),
             ("MOUSE2", "+toggle_zoom"),
+            ("KP_INS", "toggle_obs_auto_mapcam"),
         ] {
             assert!(result
                 .game_settings_report
@@ -132,6 +133,41 @@ fn reset_saves_original_readonly_bytes_and_makes_every_config_writable() {
         restore_file_verified(&stored, path).unwrap();
         assert_eq!(fs::read(path).unwrap(), b"original\r\n\0");
         clear_readonly(path).unwrap();
+    }
+}
+
+#[test]
+fn reset_and_noop_readback_use_the_generated_settings() {
+    let dir = TestDir::new("reset-generated-settings");
+    let history = dir.0.join("history");
+    let video = dir.0.join("videoconfig.txt");
+    let settings = dir.0.join("settings.cfg");
+    let profile = dir.0.join("profile.cfg");
+    let mut defaults = reset_test_defaults("english");
+    defaults
+        .settings
+        .push_str("// Generated settings readback marker\n");
+    for repeated in [false, true] {
+        let result = reset_at_paths(
+            &history,
+            launcher("steam", "1"),
+            (&video, &settings, &profile),
+            &defaults,
+            || Ok(String::new()),
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(result.history_entry.is_none(), repeated);
+        assert_eq!(fs::read_to_string(&settings).unwrap(), defaults.settings);
+        assert_eq!(
+            result.game_settings_report.settings.values["mouse_sensitivity"],
+            "5"
+        );
+        assert!(result
+            .game_settings_report
+            .bindings
+            .iter()
+            .any(|binding| binding.input == "KP_INS"));
     }
 }
 

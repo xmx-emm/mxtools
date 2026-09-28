@@ -629,7 +629,7 @@ async function open_config_import() {
             @click="apex_store.open_reset_defaults_dialog()"
           />
         </v-btn-group>
-        <GameVersionStatus game="apex" :platform="apex_store.active_account_is_ea ? 'ea' : 'steam'"
+        <GameVersionStatus game="apex" scope="launch" :platform="apex_store.active_account_is_ea ? 'ea' : 'steam'"
           :ea-user-id="apex_store.active_apex_account?.kind === 'ea' ? apex_store.active_apex_account.user.id : null"/>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" divided>

@@ -7,7 +7,6 @@ import '@/assets/styles/styles.css';
 import '@/assets/styles/utils.css';
 // Toast
 import Toast, {useToast} from 'vue-toastification';
-import {listenApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 import 'vue-toastification/dist/index.css';
 // Vuetify
 import 'vuetify/styles';
@@ -27,13 +26,6 @@ import {useUiStyleStore} from '@/stores/style.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 import {setDebugEnabled} from '@/utils/debug.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
-import {setupLocaleToggleShortcut} from '@/utils/global-shortcuts.ts';
-import {
-  bootstrapApexQEventListeners,
-  bootstrapApexQFromStorage,
-  setApexQOverlayInteractionMode,
-  syncApexQHotkey,
-} from '@/utils/apex_q.ts';
 import {syncTrayWithMainWindow} from '@/ipc/commands.ts';
 import {destroyMainWindow, markBackgroundMainWindowReady} from '@/ipc/commands.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
@@ -46,9 +38,7 @@ import {registerHmrCleanup} from '@/utils/hmr.ts';
 import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {settleStartupTask, type StartupTaskResult} from '@/utils/startup.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
-import {openApexQWindow} from '@/utils/windows.ts';
 import type {ApexPageTypeEnum} from '@/enum.ts';
-import {resolvePendingGameChangesTarget} from '@/utils/game/pending_game_changes.ts';
 import {
   bindApexQPreferencesStore,
   loadApexQPrefs,
@@ -103,7 +93,10 @@ type PendingChangesStores = {
 };
 
 async function navigateToPendingChanges(stores: PendingChangesStores) {
-  const {default: router} = await import('./router');
+  const [{default: router}, {resolvePendingGameChangesTarget}] = await Promise.all([
+    import('./router'),
+    import('@/utils/game/pending_game_changes.ts'),
+  ]);
   const target = resolvePendingGameChangesTarget({
     currentPath: router.currentRoute.value.path,
     currentApexPage: stores.apex.page_type,
@@ -201,7 +194,8 @@ async function ensureApexQRequestListeners() {
     apexQRequestListenersStarting = (async () => {
       if (!stopApexQOpenRequest) {
         const unlisten = await listen<unknown>('apex-q-open-request', (event) => {
-          void openApexQWindow(parseApexQTrayTarget(event.payload))
+          void import('@/utils/windows.ts')
+            .then(({openApexQWindow}) => openApexQWindow(parseApexQTrayTarget(event.payload)))
             .catch(reportApexQWindowOpenFailure);
         });
         if (apexQRequestListenersDisposed) unlisten();
@@ -210,6 +204,10 @@ async function ensureApexQRequestListeners() {
       if (!stopApexQAdjustRequest && !apexQRequestListenersDisposed) {
         const unlisten = await listen('apex-q-overlay-adjust-request', () => {
           void (async () => {
+            const [{setApexQOverlayInteractionMode}, {openApexQWindow}] = await Promise.all([
+              import('@/utils/apex_q.ts'),
+              import('@/utils/windows.ts'),
+            ]);
             const hasOverlay = await setApexQOverlayInteractionMode('adjusting');
             if (!hasOverlay) await openApexQWindow('overlay');
           })().catch(reportApexQWindowOpenFailure);
@@ -234,6 +232,7 @@ if (isTauriRuntime && isMainWindow) {
       console.warn('register apex-q window listeners failed', e);
     }
     try {
+      const {bootstrapApexQEventListeners} = await import('@/utils/apex_q.ts');
       await bootstrapApexQEventListeners();
     } catch (e) {
       console.warn('register apex-q event listeners failed', e);
@@ -314,6 +313,7 @@ async function bootstrap() {
 
   app.mount('#app');
   if (isMainWindow) {
+    const {listenApexConfigChanged} = await import('@/utils/game/apex_config_events.ts');
     const stopSnapshotNotifications = await listenApexConfigChanged(payload => {
       if (payload.notification === 'snapshotImported') {
         useToast().success('toast.importApexConfigSnapshotSuccess');
@@ -329,7 +329,6 @@ async function bootstrap() {
       const updater = useAppUpdateStore();
       await updater.autoCheck();
       if (updater.phase === 'available') {
-        const {useToast} = await import('vue-toastification');
         useToast().info(i18n.global.t('updates.available'));
       }
     }).catch(error => console.warn('automatic update check', error));
@@ -358,10 +357,12 @@ async function bootstrap() {
     const g = globalThis as { [shortcutKey]?: boolean };
     if (!g[shortcutKey]) {
       g[shortcutKey] = true;
-      localeShortcutSetup = setupLocaleToggleShortcut();
+      localeShortcutSetup = import('@/utils/global-shortcuts.ts')
+        .then(({setupLocaleToggleShortcut}) => setupLocaleToggleShortcut());
     }
   } else if (isTauriRuntime && isMainWindow) {
-    localeShortcutSetup = setupLocaleToggleShortcut();
+    localeShortcutSetup = import('@/utils/global-shortcuts.ts')
+      .then(({setupLocaleToggleShortcut}) => setupLocaleToggleShortcut());
   }
   if (isMainWindow) {
     try {
@@ -370,6 +371,10 @@ async function bootstrap() {
       console.warn('setup locale toggle shortcut failed', e);
     }
     try {
+      const {
+        bootstrapApexQFromStorage,
+        syncApexQHotkey,
+      } = await import('@/utils/apex_q.ts');
       if (settings.betaFeaturesEnabled) {
         await bootstrapApexQFromStorage();
       } else {

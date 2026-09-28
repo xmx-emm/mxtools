@@ -447,14 +447,18 @@ onUnmounted(() => {
                   <LocalGameIcon :paths="game.matchers.flatMap(matcher => matcher.executable ? [matcher.executable] : [])" />
                   <strong>{{ game.name }}</strong>
                 </div>
-                <span>
-                  {{ game.matchers.length
-                    ? t('razerPolling.matcherCount', {count: game.matchers.length})
-                    : t('razerPolling.executableRequired') }}
-                </span>
-                <span v-if="selectedDeviceId && selectedProfile && game.deviceRatesHz[selectedDeviceId] === selectedProfile.idleRateHz">
-                  {{ t('razerPolling.sameAsDesktop') }}
-                </span>
+              </div>
+              <div class="razer-game-meta">
+                <div class="razer-game-meta-col">
+                  <span>
+                    {{ game.matchers.length
+                      ? t('razerPolling.matcherCount', {count: game.matchers.length})
+                      : t('razerPolling.executableRequired') }}
+                  </span>
+                  <span v-if="selectedDeviceId && selectedProfile && game.deviceRatesHz[selectedDeviceId] === selectedProfile.idleRateHz">
+                    {{ t('razerPolling.sameAsDesktop') }}
+                  </span>
+                </div>
               </div>
               <v-select
                 v-if="game.matchers.length && selectedDeviceId"
@@ -619,13 +623,16 @@ onUnmounted(() => {
 .razer-games, .razer-scan-results { border-top: 1px solid var(--app-border); border-bottom: 1px solid var(--app-border); }
 .razer-section-heading > span { color: rgba(var(--v-theme-on-surface), .45); font-size: 11px; }
 .razer-game-list, .razer-other-games { border-top: 1px solid var(--app-border); }
-.razer-game-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 180px; align-items: center; gap: 12px; min-height: 68px; padding: 9px 16px; }
+.razer-game-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(0, 280px) 180px; align-items: center; gap: 12px; min-height: 68px; padding: 9px 16px; }
 .razer-game-row + .razer-game-row, .razer-other-row + .razer-other-row { border-top: 1px solid rgba(var(--v-border-color), .075); }
 .razer-game-copy, .razer-other-row > div { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
 .razer-game-name { display: flex; align-items: center; gap: 8px; }
+.razer-game-meta { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+.razer-game-meta-col { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 2px; }
 .razer-other-row > div { flex: 1; }
 .razer-game-copy strong, .razer-other-row strong { overflow-wrap: anywhere; font-size: 11px; font-weight: 640; }
-.razer-game-copy span, .razer-other-row span { color: rgba(var(--v-theme-on-surface), .48); font-size: 9px; line-height: 1.4; }
+.razer-other-row span { color: rgba(var(--v-theme-on-surface), .48); font-size: 9px; line-height: 1.4; }
+.razer-game-meta span { max-width: 100%; overflow: hidden; color: rgba(var(--v-theme-on-surface), .48); font-size: 11px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .razer-source-statuses { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
 .razer-source-statuses > span { padding: 3px 7px; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); color: rgba(var(--v-theme-on-surface), .56); font-size: 9px; }
 .razer-source--partial, .razer-source--failed { color: rgb(var(--v-theme-warning)) !important; }
@@ -645,6 +652,7 @@ onUnmounted(() => {
   .razer-page-header { align-items: flex-start; flex-direction: column; }
   .razer-page-actions { justify-content: flex-start; }
   .razer-game-row { grid-template-columns: 42px minmax(0, 1fr); }
+  .razer-game-meta { grid-column: 2; justify-content: flex-start; overflow: hidden; }
   .razer-game-rate { grid-column: 2; width: 100%; }
   .razer-game-executable { grid-column: 2; justify-self: start; }
   .razer-idle-rate { grid-template-columns: 1fr; }

@@ -15,7 +15,7 @@ interface ApexGameSettingsReviewEntry {
   descriptionKey: string;
 }
 
-/** Show unowned values with the evidence available, including newly added keys. */
+/** Show unowned values with available descriptions, including newly added keys. */
 export function getApexGameSettingsReviewEntries(
   values: Record<ApexGameSettingsFile, Record<string, string>>,
   query = '',

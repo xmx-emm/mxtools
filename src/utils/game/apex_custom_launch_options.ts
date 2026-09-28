@@ -55,9 +55,9 @@ const MILES_LANGUAGES = new Set([
   'spanish',
 ]);
 
-const MILES_CHANNELS = new Set(['2', '4', '6', '8']);
+const MILES_CHANNELS = new Set(['2', '6', '8']);
 const WINDOW_FLAGS = new Set(['-fullscreen', '-window', '-windowed', '-noborder']);
-// 已从当前游戏构建(R5pc_r5-300_J57,2026-08)实测确认失效、不再受管的 token:
+// 已从当前游戏构建(R5pc_r5-301_J20,2026-09)实测确认失效、不再受管的 token:
 // -anticheat_settings=SettingsDX11/12.json(DX11 已移除)、-freq、-forcenovsync、
 // +cl_ragdoll_collide、-limitvsconst、+m_rawinput、-noforcemaccel/mspd/mparms、
 // +cl_forcepreload、-preload、+mat_queue_mode、-allow_thrid_party_software。
@@ -398,7 +398,7 @@ function readApexLaunchOptionsInternal(value: string): ApexLaunchRead {
   );
   takeValue(
     tokens,
-    '+cl_showfps',
+    '+net_netGraph2',
     candidate => candidate === '1',
     claimed,
     protectedIndices,

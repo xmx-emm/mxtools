@@ -32,6 +32,25 @@ describe('apex online presets contract', () => {
     expect(dialog).toContain('apex_store.build_config_snapshot({...publish_selection})');
   });
 
+  it('supports one-level replies through the server parentId contract', () => {
+    expect(dialog).toContain('function start_reply(comment: OnlinePresetComment)');
+    expect(dialog).toContain("parentId: reply_to_id.value || undefined");
+    expect(dialog).toContain("t('apex.onlinePresets.replyAction')");
+    expect(dialog).toContain("t('apex.onlinePresets.replying')");
+  });
+
+  it('ignores stale list responses when filters or dialog state change', () => {
+    expect(dialog).toContain('let list_generation = 0;');
+    expect(dialog).toContain('let list_request_id = 0;');
+    expect(dialog).toContain('if (generation !== list_generation || request_id !== list_request_id) return;');
+    expect(dialog).toContain('if (request_id === list_request_id) loading.value = false;');
+  });
+
+  it('does not attach an older comment response to a newly expanded preset', () => {
+    expect(dialog).toContain('let comments_request_id = 0;');
+    expect(dialog).toContain('if (request_id !== comments_request_id || expanded_id.value !== preset.id) return;');
+  });
+
   it('follows the shared segmented toggle contract for sorting', () => {
     expect(dialog).toMatch(
       /v-btn-toggle[\s\S]{0,400}class="game-page-segmented-toggle"[\s\S]{0,400}variant="text"/,

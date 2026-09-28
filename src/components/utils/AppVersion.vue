@@ -3,11 +3,10 @@ import {version} from '@/env.ts';
 import {onUnmounted, ref} from 'vue';
 import {openDevtools} from '@/ipc/commands.ts';
 
-/**
- * INTENTIONAL: Release builds keep DevTools reachable for field debugging.
- * Backend: `open_devtools` + Cargo `devtools` feature (see src-tauri).
- * Do NOT remove this entry or gate it to debug-only without product owner approval.
- */
+type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
+const isTauriRuntime = typeof window !== 'undefined'
+  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
+
 // 上上下下左右左右baba
 const OPEN_DEV_KEY = 'ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightbaba';
 
@@ -45,6 +44,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function showTool() {
+  if (!import.meta.env.DEV || !isTauriRuntime) return;
   if (listening.value) return;
   listening.value = true;
   openToolKeys = '';

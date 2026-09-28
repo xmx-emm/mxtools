@@ -500,6 +500,7 @@ export const apexBindingCommandLabels: Record<string, string> = {
   in_spec_toggle_ui: 'spectateToggleUi', in_spec_toggle_freecam: 'spectateFreecam',
   in_spec_toggle_chasecam_lock: 'spectateChasecamLock', toggle_obs_player_tags: 'observerPlayerTags',
   toggle_obs_highlight: 'observerHighlight', toggleconsole: 'toggleConsole',
+  toggle_obs_auto_mapcam: 'observerAutoMapCamera',
   ingamemenu_activate: 'ingameMenu', miles_insert_bug_marker: 'milesBugMarker', toggle_obs_ring_survey: 'observerRingSurvey',
   roamingcam_togglerollmode: 'spectatorRollMode', '+spectatorRollClockwise': 'spectatorRollClockwise',
   '+spectatorRollCounterClockwise': 'spectatorRollCounterClockwise',

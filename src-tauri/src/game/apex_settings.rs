@@ -559,6 +559,7 @@ fn editable_binding(command: &str, input: &str) -> bool {
             | "in_spec_toggle_chasecam_lock"
             | "toggle_obs_player_tags"
             | "toggle_obs_highlight"
+            | "toggle_obs_auto_mapcam"
             | "toggleconsole"
             | "ingamemenu_activate"
             | "miles_insert_bug_marker"
@@ -1845,10 +1846,7 @@ pub struct ApexSnapshotDefaults {
 fn snapshot_defaults_from_configs(
     defaults: &crate::game::apex_defaults::ApexDefaultConfigs,
 ) -> Result<ApexSnapshotDefaults, String> {
-    let settings = ApexCfgDocument::from_content(
-        crate::game::apex_defaults::APEX_DEFAULT_SETTINGS_CFG,
-        ApexFileEncoding::Utf8,
-    )?;
+    let settings = ApexCfgDocument::from_content(&defaults.settings, ApexFileEncoding::Utf8)?;
     let profile = ApexCfgDocument::from_content(&defaults.profile, ApexFileEncoding::Utf8)?;
     let video = windows_tool::vdf::parse_vdf_string(&defaults.video)?;
     let root = video
@@ -2433,5 +2431,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/apex_miles_language_reset.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_settings_catalog_contract.rs"
     ));
 }

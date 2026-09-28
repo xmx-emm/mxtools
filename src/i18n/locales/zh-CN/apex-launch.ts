@@ -74,8 +74,8 @@ export const apexLaunchMessages = {
       thresholdName: '容忍偏差范围',
     },
     showFps: {
-      name: '显示详细信息',
-      description: '在右上角显示FPS/网络信息',
+      name: '性能显示（FPS/网络）',
+      description: '使用游戏内性能显示开关，在右上角显示 FPS 和网络信息',
     },
     showPos: {
       name: '显示速度坐标信息',
@@ -144,8 +144,8 @@ export const apexLaunchMessages = {
       tip: '提示：锁定 FPS 需要将窗口设置为窗口或无边框模式',
     },
     showFps: {
-      title: '显示 FPS',
-      subtitle: '在右上角显示实时帧率及网络信息',
+      title: '性能显示（FPS/网络）',
+      subtitle: '启动项与快速预设使用 +net_netGraph2 1，对应游戏设置中的“性能显示”。旧 +cl_showfps 1 是受限调试计数器，不再作为此选项写入。若仍不显示，请在游戏内开启“性能显示”；移除启动项不会自动关闭已保存的游戏设置。',
     },
     showPos: {
       title: '显示 Pos',

@@ -139,7 +139,7 @@ export const appMessages = {
     onlineAccountRetry: '重试',
     onlineAccountBrowserOnly: '登录仅在桌面应用中可用',
     deviceLoginTitle: '登录 apex.0w0.online',
-    deviceLoginIntro: '在浏览器中完成授权。应用不会收集你的邮箱或验证码。',
+    deviceLoginIntro: '在浏览器中完成授权，密码和验证码不会进入应用；授权后，应用会接收账号资料和邮箱，并将登录令牌保存在 Windows 凭据管理器中。',
     deviceLoginCodeLabel: '设备码',
     deviceLoginOpenBrowser: '在浏览器中打开授权页',
     deviceLoginCopyCode: '复制设备码',

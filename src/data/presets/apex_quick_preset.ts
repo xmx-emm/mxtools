@@ -171,7 +171,7 @@ export const quickPresetLaunchOptionToggles: ApexQuickPresetLaunchOptionToggle[]
   {
     key: 'show_fps',
     label: 'apexLaunchOptions.showFps.name',
-    parameter: '+cl_showfps 1',
+    identifier: 'show_fps',
     defaultEnabled: true,
   },
   {

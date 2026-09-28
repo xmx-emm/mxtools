@@ -97,6 +97,7 @@ export const pubgLaunchActions = {
     this.max_mem_safe_limit_mb = safe_max_mem_mb;
     this.options_selection = parsed.selection;
     this.parameter_overrides = parsed.parameter_overrides;
+    this.custom_launch_options = parsed.custom_launch_options;
     const selectedIds = new Set(parsed.selection.map((i) => i.identifier));
     if (selectedIds.has('window')) {
       this.settings_config.window = parsed.window;
@@ -129,6 +130,7 @@ export const pubgLaunchActions = {
     if (!user_id) {
       console.warn('pubg: no steam user selected');
       this.options_selection = [];
+      this.custom_launch_options = '';
       return false;
     }
     let default_mem_mb = 8192;

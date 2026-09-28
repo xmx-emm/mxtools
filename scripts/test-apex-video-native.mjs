@@ -25,6 +25,7 @@ const tests = spawnSync(process.execPath, [
   path.join(root, 'node_modules/vitest/vitest.mjs'), 'run',
   'tests/src/stores/game/apex/quick_preset_video_native.test.ts',
   'tests/src/stores/game/apex/reset_preset_native.test.ts',
+  'tests/src/data/apex_settings_contract.test.ts',
 ], {
   cwd: root, env: {...process.env, MXTOOLS_APEX_VIDEO_TEST_EXE: executable},
   stdio: 'inherit', windowsHide: true,

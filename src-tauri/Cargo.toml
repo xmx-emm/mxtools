@@ -1,6 +1,6 @@
 [package]
 name = "mxtools"
-version = "0.0.8"
+version = "0.0.9"
 description = "Windows-focused Tauri desktop toolbox"
 authors = ["xmx-emm"]
 edition = "2021"
@@ -9,15 +9,16 @@ edition = "2021"
 name = "mxtools_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+devtools = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-# INTENTIONAL: keep `devtools` in release builds. Field debugging uses
-# `open_devtools` (AppVersion Konami). Do NOT remove as "security hardening"
-# without product owner approval ? see also `lib.rs` / AppVersion.vue.
-tauri = { version = "2.11", features = ["default", "devtools", "tray-icon"] }
+tauri = { version = "2.11", features = ["default", "tray-icon"] }
 tauri-plugin-opener = "2.5.3"
 tauri-plugin-updater = { version = "=2.10.1", default-features = false, features = ["native-tls"] }
 tauri-plugin-dialog = "2.7.0"

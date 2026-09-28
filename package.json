@@ -1,12 +1,12 @@
 {
   "name": "mxtools",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.0.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build && npm run bundle:report",
-    "build:tauri": "npm run build && node scripts/prepare-tauri-dist.mjs",
+    "build:tauri": "npm run build && npm run bundle:check && node scripts/prepare-tauri-dist.mjs",
     "bundle:check": "node scripts/bundle-budget.mjs --check",
     "bundle:report": "node scripts/bundle-budget.mjs",
     "preview": "vite preview",
@@ -15,6 +15,7 @@
     "build window": "tauri build",
     "build window release": "node scripts/build-windows-release.mjs",
     "release:size:check": "node scripts/release-size-budget.mjs",
+    "release:inputs:check": "node scripts/verify-release-inputs.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:apex-video-native": "node scripts/test-apex-video-native.mjs",

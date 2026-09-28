@@ -82,6 +82,7 @@ export const apexConfigMessages = {
       spectateInsertAnnotation: 'Insert spectator annotation', spectateSmoothCamera: 'Spectator smooth camera', spectateMapTeamNames: 'Spectator team names', spectateObituary: 'Spectator obituary',
       spectateChasecamZoomOut: 'Spectator chase camera zoom out', spectateChasecamZoomIn: 'Spectator chase camera zoom in', spectateToggleUi: 'Toggle spectator UI', spectateFreecam: 'Spectator free camera',
       spectateChasecamLock: 'Lock spectator chase camera', observerPlayerTags: 'Spectator player tags', observerHighlight: 'Spectator highlight', toggleConsole: 'Toggle console',
+      observerAutoMapCamera: 'Spectator map auto zoom',
       ingameMenu: 'In-game menu', milesBugMarker: 'Miles debug marker', observerRingSurvey: 'Spectator ring survey', spectatorRollMode: 'Spectator roll mode', spectatorRollClockwise: 'Spectator roll clockwise', spectatorRollCounterClockwise: 'Spectator roll counterclockwise',
     },
     colorblindPreview: {

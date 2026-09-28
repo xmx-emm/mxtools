@@ -31,7 +31,7 @@ type NativeReadback = ApexConfigMutationResult & {readonly: boolean};
 function native<T>(kind: string, operation: string, extra = {}): T {
   writeFileSync(join(root, 'reset-request.json'), JSON.stringify({kind, operation, ...extra}));
   execFileSync(nativeExe!, ['--exact', 'game::apex_history::tests::reset_preset_native_bridge', '--ignored'], {
-    env: {...process.env, USERPROFILE: root, MXTOOLS_VIDEO_TEST_ROOT: root}, windowsHide: true, timeout: 10000,
+    env: {...process.env, USERPROFILE: root, MXTOOLS_VIDEO_TEST_ROOT: root}, windowsHide: true, timeout: 10000, encoding: 'utf8',
   });
   return JSON.parse(readFileSync(join(root, 'reset-result.json'), 'utf8')) as T;
 }

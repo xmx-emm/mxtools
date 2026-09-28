@@ -133,6 +133,7 @@ const signedUpdater = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY);
 if (!signedUpdater || !conf.plugins?.updater?.pubkey?.trim()) {
   throw new Error('Release builds require TAURI_SIGNING_PRIVATE_KEY and the committed updater public key');
 }
+await runNode('scripts/verify-release-inputs.mjs');
 await runTauri(['build', '--no-bundle']);
 await saveReleaseBinary();
 

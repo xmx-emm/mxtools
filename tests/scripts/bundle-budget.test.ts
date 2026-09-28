@@ -72,13 +72,19 @@ describe('bundle budget checker', () => {
 
   it('fails when startup plus the largest locale closure exceeds its budget', async () => {
     const dist = await createDist({
-      'src/main.ts': {file: 'assets/main.js', imports: ['src/startup-dependency.ts'], isEntry: true},
+      'src/main.ts': {
+        file: 'assets/main.js',
+        imports: ['src/startup-dependency.ts', 'src/startup-dependency-2.ts'],
+        isEntry: true,
+      },
       'src/startup-dependency.ts': {file: 'assets/dependency.js'},
+      'src/startup-dependency-2.ts': {file: 'assets/dependency-2.js'},
       'src/i18n/locales/en-US/index.ts': {file: 'assets/en.js', isEntry: true, isDynamicEntry: true},
     }, {
-      'assets/main.js': 184 * 1024,
-      'assets/dependency.js': 184 * 1024,
-      'assets/en.js': 184 * 1024,
+      'assets/main.js': 170 * 1024,
+      'assets/dependency.js': 170 * 1024,
+      'assets/dependency-2.js': 170 * 1024,
+      'assets/en.js': 170 * 1024,
     });
 
     const result = await check(dist);
@@ -90,7 +96,7 @@ describe('bundle budget checker', () => {
   it('fails when the aggregate JavaScript budget is exceeded', async () => {
     const entries: Record<string, ManifestEntry> = {};
     const sizes: Record<string, number> = {};
-    for (let index = 0; index < 9; index += 1) {
+    for (let index = 0; index < 12; index += 1) {
       entries[`src/chunk-${index}.ts`] = {file: `assets/chunk-${index}.js`, isDynamicEntry: true};
       sizes[`assets/chunk-${index}.js`] = 170 * 1024;
     }

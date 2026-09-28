@@ -53,7 +53,7 @@ const ApexMilesChannelsTip = defineAsyncComponent(() =>
   import('@/components/game/apex/launch/tips/ApexMilesChannelsTip.vue'),
 );
 
-// 以下启动项已从当前游戏构建(R5pc_r5-300_J57,2026-08)实测确认失效,不再收录:
+// 以下旧启动项在 J28 磁盘映像中仍未找到支持依据,不再收录:
 // +m_rawinput / -noforcemaccel / -noforcemspd / -noforcemparms(原始输入已恒为开)
 // -forcenovsync、+cl_ragdoll_collide、-limitvsconst、+cl_forcepreload / -preload、
 // +mat_queue_mode、-allow_thrid_party_software、-freq
@@ -202,7 +202,9 @@ const Aspect = {
 const ShowFps = {
   name: 'apexLaunchOptions.showFps.name',
   description: 'apexLaunchOptions.showFps.description',
-  parameter: '+cl_showfps 1',
+  identifier: 'show_fps',
+  // Use the game-menu performance display, not the development-only counter.
+  parameter: '+net_netGraph2 1',
   tip: ApexShowFpsTip
 };
 const ShowPos = {
@@ -250,10 +252,6 @@ const MilesChannels = {
       parameter: '+miles_channels 2'
     },
     {
-      name: 'apexLaunchOptions.milesChannels.channel41',
-      parameter: '+miles_channels 4'
-    },
-    {
       name: 'apexLaunchOptions.milesChannels.channel51',
       parameter: '+miles_channels 6'
     },
@@ -276,8 +274,8 @@ const SoftenedLocale = {
 
 /**
  * Apex启动项配置参数
- * 已核对构建:R5pc_r5-300_J57_CL11457258_2026_08_19_15_40(gameversion v3.0.4.57)
- * 失效项清单与核实记录见 docs/CHANGELOG.md
+ * 启动项静态核对:R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18(v3.0.1.28)
+ * 支持边界见 docs/GAME_LAUNCH_COMPATIBILITY.md; 静态核对不代替游戏内验收。
  */
 const ApexLaunchOptionsConfig: (SteamLaunchOptionsImpl | string)[] = [
   'apexLaunchOptions.categories.display',

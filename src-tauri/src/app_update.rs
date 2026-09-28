@@ -310,4 +310,11 @@ mod tests {
             "/../tests/rust/src-tauri/portable_release.rs"
         ));
     }
+    mod published_update {
+        use super::*;
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/published_update.rs"
+        ));
+    }
 }

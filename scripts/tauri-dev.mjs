@@ -377,7 +377,7 @@ async function waitForDevPortRelease(timeoutMilliseconds = 5000) {
 }
 
 function launchTauri() {
-    const child = spawn(process.execPath, [TAURI_CLI, 'dev'], {
+    const child = spawn(process.execPath, [TAURI_CLI, 'dev', '--features', 'devtools'], {
         cwd: PROJECT_ROOT,
         env: process.env,
         stdio: 'inherit',

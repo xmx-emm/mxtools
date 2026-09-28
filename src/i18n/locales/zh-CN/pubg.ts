@@ -123,6 +123,7 @@ export const pubgMessages = {
       render: '渲染与画质',
     },
     ui: {
+      validationNotice: '启动项兼容性仍待游戏内验证：参数字符串或引擎说明存在，不代表当前 PUBG 已生效，也不保证提升 FPS。“跳过开场动画”使用目录重命名，与启动参数无关。',
       rightClickTip: '右键查看说明',
       maxMemLabel: '最大内存',
       refreshLabel: '刷新率',
@@ -164,7 +165,7 @@ export const pubgMessages = {
     },
     graphicsApi: {
       name: '图形 API (DirectX)',
-      description: 'DX10：SM4 / 降低画质；DX11：限制特性级 11.0；DX12：`-d3d12`',
+      description: '每次只写入一个图形参数；旧 DX9/DX10 选项不代表当前游戏支持，优先使用游戏内设置',
       dx9: 'DX9',
       dx10: 'DX10',
       dx11: 'DX11',
@@ -175,8 +176,8 @@ export const pubgMessages = {
       description: '显卡弱、天空区域掉帧',
     },
     refresh: {
-      name: 'Fps',
-      description: '强制游戏使用指定刷新率',
+      name: '刷新率（未验证）',
+      description: '-refresh 的当前支持情况未确认；刷新率不是 FPS 上限',
     },
     window: {
       name: '窗口',

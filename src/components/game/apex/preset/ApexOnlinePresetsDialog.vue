@@ -36,6 +36,8 @@ const PAGE_SIZE = 20;
 const items = ref<OnlinePresetListItem[]>([]);
 const loading = ref(false);
 const has_more = ref(false);
+let list_generation = 0;
+let list_request_id = 0;
 const keyword = ref('');
 const sort = ref<'latest' | 'popular'>('latest');
 const account = ref<OnlineAccount | null>(null);
@@ -44,8 +46,18 @@ const using_id = ref('');
 const expanded_id = ref('');
 const comments = ref<OnlinePresetComment[]>([]);
 const comments_loading = ref(false);
+let comments_request_id = 0;
 const comment_body = ref('');
+const reply_to_id = ref('');
 const comment_sending = ref(false);
+let comment_submit_id = 0;
+
+function invalidate_comments() {
+  comments_request_id += 1;
+  comment_submit_id += 1;
+  comment_sending.value = false;
+  comments_loading.value = false;
+}
 
 const publish_open = ref(false);
 const publish_title = ref('');
@@ -93,7 +105,9 @@ function toast_error(error: unknown) {
 }
 
 async function load_list(cursor?: string) {
-  if (!isTauriRuntime || loading.value) return;
+  if (!isTauriRuntime) return;
+  const generation = list_generation;
+  const request_id = ++list_request_id;
   loading.value = true;
   try {
     const page = await onlinePresetsList({
@@ -102,21 +116,25 @@ async function load_list(cursor?: string) {
       cursor,
       limit: PAGE_SIZE,
     });
+    if (generation !== list_generation || request_id !== list_request_id) return;
     items.value = cursor ? [...items.value, ...page] : page;
     has_more.value = page.length === PAGE_SIZE;
   } catch (error) {
-    toast_error(error);
+    if (generation === list_generation && request_id === list_request_id) toast_error(error);
   } finally {
-    loading.value = false;
+    if (request_id === list_request_id) loading.value = false;
   }
 }
 
 function reload() {
+  list_generation += 1;
+  invalidate_comments();
   expanded_id.value = '';
   void load_list();
 }
 
 function load_more() {
+  if (loading.value || !has_more.value) return;
   const last = items.value[items.value.length - 1];
   if (last) void load_list(last.id);
 }
@@ -133,6 +151,8 @@ async function refresh_account() {
 watch(
   () => props.modelValue,
   (open) => {
+    list_generation += 1;
+    invalidate_comments();
     if (!open) return;
     keyword.value = '';
     sort.value = 'latest';
@@ -143,6 +163,8 @@ watch(
 );
 
 function close() {
+  list_generation += 1;
+  invalidate_comments();
   emit('update:modelValue', false);
 }
 
@@ -163,36 +185,66 @@ async function use_preset(preset: OnlinePresetListItem) {
 }
 
 async function toggle_comments(preset: OnlinePresetListItem) {
+  invalidate_comments();
   if (expanded_id.value === preset.id) {
     expanded_id.value = '';
     return;
   }
+  const request_id = comments_request_id;
   expanded_id.value = preset.id;
   comments.value = [];
   comment_body.value = '';
+  reply_to_id.value = '';
   comments_loading.value = true;
   try {
-    comments.value = await onlinePresetComments(preset.id);
+    const next_comments = await onlinePresetComments(preset.id);
+    if (request_id !== comments_request_id || expanded_id.value !== preset.id) return;
+    comments.value = next_comments;
   } catch (error) {
-    toast_error(error);
+    if (request_id === comments_request_id && expanded_id.value === preset.id) toast_error(error);
   } finally {
-    comments_loading.value = false;
+    if (request_id === comments_request_id) comments_loading.value = false;
   }
+}
+
+function start_reply(comment: OnlinePresetComment) {
+  if (!account.value) return;
+  reply_to_id.value = comment.id;
+  comment_body.value = '';
+}
+
+function cancel_reply() {
+  reply_to_id.value = '';
+  comment_body.value = '';
 }
 
 async function submit_comment() {
   const body = comment_body.value.trim();
   if (!body || !expanded_id.value || comment_sending.value) return;
+  const id = expanded_id.value;
+  const generation = list_generation;
+  const request_id = comments_request_id;
+  const submit_id = ++comment_submit_id;
+  const is_current = () => generation === list_generation
+    && request_id === comments_request_id && submit_id === comment_submit_id
+    && expanded_id.value === id;
   comment_sending.value = true;
   try {
-    await onlinePresetCommentCreate({id: expanded_id.value, body});
-    comment_body.value = '';
-    comments.value = await onlinePresetComments(expanded_id.value);
+    await onlinePresetCommentCreate({
+      id,
+      body,
+      parentId: reply_to_id.value || undefined,
+    });
     toast.success(t('apex.onlinePresets.commentSuccess'));
+    if (!is_current()) return;
+    comment_body.value = '';
+    reply_to_id.value = '';
+    const next_comments = await onlinePresetComments(id);
+    if (is_current()) comments.value = next_comments;
   } catch (error) {
-    toast_error(error);
+    if (is_current()) toast_error(error);
   } finally {
-    comment_sending.value = false;
+    if (submit_id === comment_submit_id) comment_sending.value = false;
   }
 }
 
@@ -389,6 +441,14 @@ async function submit_report() {
                     {{ comment.author?.displayName || t('apex.onlinePresets.anonymousAuthor') }}
                   </span>
                   <span class="online-preset-comment-body">{{ comment.body }}</span>
+                  <button
+                    v-if="account"
+                    type="button"
+                    class="online-preset-reply"
+                    @click="start_reply(comment)"
+                  >
+                    {{ t('apex.onlinePresets.replyAction') }}
+                  </button>
                   <div
                     v-for="child in comment.children ?? []"
                     :key="child.id"
@@ -402,6 +462,12 @@ async function submit_report() {
                 </div>
               </template>
               <div v-if="account" class="online-preset-comment-editor">
+                <span v-if="reply_to_id" class="online-preset-replying">
+                  {{ t('apex.onlinePresets.replying') }}
+                  <button type="button" class="online-preset-reply-cancel" @click="cancel_reply">
+                    {{ t('common.cancel') }}
+                  </button>
+                </span>
                 <v-text-field
                   v-model="comment_body"
                   density="compact"
@@ -679,6 +745,16 @@ async function submit_report() {
   color: rgba(var(--v-theme-on-surface), 0.85);
   overflow-wrap: anywhere;
 }
+.online-preset-reply {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  color: rgb(var(--v-theme-primary));
+  background: none;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
 .online-preset-comments-empty {
   margin: 4px 0;
   color: rgba(var(--v-theme-on-surface), 0.45);
@@ -686,9 +762,24 @@ async function submit_report() {
 }
 .online-preset-comment-editor {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin-top: 8px;
+}
+.online-preset-replying {
+  flex: 1 0 100%;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 10px;
+}
+.online-preset-reply-cancel {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  color: rgb(var(--v-theme-primary));
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 .online-presets-more { text-align: center; }
 </style>

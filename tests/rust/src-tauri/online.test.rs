@@ -41,3 +41,23 @@ fn server_messages_support_string_and_array_bodies() {
     assert_eq!(server_message(&list).as_deref(), Some("a; b"));
     assert_eq!(server_message(&Value::Null), None);
 }
+
+#[test]
+fn preset_ids_only_allow_single_path_segments() {
+    assert!(super::presets::preset_id("preset-01_a".into()).is_ok());
+    assert!(super::presets::preset_id("../account".into()).is_err());
+    assert!(super::presets::preset_id("".into()).is_err());
+}
+
+#[test]
+fn comment_body_is_trimmed_and_matches_server_limit() {
+    assert_eq!(
+        super::presets::validate_comment_body("  hello  ".into()).unwrap(),
+        "hello"
+    );
+    assert!(super::presets::validate_comment_body(" \t".into()).is_err());
+    assert!(super::presets::validate_comment_body("x".repeat(1001)).is_err());
+    assert!(super::presets::validate_comment_body("x".repeat(1000)).is_ok());
+    assert!(super::presets::validate_comment_body("😀".repeat(500)).is_ok());
+    assert!(super::presets::validate_comment_body("😀".repeat(501)).is_err());
+}

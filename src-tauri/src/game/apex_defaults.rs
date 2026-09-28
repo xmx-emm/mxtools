@@ -11,6 +11,7 @@ use crate::game::apex_history::ApexLauncherRef;
 
 pub(crate) struct ApexDefaultConfigs {
     pub video: String,
+    pub settings: String,
     pub profile: String,
 }
 
@@ -28,6 +29,7 @@ pub(crate) fn from_inputs(
 ) -> Result<ApexDefaultConfigs, String> {
     Ok(ApexDefaultConfigs {
         video: video::generate(dxsupport, hardware)?,
+        settings: APEX_DEFAULT_SETTINGS_CFG.into(),
         profile: profile_for_language(language)?,
     })
 }
@@ -101,5 +103,9 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/apex_reset_mouse_bindings.rs"
+    ));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/apex_default_settings.rs"
     ));
 }

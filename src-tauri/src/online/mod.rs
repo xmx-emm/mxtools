@@ -8,17 +8,45 @@ mod credential_store;
 pub mod presets;
 
 use crate::ipc_error::{IpcError, IpcResult};
+#[cfg(debug_assertions)]
+use std::net::IpAddr;
 use std::time::Duration;
 
 const DEFAULT_API_BASE: &str = "https://apex.0w0.online/api/v1";
 
-/// API 根地址；开发期可用 `MXTOOLS_ONLINE_API_BASE` 指向本地服务。
+#[cfg(debug_assertions)]
+fn normalize_api_base_override(value: &str) -> Option<String> {
+    let value = value.trim().trim_end_matches('/');
+    let parsed = reqwest::Url::parse(value).ok()?;
+    let host = parsed.host_str()?.trim_matches(['[', ']']);
+    let is_loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<IpAddr>()
+            .ok()
+            .is_some_and(|address| address.is_loopback());
+    if !is_loopback
+        || !matches!(parsed.scheme(), "http" | "https")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return None;
+    }
+    Some(value.to_string())
+}
+
+/// API 根地址；调试构建仅允许通过环境变量指向回环服务。
 pub(crate) fn api_base() -> String {
-    std::env::var("MXTOOLS_ONLINE_API_BASE")
+    #[cfg(debug_assertions)]
+    if let Some(value) = std::env::var("MXTOOLS_ONLINE_API_BASE")
         .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| DEFAULT_API_BASE.to_string())
+        .and_then(|value| normalize_api_base_override(&value))
+    {
+        return value;
+    }
+
+    DEFAULT_API_BASE.to_string()
 }
 
 pub(crate) fn http_client() -> IpcResult<reqwest::Client> {

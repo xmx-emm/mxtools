@@ -4,15 +4,15 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows') {
 }
 $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
 $installDirectory = Join-Path $env:RUNNER_TEMP 'mxtools-upgrade-test'
-$oldInstaller = Join-Path $env:RUNNER_TEMP 'MxTools_0.0.7_x64_setup.exe'
-Invoke-WebRequest 'https://github.com/xmx-emm/mxtools/releases/download/v0.0.7/MxTools_0.0.7_x64_setup.exe' -OutFile $oldInstaller
-if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash -ne '449E64A73B350FA1555F5AE3C97EB1BEBC6FF8F3F3C98D9E49C6FD9AB1486115') {
+$oldInstaller = Join-Path $env:RUNNER_TEMP 'MxTools_0.0.8_x64_setup.exe'
+Invoke-WebRequest 'https://github.com/xmx-emm/mxtools/releases/download/v0.0.8/MxTools_0.0.8_x64_setup.exe' -OutFile $oldInstaller
+if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash -ne 'ABBA0CDA594AC24994B115405D0B3E8C904EC37B90CE784DEB7817EEAD05BA46') {
     throw 'Bootstrap installer hash mismatch.'
 }
 $process = Start-Process -FilePath $oldInstaller -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru -WindowStyle Hidden
 if ($process.ExitCode -ne 0) { throw 'Bootstrap installation failed.' }
 $exe = Join-Path $installDirectory 'mxtools.exe'
-if (!(Test-Path $exe) -or !(Get-Item $exe).VersionInfo.ProductVersion.StartsWith('0.0.7')) {
+if (!(Test-Path $exe) -or !(Get-Item $exe).VersionInfo.ProductVersion.StartsWith('0.0.8')) {
     throw 'Bootstrap installation could not be verified.'
 }
 $env:MXTOOLS_VERIFY_RELEASE_DIR = Join-Path (Get-Location) "src-tauri/target/release/$($config.version)/publish"

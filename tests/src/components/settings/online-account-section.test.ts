@@ -13,9 +13,12 @@ describe('online account section contract', () => {
     expect(settingsView).toContain('<OnlineAccountSection v-if="settingsStore.betaFeaturesEnabled"/>');
   });
 
-  it('never collects credentials in the app: login flows through the browser device page', () => {
+  it('keeps credentials in the browser while receiving the approved account profile', () => {
     expect(source).toContain('onlineAuthStartDeviceLogin');
-    expect(source).toContain('openUrl(started.verificationUriComplete)');
+    expect(source).toContain('void onlineAuthOpenVerification().catch');
+    expect(source).toContain('await onlineAuthOpenVerification();');
+    expect(source).not.toContain('openUrl(');
+    expect(source).toContain('account.displayName || account.email');
     expect(source).not.toMatch(/type="email"|type="password"/);
   });
 
@@ -23,6 +26,18 @@ describe('online account section contract', () => {
     expect(source).toContain('function closeDialog()');
     expect(source).toContain('onlineAuthCancelDeviceLogin');
     expect(source).toContain('onUnmounted(stopPolling)');
+  });
+
+  it('opens only native pending-login state without accepting a WebView URL', () => {
+    const commands = readFileSync(new URL('../../../../src/ipc/commands.ts', import.meta.url), 'utf8');
+    const native = readFileSync(new URL('../../../../src-tauri/src/online/auth.rs', import.meta.url), 'utf8');
+    const registry = readFileSync(new URL('../../../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
+    expect(commands).toContain("ipcInvoke<void>('online_auth_open_verification');");
+    expect(native).toContain('pub fn online_auth_open_verification(app: tauri::AppHandle)');
+    expect(native).toContain('validate_verification_url(&base, started.verification_uri_complete)?');
+    expect(native).toContain('verification_uri_complete: verification_uri_complete.clone()');
+    expect(native).toContain('let url = pending_verification_url(');
+    expect(registry).toContain('            online_auth_open_verification,');
   });
 
   it('keeps browser preview truthful without native IPC calls', () => {

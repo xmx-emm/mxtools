@@ -4,6 +4,7 @@
 
 - 项目结构说明：[docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
 - 更新日志：[CHANGELOG.md](docs/CHANGELOG.md)
+- 在线账号客户端数据处理说明：[docs/ONLINE_ACCOUNT_DATA_HANDLING.md](docs/ONLINE_ACCOUNT_DATA_HANDLING.md)
 
 ## 使用许可
 
@@ -43,6 +44,8 @@
 
 后端依赖路径 crate `windows_tool`(见 `src-tauri/Cargo.toml`).该路径指向 `**mxtools` 仓库外侧** 的 `rust/windows_tool` 目录；若缺失会导致 `cargo` / `tauri build` 失败.布局与调整方式见 [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) 中「本地路径依赖」一节.
 
+正式发布会运行 `npm run release:inputs:check`，要求该依赖处于项目固定的提交且工作树干净，并核对 `package.json`、Cargo 与 Tauri 的版本一致。
+
 ### 运行权限
 
 默认以普通权限启动；注册表、系统用户、RDP、端口转发、五笔系统码表等敏感功能需要管理员时，可在对应页面点击「请求提升权限」重启（按需提权，整次会话通常只需确认一次 UAC）。请仅在信任的来源下构建与运行本程序.
@@ -66,6 +69,8 @@ Tauri 开发(会按 `tauri.conf.json` 自动拉起前端 dev server)：
 ```bash
 npm run "tauri dev"
 ```
+
+该开发入口显式启用 Rust `devtools` feature；默认及发布构建不包含 DevTools。
 
 打包 Windows 安装包/可执行文件：
 
@@ -97,13 +102,7 @@ netsh interface ipv4 show excludedportrange protocol=tcp
 
 ## 版本号(关于页)
 
-关于页通过 `src/env.ts` 读取 `VITE_APP_VERSION`.在项目根目录 `.env` 中配置,例如：
-
-```
-VITE_APP_VERSION=0.0.3
-```
-
-同时建议与 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 中的版本保持一致.
+关于页通过 `src/env.ts` 直接读取 `package.json` 的 `version`，不再维护额外的前端环境变量。发布版本还必须与 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 保持一致；发布输入检查会强制验证。
 
 ## Apex 启动项参考
 
@@ -142,7 +141,6 @@ VITE_APP_VERSION=0.0.3
 - `src-tauri/Cargo.toml`
 - `src-tauri/tauri.conf.json`
 - `package.json`
-- `.env`
 
 ## 其它内容
 

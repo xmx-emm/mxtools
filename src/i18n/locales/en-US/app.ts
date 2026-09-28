@@ -139,7 +139,7 @@ export const appMessages = {
     onlineAccountRetry: 'Retry',
     onlineAccountBrowserOnly: 'Sign-in is only available in the desktop app',
     deviceLoginTitle: 'Sign in to apex.0w0.online',
-    deviceLoginIntro: 'Authorize in your browser. The app never collects your email or code.',
+    deviceLoginIntro: 'Authorize in your browser. Passwords and verification codes stay there; after approval, the app receives your account profile and email and stores sign-in tokens in Windows Credential Manager.',
     deviceLoginCodeLabel: 'Device code',
     deviceLoginOpenBrowser: 'Open the authorization page',
     deviceLoginCopyCode: 'Copy device code',

@@ -53,7 +53,7 @@ describe('parseApexLaunchOptionsString', () => {
   });
 
   it('keeps an exec argument that looks like a managed flag', () => {
-    const parsed = parseApexLaunchOptionsString('+exec -high +cl_showfps 1');
+    const parsed = parseApexLaunchOptionsString('+exec -high +net_netGraph2 1');
 
     expect(parsed.selection.some(option => option.name === 'apexLaunchOptions.highPriority.name')).toBe(false);
     expect(parsed.selection.some(option => option.name === 'apexLaunchOptions.showFps.name')).toBe(true);
@@ -64,7 +64,7 @@ describe('parseApexLaunchOptionsString', () => {
     const parsed = parseApexLaunchOptionsString([
       '-windowed',
       '+cl_fovScale "1.7"',
-      '+cl_showfps 1',
+      '+net_netGraph2 1',
       '+cl_showpos 1',
       '+reticle_color "2147483648 2147483648 2147483648"',
       '+mat_minimize_on_alt_tab 1',

@@ -31,10 +31,16 @@ noncommercial mirrors and public modified versions are allowed.
   used by every fallible Tauri command.
 - Online account (Beta): `src-tauri/src/online/` signs into apex.0w0.online
   through a browser device-authorization flow; HTTP runs in Rust reqwest
-  (`MXTOOLS_ONLINE_API_BASE` overrides the API base for development), the
-  `deviceCode` never enters the WebView, and tokens live only in the Windows
-  Credential Manager (`MxTools/OnlineAccount`). Error codes use the
-  `online_auth.*` / `online_presets.*` domains.
+  (`MXTOOLS_ONLINE_API_BASE` accepts only loopback URLs in debug builds), the
+  `deviceCode` never enters the WebView, and returned browser URLs must share
+  the configured API origin. Release builds use the official HTTPS origin.
+  The browser-open command accepts no URL input: it uses only the unexpired,
+  origin-validated pending native login. This also supports local development
+  without widening the WebView opener allowlist.
+  Tokens live only in the Windows Credential Manager (`MxTools/OnlineAccount`).
+  Client-verifiable handling and explicitly unknown server retention/deletion
+  behavior are documented in `docs/ONLINE_ACCOUNT_DATA_HANDLING.md`. Error
+  codes use the `online_auth.*` / `online_presets.*` domains.
 - Locale resources: mirrored domain modules under
   `src/i18n/locales/{zh-CN,en-US}/`; `src/i18n/i18n.ts` loads and caches only
   the active locale. `tests/src/i18n/locale-key-parity.test.ts` enforces
@@ -64,9 +70,9 @@ noncommercial mirrors and public modified versions are allowed.
   tokens, with dark overrides on `html.dark` for body-mounted notifications.
   The subtle bottom progress bar remains the notification dismissal clock.
 - External application protocol actions use the opener URL API; the Tauri
-  capability allows only the exact Steam `rungameid`/`validate`/
-  downloads-settings/console and Crosshair V2 store URI families plus the two
-  Microsoft Store product URIs used by the app.
+  capability allows only the HTTPS origins referenced by product links, the
+  exact Steam `rungameid`/`validate`/downloads-settings/console and Crosshair V2
+  store URI families, and the two Microsoft Store product URIs used by the app.
 - The Rust background runtime is coordinated by
   `src-tauri/src/background_coordinator.rs` and
   `src-tauri/src/background_runtime.rs`. `background-runtime.json` is the
@@ -101,6 +107,12 @@ noncommercial mirrors and public modified versions are allowed.
   Steam's quoted space-separated RGB and EA's hyphen-separated RGB. Reopen
   tests cover every quick-preset optimization individually and all together
   on both launchers, including two fresh-store launch serialization round trips.
+  The FPS/performance-display launch option and quick-preset `show_fps` now
+  resolve one catalog identifier and emit `+net_netGraph2 1`, matching the
+  in-game Performance Display preference. Old `cl_showfps` commands remain custom, not automatically
+  migrated. Removing the launch override does not reset the archived profile
+  preference. Miles channel 4 is invalid in the current help and remains custom;
+  managed choices are 2/6/8. See `docs/GAME_LAUNCH_COMPATIBILITY.md`.
   Platform differences and required regression coverage are listed explicitly
   in `docs/APEX_CONFIG_ALIGNMENT.md`: launcher files/accounts and process checks
   differ; reticle delimiters and FOV quoting differ. Catalog literals use Steam
@@ -115,8 +127,36 @@ noncommercial mirrors and public modified versions are allowed.
   installed Steam Build ID, not a guessed marketing patch number. Exact verified
   build identities live in `src/utils/game/version_support.ts`; unknown and
   unverified builds remain distinct. No PUBG build is marked verified yet.
+  Historical Apex build reviews are documentation only, not a maintained
+  compatibility whitelist or a way to select defaults.
+  The September 26 launch-only review covers Steam Build 25358568 / exact
+  `R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18` (file version
+  `v3.0.1.28`). Launch footers pass an explicit scope: J28 says statically
+  reviewed and PUBG Build 25449918 says partially reviewed/effects unverified.
+  Reset maintains current defaults only, shared by Steam and EA, with no build
+  whitelist, fingerprint gate or historical parameter branches. Current templates
+  have 108 bindings and omit retired preferences. Eight previously implicit
+  editable defaults are explicit for immediate readback. The ordinary product
+  tests cover all 133 controls/134 storage keys and 23 video groups through the
+  native validator; `test:apex-video-native` exercises the complete live catalog.
+  `ApexDefaultConfigs.settings` carries the generated text through snapshot,
+  write, readback and repeat-reset checks. Parameter changes are recorded in
+  `docs/APEX_SETTINGS_COMPATIBILITY.md`. External analysis materials and detailed
+  reports belong to their own project; product code/tests must not depend on them.
+  No PUBG build is marked fully verified.
   Version reads refresh on target changes and window focus, with stale responses
   ignored. This is an advisory indicator, not an application-blocking gate.
+- PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
+  boundaries and protects the argument following `+exec`; graphics aliases
+  (`-dx9`, `-sm4`/`-d3d10`/`-dx10`, `-d3d11`/`-dx11`, and
+  `-d3d12`/`-dx12`) are normalized to one mode. Tokens outside the catalog are
+  retained in `custom_launch_options` when the launch string is rebuilt, so an
+  Apply cycle does not silently discard unrecognized Steam or game flags.
+  Graphics aliases serialize to one canonical token. Conflicting backends and
+  window modes stay custom because game precedence is unverified. Windowed
+  writes `-windowed`; legacy `-window` and `-force-feature-level-11-0` stay
+  custom. Resolution pairs and mouse groups are claimed only when complete.
+  Movie-folder handling never consumes existing `-nosplash`/intro flags.
 - The shared CEF transport probes both IPv4 and IPv6 loopback without proxies
   and pins WebSocket discovery to the responding address. On Windows, NVIDIA
   Broadcast can own IPv4 port 8080 while Steam listens on IPv6 port 8080.
@@ -198,8 +238,8 @@ noncommercial mirrors and public modified versions are allowed.
   refreshes cannot reuse cached game settings, and duplicate submissions are
   rejected. Focused workflow tests cover Steam/EA and post-write failures.
   Video writes and read-only locking require `setting.configversion >=10`
-  within positive signed int32. Current J57 loads versions >=7, but 7-9 still
-  read legacy map-detail/SSAO fields; a positive version alone is insufficient.
+  within positive signed int32. Versions 7-9 use legacy map-detail/SSAO fields;
+  a positive version alone is insufficient.
   This checks field compatibility, not completeness. Reset followed by
   an immediate preset previously created and locked an incomplete video file,
   which passed key-value readback despite the user's EA menu retaining defaults.
@@ -354,7 +394,7 @@ noncommercial mirrors and public modified versions are allowed.
   The Windows
   before-exit hook restores background hardware state and retains Tauri cleanup.
   `Publish signed Windows release` builds, verifies tamper rejection, upgrades
-  an actual 0.0.7 installation on a disposable Windows runner, then publishes
+  an actual 0.0.8 installation on a disposable Windows runner, then publishes
   and explicitly calls Gitee mirroring. See `docs/ONLINE_UPDATE_RELEASE.md`.
   `scripts/test-portable-update.ps1` builds signed isolated NSIS fixtures and
   checks parent identity, exit ordering, original-path replacement, restart and
@@ -488,7 +528,15 @@ noncommercial mirrors and public modified versions are allowed.
   full-row summaries with right-side chevrons and independent selection boxes.
   Expanded tables show every value, file, binding context, and occurrence.
   Loading failures show an error and retry; native close is blocked during writes.
-  Online presets use the same import page.
+  Online presets use the same import page. The Beta online-presets dialog
+  lists the service's raw CUID-paginated results, lets anonymous users fetch a
+  snapshot for review, and gates publishing, comments, one-level replies, and
+  reports on the browser device-login account. List and comment generations
+  discard late responses when filters, expanded rows, or the dialog change.
+  Comment submission captures its target and invalidates stale editor updates;
+  an old completion cannot clear a newer draft or loading state;
+  the Rust boundary rejects unsafe preset path segments and trims comments to
+  the service's 1000 UTF-16-code-unit limit before sending them.
   Successful import sends snapshotImported through the existing config-changed
   event before closing its window. The main-window listener displays the success
   toast independently of the active route or configuration refresh outcome.
@@ -529,17 +577,18 @@ noncommercial mirrors and public modified versions are allowed.
   rejected before no-op detection. Steam, EA, and unified launch-option writes
   reject control characters before history is mutated. Laser custom colors use
   `R + (G << 8) + (B << 16)`.
-- Apex-only reset first generates defaults in memory using the verified J57
-  build rules in `game/apex_defaults/{environment,video}.rs`. It discovers the
+- Apex-only reset first generates current defaults in memory using the rules
+  in `game/apex_defaults/{environment,video}.rs`. It discovers the
   selected Steam/EA installation, reads its `bin/dxsupport.cfg`, and rejects
-  unverified builds or unexpected optional PC tier overlays before any write.
+  unexpected optional PC tier overlays before any write, but does not inspect
+  build identity or executable/resource fingerprints to authorize reset.
   Native DXGI adapter 0/output 0, GPU memory (including Intel UMA), total
   memory, primary desktop size, and rational display modes drive the 42-field
   video config. Windows DXGI/Direct3D12 and sysinfoapi feature flags support
   this read-only probe; there is no shell child or game-process interaction.
   Steam game language comes from account settings with appmanifest fallback;
   EA uses the matching Respawn installation registry Locale. Reset adds the
-  corresponding closecaption value to the default profile and writes all 107
+  corresponding closecaption value to the default profile and writes all 108
   raw default binding lines. It saves history, clears the selected account's
   launch options, and immediately writes/reads back all three writable files.
   Failure triggers verified rollback. Completely absent files are initialized;
@@ -550,17 +599,22 @@ noncommercial mirrors and public modified versions are allowed.
 - `npm.cmd run "tauri dev"` uses `scripts/tauri-dev.mjs` as a Windows
   single-instance development launcher: it removes only process trees proven to
   belong to this worktree, refuses to terminate an unknown owner of fixed Vite
-  port 14200, and then invokes the repository-local Tauri CLI.
+  port 14200, and then invokes the repository-local Tauri CLI with the explicit
+  Cargo `devtools` feature. Default and release builds do not contain DevTools.
 - Route pages are lazily imported. `vite.config.ts` warms the entry, views,
   pages, and shared navigation chrome at dev startup to keep that work off the
   interaction path. `css.preprocessorOptions` is a top-level option and has no
   effect nested under `server`.
+  The confirmation dialog loads on first use and remains mounted thereafter;
+  hiding it during an asynchronous action must not settle its pending promise.
 - Production frontend builds emit a Vite manifest and
   `dist/bundle-report.json`. The default `npm run build` records startup,
   per-asset, and aggregate raw/gzip sizes without failing on budget overruns;
-  `npm run bundle:check` remains an optional strict diagnostic.
+  `npm run bundle:check` is mandatory in CI and Tauri builds. Deferred startup
+  services and the confirmation dialog remain outside the initial static graph.
 - `npm.cmd run "build window release"` is the single Windows release entry
-  point. The portable and normal installer must remain strictly below
+  point. It verifies package/Cargo/Tauri version parity plus the pinned, clean
+  `windows_tool` path dependency before building. The portable and normal installer must remain strictly below
   5,000,000 bytes; the offline-WebView2 store build is exempt from that
   compact-build limit. Per-release evidence and remaining manual checks are
   recorded under `docs/RELEASE_CHECKLIST_<version>.md`. With no Authenticode
@@ -612,9 +666,9 @@ noncommercial mirrors and public modified versions are allowed.
   release builds use reproducible dependency resolution.
 - APEX Q SFC line limits are enforced by ESLint: coordinator and new panels
   are capped at 700 lines, calibration wrappers at 500.
-- Bundle size budgets remain visible in `dist/bundle-report.json` and through
-  the optional `npm run bundle:check` diagnostic, but they are not default
-  frontend build gates.
+- Bundle size budgets remain visible in `dist/bundle-report.json`. The default
+  browser-only build reports them, while CI and all Tauri builds enforce the
+  strict `npm run bundle:check` gate.
 - Mirrors and modified releases are allowed only for noncommercial purposes and
   must preserve the complete MxTools license plus all `Required Notice:` lines.
   Third-party software, game, platform, and brand icons remain under their
@@ -625,18 +679,25 @@ noncommercial mirrors and public modified versions are allowed.
 ## Verification
 
 - Frontend lint: `npm.cmd run lint`
+- Published updater checks: set `MXTOOLS_UPDATE_FROM_VERSION` and
+  `MXTOOLS_EXPECT_PUBLISHED_VERSION`, then explicitly run the ignored
+  `app_update::tests::published_update` tests. They use the real updater to
+  check and download signed installer/portable packages from both public
+  sources without installing or starting them. Real installation/restart
+  checks remain restricted to disposable GitHub Windows runners.
 - Frontend tests: `npm.cmd test`
 - Apex video frontend/native integration: `npm.cmd run test:apex-video-native`;
-  builds the Rust test helper before running the 44 Steam/EA file cases. CI's
+  builds the Rust test helper before running the 47 catalog and Steam/EA cases. CI's
   Windows Rust job runs this gate after cargo test. Ordinary frontend runs skip
   these cases unless the helper executable is supplied by the runner.
 - Frontend types/build and bundle report: `npm.cmd run build`
-- Optional strict bundle diagnostic: `npm.cmd run bundle:check`
+- Strict bundle gate: `npm.cmd run bundle:check` (required by CI and Tauri builds)
 - Rust formatting: run `cargo fmt --check` from `src-tauri/`
 - Rust type/build check: run `cargo check` from `src-tauri/`
 - Rust lint: run `cargo clippy --all-targets -- -D warnings` from `src-tauri/`
 - Rust tests: run `cargo test` from `src-tauri/`
 - Windows release artifacts: `npm.cmd run "build window release"`
+- Release input verification: `npm.cmd run release:inputs:check`
 - Release artifact size gate: `npm.cmd run release:size:check`
 - Whitespace/conflicts: `git diff --check`
 - Razer pure protocol tests: `cargo test razer_polling` from `src-tauri/`.

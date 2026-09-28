@@ -119,7 +119,7 @@ onUnmounted(() => {
         />
       </v-btn-group>
 
-      <GameVersionStatus game="pubg"/>
+      <GameVersionStatus game="pubg" scope="launch"/>
       <v-spacer></v-spacer>
 
       <v-btn-group density="compact" divided>

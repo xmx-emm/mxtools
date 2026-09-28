@@ -3,15 +3,16 @@ import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {isTauri} from '@tauri-apps/api/core';
 import {useI18n} from 'vue-i18n';
 import {getInstalledGameVersion} from '@/ipc/commands.ts';
-import {gameVersionStatus, type InstalledGameVersion, type SupportedGame} from '@/utils/game/version_support.ts';
+import {gameVersionStatus, type GameCompatibilityScope, type InstalledGameVersion, type SupportedGame} from '@/utils/game/version_support.ts';
 
-const props = withDefaults(defineProps<{game: SupportedGame; platform?: 'steam' | 'ea'; eaUserId?: string | null}>(), {platform: 'steam', eaUserId: null});
+const props = withDefaults(defineProps<{game: SupportedGame; scope?: GameCompatibilityScope; platform?: 'steam' | 'ea'; eaUserId?: string | null}>(), {scope: 'configuration', platform: 'steam', eaUserId: null});
 const {t} = useI18n();
 const value = ref<InstalledGameVersion | null>(null);
 const loading = ref(false);
 let generation = 0;
 let refreshedAt = 0;
-const status = computed(() => gameVersionStatus(props.game, value.value));
+const status = computed(() => gameVersionStatus(props.game, value.value, props.scope));
+const warning = computed(() => status.value === 'unverified' || status.value === 'launchPartial');
 const version = computed(() => value.value?.version || (value.value?.build ? 'Build ' + value.value.build : t('gameVersion.unknown')));
 const tooltip = computed(() => [t('gameVersion.' + status.value), value.value?.build].filter(Boolean).join(' · '));
 async function refresh() {
@@ -35,8 +36,8 @@ onBeforeUnmount(() => { generation++; window.removeEventListener('focus', onFocu
 <template>
   <v-tooltip :text="tooltip" content-class="mx-tooltip game-version-tooltip" location="top" max-width="none">
     <template #activator="{props: tooltipProps}">
-      <span v-bind="tooltipProps" class="game-version-status" :class="{'text-warning': status === 'unverified'}" role="status">
-        <v-icon v-if="status === 'unverified'" icon="mdi-alert-outline" size="14"/>
+      <span v-bind="tooltipProps" class="game-version-status" :class="{'text-warning': warning}" role="status">
+        <v-icon v-if="warning" icon="mdi-alert-outline" size="14"/>
         <span>{{ t('gameVersion.current') }}: {{ loading ? t('gameVersion.checking') : version }}</span>
         <span v-if="!loading" class="game-version-support">{{ t('gameVersion.' + status) }}</span>
       </span>

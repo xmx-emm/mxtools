@@ -1,5 +1,6 @@
 import {computed} from 'vue';
+import packageInfo from '../package.json';
 
 export const version = computed(() => {
-  return import.meta.env.VITE_APP_VERSION;
+  return packageInfo.version;
 });

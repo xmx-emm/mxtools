@@ -4,10 +4,12 @@
 //! 前端按 `interval` 周期调用 `poll`，批准后本模块兑换令牌并写入
 //! Windows 凭据管理器。`deviceCode` 全程不进入 WebView。
 
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use tauri_plugin_opener::OpenerExt;
 use zeroize::Zeroize;
 
 use super::{api_base, credential_store, http_client};
@@ -16,6 +18,7 @@ use crate::ipc_error::{IpcError, IpcResult};
 struct PendingDeviceLogin {
     device_code: String,
     deadline: Instant,
+    verification_uri_complete: String,
 }
 
 static PENDING_LOGIN: Mutex<Option<PendingDeviceLogin>> = Mutex::new(None);
@@ -140,12 +143,34 @@ fn load_tokens() -> IpcResult<Option<StoredTokens>> {
     }
 }
 
+fn validate_verification_url(base: &str, value: String) -> IpcResult<String> {
+    let base = Url::parse(base)
+        .map_err(|error| IpcError::new("online_auth.client_init", error.to_string()))?;
+    let url = Url::parse(&value)
+        .map_err(|_| IpcError::new("online_auth.protocol", "授权地址格式无效"))?;
+    let official_origin_is_https =
+        base.host_str() != Some("apex.0w0.online") || base.scheme() == "https";
+    let valid = official_origin_is_https
+        && matches!(url.scheme(), "http" | "https")
+        && url.origin() == base.origin()
+        && url.username().is_empty()
+        && url.password().is_none();
+    if !valid {
+        return Err(IpcError::new(
+            "online_auth.protocol",
+            "授权地址与在线服务来源不一致",
+        ));
+    }
+    Ok(url.to_string())
+}
+
 /// 发起设备码登录。返回给前端的数据不包含 `deviceCode`。
 #[tauri::command]
 pub async fn online_auth_start_device_login() -> IpcResult<DeviceLoginStart> {
     let client = http_client()?;
+    let base = api_base();
     let response = client
-        .post(format!("{}/auth/device/start", api_base()))
+        .post(format!("{base}/auth/device/start"))
         .json(&serde_json::json!({
             "clientLabel": concat!("MxTools ", env!("CARGO_PKG_VERSION")),
         }))
@@ -159,19 +184,48 @@ pub async fn online_auth_start_device_login() -> IpcResult<DeviceLoginStart> {
         .json::<DeviceStartResponse>()
         .await
         .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))?;
+    let verification_uri = validate_verification_url(&base, started.verification_uri)?;
+    let verification_uri_complete =
+        validate_verification_url(&base, started.verification_uri_complete)?;
 
     *PENDING_LOGIN.lock().expect("pending login lock poisoned") = Some(PendingDeviceLogin {
         device_code: started.device_code,
         deadline: Instant::now() + Duration::from_secs(started.expires_in),
+        verification_uri_complete: verification_uri_complete.clone(),
     });
 
     Ok(DeviceLoginStart {
         user_code: started.user_code,
-        verification_uri: started.verification_uri,
-        verification_uri_complete: started.verification_uri_complete,
+        verification_uri,
+        verification_uri_complete,
         expires_in: started.expires_in,
         interval: started.interval.max(2),
     })
+}
+
+fn pending_verification_url(
+    pending: Option<&PendingDeviceLogin>,
+    now: Instant,
+) -> IpcResult<String> {
+    let pending = pending
+        .filter(|pending| now < pending.deadline)
+        .ok_or_else(|| IpcError::new("online_auth.no_pending_login", "没有未过期的设备码登录"))?;
+    Ok(pending.verification_uri_complete.clone())
+}
+
+// Only native, origin-validated login state supplies the URL, never IPC input.
+#[tauri::command]
+pub fn online_auth_open_verification(app: tauri::AppHandle) -> IpcResult<()> {
+    let url = pending_verification_url(
+        PENDING_LOGIN
+            .lock()
+            .expect("pending login lock poisoned")
+            .as_ref(),
+        Instant::now(),
+    )?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| IpcError::new("online_auth.open_browser", error.to_string()))
 }
 
 /// 轮询一次设备码状态；批准后兑换令牌、写入凭据管理器并返回账号。
@@ -381,4 +435,12 @@ pub async fn online_auth_logout() -> IpcResult<()> {
     credential_store::delete().map_err(credential_error)?;
     clear_pending_login();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/online_auth_security.rs"
+    ));
 }

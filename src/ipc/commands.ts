@@ -1069,6 +1069,10 @@ export function onlineAuthPollDeviceLogin(): Promise<OnlineDeviceLoginPoll> {
   return ipcInvoke<OnlineDeviceLoginPoll>('online_auth_poll_device_login');
 }
 
+export function onlineAuthOpenVerification(): Promise<void> {
+  return ipcInvoke<void>('online_auth_open_verification');
+}
+
 export function onlineAuthCancelDeviceLogin(): Promise<void> {
   return ipcInvoke<void>('online_auth_cancel_device_login');
 }

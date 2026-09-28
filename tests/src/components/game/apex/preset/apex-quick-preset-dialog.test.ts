@@ -17,10 +17,17 @@ vi.mock('@/components/game/common/CloseRunningProcessesDialog.vue', () => ({defa
 vi.mock('@/components/game/apex/common/ApexNumberInput.vue', () => ({default: {}}));
 vi.mock('@/components/game/apex/settings/ApexGameSettingTip.vue', () => ({default: {}}));
 vi.mock('vuetify/components/VAlert', () => ({VAlert: {}}));
+vi.mock('vuetify/components/VAvatar', () => ({VAvatar: {}}));
 vi.mock('vuetify/components/VBtn', () => ({VBtn: {}}));
 vi.mock('vuetify/components/VBtnToggle', () => ({VBtnToggle: {}}));
 vi.mock('vuetify/components/VCheckbox', () => ({VCheckbox: {}}));
 vi.mock('vuetify/components/VDialog', () => ({VDialog: {}}));
+vi.mock('vuetify/components/VIcon', () => ({VIcon: {}}));
+vi.mock('vuetify/components/VImg', () => ({VImg: {}}));
+vi.mock('vuetify/components/VList', () => ({
+  VList: {}, VListItem: {}, VListItemSubtitle: {}, VListItemTitle: {},
+}));
+vi.mock('vuetify/components/VMenu', () => ({VMenu: {}}));
 vi.mock('vuetify/components/VProgressLinear', () => ({VProgressLinear: {}}));
 vi.mock('vuetify/components/transitions', () => ({VExpandTransition: {}}));
 vi.mock('@/composables/useCloseLauncherThenApply.ts', async () => {

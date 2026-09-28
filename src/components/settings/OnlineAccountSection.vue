@@ -2,12 +2,12 @@
 import {onUnmounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
-import {openUrl} from '@tauri-apps/plugin-opener';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {
   onlineAuthCancelDeviceLogin,
   onlineAuthGetAccount,
   onlineAuthLogout,
+  onlineAuthOpenVerification,
   onlineAuthPollDeviceLogin,
   onlineAuthStartDeviceLogin,
 } from '@/ipc/commands.ts';
@@ -99,7 +99,7 @@ async function startLogin() {
     loginInfo.value = started;
     loginStage.value = 'waiting';
     // 自动打开授权页；失败时用户仍可用对话框里的按钮手动打开。
-    void openUrl(started.verificationUriComplete).catch(() => undefined);
+    void onlineAuthOpenVerification().catch(() => undefined);
     schedulePoll(started.interval);
   } catch (error) {
     loginStage.value = 'failed';
@@ -120,7 +120,7 @@ function onDialogModel(open: boolean) {
 async function openVerification() {
   if (!loginInfo.value) return;
   try {
-    await openUrl(loginInfo.value.verificationUriComplete);
+    await onlineAuthOpenVerification();
   } catch (error) {
     toast.error(String(error));
   }

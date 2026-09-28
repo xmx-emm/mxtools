@@ -15,7 +15,7 @@ mxtools/
 ├── package.json               # 前端脚本与 npm 依赖
 ├── tsconfig.json              # TypeScript 配置
 ├── eslint.config.ts           # ESLint 配置
-├── CHANGELOG.md               # 更新日志
+├── docs/CHANGELOG.md          # 更新日志
 └── README.md                  # 使用与开发说明
 ```
 
@@ -39,7 +39,7 @@ mxtools/
 | `utils/` | 通用工具(路由、日志、快捷键、游戏相关辅助等) |
 | `data/` | 静态配置与外链常量(如 `url_video.ts`、`url_other.ts`、`apex_launch_options_config.ts`) |
 | `assets/` | 样式、图片等静态资源 |
-| `env.ts` | 前端展示版本号等(读取 `import.meta.env`,如 `VITE_APP_VERSION`) |
+| `env.ts` | 前端展示版本号，直接读取根目录 `package.json` |
 
 **路由入口**：新增页面时通常在 `router.ts` 注册,并在 `pages/` 或 `views/` 中实现组件.
 
@@ -94,10 +94,10 @@ windows_tool = { path = "../../../rust/windows_tool", features = ["input_method"
 
 若克隆本仓库后 **未放置** `windows_tool`,`cargo build` / `tauri build` 会因找不到依赖而失败.请按你本机实际布局补齐该目录,或自行调整 `path`(需同时保证相对路径在团队内一致).
 
-GitHub Actions 会在 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 中将 `windows_tool` 的 GitHub 镜像检出到同一相对路径，并固定到明确的 `ref`。`Cargo.lock` 不记录路径依赖的 Git 提交，因此升级该依赖时应先同步 GitHub 镜像，再更新 workflow 中的固定提交与缓存 key。Rust job 会复用 Cargo registry 和 `src-tauri/target` 中的依赖构建产物；仅 `master` 写入缓存，失败运行中已完成的依赖构建也会保留。
+GitHub Actions 会在 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 中将 `windows_tool` 的 GitHub 镜像检出到同一相对路径，并固定到明确的 `ref`。`Cargo.lock` 不记录路径依赖的 Git 提交，因此升级该依赖时应先同步 GitHub 镜像，再更新 workflow 中的固定提交、缓存 key 与 `scripts/verify-release-inputs.mjs`。正式发布会拒绝提交不匹配或工作树不干净的本地依赖。Rust job 会复用 Cargo registry 和 `src-tauri/target` 中的依赖构建产物；仅 `master` 写入缓存，失败运行中已完成的依赖构建也会保留。
 
 ## 相关配置文件速查
 
 - 应用显示名称与窗口标题：`src-tauri/tauri.conf.json` → `app.windows[].title`
 - 开发时 Vite 端口：`vite.config.ts` 与 `tauri.conf.json` 的 `devUrl` 需一致(当前为 `14200`)
-- 版本号：Rust `src-tauri/Cargo.toml`、Tauri `tauri.conf.json`、`package.json`；前端关于页还依赖根目录 `.env` 中的 `VITE_APP_VERSION`(见 `README.md`)
+- 版本号：`package.json` 是前端显示来源；发布时必须与 Rust `src-tauri/Cargo.toml`、Tauri `tauri.conf.json` 一致

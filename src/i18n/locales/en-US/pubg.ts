@@ -123,6 +123,7 @@ export const pubgMessages = {
       render: 'Rendering & quality',
     },
     ui: {
+      validationNotice: 'Launch-option behavior still needs in-game verification: a parameter string or engine description does not prove current PUBG support or an FPS gain. Skip intro renames a folder and is independent of launch arguments.',
       rightClickTip: 'Right-click for details',
       maxMemLabel: 'Max memory',
       refreshLabel: 'Refresh rate',
@@ -164,7 +165,7 @@ export const pubgMessages = {
     },
     graphicsApi: {
       name: 'Graphics API (DirectX)',
-      description: 'DX10: SM4 / lower quality; DX11: feature level 11.0; DX12: `-d3d12`',
+      description: 'Emits one graphics parameter at a time. Legacy DX9/DX10 choices do not confirm current game support; prefer in-game settings.',
       dx9: 'DX9',
       dx10: 'DX10',
       dx11: 'DX11',
@@ -175,8 +176,8 @@ export const pubgMessages = {
       description: 'Helps weak GPUs or sky-area frame drops',
     },
     refresh: {
-      name: 'FPS',
-      description: 'Force a specific refresh rate',
+      name: 'Refresh rate (unverified)',
+      description: 'Current -refresh support is unconfirmed; refresh rate is not an FPS cap',
     },
     window: {
       name: 'Window',

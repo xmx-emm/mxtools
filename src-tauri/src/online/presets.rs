@@ -19,6 +19,33 @@ fn protocol_error(error: reqwest::Error) -> IpcError {
     IpcError::new("online_presets.protocol", error.to_string())
 }
 
+pub(super) fn validate_comment_body(body: String) -> IpcResult<String> {
+    let body = body.trim().to_string();
+    // JavaScript's Zod `.max(1000)` counts UTF-16 code units; mirror that
+    // boundary here so emoji and other astral characters cannot pass IPC and
+    // then be rejected by the service.
+    if body.is_empty() || body.encode_utf16().count() > 1000 {
+        return Err(IpcError::new(
+            "online_presets.invalid_comment",
+            "评论内容无效",
+        ));
+    }
+    Ok(body)
+}
+
+pub(super) fn preset_id(id: String) -> IpcResult<String> {
+    let valid = !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
+    if valid {
+        Ok(id)
+    } else {
+        Err(IpcError::new("online_presets.invalid_id", "预设标识无效"))
+    }
+}
+
 async fn error_from_response(response: reqwest::Response) -> IpcError {
     let status = response.status();
     let body = response.json::<Value>().await.unwrap_or(Value::Null);
@@ -83,6 +110,7 @@ pub async fn online_presets_list(query: OnlinePresetListQuery) -> IpcResult<Valu
 /// 匿名「使用」：使用计数 +1 并返回完整快照 payload。
 #[tauri::command]
 pub async fn online_preset_use(id: String) -> IpcResult<Value> {
+    let id = preset_id(id)?;
     let client = http_client()?;
     let response = client
         .post(format!("{}/presets/{id}/use", api_base()))
@@ -117,6 +145,7 @@ pub async fn online_preset_publish(
 
 #[tauri::command]
 pub async fn online_preset_comments(id: String) -> IpcResult<Value> {
+    let id = preset_id(id)?;
     let client = http_client()?;
     let response = client
         .get(format!("{}/presets/{id}/comments", api_base()))
@@ -132,6 +161,8 @@ pub async fn online_preset_comment_create(
     body: String,
     parent_id: Option<String>,
 ) -> IpcResult<Value> {
+    let id = preset_id(id)?;
+    let body = validate_comment_body(body)?;
     let token = bearer_token().await?;
     let client = http_client()?;
     let response = client
@@ -150,6 +181,13 @@ pub async fn online_preset_report(
     reason: String,
     detail: Option<String>,
 ) -> IpcResult<Value> {
+    let id = preset_id(id)?;
+    if reason.trim().is_empty() || reason.len() > 64 {
+        return Err(IpcError::new(
+            "online_presets.invalid_report",
+            "举报原因无效",
+        ));
+    }
     let token = bearer_token().await?;
     let client = http_client()?;
     let response = client

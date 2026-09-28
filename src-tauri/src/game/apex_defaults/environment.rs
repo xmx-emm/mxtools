@@ -4,8 +4,6 @@ use crate::game::{apex_history::ApexLauncherRef, version};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const VERIFIED_BUILD: &str = "R5pc_r5-300_J57_CL11457258_2026_08_19_15_40";
-
 fn bounded_text(path: &Path) -> Result<String, String> {
     if fs::metadata(path).map_err(|e| e.to_string())?.len() > 2 * 1024 * 1024 {
         return Err(format!("file too large: {}", path.display()));
@@ -18,11 +16,6 @@ pub(super) fn installation(launcher: &ApexLauncherRef) -> Result<(PathBuf, Strin
         version::installed_root(version::Game::Apex, &launcher.kind, Some(&launcher.id))?
             .filter(|(root, _)| root.is_dir())
             .ok_or("apex.history.errors.defaultInstallUnavailable")?;
-    let build = bounded_text(&root.join("build.txt"))
-        .map_err(|_| "apex.history.errors.defaultBuildUnsupported")?;
-    if build.trim().trim_start_matches('\u{feff}') != VERIFIED_BUILD {
-        return Err("apex.history.errors.defaultBuildUnsupported".into());
-    }
     let language = if launcher.kind == "steam" {
         let id = launcher
             .id

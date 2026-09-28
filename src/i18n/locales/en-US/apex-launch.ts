@@ -74,8 +74,8 @@ export const apexLaunchMessages = {
       thresholdName: 'Tolerance range',
     },
     showFps: {
-      name: 'Show detailed info',
-      description: 'Show FPS / net stats top-right',
+      name: 'Performance display (FPS / network)',
+      description: 'Use the in-game performance display for top-right FPS and network stats',
     },
     showPos: {
       name: 'Show position & speed',
@@ -146,7 +146,7 @@ export const apexLaunchMessages = {
     },
     showFps: {
       title: 'Show FPS',
-      subtitle: 'Show real-time FPS and network info in the top-right corner',
+      subtitle: 'Launch options and quick presets use +net_netGraph2 1, the in-game Performance Display setting. The old +cl_showfps 1 is a restricted debug counter and is no longer emitted by this option. If the display is still missing, enable Performance Display in-game. Removing the launch option does not turn off a saved game setting.',
     },
     showPos: {
       title: 'Show Pos',

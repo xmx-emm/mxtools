@@ -82,6 +82,7 @@ export const apexConfigMessages = {
       spectateInsertAnnotation: '观战插入标注', spectateSmoothCamera: '观战平滑镜头', spectateMapTeamNames: '观战显示小队名称', spectateObituary: '观战击杀信息',
       spectateChasecamZoomOut: '观战追踪镜头缩小', spectateChasecamZoomIn: '观战追踪镜头放大', spectateToggleUi: '观战切换界面', spectateFreecam: '观战自由镜头',
       spectateChasecamLock: '观战锁定追踪镜头', observerPlayerTags: '观战玩家标签', observerHighlight: '观战高亮', toggleConsole: '切换控制台',
+      observerAutoMapCamera: '观战地图自动缩放',
       ingameMenu: '游戏内菜单', milesBugMarker: 'Miles 调试标记', observerRingSurvey: '观战环形调查', spectatorRollMode: '观战旋转模式', spectatorRollClockwise: '观战顺时针旋转', spectatorRollCounterClockwise: '观战逆时针旋转',
     },
     colorblindPreview: {

@@ -292,7 +292,7 @@ const ApexVideoConfig: (ApexVideoConfigImpl | string)[] = [
   },
 
   // 纹理串流预算：stream_memory + mat_picmip + dynamic_streaming_budget 联动
-  // 当前构建(R5pc_r5-300_J57)游戏菜单为 7 档:无/很低/低/中/高/很高/超高;
+  // 当前构建(R5pc_r5-301_J20)游戏菜单为 7 档:无/很低/低/中/高/很高/超高;
   // Config values use the serialized budget ladder. Runtime budgets use a
   // different ladder; the game converts between them when loading/saving.
   {

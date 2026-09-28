@@ -43,16 +43,17 @@ jobs:
         id: version
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $package = Get-Content package.json -Raw | ConvertFrom-Json
-          $cargo = Get-Content src-tauri/Cargo.toml -Raw
-          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $package.version -ne $version -or $cargo -notmatch ('(?m)^version = "' + [regex]::Escape($version) + '"')) { throw 'Release versions differ' }
           "tag=v$version" >> $env:GITHUB_OUTPUT
+      - name: Validate release inputs
+        run: npm run release:inputs:check
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Verify Apex presets through native files
+        run: npm run test:apex-video-native
       - name: Build signed release artifacts
         run: npm run "build window release"
         env:

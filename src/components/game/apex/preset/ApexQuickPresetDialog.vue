@@ -52,9 +52,13 @@ import {
   useCloseLauncherThenApply,
 } from '@/composables/useCloseLauncherThenApply.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
+import {convertFileSrc} from '@tauri-apps/api/core';
 import type {UnlistenFn} from '@tauri-apps/api/event';
 import ApexGameSettingTip from '@/components/game/apex/settings/ApexGameSettingTip.vue';
 import {listenApexConfigChanged} from '@/utils/game/apex_config_events.ts';
+import {steamAvatarUrl} from '@/utils/game/steam.ts';
+import EAIcon from '@/components/icons/EAIcon.vue';
+import type {ApexLauncherAccount} from '@/types/apex.ts';
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -106,12 +110,36 @@ const target_account_label = computed(() => {
   const identity = account.user.name?.trim() || account.user.id;
   return `${platform} · ${identity}`;
 });
+const target_account_avatar = computed(() => account_avatar_src(target_account.value));
 const launch_config_file = computed(() => {
   const account = target_account.value;
   return account?.kind === 'ea'
     ? account.user.config_path.split(/[\\/]/).pop() || 'user_*.ini'
     : 'localconfig.vdf';
 });
+
+function account_avatar_src(account: ApexLauncherAccount | null): string | undefined {
+  if (!account) return undefined;
+  if (account.kind === 'steam') return steamAvatarUrl(account.user.avatar);
+  const avatar = account.user.avatar?.trim() ?? '';
+  if (!avatar) return undefined;
+  if (/^https?:\/\//i.test(avatar)) return avatar;
+  try {
+    return convertFileSrc(avatar);
+  } catch {
+    return undefined;
+  }
+}
+
+function account_key(account: ApexLauncherAccount): string {
+  return `${account.kind}:${account.user.id}`;
+}
+
+async function select_target_account(account: ApexLauncherAccount) {
+  if (account_key(account) === apex_store.launcher_selection_key) return;
+  apex_store.set_active_apex_account(account);
+  await refresh_config();
+}
 
 const sorted_aspect_presets = computed(() => sortedAspectPresets());
 const graphics_preset_description = computed(() => {
@@ -485,7 +513,47 @@ onBeforeUnmount(() => {
             <dl class="info-grid">
               <div class="info-item">
                 <dt class="info-key">{{ t('apexQuickPreset.targetAccount') }}</dt>
-                <dd class="info-val">{{ target_account_label }}</dd>
+                <dd class="info-val">
+                  <v-menu location="bottom start" :close-on-content-click="true">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        class="quick-preset-account-trigger"
+                        variant="text"
+                        :disabled="config_refreshing || is_apply_running || apex_store.quick_preset_applying"
+                        :aria-label="t('apexQuickPreset.targetAccount')"
+                      >
+                        <v-avatar size="24" class="quick-preset-account-avatar">
+                          <v-img v-if="target_account_avatar" :src="target_account_avatar" cover alt="" />
+                          <v-icon v-else-if="target_account?.kind === 'steam'" icon="mdi-steam" size="small" />
+                          <EAIcon v-else-if="target_account?.kind === 'ea'" :size="18" />
+                          <v-icon v-else icon="mdi-account" size="small" />
+                        </v-avatar>
+                        <span class="quick-preset-account-label">{{ target_account_label }}</span>
+                        <v-icon icon="mdi-chevron-down" size="small" />
+                      </v-btn>
+                    </template>
+                    <v-list density="compact" min-width="230">
+                      <v-list-item
+                        v-for="account in apex_store.apex_accounts"
+                        :key="account_key(account)"
+                        :active="account_key(account) === apex_store.launcher_selection_key"
+                        @click="void select_target_account(account)"
+                      >
+                        <template #prepend>
+                          <v-avatar size="28">
+                            <v-img v-if="account_avatar_src(account)" :src="account_avatar_src(account)" cover alt="" />
+                            <v-icon v-else-if="account.kind === 'steam'" icon="mdi-steam" size="small" />
+                            <EAIcon v-else :size="20" />
+                          </v-avatar>
+                        </template>
+                        <v-list-item-title>{{ account.user.name || account.user.id }}</v-list-item-title>
+                        <v-list-item-subtitle>{{ account.kind === 'steam' ? 'Steam' : 'EA' }} · {{ account.user.id }}</v-list-item-subtitle>
+                      </v-list-item>
+                      <v-list-item v-if="!apex_store.apex_accounts.length" :title="t('apexQuickPreset.noAccount')" />
+                    </v-list>
+                  </v-menu>
+                </dd>
               </div>
               <div class="info-item">
                 <dt class="info-key">{{ t('apexQuickPreset.screenSize') }}</dt>
@@ -943,6 +1011,31 @@ onBeforeUnmount(() => {
   font-size: 11px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.quick-preset-account-trigger.v-btn {
+  min-height: var(--app-control-height-compact) !important;
+  height: var(--app-control-height-compact) !important;
+  max-width: 100%;
+  padding: 0 4px !important;
+  border-radius: var(--app-radius-sm) !important;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.quick-preset-account-avatar {
+  flex: 0 0 auto;
+  margin-right: 6px;
+}
+
+.quick-preset-account-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-preset-section h2 {

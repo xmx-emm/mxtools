@@ -21,6 +21,10 @@ export function createPubgState() {
     res_height: 1080,
     view_distance_scale: 0.8,
     parameter_overrides: <{ [key: string]: string[] }>{},
+    // Launch tokens outside the managed catalog are kept verbatim enough to
+    // survive a read/edit/apply cycle. Steam accepts many game or mod flags
+    // that MxTools does not expose as controls yet.
+    custom_launch_options: '',
     original_launch_options: '',
     launch_loaded_for_user_id: <string | null>null,
     tip_view: <Component | null | undefined>null,

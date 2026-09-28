@@ -953,7 +953,7 @@ fn reset_at_paths(
     };
     if launch_options.is_empty()
         && unchanged(&video, &defaults.video)
-        && unchanged(&settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)
+        && unchanged(&settings, &defaults.settings)
         && unchanged(&profile, &defaults.profile)
     {
         return reset_readback(paths, defaults, None);
@@ -1025,7 +1025,7 @@ fn reset_readback(
     entry: Option<ApexConfigHistoryEntry>,
 ) -> Result<ApexResetResult, String> {
     verify_default_config(paths.0, &defaults.video)?;
-    verify_default_config(paths.1, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
+    verify_default_config(paths.1, &defaults.settings)?;
     verify_default_config(paths.2, &defaults.profile)?;
     let doc = windows_tool::game::apex::config::ApexCfgDocument::load_from_file(paths.0)?;
     let video_config = doc
@@ -1049,7 +1049,7 @@ fn reset_default_files(
     defaults: &apex_defaults::ApexDefaultConfigs,
 ) -> Result<(), String> {
     write_default_config(video, &defaults.video)?;
-    write_default_config(settings, apex_defaults::APEX_DEFAULT_SETTINGS_CFG)?;
+    write_default_config(settings, &defaults.settings)?;
     write_default_config(profile, &defaults.profile)
 }
 
