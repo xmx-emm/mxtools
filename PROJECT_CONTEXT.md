@@ -146,6 +146,23 @@ noncommercial mirrors and public modified versions are allowed.
   No PUBG build is marked fully verified.
   Version reads refresh on target changes and window focus, with stale responses
   ignored. This is an advisory indicator, not an application-blocking gate.
+- The September 30 Apex audit covers installed Steam J44 / Build 25522636 /
+  `v3.0.2.44`, exact `R5pc_r5-301_J44_CL11595978_FSv30_1_2026_09_23_12_37`.
+  All 134 editable-setting storage keys and 183 direct defaults retain their
+  reviewed registrations; 108 bindings, 285 UI resources and the 42-field video
+  format retain the reviewed definitions. No confirmed new user setting was added.
+  Reticle registration is unchanged, but reported startup/transparent-reticle
+  failures remain unreproduced; file round trips are not rendering verification.
+  The J44 equal-RGB callback still yields RGB zero for the legacy oversized value
+  in an independent SSE arithmetic probe under default rounding/masked exceptions;
+  this is not an alpha/transparency test or proof that launch arguments arrived.
+  The traced HSV/helper/palette path does not establish a newly added clamp;
+  an old native callback body and final rendering comparison remain unavailable.
+  Steam now starts through EA Javelin's GameServiceLauncher. The separate Beta
+  startup-repair workflow still targets EAC and can give stale missing-file/service
+  warnings on Javelin installations. J44 is not promoted to verified status;
+  the local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
+  `docs/APEX_SETTINGS_COMPATIBILITY.md`; detailed evidence stays in the Apex project.
 - PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
   boundaries and protects the argument following `+exec`; graphics aliases
   (`-dx9`, `-sm4`/`-d3d10`/`-dx10`, `-d3d11`/`-dx11`, and
