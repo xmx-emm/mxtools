@@ -160,8 +160,9 @@ noncommercial mirrors and public modified versions are allowed.
   an old native callback body and final rendering comparison remain unavailable.
   Steam now starts through EA Javelin's GameServiceLauncher. The separate Beta
   startup-repair workflow still targets EAC and can give stale missing-file/service
-  warnings on Javelin installations. J44 is not promoted to verified status;
-  the local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
+  warnings on Javelin installations. The exact Steam J44 build is listed as
+  launch-statically-reviewed only; configuration pages remain unverified and the
+  local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
   `docs/APEX_SETTINGS_COMPATIBILITY.md`; detailed evidence stays in the Apex project.
 - PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
   boundaries and protects the argument following `+exec`; graphics aliases

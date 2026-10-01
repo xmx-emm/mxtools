@@ -27,8 +27,9 @@ reproduced, and the reported symptom may instead be a startup error. The current
 color callback converts floats to int32 before its final RGB bounds handling;
 those bounds alone do not prove that the oversized legacy value is newly rejected.
 Do not claim that Javelin blocked the option, remove it, or substitute another
-oversized value without reproducing the behavior. Serialization/readback tests
-do not establish rendering compatibility. J44 remains unverified in the footer.
+oversized value without reproducing the behavior. Serialization/readback tests do
+not establish rendering compatibility. The exact Steam J44 build is labeled as
+statically reviewed only in the launch footer; configuration footers remain unverified.
 
 A deeper check of the current equal-channel path found no upper clamp in its
 HSV helper. An independent SSE reproduction, after successful RGB parsing and

@@ -14,7 +14,10 @@ export const verifiedGameBuilds: Record<SupportedGame, readonly string[]> = {
 
 // Current review labels do not imply runtime verification of every setting.
 const reviewedLaunchBuilds: Record<SupportedGame, readonly string[]> = {
-  apex: ['R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18'],
+  apex: [
+    'R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18',
+    'R5pc_r5-301_J44_CL11595978_FSv30_1_2026_09_23_12_37',
+  ],
   pubg: ['25449918'],
 };
 

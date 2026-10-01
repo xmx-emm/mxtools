@@ -14,11 +14,16 @@ describe('Game compatibility uses exact verified builds', () => {
     expect(gameVersionStatus('apex', {installed: true, version: 'v3.0.4.57', build: null})).toBe('unknown');
     expect(gameVersionStatus('pubg', {installed: true, version: null, build: '25049128'})).toBe('unverified');
   });
-  it('limits J28 static review to launch options, not the full configuration', () => {
-    const value = {installed: true, version: 'v3.0.1.28', build: 'R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18'};
-    expect(gameVersionStatus('apex', value, 'launch')).toBe('launchReviewed');
-    expect(gameVersionStatus('apex', value)).toBe('unverified');
-    expect(gameVersionStatus('apex', {...value, build: 'future-J28'}, 'launch')).toBe('unverified');
+  it('limits exact Apex static reviews to launch options, not the full configuration', () => {
+    const reviewed = [
+      {version: 'v3.0.1.28', build: 'R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18'},
+      {version: 'v3.0.2.44', build: 'R5pc_r5-301_J44_CL11595978_FSv30_1_2026_09_23_12_37'},
+    ];
+    for (const value of reviewed) {
+      expect(gameVersionStatus('apex', {installed: true, ...value}, 'launch')).toBe('launchReviewed');
+      expect(gameVersionStatus('apex', {installed: true, ...value})).toBe('unverified');
+    }
+    expect(gameVersionStatus('apex', {installed: true, version: 'v3.0.2.44', build: 'future-J44'}, 'launch')).toBe('unverified');
   });
   it('does not promote the PUBG literal audit to verified game behavior', () => {
     const value = {installed: true, version: null, build: '25449918'};
