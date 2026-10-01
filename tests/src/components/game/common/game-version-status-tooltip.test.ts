@@ -17,4 +17,9 @@ describe('GameVersionStatus tooltip contract', () => {
     expect(component).toMatch(/max-width="none"/);
     expect(globalStyles).toMatch(/\.game-version-tooltip\s*\{\s*max-width:\s*none;\s*overflow-wrap:\s*normal;\s*white-space:\s*nowrap;/);
   });
+
+  it('keeps the launch review in the tooltip without repeating it in the footer', () => {
+    expect(component).toContain("status !== 'launchReviewed'");
+    expect(component).toContain("t('gameVersion.' + status.value), value.value?.build");
+  });
 });

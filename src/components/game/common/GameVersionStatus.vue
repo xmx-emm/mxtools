@@ -39,7 +39,7 @@ onBeforeUnmount(() => { generation++; window.removeEventListener('focus', onFocu
       <span v-bind="tooltipProps" class="game-version-status" :class="{'text-warning': warning}" role="status">
         <v-icon v-if="warning" icon="mdi-alert-outline" size="14"/>
         <span>{{ t('gameVersion.current') }}: {{ loading ? t('gameVersion.checking') : version }}</span>
-        <span v-if="!loading" class="game-version-support">{{ t('gameVersion.' + status) }}</span>
+        <span v-if="!loading && status !== 'launchReviewed'" class="game-version-support">{{ t('gameVersion.' + status) }}</span>
       </span>
     </template>
   </v-tooltip>
