@@ -42,10 +42,12 @@ async function install() {
 
 <template>
   <v-dialog v-if="isTauri()" v-model="open" max-width="560">
-    <v-card :title="t('updates.dialogTitle')">
-      <v-card-text>
+    <v-card class="update-card" :title="t('updates.dialogTitle')">
+      <v-card-text class="update-card-text">
         <p class="update-version">{{ t('updates.newVersion', {version: update.info?.version}) }}</p>
-        <pre v-if="update.info?.notes" class="update-notes">{{ update.info.notes }}</pre>
+        <div v-if="update.info?.notes" class="update-notes" tabindex="0" role="region" :aria-label="t('updates.dialogTitle')">
+          <pre>{{ update.info.notes }}</pre>
+        </div>
         <p class="update-hint">{{ t('updates.dialogHint') }}</p>
         <p v-if="blocked" class="text-warning">{{ t('updates.pendingWork') }}</p>
       </v-card-text>
@@ -63,7 +65,12 @@ async function install() {
 
 <style scoped>
 .update-version { margin: 0 0 10px; font-weight: 650; }
-.update-notes { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.update-card-text { max-height: min(72vh, 640px); overflow-y: auto; }
+.update-notes {
+  max-height: min(42vh, 320px); overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-gutter: stable; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.update-notes pre { margin: 0; white-space: inherit; overflow-wrap: inherit; font: inherit; }
 .update-hint { margin: 12px 0 0; }
 .v-card-actions :deep(.v-btn) { height: var(--app-control-height-action); }
 </style>

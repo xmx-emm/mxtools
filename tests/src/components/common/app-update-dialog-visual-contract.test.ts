@@ -19,4 +19,11 @@ describe('AppUpdateDialog contract', () => {
     expect(source).toContain('downloads.unfinished > 0');
     expect(source).toContain(':disabled="blocked || update.busy"');
   });
+
+  it('keeps long release notes readable with an adaptive scroll region', () => {
+    expect(source).toContain('class="update-notes" tabindex="0"');
+    expect(source).toContain('max-height: min(42vh, 320px)');
+    expect(source).toContain('overflow-y: auto');
+    expect(source).toContain('scrollbar-gutter: stable');
+  });
 });
