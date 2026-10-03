@@ -12,7 +12,6 @@ const AppUpdateDialog = defineAsyncComponent(
   () => import('@/components/common/AppUpdateDialog.vue'),
 );
 const confirmationLoaded = ref(false);
-const updateDialogLoaded = ref(true);
 // Keep the dialog mounted while its hidden asynchronous action is still pending.
 watch(() => appConfirmationState.open, (open) => {
   if (open) confirmationLoaded.value = true;
@@ -70,7 +69,7 @@ onBeforeUnmount(() => {
   <v-app :theme="ui.themeStyle" class="not_select">
     <router-view class="not_scrollbar"/>
     <AppConfirmationDialog v-if="confirmationLoaded"/>
-    <AppUpdateDialog v-if="updateDialogLoaded"/>
+    <AppUpdateDialog v-if="isTauriRuntime"/>
   </v-app>
 </template>
 
