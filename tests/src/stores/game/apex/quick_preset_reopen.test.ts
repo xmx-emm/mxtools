@@ -55,7 +55,7 @@ describe.each(['steam', 'ea'] as const)('%s quick preset reopened from serialize
     store.prepare_quick_preset(quickPresetScreen, selection);
     if (selection.enableSimplifiedReticle) {
       expect(store.launch_options).toContain(kind === 'steam'
-        ? '+reticle_color "2147483648 2147483648 2147483648"'
+        ? '+reticle_color "2147483648-2147483648-2147483648"'
         : '+reticle_color 2147483648-2147483648-2147483648');
     }
     if (selection.launchOptions.fov_scale) {

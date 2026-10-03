@@ -5,8 +5,8 @@ $passwordPath = Join-Path $signingDirectory 'password.dpapi'
 if (!(Test-Path -LiteralPath $keyPath) -or !(Test-Path -LiteralPath $passwordPath)) {
     throw 'Local signing key is not configured. Use the signed GitHub release workflow or restore your key backup.'
 }
-$config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
-if ((Get-Content ($keyPath + '.pub') -Raw).Trim() -ne $config.plugins.updater.pubkey) {
+$config = Get-Content 'src-tauri/tauri.conf.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+if ((Get-Content ($keyPath + '.pub') -Raw -Encoding UTF8).Trim() -ne $config.plugins.updater.pubkey) {
     throw 'Local key does not match the public key committed in tauri.conf.json.'
 }
 $previousKey = $env:TAURI_SIGNING_PRIVATE_KEY

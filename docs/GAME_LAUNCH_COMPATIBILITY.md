@@ -22,14 +22,18 @@ help and declared bounds. This does not verify every parameter's in-game effect.
 `-high` still lacks a confirmed consumer, and `mat_letterbox_aspect_goal` retains
 its existing development-only flag; neither is a newly established J44 regression.
 
-`reticle_color` is still registered. The transparent-reticle report has not been
-reproduced, and the reported symptom may instead be a startup error. The current
-color callback converts floats to int32 before its final RGB bounds handling;
+`reticle_color` is still registered. On 2026-10-01 the user confirmed on the
+current Steam client that the hyphenated launch value produces a usable
+transparent reticle. This confirms the Steam launch/effect path only; it does
+not verify EA or other Apex settings. The current color callback converts floats to int32 before its final RGB bounds handling;
 those bounds alone do not prove that the oversized legacy value is newly rejected.
 Do not claim that Javelin blocked the option, remove it, or substitute another
 oversized value without reproducing the behavior. Serialization/readback tests do
-not establish rendering compatibility. The exact Steam J44 build is labeled as
-statically reviewed only in the launch footer; configuration footers remain unverified.
+not establish compatibility for other settings. The exact Steam J44 build is
+labeled as statically reviewed in the launch footer; configuration footers remain unverified.
+The current real-device experiment emits the hyphenated RGB syntax: Steam uses
+quotes around the value, while EA keeps the historical unquoted form. The
+space-separated spelling remains readable for comparison and rollback.
 
 A deeper check of the current equal-channel path found no upper clamp in its
 HSV helper. An independent SSE reproduction, after successful RGB parsing and

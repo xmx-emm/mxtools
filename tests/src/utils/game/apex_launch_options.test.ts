@@ -153,6 +153,78 @@ describe('custom Apex launch options', () => {
 });
 
 describe('buildApexLaunchOptionsString', () => {
+  it.each(['steam', 'ea'] as const)('uses the experimental reticle syntax for %s', kind => {
+    const reticle = parseApexLaunchOptionsString(
+      '+reticle_color "2147483648 2147483648 2147483648"',
+    ).selection.find(option => option.identifier === 'reticle_color');
+    expect(reticle).toBeTruthy();
+    const activeAcc = kind === 'steam'
+      ? {kind: 'steam' as const, user: {id: '1', name: 'Test', avatar: '', config_path: 'test.cfg'}}
+      : {kind: 'ea' as const, user: {id: '1', name: 'Test', avatar: '', config_path: 'test.cfg', user_userid: '1', nu_hash: ''}};
+    const built = buildApexLaunchOptionsString({
+      options_selection: reticle ? [reticle] : [],
+      settings_config: {},
+      custom_launch_options: '',
+      lobby_max_fps: 0,
+      width: 1920,
+      height: 1080,
+      mat_letterbox_aspect_min: 1,
+      mat_letterbox_aspect_goal: 1.6,
+      fps: 144,
+      activeAcc,
+    });
+    expect(built).toBe(kind === 'steam'
+      ? '+reticle_color "2147483648-2147483648-2147483648"'
+      : '+reticle_color 2147483648-2147483648-2147483648');
+  });
+
+  it('rebuilds the existing EA hyphenated reticle syntax unchanged', () => {
+    const parsed = parseApexLaunchOptionsString(
+      '+reticle_color 2147483648-2147483648-2147483648',
+    );
+    expect(parsed.selection.some(option => option.identifier === 'reticle_color')).toBe(true);
+    const reticle = parsed.selection.find(option => option.identifier === 'reticle_color');
+    const built = buildApexLaunchOptionsString({
+      options_selection: reticle ? [reticle] : [],
+      settings_config: {},
+      custom_launch_options: '',
+      lobby_max_fps: 0,
+      width: 1920,
+      height: 1080,
+      mat_letterbox_aspect_min: 1,
+      mat_letterbox_aspect_goal: 1.6,
+      fps: 144,
+      activeAcc: {
+        kind: 'ea',
+        user: {id: '1', name: 'Test', avatar: '', config_path: 'test.cfg', user_userid: '1', nu_hash: ''},
+      },
+    });
+    expect(built).toBe('+reticle_color 2147483648-2147483648-2147483648');
+  });
+
+  it('converts the existing Steam space-separated reticle syntax to the experiment value', () => {
+    const parsed = parseApexLaunchOptionsString(
+      '+reticle_color "2147483648 2147483648 2147483648"',
+    );
+    const reticle = parsed.selection.find(option => option.identifier === 'reticle_color');
+    const built = buildApexLaunchOptionsString({
+      options_selection: reticle ? [reticle] : [],
+      settings_config: {},
+      custom_launch_options: '',
+      lobby_max_fps: 0,
+      width: 1920,
+      height: 1080,
+      mat_letterbox_aspect_min: 1,
+      mat_letterbox_aspect_goal: 1.6,
+      fps: 144,
+      activeAcc: {
+        kind: 'steam',
+        user: {id: '1', name: 'Test', avatar: '', config_path: 'test.cfg'},
+      },
+    });
+    expect(built).toBe('+reticle_color "2147483648-2147483648-2147483648"');
+  });
+
   it('builds forced resolution from selection', () => {
     const forced = parseApexLaunchOptionsString('-width 1920 -height 1080').selection.find(
       (o) => o.identifier === 'forced_resolution',

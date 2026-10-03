@@ -65,6 +65,7 @@ const WINDOW_FLAGS = new Set(['-fullscreen', '-window', '-windowed', '-noborder'
 // 核实记录见 docs/CHANGELOG.md。
 const RETICLE_VALUES = new Set([
   '2147483648 2147483648 2147483648',
+  // Current Steam/EA experiment and existing EA launch-option spelling.
   '2147483648-2147483648-2147483648',
 ]);
 

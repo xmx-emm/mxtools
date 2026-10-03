@@ -229,7 +229,7 @@ const Fov = {
 const ReticleColor = {
   name: 'apexLaunchOptions.reticleColor.name',
   identifier: 'reticle_color',
-  parameter: '+reticle_color "2147483648 2147483648 2147483648"',// WARNING: EA是 +reticle_color 2147483648-2147483648-2147483648 steam是 +reticle_color "2147483648 2147483648 2147483648"
+  parameter: '+reticle_color "2147483648-2147483648-2147483648"',
   description: 'apexLaunchOptions.reticleColor.description',
   is_new: true,
   tip: ApexReticleColorTip

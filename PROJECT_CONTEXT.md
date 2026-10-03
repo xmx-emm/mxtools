@@ -104,7 +104,11 @@ noncommercial mirrors and public modified versions are allowed.
   remainder: only complete supported command/value sequences are claimed, while
   `+exec` and its next argument are protected from catalog matching.
   Simplified-reticle selection uses the classifier's recognized state for both
-  Steam's quoted space-separated RGB and EA's hyphen-separated RGB. Reopen
+  quoted Steam and unquoted EA reticle forms. The current real-device experiment
+  emits hyphen-separated RGB; on 2026-10-01 the user confirmed the current Steam
+  client produces a usable transparent reticle. The prior space-separated form
+  remains readable, while EA effect compatibility is still unverified.
+  Reopen
   tests cover every quick-preset optimization individually and all together
   on both launchers, including two fresh-store launch serialization round trips.
   The FPS/performance-display launch option and quick-preset `show_fps` now
@@ -115,8 +119,8 @@ noncommercial mirrors and public modified versions are allowed.
   managed choices are 2/6/8. See `docs/GAME_LAUNCH_COMPATIBILITY.md`.
   Platform differences and required regression coverage are listed explicitly
   in `docs/APEX_CONFIG_ALIGNMENT.md`: launcher files/accounts and process checks
-  differ; reticle delimiters and FOV quoting differ. Catalog literals use Steam
-  spelling, so they cannot alone identify EA readback selections.
+  differ; FOV and reticle quoting differ. Both reticle delimiters remain
+  readable, so catalog literals cannot alone identify EA readback selections.
 - Apex letterbox launch options manage only min/goal. The minimum is clamped
   to 1-2; omitted values use the game defaults 1.59/1.6, while quick presets
   use a minimum of 1. Retired threshold tokens remain in custom launch input.
@@ -151,8 +155,9 @@ noncommercial mirrors and public modified versions are allowed.
   All 134 editable-setting storage keys and 183 direct defaults retain their
   reviewed registrations; 108 bindings, 285 UI resources and the 42-field video
   format retain the reviewed definitions. No confirmed new user setting was added.
-  Reticle registration is unchanged, but reported startup/transparent-reticle
-  failures remain unreproduced; file round trips are not rendering verification.
+  Reticle registration is unchanged. Steam transparent-reticle behavior was
+  confirmed by the user on 2026-10-01 with the current hyphenated launch value;
+  file round trips are not rendering verification for EA or other settings.
   The J44 equal-RGB callback still yields RGB zero for the legacy oversized value
   in an independent SSE arithmetic probe under default rounding/masked exceptions;
   this is not an alpha/transparency test or proof that launch arguments arrived.
@@ -638,7 +643,9 @@ noncommercial mirrors and public modified versions are allowed.
   recorded under `docs/RELEASE_CHECKLIST_<version>.md`. With no Authenticode
   budget, external EXE/NSIS artifacts remain explicitly unsigned and must not
   be presented as a trusted publisher build; the release notes state that and
-  carry SHA-256 values.
+  carry SHA-256 values. The local PowerShell signing wrapper reads the UTF-8
+  Tauri config explicitly so Windows PowerShell 5.1 can validate the Chinese
+  window title before invoking the signed build.
 
 ## Constraints
 

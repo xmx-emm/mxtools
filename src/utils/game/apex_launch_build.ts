@@ -16,10 +16,10 @@ export type ApexLaunchBuildInput = {
 
 /**
  * 将勾选项组合为最终启动参数字符串。
- * Steam: quoted RGB separated by spaces, quoted FOV value.
- * EA: unquoted RGB separated by hyphens, unquoted FOV value.
- * Keep both encodings covered by quick_preset_reopen.test.ts; catalog literals
- * use Steam spelling and must not be the sole source of readback matching.
+ * Steam: quoted hyphen-separated RGB (the current real-device experiment),
+ * quoted FOV value.
+ * EA: unquoted hyphen-separated RGB and FOV value.
+ * The parser still recognizes the space-separated spelling for readback.
  */
 export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): string {
   const items: string[] = [];
@@ -42,11 +42,9 @@ export function buildApexLaunchOptionsString(input: ApexLaunchBuildInput): strin
       items.push(`+lobby_max_fps ${lobby_max_fps}`);
     } else if (item?.identifier === 'reticle_color') {//准星颜色
       if (activeAcc) {
-        if (is_ea) {
-          items.push(`+reticle_color 2147483648-2147483648-2147483648`);
-        } else {
-          items.push('+reticle_color "2147483648 2147483648 2147483648"');
-        }
+        items.push(is_ea
+          ? '+reticle_color 2147483648-2147483648-2147483648'
+          : '+reticle_color "2147483648-2147483648-2147483648"');
       }
     } else if (item?.identifier === 'fov_scale') {//Fov缩放
       if (activeAcc) {
