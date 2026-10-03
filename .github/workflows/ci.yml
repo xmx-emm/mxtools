@@ -41,6 +41,13 @@ jobs:
           ref: 63be28c24cc093a8d160d902cb983331dc9c9e2e
           path: rust/windows_tool
       - uses: dtolnay/rust-toolchain@stable
+      - name: Enable Rust compiler cache
+        uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
+      - name: Configure Rust compiler cache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - name: Restore Rust dependency cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:

@@ -168,9 +168,9 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 9. 原子更新 Gitee `main/latest.json`；只有附件上传成功后才更新清单。
 10. 下载两端产物并比较 SHA-256，确认它们与本次构建文件完全一致。
 
-现有本地 `npm.cmd run "build window release"` 继续负责便携版和 Microsoft
-Store 版。第一阶段只有标准 NSIS 安装包参与在线更新，避免把三产物构建链
-同时迁移到 CI。
+现有本地 `npm.cmd run "build window release"` 负责标准 NSIS 安装包和便携版。
+Microsoft Store 离线 WebView2 包暂缓，作为后续预选支持，不进入当前在线更新发布链。
+第一阶段仍只有标准 NSIS 安装包参与在线更新；便携版沿用独立目标和签名清单。
 
 ## 7. 国内更新清单
 

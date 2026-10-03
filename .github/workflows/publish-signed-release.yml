@@ -35,6 +35,13 @@ jobs:
           cache: npm
           cache-dependency-path: tauri/mxtools/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
+      - name: Enable Rust compiler cache
+        uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
+      - name: Configure Rust compiler cache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           workspaces: tauri/mxtools/src-tauri -> target

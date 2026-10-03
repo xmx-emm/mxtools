@@ -328,9 +328,6 @@ async function bootstrap() {
     void import('@/stores/app_update.ts').then(async ({useAppUpdateStore}) => {
       const updater = useAppUpdateStore();
       await updater.autoCheck();
-      if (updater.phase === 'available') {
-        useToast().info(i18n.global.t('updates.available'));
-      }
     }).catch(error => console.warn('automatic update check', error));
   }
   vueApp = app;

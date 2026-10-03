@@ -1,5 +1,11 @@
 # Project Agent Guide
 
+For GitHub Releases, asset order is a product rule: upload the Chinese-labeled
+portable executable first, the Chinese-labeled installer second, and only then
+signatures, updater manifests, or other auxiliary assets. Upload each asset in
+its own sequential command; do not pass the complete asset list to one
+concurrent upload command, because GitHub may display assets in creation order.
+
 For architecture, cross-module, build/package, handoff, or explicitly requested
 context work, read `PROJECT_CONTEXT.md` before source. For a self-contained
 local, read-only, or documentation-only task, read only the relevant files and

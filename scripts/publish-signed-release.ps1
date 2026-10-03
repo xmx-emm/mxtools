@@ -12,14 +12,15 @@ if ($LASTEXITCODE -eq 0) {
 }
 # No --clobber: a partially uploaded draft must be reviewed before replacing files.
 $assets = @(
-    "$directory/MxTools_$($config.version)_x64_setup.exe#萌新工具箱 $($config.version) 安装版",
     "$directory/MxTools_$($config.version)_x64_portable.exe#萌新工具箱 $($config.version) 便携版",
-    "$directory/MxTools_$($config.version)_x64_offline.exe#萌新工具箱 $($config.version) 离线 WebView2 版",
+    "$directory/MxTools_$($config.version)_x64_setup.exe#萌新工具箱 $($config.version) 安装版",
     "$directory/MxTools_$($config.version)_x64_setup.exe.sig",
     "$directory/MxTools_$($config.version)_x64_portable.exe.sig",
     "$directory/latest.json"
 )
-& gh release upload $tag @assets
-if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed; the release remains a draft.' }
+foreach ($asset in $assets) {
+    & gh release upload $tag $asset
+    if ($LASTEXITCODE -ne 0) { throw "Release asset upload failed for $asset; the release remains a draft." }
+}
 & gh release edit $tag --draft=false --latest
 if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }

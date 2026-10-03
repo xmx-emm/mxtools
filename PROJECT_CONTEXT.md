@@ -402,8 +402,11 @@ noncommercial mirrors and public modified versions are allowed.
   `src/stores/app_update.ts`: Gitee checks precede GitHub; failed Gitee downloads
   retry GitHub only for the exact confirmed version and signature. The public
   key is committed in `tauri.conf.json`; private keys stay outside Git and in
-  GitHub Secrets. New portable launchers pass their original EXE path and PID to
-  the cached payload. `portable_update.rs` verifies the live parent image, selects
+  GitHub Secrets. The main window runs the persisted startup check at most once
+  per day, and `components/common/AppUpdateDialog.vue` opens a modal when a
+  signed update is found; manual checks reuse the same dialog and installation
+  guard. New portable launchers pass their original EXE path and PID to the
+  cached payload. `portable_update.rs` verifies the live parent image, selects
   `windows-x86_64-portable`, stages the signed SFX beside the original launcher,
   and runs the cached payload as a pre-Tauri helper. The helper re-verifies the
   signature, acquires both process handles before the exit handshake, waits for
@@ -637,15 +640,22 @@ noncommercial mirrors and public modified versions are allowed.
   services and the confirmation dialog remain outside the initial static graph.
 - `npm.cmd run "build window release"` is the single Windows release entry
   point. It verifies package/Cargo/Tauri version parity plus the pinned, clean
-  `windows_tool` path dependency before building. The portable and normal installer must remain strictly below
-  5,000,000 bytes; the offline-WebView2 store build is exempt from that
-  compact-build limit. Per-release evidence and remaining manual checks are
-  recorded under `docs/RELEASE_CHECKLIST_<version>.md`. With no Authenticode
+  `windows_tool` path dependency before building. The current release path
+  generates only the portable and normal installer, each strictly below
+  5,000,000 bytes; the Microsoft Store offline-WebView2 package is deferred as
+  a future preselected support path and is not downloaded or built. Per-release
+  evidence and remaining manual checks are recorded under
+  `docs/RELEASE_CHECKLIST_<version>.md`. With no Authenticode
   budget, external EXE/NSIS artifacts remain explicitly unsigned and must not
   be presented as a trusted publisher build; the release notes state that and
   carry SHA-256 values. The local PowerShell signing wrapper reads the UTF-8
   Tauri config explicitly so Windows PowerShell 5.1 can validate the Chinese
   window title before invoking the signed build.
+- The signed-release publisher uploads assets sequentially in display order:
+  portable executable, installer executable, then signatures, updater manifest,
+  and other auxiliary files. This keeps the Chinese download choices first on
+  the GitHub Release page; do not collapse these uploads into one concurrent
+  `gh release upload` invocation.
 
 ## Constraints
 
@@ -768,10 +778,10 @@ noncommercial mirrors and public modified versions are allowed.
   so an old `%LOCALAPPDATA%/mxtools/portable-cache/<version>` directory remains
   until the user removes it; this avoids breaking an older portable build that
   may still be in use.
-- The store-oriented NSIS artifact contains the Microsoft-signed x64 WebView2
-  offline installer and is therefore about 200 MB. It is still an unsigned app
-  artifact until the publisher signing and Microsoft Store submission steps are
-  completed.
+- Microsoft Store offline-WebView2 packaging is intentionally deferred. The
+  existing store config and hook remain as a future preselected support path,
+  but the current release workflow does not download, cache, or publish that
+  roughly 200 MB installer.
 - `src-tauri/src/game/apex_theta.rs` is a close Rust port of
   `NYTN02/APEX_thetacalculation`. Its inspected upstream commit has no general
   license, so reuse outside MxTools is not authorized by this repository; the
@@ -827,10 +837,9 @@ graph TD
   NetworkRepairPage["Network Repair Page"] --> NetworkRepairNative["Proxy / WinINET / WinHTTP / DNS / Adapter Diagnostics"]
   NetworkRepairNative --> NetworkRepairActions["Allowlisted repair actions with confirmation"]
   Build["Vite Build"] --> Budget["Bundle Budget Report"]
-  Build --> ReleaseOrchestrator["Three-artifact Windows Release"]
+  Build --> ReleaseOrchestrator["Two-artifact Windows Release"]
   ReleaseOrchestrator --> CompactInstaller["Compact NSIS < 5 MB"]
   ReleaseOrchestrator --> CachedPortable["Cached Portable < 5 MB"]
-  ReleaseOrchestrator --> StoreInstaller["Offline WebView2 Store NSIS"]
   Prefs --> Overlay["Overlay Window"]
   Prefs --> Hotkey["Global Hotkey"]
   Tray["Rust Tray Menu"] --> Main["main.ts event listeners"]

@@ -14,14 +14,14 @@ Windows Authenticode，不能据此宣称已获得受信任发布者证书。
 3. 在 Actions 手动运行 **Publish signed Windows release**。
 
 工作流只构建已提交的源码，固定检出 `windows_tool` 依赖版本。它执行代码检查、
-单元测试、三种 Windows 产物构建和体积门禁，再在临时 Windows runner 上安装
+单元测试、两种 Windows 产物构建和体积门禁，再在临时 Windows runner 上安装
 已知 SHA-256 的 0.0.8 安装包，通过真实 updater 插件验证新包、拒绝修改后的包、
 调用 NSIS 更新，并检查新版本进程重新启动。只有这些步骤成功才发布 GitHub Release。
 该测试验证原生更新和安装路径，不代表用户主窗口中的每个交互都经过自动化点击。
 
 更新包名固定为 `MxTools_<版本>_x64_setup.exe`，清单 URL 与此一致。
 中文是 Release 显示标签，不参与更新校验。发布附件还包含 `.exe.sig`、
-`latest.json`、便携包和离线包。已发布版本不会原地覆盖。
+`latest.json` 和便携包。Microsoft Store 离线 WebView2 包当前不参与发布，后续重新启用 Store 支持时再单独加入。已发布版本不会原地覆盖。
 新清单同时提供 `windows-x86_64-portable`，指向 `MxTools_<版本>_x64_portable.exe`，
 并发布该便携文件自己的 `.exe.sig`。两种包分别签名，不能互换。
 
@@ -29,6 +29,7 @@ Windows Authenticode，不能据此宣称已获得受信任发布者证书。
 Gitee 同步工作流。手工在 GitHub 发布的正式 Release 仍可由 `release.published` 自动同步。
 若附件上传中断，草稿保留；脚本不使用 `--clobber`，需要先核查草稿附件再重新上传。
 若发布已成功而 Gitee 同步失败，只需重跑 **Sync release to Gitee**，不用重建或重新发布。
+发布附件按页面顺序串行上传：便携版、安装版，然后才是签名、`latest.json` 等其它附件。
 
 ## 国内清单与回退
 
