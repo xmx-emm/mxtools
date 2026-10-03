@@ -640,11 +640,14 @@ noncommercial mirrors and public modified versions are allowed.
   services and the confirmation dialog remain outside the initial static graph.
 - `npm.cmd run "build window release"` is the single Windows release entry
   point. It verifies package/Cargo/Tauri version parity plus the pinned, clean
-  `windows_tool` path dependency before building. The current release path
+  `windows_tool` path dependency before building. The default release path
   generates only the portable and normal installer, each strictly below
-  5,000,000 bytes; the Microsoft Store offline-WebView2 package is deferred as
-  a future preselected support path and is not downloaded or built. Per-release
-  evidence and remaining manual checks are recorded under
+  5,000,000 bytes. The optional Microsoft Store offline-WebView2 path is
+  enabled only with `MXTOOLS_INCLUDE_STORE=true` (or the matching manual
+  workflow input); `scripts/cache-webview2-installer.mjs` stores and reuses the
+  official x64 bootstrap under `src-tauri/target/webview2`, and Actions caches
+  that directory between opt-in runs. Per-release evidence and remaining manual
+  checks are recorded under
   `docs/RELEASE_CHECKLIST_<version>.md`. With no Authenticode
   budget, external EXE/NSIS artifacts remain explicitly unsigned and must not
   be presented as a trusted publisher build; the release notes state that and
@@ -778,10 +781,10 @@ noncommercial mirrors and public modified versions are allowed.
   so an old `%LOCALAPPDATA%/mxtools/portable-cache/<version>` directory remains
   until the user removes it; this avoids breaking an older portable build that
   may still be in use.
-- Microsoft Store offline-WebView2 packaging is intentionally deferred. The
-  existing store config and hook remain as a future preselected support path,
-  but the current release workflow does not download, cache, or publish that
-  roughly 200 MB installer.
+- Microsoft Store offline-WebView2 packaging remains opt-in. The default release
+  workflow does not download or publish it; selecting the workflow's
+  `include_store` input enables the cache/download, Store bundle, and labeled
+  offline asset while leaving the compact portable/setup budgets unchanged.
 - `src-tauri/src/game/apex_theta.rs` is a close Rust port of
   `NYTN02/APEX_thetacalculation`. Its inspected upstream commit has no general
   license, so reuse outside MxTools is not authorized by this repository; the

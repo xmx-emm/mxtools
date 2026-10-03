@@ -21,7 +21,7 @@ Windows Authenticode，不能据此宣称已获得受信任发布者证书。
 
 更新包名固定为 `MxTools_<版本>_x64_setup.exe`，清单 URL 与此一致。
 中文是 Release 显示标签，不参与更新校验。发布附件还包含 `.exe.sig`、
-`latest.json` 和便携包。Microsoft Store 离线 WebView2 包当前不参与发布，后续重新启用 Store 支持时再单独加入。已发布版本不会原地覆盖。
+`latest.json` 和便携包。Microsoft Store 离线 WebView2 包默认不参与发布；手动运行发布工作流并开启 `include_store` 后，会复用/缓存官方 x64 安装器并额外发布离线包。已发布版本不会原地覆盖。
 新清单同时提供 `windows-x86_64-portable`，指向 `MxTools_<版本>_x64_portable.exe`，
 并发布该便携文件自己的 `.exe.sig`。两种包分别签名，不能互换。
 

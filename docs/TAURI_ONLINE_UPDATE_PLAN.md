@@ -169,7 +169,7 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 10. 下载两端产物并比较 SHA-256，确认它们与本次构建文件完全一致。
 
 现有本地 `npm.cmd run "build window release"` 负责标准 NSIS 安装包和便携版。
-Microsoft Store 离线 WebView2 包暂缓，作为后续预选支持，不进入当前在线更新发布链。
+Microsoft Store 离线 WebView2 包默认暂缓，不进入普通在线更新发布链；发布工作流提供 `include_store` 预选项，开启后会缓存官方 x64 WebView2 安装器并额外生成离线包。
 第一阶段仍只有标准 NSIS 安装包参与在线更新；便携版沿用独立目标和签名清单。
 
 ## 7. 国内更新清单

@@ -2,6 +2,12 @@ name: Publish signed Windows release
 
 on:
   workflow_dispatch:
+    inputs:
+      include_store:
+        description: Build the deferred Microsoft Store offline WebView2 artifact
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -46,6 +52,12 @@ jobs:
         with:
           workspaces: tauri/mxtools/src-tauri -> target
           key: windows-tool-63be28c24cc093a8d160d902cb983331dc9c9e2e
+      - name: Cache WebView2 offline installer
+        if: ${{ inputs.include_store }}
+        uses: actions/cache@v4
+        with:
+          path: tauri/mxtools/src-tauri/target/webview2
+          key: webview2-x64-2124701-v1
       - name: Validate release version
         id: version
         run: |
@@ -66,6 +78,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MXTOOLS_INCLUDE_STORE: ${{ inputs.include_store }}
       - name: Verify signature rejection and real Windows upgrade
         run: ./scripts/test-release-upgrade.ps1
       - name: Verify portable launcher replacement and restart
@@ -83,6 +96,7 @@ jobs:
         run: ./scripts/publish-signed-release.ps1
         env:
           GH_TOKEN: ${{ github.token }}
+          MXTOOLS_INCLUDE_STORE: ${{ inputs.include_store }}
   mirror:
     needs: publish
     uses: ./.github/workflows/sync-gitee-release.yml

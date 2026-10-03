@@ -9,6 +9,13 @@ const releaseDir = path.join(tauriDir, 'target', 'release');
 const conf = JSON.parse(await readFile(path.join(tauriDir, 'tauri.conf.json'), 'utf8'));
 const releaseBinary = path.join(releaseDir, `${conf.productName}.exe`);
 const releaseBinarySnapshot = path.join(releaseDir, `${conf.productName}.unbundled.exe`);
+const includeStore = String(process.env.MXTOOLS_INCLUDE_STORE).toLowerCase() === 'true';
+const webview2Installer = path.join(
+  tauriDir,
+  'target',
+  'webview2',
+  'MicrosoftEdgeWebView2RuntimeInstallerX64.exe',
+);
 const tauriCli = path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
 
 function run(command, args, options = {}) {
@@ -91,12 +98,24 @@ try {
   await runTauri(['signer', 'sign', path.join(releaseDir, 'bundle/nsis', `${conf.productName}_${conf.version}_x64-portable.exe`)]);
   await runNode('scripts/rename-release-builds.mjs');
   if (signedUpdater) await runNode('scripts/updater-manifest.mjs');
-  await runNode('scripts/release-size-budget.mjs');
+  if (includeStore) {
+    await runNode('scripts/cache-webview2-installer.mjs');
+    await runTauri(
+      ['bundle', '--bundles', 'nsis', '--config', 'src-tauri/tauri.microsoftstore.conf.json'],
+      {MXTOOLS_WEBVIEW2_OFFLINE_INSTALLER: webview2Installer},
+    );
+    await runNode('scripts/rename-release-builds.mjs', ['--store-only']);
+  }
+  await runNode('scripts/release-size-budget.mjs', includeStore
+    ? ['--store', path.join(releaseDir, conf.version, `萌新工具箱 ${conf.version} 微软商店版.exe`)]
+    : []);
   const publishDir = path.join(releaseDir, conf.version, 'publish');
   await mkdir(publishDir, {recursive: true});
-  for (const [source, target] of [
+  const artifacts = [
     ['安装版', 'setup'], ['便携版', 'portable'],
-  ]) {
+  ];
+  if (includeStore) artifacts.push(['微软商店版', 'offline']);
+  for (const [source, target] of artifacts) {
     await copyFile(path.join(releaseDir, conf.version, `萌新工具箱 ${conf.version} ${source}.exe`),
       path.join(publishDir, `MxTools_${conf.version}_x64_${target}.exe`));
   }

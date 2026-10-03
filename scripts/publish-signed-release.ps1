@@ -18,6 +18,9 @@ $assets = @(
     "$directory/MxTools_$($config.version)_x64_portable.exe.sig",
     "$directory/latest.json"
 )
+if ($env:MXTOOLS_INCLUDE_STORE -eq 'true') {
+    $assets += "$directory/MxTools_$($config.version)_x64_offline.exe#萌新工具箱 $($config.version) 离线 WebView2 版"
+}
 foreach ($asset in $assets) {
     & gh release upload $tag $asset
     if ($LASTEXITCODE -ne 0) { throw "Release asset upload failed for $asset; the release remains a draft." }
