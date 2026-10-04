@@ -672,6 +672,10 @@ noncommercial mirrors and public modified versions are allowed.
   carry SHA-256 values. The local PowerShell signing wrapper reads the UTF-8
   Tauri config explicitly so Windows PowerShell 5.1 can validate the Chinese
   window title before invoking the signed build.
+  The isolated `scripts/test-portable-update.ps1` fixture uses a process-local
+  random non-empty signer password because Windows PowerShell drops an empty
+  argument and the current Tauri CLI rejects `--password` without a value; it
+  never reads or changes the production signing key.
 - The signed-release publisher uploads assets sequentially in display order:
   portable executable, installer executable, then signatures, updater manifest,
   and other auxiliary files. This keeps the Chinese download choices first on

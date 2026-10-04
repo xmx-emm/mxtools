@@ -12,9 +12,12 @@ Check-Exit
 & node scripts/build-portable-sfx.mjs --source "$directory/new-payload.exe" --output "$directory/new.exe" --cache-dir "$directory/new-cache"
 Check-Exit
 # Ephemeral fixture key: never read or modify the production signing secrets.
-& node node_modules/@tauri-apps/cli/tauri.js signer generate --ci --password '' --write-keys "$directory/test.key" | Out-Null
+$fixturePassword = [guid]::NewGuid().ToString('N')
+# PowerShell drops an empty argument, while the current Tauri CLI requires a
+# value after --password. Use a process-local random password instead.
+& node node_modules/@tauri-apps/cli/tauri.js signer generate --ci --password $fixturePassword --write-keys "$directory/test.key" | Out-Null
 Check-Exit
-& node node_modules/@tauri-apps/cli/tauri.js signer sign --private-key-path "$directory/test.key" --password '' "$directory/new.exe" | Out-Null
+& node node_modules/@tauri-apps/cli/tauri.js signer sign --private-key-path "$directory/test.key" --password $fixturePassword "$directory/new.exe" | Out-Null
 Check-Exit
 $oldDirectory = $env:MXTOOLS_PORTABLE_TEST_DIR
 $oldReport = $env:MXTOOLS_PORTABLE_FIXTURE_REPORT
