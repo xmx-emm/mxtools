@@ -1,6 +1,7 @@
 import {useToast} from 'vue-toastification';
 import {
   ASPECT_LETTERBOX_MIN_DEFAULT,
+  clampQuickPresetMouseSensitivity,
   findGraphicsQualityPreset,
   QUICK_PRESET_AIM_MOUSE_RIGHT_KEY,
   QUICK_PRESET_FORWARD_WHEEL_UP_KEY,
@@ -288,6 +289,13 @@ export const apexPresetActions = {
       setVideoValue,
       selection.videoOptions,
     );
+    if (selection.mouseSensitivity != null) {
+      this.set_game_setting_value(
+        'settings',
+        'mouse_sensitivity',
+        String(clampQuickPresetMouseSensitivity(selection.mouseSensitivity)),
+      );
+    }
     prepareQuickPresetGameSettings(this, selection.gameSettingOptions);
     this.quick_preset_video_keys = [...videoKeys];
   },

@@ -15,6 +15,21 @@ export const FPS_CAP_MAX = 279;
 /** 快速预设使用的最小宽高比；有效范围1–2，游戏缺省值为1.59。 */
 export const ASPECT_LETTERBOX_MIN_DEFAULT = 1;
 
+/** 快速预设中的鼠标灵敏度范围，与 Apex 游戏设置页面保持一致。 */
+export const QUICK_PRESET_MOUSE_SENSITIVITY_MIN = 0.1;
+export const QUICK_PRESET_MOUSE_SENSITIVITY_MAX = 20;
+export const QUICK_PRESET_MOUSE_SENSITIVITY_STEP = 0.01;
+export const QUICK_PRESET_MOUSE_SENSITIVITY_DEFAULT = 1;
+
+export function clampQuickPresetMouseSensitivity(value: number): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return QUICK_PRESET_MOUSE_SENSITIVITY_DEFAULT;
+  return Math.min(
+    Math.max(QUICK_PRESET_MOUSE_SENSITIVITY_MIN, number),
+    QUICK_PRESET_MOUSE_SENSITIVITY_MAX,
+  );
+}
+
 /** 比例预设(与启动项 letterbox aspect 一致; 仅宽≥高的横屏比例) */
 export const aspectPresets: ApexAspectPreset[] = [
   { label: 'apexQuickPreset.aspect.1_1', aspectValue: 1 },

@@ -5,6 +5,7 @@ mod background_coordinator;
 mod background_runtime;
 mod backups;
 mod cef_debug;
+mod cursor;
 mod elevated;
 mod folder_sharing;
 mod game;
@@ -45,6 +46,7 @@ use crate::backups::{
     backups_explorer_registry, backups_port_forwarding, backups_port_forwarding_default_path,
     check_backups_explorer_registry, explorer_folder, explorer_registry_path, load_port_forwarding,
 };
+use crate::cursor::{get_cursor_position, restore_cursor_position};
 use crate::elevated::{is_elevated, restart_request_elevation};
 use crate::folder_sharing::{
     apply_local_share, close_smb_open_file, close_smb_session, connect_remote_share,
@@ -263,6 +265,8 @@ pub fn run() {
             write_frontend_log,
             get_logs_for_feedback,
             get_log_folder_path,
+            get_cursor_position,
+            restore_cursor_position,
             //Port Forwarding
             create_multiple_port_forwarding,
             del_port_forwarding,

@@ -252,8 +252,21 @@ noncommercial mirrors and public modified versions are allowed.
   label must remain in the shared Tauri capability so its event listeners and
   title-bar window APIs can initialize. Controls are grouped by their write
   target: launcher config (including FPS caps), `videoconfig.txt` (including
-  graphics presets), `profile.cfg`, and `settings.cfg` bindings. The shared
-  resolution/aspect control explicitly identifies both launcher and video files.
+  graphics presets), `profile.cfg`, and `settings.cfg` settings/bindings. The
+  quick-preset settings group can optionally write the existing
+  `mouse_sensitivity` field (0.1–20, step 0.01); its input is manually editable,
+  supports horizontal drag adjustment in step increments with a hidden pointer.
+  In the Windows Tauri runtime, drag start/end use native GetCursorPos and
+  SetCursorPos to capture and restore the original desktop position; Pointer
+  Lock is only an input helper. Editing selects the field, while an unchecked
+  field is left unchanged. Unchecked binding
+  rows keep their action labels normal while dimming only the shortcut text;
+  resolution/aspect and graphics bodies use a single conditional expand
+  transition whose padding stays inside the animated content. All quick-preset
+  checkbox wrappers share the section's 14px content baseline; option and
+  binding wrappers must not add a second left offset.
+  The shared resolution/aspect control explicitly identifies both launcher and
+  video files.
   Minimal sprint view shake selects `sprint_view_shake_style=1`; the game reset
   remains Normal (`0`). The right-mouse hold-aim preset matches only `+zoom`
   and replaces `+toggle_zoom` on that input instead of preserving toggle mode.

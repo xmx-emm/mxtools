@@ -19,7 +19,12 @@ import ApexVideoConfig from '@/data/apex_video_config.ts';
 import {
   FPS_CAP_MAX,
   FPS_CAP_MIN,
+  clampQuickPresetMouseSensitivity,
   graphicsQualityPresets,
+  QUICK_PRESET_MOUSE_SENSITIVITY_DEFAULT,
+  QUICK_PRESET_MOUSE_SENSITIVITY_MAX,
+  QUICK_PRESET_MOUSE_SENSITIVITY_MIN,
+  QUICK_PRESET_MOUSE_SENSITIVITY_STEP,
   quickPresetBindingToggles,
   quickPresetLaunchOptionToggles,
   quickPresetGameSettingToggles,
@@ -82,6 +87,8 @@ const graphics_preset_id = ref(graphicsQualityPresets[0]?.identifier ?? 'competi
 const simplified_reticle = ref(false);
 const launch_options = ref<Record<string, boolean>>(initLaunchOptionsForDialog([]));
 const video_options = ref<Record<string, boolean>>(initVideoOptionsForDialog({}));
+const enable_mouse_sensitivity = ref(false);
+const mouse_sensitivity = ref(QUICK_PRESET_MOUSE_SENSITIVITY_DEFAULT);
 const game_setting_options = ref<Record<string, boolean>>(
   initGameSettingOptionsForDialog({}, []),
 );
@@ -160,6 +167,9 @@ function build_selection(): ApexQuickPresetSelection {
     enableSimplifiedReticle: simplified_reticle.value,
     launchOptions: launch_options.value,
     videoOptions: video_options.value,
+    mouseSensitivity: enable_mouse_sensitivity.value
+      ? clampQuickPresetMouseSensitivity(mouse_sensitivity.value)
+      : null,
     gameSettingOptions: game_setting_options.value,
   };
 }
@@ -177,6 +187,12 @@ function select_all_options() {
   game_setting_options.value = Object.fromEntries(
     Object.keys(game_setting_options.value).map(key => [key, true]),
   );
+  enable_mouse_sensitivity.value = true;
+}
+
+function update_mouse_sensitivity(value: number) {
+  mouse_sensitivity.value = clampQuickPresetMouseSensitivity(value);
+  enable_mouse_sensitivity.value = true;
 }
 
 const resolution_preview = computed(() => {
@@ -200,6 +216,15 @@ function sync_options_from_store(info: PrimaryDisplayInfo) {
   );
   launch_options.value = initLaunchOptionsForDialog(apex_store.options_selection);
   video_options.value = initVideoOptionsForDialog(apex_store.video_config_values);
+  const current_mouse_sensitivity = Number(
+    apex_store.game_settings_values.settings.mouse_sensitivity,
+  );
+  mouse_sensitivity.value = clampQuickPresetMouseSensitivity(
+    Number.isFinite(current_mouse_sensitivity)
+      ? current_mouse_sensitivity
+      : QUICK_PRESET_MOUSE_SENSITIVITY_DEFAULT,
+  );
+  enable_mouse_sensitivity.value = false;
   game_setting_options.value = initGameSettingOptionsForDialog(
     apex_store.game_settings_values.profile,
     apex_store.game_settings_bindings,
@@ -588,56 +613,58 @@ onBeforeUnmount(() => {
               <span class="quick-preset-file-target">{{ launch_config_file }} + videoconfig.txt</span>
             </header>
             <v-expand-transition>
-              <div v-show="enable_resolution_preset" class="quick-preset-section__body">
-                <div class="quick-preset-subsection-heading">
-                  <div class="quick-preset-subsection-label">
-                    {{ t('apexQuickPreset.aspectPreset') }}
-                  </div>
-                  <v-btn-toggle
-                    v-model="lock_axis"
-                    mandatory
-                    density="compact"
-                    color="primary"
-                    variant="text"
-                    class="apex-parameter-toggle game-page-segmented-toggle"
-                    border
-                    divided
-                  >
-                    <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
-                    <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
-                  </v-btn-toggle>
-                </div>
-                <div class="quick-preset-setting-line">
-                  <div
-                    class="quick-preset-segment-scroll"
-                    role="region"
-                    :aria-label="t('apexQuickPreset.aspectPreset')"
-                  >
+              <div v-if="enable_resolution_preset" class="quick-preset-section__body">
+                <div class="quick-preset-expand-content">
+                  <div class="quick-preset-subsection-heading">
+                    <div class="quick-preset-subsection-label">
+                      {{ t('apexQuickPreset.aspectPreset') }}
+                    </div>
                     <v-btn-toggle
-                      v-model="aspect_value"
+                      v-model="lock_axis"
+                      mandatory
                       density="compact"
                       color="primary"
                       variant="text"
-                      class="apex-parameter-toggle aspect-preset-toggle game-page-segmented-toggle"
+                      class="apex-parameter-toggle game-page-segmented-toggle"
                       border
                       divided
                     >
-                      <v-btn
-                        v-for="item in sorted_aspect_presets"
-                        :key="item.aspectValue"
-                        :value="item.aspectValue"
-                        size="small"
-                      >
-                        {{ t(item.label) }}
-                      </v-btn>
+                      <v-btn size="small" value="width">{{ t('apexQuickPreset.lockWidth') }}</v-btn>
+                      <v-btn size="small" value="height">{{ t('apexQuickPreset.lockHeight') }}</v-btn>
                     </v-btn-toggle>
                   </div>
-                  <div v-if="resolution_preview" class="quick-preset-inline-summary">
-                    {{ t('apexQuickPreset.resolutionPreview') }}:
-                    <strong>{{ resolution_preview.width }} &times; {{ resolution_preview.height }}</strong>
-                    <span v-if="resolution_preview.fromTable" class="text-medium-emphasis">
-                      ({{ t('apexQuickPreset.fromTable') }})
-                    </span>
+                  <div class="quick-preset-setting-line">
+                    <div
+                      class="quick-preset-segment-scroll"
+                      role="region"
+                      :aria-label="t('apexQuickPreset.aspectPreset')"
+                    >
+                      <v-btn-toggle
+                        v-model="aspect_value"
+                        density="compact"
+                        color="primary"
+                        variant="text"
+                        class="apex-parameter-toggle aspect-preset-toggle game-page-segmented-toggle"
+                        border
+                        divided
+                      >
+                        <v-btn
+                          v-for="item in sorted_aspect_presets"
+                          :key="item.aspectValue"
+                          :value="item.aspectValue"
+                          size="small"
+                        >
+                          {{ t(item.label) }}
+                        </v-btn>
+                      </v-btn-toggle>
+                    </div>
+                    <div v-if="resolution_preview" class="quick-preset-inline-summary">
+                      {{ t('apexQuickPreset.resolutionPreview') }}:
+                      <strong>{{ resolution_preview.width }} &times; {{ resolution_preview.height }}</strong>
+                      <span v-if="resolution_preview.fromTable" class="text-medium-emphasis">
+                        ({{ t('apexQuickPreset.fromTable') }})
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -736,39 +763,41 @@ onBeforeUnmount(() => {
               />
             </div>
             <v-expand-transition>
-              <div v-show="enable_graphics_preset" class="quick-preset-graphics-body">
-                <div class="quick-preset-setting-line">
-                  <div
-                    class="quick-preset-segment-scroll"
-                    role="region"
-                    :aria-label="t('apexQuickPreset.graphicsSettingsLabel')"
-                  >
-                    <v-btn-toggle
-                      v-model="graphics_preset_id"
-                      mandatory
-                      density="compact"
-                      color="primary"
-                      variant="text"
-                      class="apex-parameter-toggle graphics-preset-toggle game-page-segmented-toggle"
-                      border
-                      divided
+              <div v-if="enable_graphics_preset" class="quick-preset-graphics-body">
+                <div class="quick-preset-expand-content">
+                  <div class="quick-preset-setting-line">
+                    <div
+                      class="quick-preset-segment-scroll"
+                      role="region"
+                      :aria-label="t('apexQuickPreset.graphicsSettingsLabel')"
                     >
-                      <v-btn
-                        v-for="item in graphicsQualityPresets"
-                        :key="item.identifier"
-                        :value="item.identifier"
-                        size="small"
+                      <v-btn-toggle
+                        v-model="graphics_preset_id"
+                        mandatory
+                        density="compact"
+                        color="primary"
+                        variant="text"
+                        class="apex-parameter-toggle graphics-preset-toggle game-page-segmented-toggle"
+                        border
+                        divided
                       >
-                        {{ t(item.name) }}
-                      </v-btn>
-                    </v-btn-toggle>
-                  </div>
-                  <div
-                    v-if="graphics_preset_description"
-                    class="quick-preset-inline-summary"
-                    :title="graphics_preset_description"
-                  >
-                    {{ graphics_preset_description }}
+                        <v-btn
+                          v-for="item in graphicsQualityPresets"
+                          :key="item.identifier"
+                          :value="item.identifier"
+                          size="small"
+                        >
+                          {{ t(item.name) }}
+                        </v-btn>
+                      </v-btn-toggle>
+                    </div>
+                    <div
+                      v-if="graphics_preset_description"
+                      class="quick-preset-inline-summary"
+                      :title="graphics_preset_description"
+                    >
+                      {{ graphics_preset_description }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -839,6 +868,45 @@ onBeforeUnmount(() => {
               <h2>{{ t('apexQuickPreset.bindingOptimizationsLabel') }}</h2>
               <span class="quick-preset-file-target">settings.cfg</span>
             </header>
+            <div class="quick-preset-number-setting">
+              <div
+                class="quick-preset-number-setting-row game-page-row-tip-host"
+                :title="t('apexLaunchOptions.ui.rightClickTip')"
+                @contextmenu.prevent="show_game_setting_tip('mouseSensitivity')"
+              >
+                <div class="quick-preset-number-setting-label">
+                  <v-checkbox
+                    v-model="enable_mouse_sensitivity"
+                    :label="t('apexQuickPreset.mouseSensitivity')"
+                    density="compact"
+                    hide-details
+                    color="primary"
+                    class="quick-preset-section-checkbox"
+                  />
+                  <span class="quick-preset-range">{{ t('apexQuickPreset.mouseSensitivityRange', {min: QUICK_PRESET_MOUSE_SENSITIVITY_MIN, max: QUICK_PRESET_MOUSE_SENSITIVITY_MAX}) }}</span>
+                </div>
+                <div class="quick-preset-number-setting-control">
+                  <ApexNumberInput
+                    :model-value="mouse_sensitivity"
+                    :min="QUICK_PRESET_MOUSE_SENSITIVITY_MIN"
+                    :max="QUICK_PRESET_MOUSE_SENSITIVITY_MAX"
+                    :step="QUICK_PRESET_MOUSE_SENSITIVITY_STEP"
+                    drag-adjustable
+                    :aria-label="t('apexQuickPreset.mouseSensitivity')"
+                    @update:model-value="update_mouse_sensitivity"
+                  />
+                <v-btn
+                  icon="mdi-information-variant"
+                  density="compact"
+                  variant="text"
+                  class="mx-compact-icon-button game-page-row-tip-button"
+                  :title="t('apexQuickPreset.mouseSensitivityHint')"
+                  :aria-label="t('apexGameSettings.openTip', {setting: t('apexQuickPreset.mouseSensitivity')})"
+                  @click.stop="show_game_setting_tip('mouseSensitivity')"
+                />
+                </div>
+              </div>
+            </div>
             <div class="preset-binding-details">
               <div
                 v-for="binding in quickPresetBindingToggles"
@@ -853,7 +921,11 @@ onBeforeUnmount(() => {
                   color="primary"
                   class="compact-checkbox preset-binding-checkbox"
                 />
-                <kbd>{{ t(binding.inputLabel) }}</kbd>
+                <kbd
+                  :class="{
+                    'preset-binding-row--disabled': !game_setting_options[binding.key],
+                  }"
+                >{{ t(binding.inputLabel) }}</kbd>
               </div>
             </div>
             <p class="preset-binding-replacement-hint">
@@ -1081,13 +1153,72 @@ onBeforeUnmount(() => {
 
 .quick-preset-section__body {
   min-width: 0;
+  overflow: hidden;
+}
+
+.quick-preset-expand-content {
+  min-width: 0;
   padding: 0 14px 8px;
 }
 
 .quick-preset-fps-settings,
+.quick-preset-number-setting,
 .quick-preset-graphics-body {
   min-width: 0;
+  overflow: hidden;
+}
+
+.quick-preset-graphics-body .quick-preset-expand-content {
+  padding-inline: 14px;
   padding-bottom: 10px;
+}
+
+.quick-preset-number-setting {
+  overflow-x: auto;
+}
+
+.quick-preset-number-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
+  align-items: center;
+  width: min(100%, 480px);
+  min-width: 0;
+  min-height: var(--app-control-height-compact);
+  column-gap: 12px;
+  white-space: nowrap;
+}
+
+.quick-preset-number-setting-label,
+.quick-preset-number-setting-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.quick-preset-number-setting-label {
+  gap: 8px;
+}
+
+.quick-preset-number-setting-control {
+  gap: 4px;
+}
+
+.quick-preset-number-setting-row .quick-preset-section-checkbox {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.quick-preset-number-setting-row .quick-preset-section-checkbox :deep(.v-label) {
+  color: rgba(var(--v-theme-on-surface), 0.84);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.quick-preset-number-setting-row .quick-preset-hint {
+  min-width: max-content;
+  flex: 0 0 auto;
 }
 
 .quick-preset-graphics-toggle {
@@ -1254,7 +1385,10 @@ onBeforeUnmount(() => {
   align-items: center;
   min-width: 0;
   min-height: 34px;
-  padding-left: 2px;
+  /* Keep option checkboxes on the same 14px section content baseline as
+   * section toggles and compact settings rows. Vuetify owns the checkbox
+   * icon's internal 28px control box; this wrapper must not add an offset. */
+  padding-left: 0;
   border-top: 1px solid var(--app-border);
   cursor: default;
   transition: background-color var(--app-motion-fast) var(--app-ease-standard);
@@ -1283,7 +1417,8 @@ onBeforeUnmount(() => {
   width: min(100%, 480px);
   min-width: 0;
   gap: 4px;
-  padding-left: 2px;
+  /* Match the shared section content baseline used by option-tip-wrap. */
+  padding-left: 0;
   transition: opacity var(--app-motion-fast) var(--app-ease-standard);
 }
 
@@ -1293,6 +1428,11 @@ onBeforeUnmount(() => {
   align-items: center;
   min-width: 0;
   column-gap: 12px;
+  transition: opacity var(--app-motion-fast) var(--app-ease-standard);
+}
+
+.preset-binding-row kbd.preset-binding-row--disabled {
+  opacity: 0.5;
 }
 
 .preset-binding-row kbd {
@@ -1405,6 +1545,11 @@ onBeforeUnmount(() => {
   }
 
   .quick-preset-section__body {
+    padding-inline: 0;
+  }
+
+  .quick-preset-expand-content,
+  .quick-preset-graphics-body .quick-preset-expand-content {
     padding-inline: 12px;
   }
 

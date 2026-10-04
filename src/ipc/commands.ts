@@ -94,6 +94,16 @@ export async function ipcInvoke<T>(cmd: string, args?: Record<string, unknown>):
   }
 }
 
+/** Restore the native desktop cursor after a drag fallback. */
+export function restoreCursorPosition(x: number, y: number): Promise<void> {
+  return ipcInvoke<void>('restore_cursor_position', {x, y});
+}
+
+/** Capture the native desktop cursor position for a drag fallback. */
+export function getCursorPosition(): Promise<[number, number]> {
+  return ipcInvoke<[number, number]>('get_cursor_position');
+}
+
 export function getBackgroundRuntime(): Promise<BackgroundRuntimeSnapshot> {
   return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_get');
 }
