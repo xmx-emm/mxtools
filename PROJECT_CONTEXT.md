@@ -169,6 +169,11 @@ noncommercial mirrors and public modified versions are allowed.
   launch-statically-reviewed only; configuration pages remain unverified and the
   local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
   `docs/APEX_SETTINGS_COMPATIBILITY.md`; detailed evidence stays in the Apex project.
+- On October 4, 2026 the local Steam installation advanced to Build 25666084 /
+  `v3.0.2.58`, exact `R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15`.
+  A read-only token-presence check confirmed all 22 managed launch parameter
+  names, so J58 is launch-statically-reviewed only; video and game-settings
+  pages remain unverified and no in-game effect claim is made.
 - PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
   boundaries and protects the argument following `+exec`; graphics aliases
   (`-dx9`, `-sm4`/`-d3d10`/`-dx10`, `-d3d11`/`-dx11`, and

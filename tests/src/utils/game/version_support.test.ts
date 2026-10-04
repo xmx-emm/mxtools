@@ -18,6 +18,7 @@ describe('Game compatibility uses exact verified builds', () => {
     const reviewed = [
       {version: 'v3.0.1.28', build: 'R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18'},
       {version: 'v3.0.2.44', build: 'R5pc_r5-301_J44_CL11595978_FSv30_1_2026_09_23_12_37'},
+      {version: 'v3.0.2.58', build: 'R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15'},
     ];
     for (const value of reviewed) {
       expect(gameVersionStatus('apex', {installed: true, ...value}, 'launch')).toBe('launchReviewed');

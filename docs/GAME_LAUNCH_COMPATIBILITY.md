@@ -50,6 +50,16 @@ adapted to repair Javelin. This is a known product limitation, not a diagnosis o
 the reported reticle issue. The local EA installation remains J57, so this review
 does not establish EA J44 compatibility.
 
+### October 4, 2026 J58 launch check
+
+The local Steam installation is now Build `25666084` / `v3.0.2.58`, exact build
+`R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15`. A read-only binary
+token check found all 22 currently managed launch parameter names, including the
+hyphenated `reticle_color` form, letterbox pair, FPS/display options, Miles
+options, and window/input flags. The old retired flags remain absent as expected.
+This promotes J58 to the launch-only static-review label; it does not verify
+every video/game setting or the in-game effect of every launch parameter.
+
 ## PUBG
 
 - Graphics aliases serialize to one canonical token; conflicting graphics or
