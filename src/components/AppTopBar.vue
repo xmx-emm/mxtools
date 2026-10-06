@@ -271,7 +271,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: var(--mx-search-height);
+  height: 24px;
+  min-height: 24px;
   max-width: min(210px, 24vw);
   margin-inline: 6px 8px;
   padding: 0 7px;

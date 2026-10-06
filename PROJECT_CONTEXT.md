@@ -169,11 +169,15 @@ noncommercial mirrors and public modified versions are allowed.
   launch-statically-reviewed only; configuration pages remain unverified and the
   local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
   `docs/APEX_SETTINGS_COMPATIBILITY.md`; detailed evidence stays in the Apex project.
-- On October 4, 2026 the local Steam installation advanced to Build 25666084 /
+- On October 6, 2026 the local Steam installation remains Build 25666084 /
   `v3.0.2.58`, exact `R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15`.
-  A read-only token-presence check confirmed all 22 managed launch parameter
-  names, so J58 is launch-statically-reviewed only; video and game-settings
-  pages remain unverified and no in-game effect claim is made.
+  After Apex exited, the launch, video, game-settings, bindings, and Steam/EA
+  configuration-file write/readback/reopen/reset gates passed 47/47. J58 is
+  now in the build-level verified list, so the launch, video, and game-settings
+  pages share the same “已适配” status. This is static catalog and file-round-
+  trip evidence, not a claim that every in-game effect was manually verified;
+  EA J57 is not promoted by this result. Apex status is intentionally computed
+  at build level so one page cannot claim support while another remains pending.
 - PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
   boundaries and protects the argument following `+exec`; graphics aliases
   (`-dx9`, `-sm4`/`-d3d10`/`-dx10`, `-d3d11`/`-dx11`, and

@@ -57,4 +57,13 @@ describe('global compact radius contract', () => {
     expect(globalCss).toContain('.game-page-segmented-toggle .v-btn');
     expect(globalCss).toContain('border-radius: var(--app-radius-sm)');
   });
+
+  it('centers segmented-button text with a readable compact line-height', () => {
+    const start = globalCss.indexOf('.game-page-segmented-toggle .v-btn .v-btn__content');
+    const block = globalCss.slice(start, globalCss.indexOf('}', start) + 1);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(block).toContain('align-items: center');
+    expect(block).toContain('line-height: 1.2 !important');
+  });
 });

@@ -150,6 +150,11 @@ function matchesItemSearch(item: SteamLaunchOptionsImpl, q: string): boolean {
   return itemSearchHaystack(item).includes(q);
 }
 
+/** 当前锁帧只使用 +fps_max；兼容仍可能存在于内存中的旧 -freq 组合值。 */
+function isFpsCapSetting(value: unknown): boolean {
+  return typeof value === 'string' && value.includes('+fps_max X');
+}
+
 function splitConfigIntoGroups(config: ApexConfigRow[]): { categoryKey: string; items: SteamLaunchOptionsImpl[] }[] {
   const groups: { categoryKey: string; items: SteamLaunchOptionsImpl[] }[] = [];
   let categoryKey: string | null = null;
@@ -246,6 +251,7 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                     color="primary"
                     variant="text"
                     class="apex-parameter-toggle game-page-segmented-toggle"
+                    :class="{ 'apex-fps-toggle': item.identifier === 'fps' }"
                     :style="{maxHeight: 'var(--app-control-height-compact)'}"
                     border
                     divided>
@@ -312,8 +318,8 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                 <template v-else-if="item?.identifier == 'fps'">
                   <!--fps-->
                   <div
-                    v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'"
-                    class="d-flex"
+                    v-if="isFpsCapSetting(apex_store.settings_config[item.identifier])"
+                    class="d-flex apex-fps-input"
                     style="flex: 1; max-height: var(--app-control-height-compact)"
                   >
                     <ApexNumberInput v-model="apex_store.fps"/>
@@ -427,8 +433,8 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
                   </template>
                   <!--替换fps的X   应为 +fps_max X 或 +fps_max unlimited-->
                   <template v-else-if="item.identifier === 'fps'">
-                    <template v-if="apex_store.settings_config[item.identifier] === '-freq X +fps_max X'">
-                      -freq {{ String(apex_store.fps) }} +fps_max {{ String(apex_store.fps) }}
+                    <template v-if="isFpsCapSetting(apex_store.settings_config[item.identifier])">
+                      +fps_max {{ String(apex_store.fps) }}
                     </template>
                     <template v-else>
                       {{ apex_store.settings_config[item.identifier] }}
@@ -504,6 +510,11 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
 
 .apex-options-list {
   padding: 0;
+}
+
+/* 固定内容块的上边界，避免 v-expand-transition 改变高度时标题随之漂移。 */
+.apex-options-list :deep(.v-list-item__content) {
+  align-self: flex-start;
 }
 
 .apex-filter-list {
@@ -597,6 +608,11 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
   overflow: hidden;
 }
 
+.apex-fps-input {
+  min-width: 0;
+  margin-inline-start: 6px;
+}
+
 .apex-parameter-toggle {
   min-width: 0;
   max-width: 100%;
@@ -612,5 +628,29 @@ const displayedLaunchOptions = computed((): ApexConfigRow[] => {
 :deep(.apex-parameter-toggle .v-btn) {
   min-width: 0;
   max-width: 100%;
+}
+
+:deep(.apex-fps-toggle.v-btn-group) {
+  align-items: center;
+}
+
+:deep(.apex-fps-toggle .v-btn) {
+  min-height: var(--game-page-control-height) !important;
+  height: var(--game-page-control-height) !important;
+  padding-block: 0 !important;
+}
+
+:deep(.apex-fps-toggle .v-btn .v-btn__content) {
+  line-height: 1.2 !important;
+}
+
+/* 活动态悬停时不要叠加第二层 overlay，避免文字出现一次性的亮度闪变。 */
+:deep(.apex-fps-toggle .v-btn--active:hover > .v-btn__overlay) {
+  opacity: var(--v-activated-opacity) !important;
+}
+
+/* 行本身也是 active 控件，悬停时不要再叠加一层亮度，避免标题文字看起来变粗。 */
+.apex-options-list :deep(.v-list-item--active:hover > .v-list-item__overlay) {
+  opacity: var(--v-activated-opacity) !important;
 }
 </style>

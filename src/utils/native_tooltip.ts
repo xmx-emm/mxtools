@@ -138,8 +138,17 @@ export function installNativeTooltip(className: string): () => void {
   };
 
   const onPointerOver = (event: PointerEvent) => {
-    if (active && event.target instanceof Node && active.contains(event.target)) return;
     const target = findTitledElement(event.target);
+
+    // Rows may expose a broad title while one of their controls has a more
+    // specific title. Keep events inside the active target quiet, but allow a
+    // titled descendant to replace an active ancestor. Without this check the
+    // row title wins forever and the tooltip can flicker as the pointer crosses
+    // into the nested control.
+    if (active && event.target instanceof Node && active.contains(event.target)) {
+      if (!target || target === active || target.contains(active)) return;
+    }
+
     if (target) showFor(target);
   };
 
@@ -151,7 +160,9 @@ export function installNativeTooltip(className: string): () => void {
 
   const onFocusIn = (event: FocusEvent) => {
     const target = findTitledElement(event.target);
-    if (target) showFor(target);
+    if (!target) return;
+    if (active && target !== active && target.contains(active)) return;
+    showFor(target);
   };
 
   const onFocusOut = (event: FocusEvent) => {

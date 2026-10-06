@@ -8,17 +8,15 @@ export type GameCompatibilityScope = 'configuration' | 'launch';
 
 // Advisory status only; never gate edits/reset or select historical defaults.
 export const verifiedGameBuilds: Record<SupportedGame, readonly string[]> = {
-  apex: [],
+  apex: ['R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15'],
   pubg: [],
 };
 
-// Current review labels do not imply runtime verification of every setting.
+// Apex compatibility is build-level: a launch-only review must never make one
+// Apex page look supported while the other configuration pages remain pending.
+// PUBG keeps its separate launch-only label until full behavior is verified.
 const reviewedLaunchBuilds: Record<SupportedGame, readonly string[]> = {
-  apex: [
-    'R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18',
-    'R5pc_r5-301_J44_CL11595978_FSv30_1_2026_09_23_12_37',
-    'R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15',
-  ],
+  apex: [],
   pubg: ['25449918'],
 };
 

@@ -60,6 +60,17 @@ options, and window/input flags. The old retired flags remain absent as expected
 This promotes J58 to the launch-only static-review label; it does not verify
 every video/game setting or the in-game effect of every launch parameter.
 
+### October 6, 2026 Apex status policy
+
+Apex version status is build-level across the launch options, video
+configuration, and game settings pages. After Apex exited, the complete
+configuration catalog, settings catalog, and Steam/EA fixture read/write,
+reopen, and reset gate passed 47/47 tests for Steam J58. The exact J58 build is
+now in the runtime verified-build list, so all three Apex pages show the same
+“verified” status. This is static/catalog and file-round-trip evidence, not a
+claim that every in-game effect has been manually confirmed; EA J57 is not
+promoted by this result. PUBG retains its separate launch-partial label.
+
 ## PUBG
 
 - Graphics aliases serialize to one canonical token; conflicting graphics or
