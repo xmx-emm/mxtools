@@ -2,14 +2,19 @@
 import {computed} from 'vue';
 import {convertFileSrc} from '@tauri-apps/api/core';
 import {useI18n} from 'vue-i18n';
+import {useToast} from 'vue-toastification';
 import EAIcon from '@/components/icons/EAIcon.vue';
 import {useApexStore} from '@/stores/game/apex.ts';
 import type {ApexLauncherAccount} from '@/types/apex.ts';
 import {steamAvatarUrl} from '@/utils/game/steam.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
+import {formatApplyLaunchOptionError} from '@/composables/useCloseLauncherThenApply.ts';
 
 const emits = defineEmits<{ (e: 'update_user'): void }>();
 const { t } = useI18n();
 const apex_store = useApexStore();
+const toast = useToast();
+let switching_account = false;
 
 function accountKey(acc: ApexLauncherAccount): string {
   return `${acc.kind}:${acc.user.id}`;
@@ -53,9 +58,47 @@ function listItemAvatarSrc(acc: ApexLauncherAccount): string | undefined {
   }
 }
 
-function selectAccount(acc: ApexLauncherAccount) {
-  apex_store.set_active_apex_account(acc);
-  emits('update_user');
+/** 切换前处理当前账户未保存的启动项；返回 false 表示留在当前账户 */
+async function resolveUnsavedLaunchOptions(): Promise<boolean> {
+  if (!apex_store.is_launch_options_modified) return true;
+  let discard = false;
+  const save = await confirm(t('apex.unsavedLaunchSwitchMessage'), {
+    title: t('apex.unsavedLaunchSwitchTitle'),
+    kind: 'warning',
+    confirmText: t('apex.saveAndSwitchAccount'),
+    actionText: t('apex.discardAndSwitchAccount'),
+    onAction: () => {
+      discard = true;
+    },
+  });
+  if (discard) return true;
+  if (!save) return false;
+  if (!await apex_store.check_miles_language()) {
+    toast.error('toast.milesLanguageNotFound');
+    return false;
+  }
+  try {
+    // 后端写入前会校验启动器已退出，失败时留在当前账户
+    await apex_store.persist_launch_options();
+    toast.success('toast.applyLaunchOptionSuccess');
+    return true;
+  } catch (err) {
+    console.warn('save launch options before account switch failed', err);
+    toast.error(formatApplyLaunchOptionError(err), {timeout: 8000});
+    return false;
+  }
+}
+
+async function selectAccount(acc: ApexLauncherAccount) {
+  if (switching_account || accountKey(acc) === apex_store.launcher_selection_key) return;
+  switching_account = true;
+  try {
+    if (!await resolveUnsavedLaunchOptions()) return;
+    apex_store.set_active_apex_account(acc);
+    emits('update_user');
+  } finally {
+    switching_account = false;
+  }
 }
 </script>
 

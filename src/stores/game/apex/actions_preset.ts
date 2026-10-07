@@ -361,17 +361,19 @@ export const apexPresetActions = {
       if (Object.keys(videoUpdates).length && !isApexVideoConfigInitialized(this.original_video_config)) {
         throw new Error('apex.videoConfigNeedsGeneration');
       }
+      // 后端原样回写请求中的启动项，以发送值作为已保存基准。
+      const launchOptions = this.launch_options;
       const result = await mutateApexConfig({request: {
         source: 'quickPreset',
         transactionId,
         launcher: toApexLauncherRef(account),
-        launchOptions: this.launch_options,
+        launchOptions,
         videoUpdates,
         gameSettings,
       }});
       committed = result;
       if (this.launcher_selection_key === accountKey) {
-        this.original_launch_options = result.launchOptions ?? this.launch_options;
+        this.original_launch_options = launchOptions;
         this.launch_loaded_for_key = accountKey;
         this.launch_load_status = 'ready';
       }

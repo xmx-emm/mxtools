@@ -11,6 +11,7 @@ import {
   setApexLaunchOption,
   setApexLaunchOptionEa,
 } from '@/ipc/commands.ts';
+import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
 
 export const apexLaunchActions = {
   closeTip(this: ApexStoreThis) {
@@ -138,8 +139,8 @@ export const apexLaunchActions = {
       this.parse_loaded_launch_string(start_launch_option);
     };
     try {
-      await run();
-      return true;
+      const ok = await run();
+      return ok !== false;
     } catch (err) {
       if (this.launcher_selection_key !== expectedKey
         || (expectedGeneration !== undefined
@@ -194,5 +195,8 @@ export const apexLaunchActions = {
     this.original_launch_options = this.launch_options;
     this.launch_loaded_for_key = this.launcher_selection_key;
     this.launch_load_status = 'ready';
+    await emitApexConfigChanged(['launch']).catch(error =>
+      console.warn('notify Apex config change failed', error),
+    );
   },
 };

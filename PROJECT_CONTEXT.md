@@ -192,6 +192,10 @@ noncommercial mirrors and public modified versions are allowed.
 - The shared CEF transport probes both IPv4 and IPv6 loopback without proxies
   and pins WebSocket discovery to the responding address. On Windows, NVIDIA
   Broadcast can own IPv4 port 8080 while Steam listens on IPv6 port 8080.
+- Switching the Apex launcher account in `ApexLauncherUser.vue` first resolves
+  unsaved launch options through the shared confirmation dialog: save and
+  switch, discard and switch, or stay. A failed save keeps the current
+  account. Saving launch options broadcasts a `launch` config-change event.
 - Apex launch writes through `apex_history.rs`: applying launch options
   without an explicit `+miles_language` also clears the archived `miles_language`
   in `profile.cfg`, even when the launch string is unchanged. Steam/EA setters

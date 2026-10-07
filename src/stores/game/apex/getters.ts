@@ -53,7 +53,7 @@ export const apexGetters: ApexGetters = {
   },
   //获取当前选择的语言标识符
   language(state: ApexState) {
-    const lsp = state.settings_config['miles_language'].split(' ');
+    const lsp = (state.settings_config['miles_language'] ?? '').split(' ');
     const language: string = lsp[lsp.length - 1]; // 拿后面的标识符
     return language;
   },

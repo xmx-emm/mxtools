@@ -1600,7 +1600,9 @@ fn mutate_impl(
         ));
     }
 
-    let _ = prune_locked(&dir);
+    if let Err(e) = prune_locked(&dir) {
+        eprintln!("[apex_history] prune_locked failed: {e}");
+    }
     Ok(ApexConfigMutationResult {
         history_entry: Some(history_entry),
         changed_scopes,

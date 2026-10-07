@@ -19,6 +19,7 @@ export type BackgroundAutostartStatus = 'loading' | 'unsupported' | 'enabled' | 
 
 export const BACKGROUND_RUNTIME_CHANGED_EVENT = 'background-runtime-changed';
 const eventSyncByStore = new WeakMap<object, Promise<void>>();
+const eventSyncUnlisteners: Array<() => void> = [];
 
 function hasTauriRuntime() {
   return typeof window !== 'undefined'
@@ -55,7 +56,9 @@ export const useBackgroundRuntimeStore = defineStore('background-runtime', {
         eventSync = listen<BackgroundRuntimeSnapshot>(BACKGROUND_RUNTIME_CHANGED_EVENT, ({payload}) => {
           this.eventVersion += 1;
           this.snapshot = payload;
-        }).then(() => undefined);
+        }).then(unlisten => {
+          eventSyncUnlisteners.push(unlisten);
+        });
         eventSyncByStore.set(store, eventSync);
       }
       try {
@@ -141,4 +144,8 @@ export const useBackgroundRuntimeStore = defineStore('background-runtime', {
       return this.snapshot;
     },
   },
+});
+
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  eventSyncUnlisteners.splice(0).forEach(unlisten => unlisten());
 });

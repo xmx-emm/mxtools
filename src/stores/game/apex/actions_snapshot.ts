@@ -497,7 +497,7 @@ export const apexSnapshotActions = {
 
       if (launchOptions !== null) {
         this.parse_loaded_launch_string(launchOptions);
-        this.original_launch_options = launchOptions;
+        this.original_launch_options = this.launch_options;
         this.launch_loaded_for_key = this.launcher_selection_key;
         this.launch_load_status = 'ready';
       }
