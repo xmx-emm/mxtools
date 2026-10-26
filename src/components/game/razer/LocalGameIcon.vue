@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ref, watch} from 'vue';
 import {readGameExecutableIcon} from '@/ipc/commands.ts';
+import {readFirstGameIcon} from '@/utils/game_icon.ts';
 
 const props = defineProps<{paths: string[]}>();
 const icon = ref<string | null>(null);
@@ -9,11 +10,10 @@ watch(() => JSON.stringify(props.paths), async (_, __, onCleanup) => {
   onCleanup(() => { stale = true; });
   icon.value = null;
   if (!(window as Window & {__TAURI_INTERNALS__?: unknown}).__TAURI_INTERNALS__) return;
-  for (const path of [...new Set(props.paths)]) {
-    const result = await readGameExecutableIcon(path).catch(() => null);
-    if (stale) return;
-    if (result) { icon.value = result; return; }
-  }
+  const result = await readFirstGameIcon(props.paths, readGameExecutableIcon, {
+    isStale: () => stale,
+  });
+  if (!stale) icon.value = result;
 }, {immediate: true});
 </script>
 

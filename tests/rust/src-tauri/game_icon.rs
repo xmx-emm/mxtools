@@ -8,6 +8,18 @@ fn missing_or_remote_executables_have_no_local_icon() {
 
 #[cfg(windows)]
 #[test]
+fn mixed_slash_manifest_paths_are_normalized_before_the_icon_gate() {
+    let executable = std::env::current_exe().unwrap();
+    let mixed = executable.to_string_lossy().replace('\\', "/");
+    assert_eq!(
+        runtime_executable_path(&mixed),
+        local_executable_path(&executable.to_string_lossy()),
+    );
+    assert!(runtime_executable_path("https://example.com/apex.exe").is_none());
+}
+
+#[cfg(windows)]
+#[test]
 fn only_plain_drive_absolute_paths_pass_the_syntax_gate() {
     use std::path::Path;
 

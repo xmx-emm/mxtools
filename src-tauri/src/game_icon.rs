@@ -97,6 +97,15 @@ fn local_executable_path(path: &str) -> Option<std::path::PathBuf> {
 }
 
 #[cfg(windows)]
+/// Manifests can emit a mixed slash style. Normalize only a syntactically
+/// plain local executable before traversal; the strict drive and reparse-point
+/// checks still run on the normalized path.
+fn runtime_executable_path(path: &str) -> Option<std::path::PathBuf> {
+    let normalized = path.trim().replace('/', "\\");
+    local_executable_path(&normalized)
+}
+
+#[cfg(windows)]
 fn extract_icon(path: &str) -> Option<String> {
     use base64::Engine;
     use std::{io::Cursor, mem::zeroed, os::windows::ffi::OsStrExt, ptr::null_mut};
@@ -110,7 +119,7 @@ fn extract_icon(path: &str) -> Option<String> {
     use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
     const DI_NORMAL: u32 = 3;
 
-    let file = local_executable_path(path)?;
+    let file = runtime_executable_path(path)?;
     let wide: Vec<u16> = file.as_os_str().encode_wide().chain(Some(0)).collect();
     // SHGetFileInfo requires COM on the calling background thread:
     // https://learn.microsoft.com/windows/win32/api/shellapi/nf-shellapi-shgetfileinfow
