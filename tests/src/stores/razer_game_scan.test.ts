@@ -1,4 +1,5 @@
 import {createPinia, setActivePinia} from 'pinia';
+import {readFileSync} from 'node:fs';
 import {expect, it} from 'vitest';
 import {useRazerGameScanStore} from '@/stores/razer_game_scan.ts';
 import {mergeScannedGame} from '@/utils/razer_polling_config.ts';
@@ -20,4 +21,15 @@ it('adds an unresolved scanned game as disabled until its executable is supplied
   const config: RazerBackgroundConfig = {enabled: false, deviceProfiles: {}, games: []};
   mergeScannedGame(config, {logicalId: 'other', name: 'Other', isShooter: false, sources: ['steam'], installations: [], matchers: []}, [], true);
   expect(config.games[0]).toMatchObject({id: 'other', enabled: false, matchers: [], userEdited: true});
+});
+
+it('loads persisted scan paths during startup without racing plugin hydration', () => {
+  const source = readFileSync(
+    new URL('../../../src/stores/razer_game_scan.ts', import.meta.url),
+    'utf8',
+  );
+  expect(source).not.toContain('autoStart: true');
+  expect(source).toContain("filterKeys: ['scanReport', 'showOtherGames', 'otherSearch']");
+  expect(source).toContain('saveOnChange: true');
+  expect(source).toContain("saveStrategy: 'debounce'");
 });

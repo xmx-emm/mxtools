@@ -53,9 +53,8 @@ describe('Razer polling page visual contract', () => {
     expect(pageSource).toContain(
       'runtime.configureRazer(draft)',
     );
-    expect(pageSource).toContain(
-      'config.value = cloneRazerBackgroundConfig(runtime.snapshot.config.razer)',
-    );
+    expect(pageSource).toContain('const snapshot = runtime.snapshot ?? await runtime.refresh();');
+    expect(pageSource).toContain('if (snapshot) config.value = cloneRazerBackgroundConfig(snapshot.config.razer);');
     expect(pageSource).not.toContain('structuredClone(config.value)');
     expect(pageSource).not.toContain('structuredClone(runtime.snapshot.config.razer)');
     expect(pageSource).toContain('statuses.value = result.statuses');

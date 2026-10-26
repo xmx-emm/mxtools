@@ -326,8 +326,8 @@ onMounted(async () => {
     });
     if (disposed) { unlisten(); return; }
     unlistenStatus = unlisten;
-    if (!runtime.snapshot) await runtime.refresh();
-    if (runtime.snapshot) config.value = cloneRazerBackgroundConfig(runtime.snapshot.config.razer);
+    const snapshot = runtime.snapshot ?? await runtime.refresh();
+    if (snapshot) config.value = cloneRazerBackgroundConfig(snapshot.config.razer);
     await refreshDevices();
   } catch (error) {
     feedback.value = errorMessage(error);

@@ -24,6 +24,7 @@ import {useSettingsStore} from '@/stores/settings.ts';
 import {useDebugStore} from '@/stores/debug.ts';
 import {useUiStyleStore} from '@/stores/style.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
+import {useRazerGameScanStore} from '@/stores/razer_game_scan.ts';
 import {setDebugEnabled} from '@/utils/debug.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {syncTrayWithMainWindow} from '@/ipc/commands.ts';
@@ -270,6 +271,7 @@ async function bootstrap() {
   const debugStore = useDebugStore();
   const style = useUiStyleStore();
   const apexQPreferences = useApexQPreferencesStore();
+  const razerGameScan = useRazerGameScanStore();
   bindApexQPreferencesStore(apexQPreferences);
   if (isTauriRuntime) {
     await Promise.all([
@@ -279,6 +281,10 @@ async function bootstrap() {
       runStartupTask('apex-q preferences store', () => startTauriStoreOnce(
         'apex-q-preferences',
         () => apexQPreferences.$tauri.start(),
+      )),
+      runStartupTask('razer game scan store', () => startTauriStoreOnce(
+        'razer-game-scan',
+        () => razerGameScan.$tauri.start(),
       )),
     ]);
   }

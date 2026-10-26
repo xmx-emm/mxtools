@@ -96,6 +96,42 @@ describe('background runtime store synchronization', () => {
     expect(runtime.snapshot).toEqual(changed);
   });
 
+  it('shares an in-flight refresh so a page mounted during startup receives the snapshot', async () => {
+    const persisted = snapshot({
+      razer: {
+        enabled: false,
+        deviceProfiles: {},
+        games: [{
+          id: 'apex-legends',
+          name: 'Apex Legends',
+          enabled: true,
+          userEdited: false,
+          matchers: [{executable: 'D:\\Apex\\r5apex_dx12.exe'}],
+          deviceRatesHz: {mouse: 8000},
+        }],
+      },
+    });
+    let resolveRefresh!: (value: BackgroundRuntimeSnapshot) => void;
+    mocks.getBackgroundRuntime.mockReturnValue(new Promise((resolve) => {
+      resolveRefresh = resolve;
+    }));
+    const runtime = useBackgroundRuntimeStore();
+
+    const startupRefresh = runtime.refresh();
+    const pageRefresh = runtime.refresh();
+    await vi.waitFor(() => expect(mocks.getBackgroundRuntime).toHaveBeenCalledOnce());
+    expect(mocks.getBackgroundRuntime).toHaveBeenCalledOnce();
+
+    resolveRefresh(persisted);
+    await Promise.all([startupRefresh, pageRefresh]);
+
+    expect(runtime.snapshot).toEqual(persisted);
+    expect(runtime.snapshot?.config.razer.games[0]).toMatchObject({
+      id: 'apex-legends',
+      deviceRatesHz: {mouse: 8000},
+    });
+  });
+
   it('updates Razer through the atomic partial command', async () => {
     const updated = snapshot({
       razer: {enabled: true, deviceProfiles: {}, games: []},

@@ -9,10 +9,12 @@ export const useRazerGameScanStore = defineStore('razer-game-scan', {
     scanning: false,
   }),
   tauri: {
-    autoStart: true,
     filterKeysStrategy: 'pick',
     filterKeys: ['scanReport', 'showOtherGames', 'otherSearch'],
+    syncStrategy: 'debounce',
+    syncInterval: 200,
+    saveOnChange: true,
     saveStrategy: 'debounce',
-    saveInterval: 600,
+    saveInterval: 300,
   },
 });

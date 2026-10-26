@@ -19,6 +19,7 @@ export type BackgroundAutostartStatus = 'loading' | 'unsupported' | 'enabled' | 
 
 export const BACKGROUND_RUNTIME_CHANGED_EVENT = 'background-runtime-changed';
 const eventSyncByStore = new WeakMap<object, Promise<void>>();
+const refreshByStore = new WeakMap<object, Promise<BackgroundRuntimeSnapshot | null>>();
 const eventSyncUnlisteners: Array<() => void> = [];
 
 function hasTauriRuntime() {
@@ -71,21 +72,29 @@ export const useBackgroundRuntimeStore = defineStore('background-runtime', {
       }
     },
     async refresh() {
-      if (!hasTauriRuntime() || this.loading) return this.snapshot;
-      this.loading = true;
-      this.error = '';
-      try {
-        await this.startEventSync();
-        const eventVersion = this.eventVersion;
-        const snapshot = await getBackgroundRuntime();
-        if (this.eventVersion === eventVersion) this.snapshot = snapshot;
-        return this.snapshot;
-      } catch (error) {
-        this.error = String(error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
+      if (!hasTauriRuntime()) return this.snapshot;
+      const store = this as object;
+      const pending = refreshByStore.get(store);
+      if (pending) return pending;
+      const request = (async () => {
+        this.loading = true;
+        this.error = '';
+        try {
+          await this.startEventSync();
+          const eventVersion = this.eventVersion;
+          const snapshot = await getBackgroundRuntime();
+          if (this.eventVersion === eventVersion) this.snapshot = snapshot;
+          return this.snapshot;
+        } catch (error) {
+          this.error = String(error);
+          throw error;
+        } finally {
+          this.loading = false;
+          refreshByStore.delete(store);
+        }
+      })();
+      refreshByStore.set(store, request);
+      return request;
     },
     async setAutostart(enabled: boolean | null) {
       if (!hasTauriRuntime() || this.applyingAutostart) return;
