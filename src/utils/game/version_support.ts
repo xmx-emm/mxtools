@@ -17,7 +17,7 @@ export const verifiedGameBuilds: Record<SupportedGame, readonly string[]> = {
 // PUBG keeps its separate launch-only label until full behavior is verified.
 const reviewedLaunchBuilds: Record<SupportedGame, readonly string[]> = {
   apex: [],
-  pubg: ['25449918'],
+  pubg: ['25744443'],
 };
 
 export function gameVersionStatus(

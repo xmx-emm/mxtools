@@ -239,7 +239,7 @@ export const DepthOfFieldQuality = {
 };
 
 /**
- * Build 25449918 audit: literals/help text are not proof of Shipping behavior.
+ * Build 25744443 audit: literals/help text are not proof of Shipping behavior.
  * Compatibility limits are documented in docs/GAME_LAUNCH_COMPATIBILITY.md.
  * Graphics parameter arrays are read aliases; emit only default_parameter.
  */

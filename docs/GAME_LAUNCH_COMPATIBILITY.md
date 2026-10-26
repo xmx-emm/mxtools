@@ -82,6 +82,12 @@ promoted by this result. PUBG retains its separate launch-partial label.
 - Skip-intro behavior renames the Movies folder without consuming user-supplied
   `-nosplash` or `+noIntroCinematics` launch text.
 - Saving a value does not establish its in-game effect; the UI keeps that warning.
+- The October 8, 2026 read-only recheck covers installed Steam Build `25744443`,
+  `TslGame.exe` SHA-256
+  `246a5ccffe33775e410fed7ebc4c5b868c4081aa8a703426cfb32eb909b2b9f5`. Help text
+  still names `-fullscreen`, the DX12 fallback, and the RHI/SM mutual-exclusion
+  diagnostics. It does not recover the Shipping parser, value conversion,
+  precedence, or any in-game effect. Build `25449918` evidence is historical.
 
 ## Tests and project boundary
 

@@ -39,7 +39,9 @@ describe('Game compatibility uses exact verified builds', () => {
     }
   });
   it('does not promote the PUBG literal audit to verified game behavior', () => {
-    const value = {installed: true, version: null, build: '25449918'};
+    const previous = {installed: true, version: null, build: '25449918'};
+    expect(gameVersionStatus('pubg', previous, 'launch')).toBe('unverified');
+    const value = {installed: true, version: null, build: '25744443'};
     expect(gameVersionStatus('pubg', value, 'launch')).toBe('launchPartial');
     expect(gameVersionStatus('pubg', value)).toBe('unverified');
     expect(verifiedGameBuilds.pubg).toEqual([]);
