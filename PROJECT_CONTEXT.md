@@ -78,7 +78,9 @@ noncommercial mirrors and public modified versions are allowed.
   `src-tauri/src/background_runtime.rs`. `background-runtime.json` is the
   native source of truth for locale, Beta, shared autostart, active Apex Q
   runtime, and Razer state. The native tray stays resident in both interactive
-  and `--autostart` modes.
+  and `--autostart` modes. Frontend startup refreshes are single-flight, and
+  pages that mount during startup await the shared snapshot rather than
+  initializing from defaults.
 - Installed game discovery: `src-tauri/src/game_scan.rs` runs a user-triggered,
   bounded local scan of Steam/Epic/Xbox manifests and EA/Ubisoft/Battle.net
   registry or local manifests without disk-wide traversal, networking, or
@@ -90,6 +92,11 @@ noncommercial mirrors and public modified versions are allowed.
   Razer scan reports, Other Games expansion and search live in the persisted
   `razer-game-scan` Pinia store. Adding a scanned game never opens a file picker;
   unresolved games are added disabled with an explicit Add executable action.
+  The store is hydrated by an explicit startup load rather than constructing
+  auto-started stores ahead of Pinia hydration; it persists its latest
+  cross-window state with debounced native synchronization and disk saves.
+  Game icons retry a bounded set of manifest executable paths, including
+  mixed-slash Steam paths, before showing the generic fallback.
 - Accent palettes and their accessible Vuetify color derivation live in
   `src/themes.ts`. APEX red is the default for new or reset preferences.
 - `settings.performanceMode` is a persisted, default-off preference that
@@ -136,7 +143,8 @@ noncommercial mirrors and public modified versions are allowed.
   The September 26 launch-only review covers Steam Build 25358568 / exact
   `R5pc_r5-301_J28_CL11570498_FSv30_1_2026_09_16_17_18` (file version
   `v3.0.1.28`). Launch footers pass an explicit scope: J28 says statically
-  reviewed and PUBG Build 25449918 says partially reviewed/effects unverified.
+  reviewed. PUBG Build 25449918 is historical; the October 8 read-only
+  recheck of installed Build 25744443 keeps the partial/effects-unverified label.
   Reset maintains current defaults only, shared by Steam and EA, with no build
   whitelist, fingerprint gate or historical parameter branches. Current templates
   have 108 bindings and omit retired preferences. Eight previously implicit
@@ -395,8 +403,10 @@ noncommercial mirrors and public modified versions are allowed.
   `src/utils/razer_status_refresh.ts` with deferred-response regression coverage.
   Game rows read existing local EXE icons with `read_game_executable_icon`;
   plain absolute drive paths must resolve through local drives without reparse
-  points. The background thread initializes COM before calling the Shell API.
-  Icons are transient PNG data URLs with a generic fallback, never executed.
+  points, and manifest-style `/` separators are normalized before traversal.
+  The background thread initializes COM before calling the Shell API. Icons
+  retry bounded executable candidates to cover transient Shell failures and
+  are transient PNG data URLs with a generic fallback, never executed.
 - GitHub Actions release gates are defined in `.github/workflows/ci.yml`. The
   0.0.7 release pins windows_tool revision
   `63be28c24cc093a8d160d902cb983331dc9c9e2e`, including EA installation validation.
