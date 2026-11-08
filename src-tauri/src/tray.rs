@@ -17,58 +17,52 @@ static TRAY_ENGLISH: AtomicBool = AtomicBool::new(false);
 fn build_tray_menu<R: Runtime>(
     app: &AppHandle<R>,
     english: bool,
-    beta_features_enabled: bool,
+    _beta_features_enabled: bool,
 ) -> tauri::Result<Menu<R>> {
-    let (show, apex_q, apex_q_ocr, apex_q_settings, apex_q_adjust, quit) = if english {
-        (
-            "Show main window",
-            "Open APEX Q",
-            "Open APEX Q OCR",
-            "Open APEX Q settings",
-            "Adjust APEX Q overlay",
-            "Quit",
-        )
+    let (show, quit) = if english {
+        ("Show main window", "Quit")
     } else {
-        (
-            "显示主窗口",
-            "打开 APEX Q",
-            "打开 APEX Q 识别",
-            "打开 APEX Q 设置",
-            "调整 APEX Q 悬浮窗",
-            "退出",
-        )
+        ("显示主窗口", "退出")
     };
     let show_i = MenuItem::with_id(app, "show", show, true, None::<&str>)?;
-    let apex_q_i = MenuItem::with_id(app, "apex-q", apex_q, true, None::<&str>)?;
-    let apex_q_ocr_i = MenuItem::with_id(app, "apex-q-ocr", apex_q_ocr, true, None::<&str>)?;
-    let apex_q_settings_i =
-        MenuItem::with_id(app, "apex-q-settings", apex_q_settings, true, None::<&str>)?;
-    let apex_q_adjust_i =
-        MenuItem::with_id(app, "apex-q-adjust", apex_q_adjust, true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", quit, true, None::<&str>)?;
-    if beta_features_enabled {
-        Menu::with_items(
-            app,
-            &[
-                &show_i,
-                &apex_q_i,
-                &apex_q_ocr_i,
-                &apex_q_settings_i,
-                &apex_q_adjust_i,
-                &quit_i,
-            ],
-        )
-    } else {
-        Menu::with_items(app, &[&show_i, &quit_i])
-    }
+    Menu::with_items(app, &[&show_i, &quit_i])
 }
 
 pub fn set_close_to_tray(enabled: bool) {
     CLOSE_TO_TRAY.store(enabled, Ordering::SeqCst);
 }
 
+#[tauri::command]
+pub fn tray_set_close_to_tray(enabled: bool) {
+    set_close_to_tray(enabled);
+}
+
 pub fn close_to_tray_enabled() -> bool {
     CLOSE_TO_TRAY.load(Ordering::SeqCst)
+}
+
+fn close_to_tray_from_settings_json(json: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()
+        .and_then(|state| state.get("closeToTray")?.as_bool())
+        .unwrap_or(false)
+}
+
+/// The frontend pushes `closeToTray` only after Pinia hydrates; a close before
+/// that would otherwise quit even when the user chose the background runtime.
+pub fn hydrate_close_to_tray<R: Runtime>(app: &AppHandle<R>) {
+    let file_name = if cfg!(debug_assertions) {
+        "settings.dev.json"
+    } else {
+        "settings.json"
+    };
+    let Ok(dir) = app.path().app_data_dir() else {
+        return;
+    };
+    if let Ok(json) = std::fs::read_to_string(dir.join("tauri-plugin-pinia").join(file_name)) {
+        set_close_to_tray(close_to_tray_from_settings_json(&json));
+    }
 }
 
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
@@ -88,14 +82,6 @@ pub(crate) fn remove_tray_for_exit<R: Runtime>(app: &AppHandle<R>) {
     drop(app.remove_tray_by_id(TRAY_ID));
 }
 
-fn request_apex_q<R: Runtime>(app: &AppHandle<R>, target: &'static str) {
-    if let Err(error) =
-        crate::background_runtime::request_main_window_event(app, "apex-q-open-request", target)
-    {
-        log_error!("Failed to open Apex Q from the tray: {error}");
-    }
-}
-
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     let menu = build_tray_menu(app, false, false)?;
     let tray = TrayIconBuilder::with_id(TRAY_ID)
@@ -109,18 +95,6 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::err
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main_window(app),
-            "apex-q" => request_apex_q(app, "workspace"),
-            "apex-q-ocr" => request_apex_q(app, "ocr"),
-            "apex-q-settings" => request_apex_q(app, "settings"),
-            "apex-q-adjust" => {
-                if let Err(error) = crate::background_runtime::request_main_window_event(
-                    app,
-                    "apex-q-overlay-adjust-request",
-                    (),
-                ) {
-                    log_error!("Failed to open the Apex Q overlay editor: {error}");
-                }
-            }
             "quit" => {
                 app.exit(0);
             }
@@ -139,11 +113,6 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::err
         .build(app)?;
     drop(tray);
     Ok(())
-}
-
-#[tauri::command]
-pub fn apex_q_set_close_to_tray(enabled: bool) {
-    set_close_to_tray(enabled);
 }
 
 #[tauri::command]
@@ -194,7 +163,7 @@ pub fn set_tray_beta_features<R: Runtime>(
 
 pub fn handle_close_requested<R: Runtime>(window: &tauri::Window<R>, api: &tauri::CloseRequestApi) {
     let label = window.label();
-    if label == "apex-q-window" || label == "about-window" {
+    if label == "about-window" {
         api.prevent_close();
         let _ = window.hide();
         return;
@@ -245,4 +214,12 @@ mod tests {
             MainCloseDisposition::ExitApplication
         );
     }
+}
+
+#[cfg(test)]
+mod close_to_tray_hydration {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/tray_close_to_tray_hydration.rs"
+    ));
 }

@@ -33,6 +33,60 @@ fn notify_auto_status() {
     }
 }
 
+/// Razer product IDs that enumerate through a HyperSpeed/HyperPolling
+/// receiver rather than the mouse's own USB cable.
+const WIRELESS_RECEIVER_PRODUCT_IDS: &[u16] = &[
+    0x007c, // DeathAdder V2 Pro
+    0x0088, // Basilisk Ultimate
+    0x0090, // Naga Pro
+    0x00a6, // Viper V2 Pro
+    0x00ab, // Basilisk V3 Pro
+    0x00b3, // HyperPolling Wireless Dongle
+    0x00b7, // DeathAdder V3 Pro
+    0x00c1, // Viper V3 Pro
+    0x00c5, // DeathAdder V3 HyperSpeed
+    0x00e6,
+];
+
+fn connection_for_product(product_id: u16) -> &'static str {
+    if WIRELESS_RECEIVER_PRODUCT_IDS.contains(&product_id) {
+        "wireless"
+    } else {
+        "wired"
+    }
+}
+
+/// Disabling auto mode restores every device with a baseline; an enabled
+/// config restores only devices it no longer manages so their last automatic
+/// rate does not stay applied after they leave the configuration.
+fn devices_to_restore_on_configure(
+    previous: Option<&RazerPollingConfig>,
+    next: &RazerPollingConfig,
+    baseline_device_ids: &BTreeSet<String>,
+) -> Vec<String> {
+    if !next.enabled {
+        return baseline_device_ids.iter().cloned().collect();
+    }
+    let Some(previous) = previous.filter(|previous| previous.enabled) else {
+        return Vec::new();
+    };
+    let still_configured = next
+        .devices
+        .iter()
+        .map(|device| device.device_id.as_str())
+        .collect::<HashSet<_>>();
+    previous
+        .devices
+        .iter()
+        .map(|device| device.device_id.as_str())
+        .filter(|device_id| !still_configured.contains(device_id))
+        .filter(|device_id| baseline_device_ids.contains(*device_id))
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RazerPollingDevice {
@@ -1533,12 +1587,7 @@ mod windows {
             let path_fallback =
                 select_device_identity(vendor_id, product_id, None, None, None, &path);
             let fallback_device_id = opaque_device_id(&path_fallback.material);
-            let connection = if product_id == 0x00e6 {
-                "wireless"
-            } else {
-                "wired"
-            }
-            .to_string();
+            let connection = super::connection_for_product(product_id).to_string();
             opened.push(OpenedTransport {
                 info: RazerPollingDevice {
                     device_id: opaque_device_id(&identity.material),
@@ -1661,7 +1710,9 @@ mod windows {
         {
             DEVICE_REFRESH_PENDING.store(true, Ordering::Release);
             let foreground = winapi::um::winuser::GetForegroundWindow();
-            if !foreground.is_null() {
+            if foreground.is_null() {
+                foreground_events().wake();
+            } else {
                 foreground_events().publish(foreground as usize);
             }
         }
@@ -1763,19 +1814,28 @@ fn register_device(info: &RazerPollingDevice) -> IpcResult<Arc<DeviceSlot>> {
 }
 
 #[cfg(windows)]
-fn refresh_registry(opened: &[windows::OpenedTransport]) -> IpcResult<()> {
+fn refresh_registry(opened: &[windows::OpenedTransport]) -> IpcResult<bool> {
     let existing = lock(controller())?
         .devices
-        .values()
-        .cloned()
+        .iter()
+        .map(|(device_id, slot)| (device_id.clone(), slot.clone()))
         .collect::<Vec<_>>();
-    for slot in existing {
-        lock(&slot.runtime)?.connected = false;
+    let mut previously_connected = HashSet::new();
+    for (device_id, slot) in existing {
+        let mut runtime = lock(&slot.runtime)?;
+        if runtime.connected {
+            previously_connected.insert(device_id);
+        }
+        runtime.connected = false;
     }
+    let mut now_connected = HashSet::new();
     for device in opened {
         register_device(&device.info)?;
+        now_connected.insert(device.info.device_id.clone());
     }
-    Ok(())
+    // Callers notify listeners only for real topology changes, so a removal
+    // is reported even when no auto target is submitted afterwards.
+    Ok(previously_connected != now_connected)
 }
 
 fn slot_by_id(device_id: &str) -> IpcResult<Arc<DeviceSlot>> {
@@ -2052,6 +2112,19 @@ impl LatestForegroundEvent {
         }
     }
 
+    /// Wakes the coordinator without a new foreground window (for example a
+    /// device change while the desktop has no foreground window). The
+    /// sentinel 0 never replaces a pending real window.
+    fn wake(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            if state.stopped || state.latest.is_some() {
+                return;
+            }
+            state.latest = Some(0);
+            self.changed.notify_one();
+        }
+    }
+
     fn wait(&self) -> Option<usize> {
         let mut state = self.state.lock().ok()?;
         while state.latest.is_none() && !state.stopped {
@@ -2302,11 +2375,13 @@ fn coordinate_foreground(hwnd: usize) {
     if DEVICE_REFRESH_PENDING.swap(false, Ordering::AcqRel) {
         match enumerate_transports() {
             Ok(opened) => {
-                let _ = refresh_registry(&opened);
+                if refresh_registry(&opened).unwrap_or(false) {
+                    notify_auto_status();
+                }
             }
             Err(_) => {
-                // Keep one retry pending for the next real foreground event;
-                // no timer or polling loop is introduced.
+                // Keep one retry pending for the next foreground event or
+                // device notification; no timer or polling loop is introduced.
                 DEVICE_REFRESH_PENDING.store(true, Ordering::Release);
             }
         }
@@ -2356,8 +2431,14 @@ fn start_auto_worker() -> IpcResult<()> {
     events.reset();
     let coordinator_events = events.clone();
     let coordinator_thread = thread::spawn(move || {
+        // A wake without a foreground window (hwnd 0) re-evaluates against
+        // the last real foreground window instead of falling back to idle.
+        let mut last_foreground = 0usize;
         while let Some(hwnd) = coordinator_events.wait() {
-            coordinate_foreground(hwnd);
+            if hwnd != 0 {
+                last_foreground = hwnd;
+            }
+            coordinate_foreground(last_foreground);
         }
     });
 
@@ -2551,21 +2632,26 @@ pub async fn razer_polling_configure<R: Runtime>(
     validate_config(&config)?;
     tauri::async_runtime::spawn_blocking(move || {
         stop_auto_worker();
-        if !config.enabled {
-            let device_ids = lock(controller())?
-                .devices
-                .iter()
-                .filter_map(|(device_id, slot)| {
-                    slot.runtime
-                        .lock()
-                        .ok()
-                        .and_then(|runtime| runtime.baseline_rate_hz.map(|_| device_id.clone()))
-                })
-                .collect::<Vec<_>>();
-            for device_id in device_ids {
-                if let Err(restore_error) = restore_rate_sync(&device_id) {
-                    record_slot_error(&device_id, &restore_error);
-                }
+        let (previous_config, baseline_device_ids) = {
+            let controller = lock(controller())?;
+            (
+                controller.auto_config.clone(),
+                controller
+                    .devices
+                    .iter()
+                    .filter_map(|(device_id, slot)| {
+                        slot.runtime.lock().ok().and_then(|runtime| {
+                            runtime.baseline_rate_hz.map(|_| device_id.clone())
+                        })
+                    })
+                    .collect::<BTreeSet<_>>(),
+            )
+        };
+        for device_id in
+            devices_to_restore_on_configure(previous_config.as_ref(), &config, &baseline_device_ids)
+        {
+            if let Err(restore_error) = restore_rate_sync(&device_id) {
+                record_slot_error(&device_id, &restore_error);
             }
         }
 
@@ -2767,6 +2853,13 @@ mod tests {
         include!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../tests/rust/src-tauri/razer_polling_capability_verification.test.rs"
+        ));
+    }
+
+    mod lifecycle {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/razer_polling_lifecycle.rs"
         ));
     }
 

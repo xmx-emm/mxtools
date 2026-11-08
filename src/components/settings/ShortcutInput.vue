@@ -4,7 +4,6 @@ import {useI18n} from 'vue-i18n';
 import {
   eventToAccelerator,
   formatAcceleratorDisplay,
-  isValidApexQAccelerator,
   isValidAppAccelerator,
   isValidGlobalAccelerator,
 } from '@/utils/shortcut-keys.ts';
@@ -14,8 +13,8 @@ const props = withDefaults(
   defineProps<{
     modelValue: string;
     disabled?: boolean;
-    /** global：必须带修饰键；app：允许单键；apexQ：允许单独 F1–F12 */
-    scope?: 'app' | 'global' | 'apexQ';
+    /** global：必须带修饰键；app：允许单键 */
+    scope?: 'app' | 'global';
   }>(),
   { scope: 'app' },
 );
@@ -64,7 +63,6 @@ function onBlur() {
 
 function isValidForScope(accel: string): boolean {
   if (props.scope === 'global') return isValidGlobalAccelerator(accel);
-  if (props.scope === 'apexQ') return isValidApexQAccelerator(accel);
   return isValidAppAccelerator(accel);
 }
 

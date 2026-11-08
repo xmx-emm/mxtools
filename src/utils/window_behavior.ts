@@ -1,4 +1,4 @@
-import {apexQSetCloseToTray} from '@/ipc/commands.ts';
+import {setCloseToTray} from '@/ipc/commands.ts';
 
 export type WindowBehaviorPrefs = {
   closeToTray: boolean;
@@ -9,7 +9,7 @@ export function defaultWindowBehaviorPrefs(): WindowBehaviorPrefs {
 }
 
 export async function syncCloseToTray(enabled: boolean) {
-  await apexQSetCloseToTray({enabled});
+  await setCloseToTray({enabled});
 }
 
 export async function applyWindowBehavior(prefs: WindowBehaviorPrefs) {

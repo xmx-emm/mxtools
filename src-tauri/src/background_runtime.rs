@@ -5,9 +5,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
-use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_autostart::ManagerExt;
 
@@ -20,26 +19,13 @@ const RAZER_VENDOR_ID: u16 = 0x1532;
 pub const RAZER_SUPPORTED_RATES_HZ: [u32; 7] = [125, 250, 500, 1_000, 2_000, 4_000, 8_000];
 
 const AUTOSTART_ARGUMENT: &str = "--autostart";
-const MAX_HOTKEY_LENGTH: usize = 128;
-const MAX_DELAY_MS: u32 = 60_000;
-const MAX_OVERLAY_HIDE_SECONDS: u32 = 3_600;
 
 static CONFIG_IO_LOCK: Mutex<()> = Mutex::new(());
 static MAIN_WINDOW_LOCK: Mutex<()> = Mutex::new(());
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-static PENDING_MAIN_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-static MAIN_WINDOW_READY: AtomicBool = AtomicBool::new(false);
-static PENDING_MAIN_EVENTS: OnceLock<Mutex<Vec<PendingMainEvent>>> = OnceLock::new();
 static RUNTIME_TRANSACTION_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
 const MAIN_WINDOW_LABEL: &str = "main";
-
-#[derive(Debug)]
-struct PendingMainEvent {
-    id: u64,
-    event: String,
-    payload: Value,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,107 +64,6 @@ pub enum RuntimeLocale {
     ZhCn,
     #[serde(rename = "en-US")]
     EnUs,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub enum ApexQOcrEngine {
-    #[default]
-    Auto,
-    Rapid,
-    Win,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NormalizedRect {
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-}
-
-impl NormalizedRect {
-    fn showpos_default() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.038,
-            w: 0.105,
-            h: 0.028,
-        }
-    }
-
-    fn ping_default() -> Self {
-        Self {
-            x: 0.529,
-            y: 0.364,
-            w: 0.115,
-            h: 0.099,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApexQOverlayPlacement {
-    pub version: u32,
-    pub monitor_name: Option<String>,
-    pub monitor_width: u32,
-    pub monitor_height: u32,
-    pub rect: NormalizedRect,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct ApexQBackgroundConfig {
-    pub setup_done: bool,
-    pub wizard_step: u32,
-    pub screenshot_folder: String,
-    pub hotkey: String,
-    pub delay_ms: u32,
-    pub enabled: bool,
-    pub overlay_hide_sec: u32,
-    pub overlay_opacity: f64,
-    pub overlay_x: Option<f64>,
-    pub overlay_y: Option<f64>,
-    pub overlay_w: u32,
-    pub overlay_h: u32,
-    pub overlay_placement: Option<ApexQOverlayPlacement>,
-    pub overlay_locked: bool,
-    pub ocr_engine: ApexQOcrEngine,
-    pub showpos_confirmed: bool,
-    pub usage_confirmed: bool,
-    pub showpos_roi: NormalizedRect,
-    pub ping_roi: NormalizedRect,
-    #[serde(flatten)]
-    pub extensions: BTreeMap<String, Value>,
-}
-
-impl Default for ApexQBackgroundConfig {
-    fn default() -> Self {
-        Self {
-            setup_done: false,
-            wizard_step: 0,
-            screenshot_folder: String::new(),
-            hotkey: "F12".to_string(),
-            delay_ms: 500,
-            enabled: false,
-            overlay_hide_sec: 8,
-            overlay_opacity: 0.42,
-            overlay_x: None,
-            overlay_y: None,
-            overlay_w: 220,
-            overlay_h: 124,
-            overlay_placement: None,
-            overlay_locked: true,
-            ocr_engine: ApexQOcrEngine::Auto,
-            showpos_confirmed: false,
-            usage_confirmed: false,
-            showpos_roi: NormalizedRect::showpos_default(),
-            ping_roi: NormalizedRect::ping_default(),
-            extensions: BTreeMap::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -243,8 +128,6 @@ pub struct BackgroundRuntimeConfig {
     pub beta_features_enabled: bool,
     pub locale: RuntimeLocale,
     #[serde(default)]
-    pub apex_q: ApexQBackgroundConfig,
-    #[serde(default)]
     pub razer: RazerBackgroundConfig,
     #[serde(flatten)]
     pub extensions: BTreeMap<String, Value>,
@@ -257,7 +140,6 @@ impl Default for BackgroundRuntimeConfig {
             autostart: false,
             beta_features_enabled: false,
             locale: RuntimeLocale::System,
-            apex_q: ApexQBackgroundConfig::default(),
             razer: RazerBackgroundConfig::default(),
             extensions: BTreeMap::new(),
         }
@@ -281,7 +163,6 @@ pub struct BackgroundRuntimeSnapshot {
     pub autostart_enabled: bool,
     pub configured_autostart: bool,
     pub launch_mode: LaunchMode,
-    pub apex_q_state: BackgroundFeatureState,
     pub razer_state: BackgroundFeatureState,
     pub config: BackgroundRuntimeConfig,
 }
@@ -339,7 +220,7 @@ impl BackgroundRuntimeStore {
         save_config_unlocked(&self.path, config)
     }
 
-    /// Serializes future Apex Q and Razer config mutations with autostart
+    /// Serializes future Razer config mutations with autostart
     /// transactions so one feature cannot overwrite another feature's update.
     #[allow(dead_code)]
     pub fn update<T>(
@@ -420,8 +301,10 @@ impl<R: Runtime> AutostartControl for TauriAutostartControl<'_, R> {
     }
 }
 
-pub const fn autostart_supported() -> bool {
-    cfg!(all(windows, not(debug_assertions)))
+/// MSIX builds are excluded: a Run-key entry cannot target the packaged
+/// executable, and Store autostart needs a manifest StartupTask instead.
+pub fn autostart_supported() -> bool {
+    cfg!(all(windows, not(debug_assertions))) && !crate::app_info::is_packaged_app()
 }
 
 pub const fn background_runtime_file_name() -> &'static str {
@@ -537,50 +420,7 @@ pub fn ensure_main_window<R: Runtime>(app: &AppHandle<R>) -> IpcResult<MainWindo
     build_main_window(app)
 }
 
-/// Delivers a command to the main WebView after it has installed its event
-/// listeners. This keeps tray actions reliable when the UI was just recreated.
-pub fn request_main_window_event<R: Runtime, P: Serialize>(
-    app: &AppHandle<R>,
-    event: &str,
-    payload: P,
-) -> IpcResult<MainWindowDisposition> {
-    let payload = serde_json::to_value(payload).map_err(|error| {
-        runtime_error(
-            "main_window_event_invalid",
-            "Failed to serialize a pending main-window event",
-        )
-        .with_detail("detail", error.to_string())
-    })?;
-    let _guard = MAIN_WINDOW_LOCK.lock().map_err(|_| {
-        runtime_error(
-            "main_window_lock_poisoned",
-            "The main-window lifecycle lock is unavailable",
-        )
-    })?;
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        focus_main_window(&window)?;
-        if MAIN_WINDOW_READY.load(Ordering::Acquire) {
-            window
-                .emit(event, payload)
-                .map_err(main_window_event_error)?;
-        } else {
-            queue_main_window_event(event, payload)?;
-        }
-        return Ok(MainWindowDisposition::Focused);
-    }
-
-    let pending_id = queue_main_window_event(event, payload)?;
-    match build_main_window(app) {
-        Ok(disposition) => Ok(disposition),
-        Err(error) => {
-            remove_pending_main_window_event(pending_id);
-            Err(error)
-        }
-    }
-}
-
 fn build_main_window<R: Runtime>(app: &AppHandle<R>) -> IpcResult<MainWindowDisposition> {
-    MAIN_WINDOW_READY.store(false, Ordering::Release);
     let config = app
         .config()
         .app
@@ -603,11 +443,6 @@ fn build_main_window<R: Runtime>(app: &AppHandle<R>) -> IpcResult<MainWindowDisp
             }
             tauri::webview::NewWindowResponse::Deny
         })
-        .on_page_load(|_, load| {
-            if load.event() == PageLoadEvent::Started {
-                MAIN_WINDOW_READY.store(false, Ordering::Release);
-            }
-        })
         .build()
         .map_err(main_window_error)?;
     focus_main_window(&window)?;
@@ -620,66 +455,7 @@ fn focus_main_window<R: Runtime>(window: &WebviewWindow<R>) -> IpcResult<()> {
     window.set_focus().map_err(main_window_error)
 }
 
-fn pending_main_events() -> &'static Mutex<Vec<PendingMainEvent>> {
-    PENDING_MAIN_EVENTS.get_or_init(|| Mutex::new(Vec::new()))
-}
-
-fn queue_main_window_event(event: &str, payload: Value) -> IpcResult<u64> {
-    let id = PENDING_MAIN_EVENT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    pending_main_events()
-        .lock()
-        .map_err(|_| {
-            runtime_error(
-                "main_window_event_queue_failed",
-                "The pending main-window event queue is unavailable",
-            )
-        })?
-        .push(PendingMainEvent {
-            id,
-            event: event.to_string(),
-            payload,
-        });
-    Ok(id)
-}
-
-fn remove_pending_main_window_event(id: u64) {
-    if let Ok(mut events) = pending_main_events().lock() {
-        events.retain(|event| event.id != id);
-    }
-}
-
-fn flush_pending_main_window_events<R: Runtime>(window: &WebviewWindow<R>) -> IpcResult<()> {
-    let events = pending_main_events()
-        .lock()
-        .map_err(|_| {
-            runtime_error(
-                "main_window_event_queue_failed",
-                "The pending main-window event queue is unavailable",
-            )
-        })
-        .map(|mut events| std::mem::take(&mut *events))?;
-    let mut events = events.into_iter();
-    while let Some(event) = events.next() {
-        if let Err(error) = window.emit(&event.event, event.payload.clone()) {
-            let mut pending = vec![event];
-            pending.extend(events);
-            let mut queued = pending_main_events().lock().map_err(|_| {
-                runtime_error(
-                    "main_window_event_queue_failed",
-                    "The pending main-window event queue is unavailable",
-                )
-                .with_detail("emitDetail", error.to_string())
-            })?;
-            pending.append(&mut queued);
-            *queued = pending;
-            return Err(main_window_event_error(error).with_detail("queued", true));
-        }
-    }
-    Ok(())
-}
-
-/// Marks the main WebView ready only after its native-event listeners exist.
-/// Queued tray commands are then delivered in their original order.
+/// Called by the main WebView once its native-event listeners exist.
 #[tauri::command]
 pub fn background_runtime_main_window_ready<R: Runtime>(window: WebviewWindow<R>) -> IpcResult<()> {
     if window.label() != MAIN_WINDOW_LABEL {
@@ -688,17 +464,6 @@ pub fn background_runtime_main_window_ready<R: Runtime>(window: WebviewWindow<R>
             "Only the main window can mark the main WebView ready",
         ));
     }
-    let _guard = MAIN_WINDOW_LOCK.lock().map_err(|_| {
-        runtime_error(
-            "main_window_lock_poisoned",
-            "The main-window lifecycle lock is unavailable",
-        )
-    })?;
-    if let Err(error) = flush_pending_main_window_events(&window) {
-        MAIN_WINDOW_READY.store(false, Ordering::Release);
-        return Err(error);
-    }
-    MAIN_WINDOW_READY.store(true, Ordering::Release);
     Ok(())
 }
 
@@ -713,11 +478,9 @@ pub fn destroy_main_window<R: Runtime>(app: AppHandle<R>) -> IpcResult<bool> {
         )
     })?;
     let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
-        MAIN_WINDOW_READY.store(false, Ordering::Release);
         return Ok(false);
     };
     window.destroy().map_err(main_window_error)?;
-    MAIN_WINDOW_READY.store(false, Ordering::Release);
     Ok(true)
 }
 
@@ -732,7 +495,6 @@ pub fn validate_background_runtime_config(config: &BackgroundRuntimeConfig) -> I
         ));
     }
 
-    validate_apex_q(&config.apex_q)?;
     validate_razer(&config.razer)?;
     Ok(())
 }
@@ -839,59 +601,6 @@ pub async fn background_runtime_configure<R: Runtime>(
         }
     };
 
-    let snapshot = snapshot_from_known_state(
-        config,
-        initial_snapshot.autostart_enabled,
-        launch_mode,
-        initial_snapshot.autostart_supported,
-    );
-    emit_background_runtime_changed_if(&app, true, &snapshot);
-    Ok(snapshot)
-}
-
-#[tauri::command]
-pub async fn background_runtime_update_apex_q<R: Runtime>(
-    app: AppHandle<R>,
-    apex_q: ApexQBackgroundConfig,
-) -> IpcResult<BackgroundRuntimeSnapshot> {
-    let _transaction = runtime_transaction_lock().lock().await;
-    let store = BackgroundRuntimeStore::from_app(&app)?;
-    let current = store.load()?;
-    let mut desired = current.clone();
-    desired.apex_q = apex_q.clone();
-    validate_background_runtime_config(&desired)?;
-
-    let autostart = TauriAutostartControl::new(&app);
-    let launch_mode = LaunchMode::current();
-    let initial_snapshot = snapshot_for_support(
-        current.clone(),
-        &autostart,
-        launch_mode,
-        autostart_supported(),
-    )?;
-    if desired.apex_q == current.apex_q {
-        return Ok(initial_snapshot);
-    }
-
-    if let Err(error) = crate::background_coordinator::apply_apex_q_runtime_config(&app, &desired) {
-        let rollback = crate::background_coordinator::apply_apex_q_runtime_config(&app, &current);
-        return Err(with_runtime_config_rollback(error, rollback));
-    }
-    let config = match commit_apex_q_config(&store, apex_q) {
-        Ok(config) => config,
-        Err(error) => {
-            let rollback =
-                crate::background_coordinator::apply_apex_q_runtime_config(&app, &current);
-            return Err(with_runtime_config_rollback(
-                runtime_error(
-                    "config_commit_failed",
-                    "The Apex Q runtime changed but its background configuration could not be saved",
-                )
-                .with_detail("detail", error.to_string()),
-                rollback,
-            ));
-        }
-    };
     let snapshot = snapshot_from_known_state(
         config,
         initial_snapshot.autostart_enabled,
@@ -1081,16 +790,6 @@ fn commit_razer_config(
     })
 }
 
-fn commit_apex_q_config(
-    store: &BackgroundRuntimeStore,
-    apex_q: ApexQBackgroundConfig,
-) -> IpcResult<BackgroundRuntimeConfig> {
-    store.update(|stored| {
-        stored.apex_q = apex_q;
-        Ok(stored.clone())
-    })
-}
-
 fn commit_beta_features(
     store: &BackgroundRuntimeStore,
     enabled: bool,
@@ -1267,15 +966,6 @@ fn snapshot_from_known_state(
     launch_mode: LaunchMode,
     supported: bool,
 ) -> BackgroundRuntimeSnapshot {
-    let apex_q_state = if !config.apex_q.enabled {
-        BackgroundFeatureState::Disabled
-    } else if !config.beta_features_enabled {
-        BackgroundFeatureState::BlockedByBeta
-    } else if !config.apex_q.setup_done {
-        BackgroundFeatureState::NotConfigured
-    } else {
-        BackgroundFeatureState::Ready
-    };
     let razer_state = if !config.razer.enabled {
         BackgroundFeatureState::Disabled
     } else {
@@ -1287,7 +977,6 @@ fn snapshot_from_known_state(
         autostart_enabled: actual_autostart,
         configured_autostart: config.autostart,
         launch_mode,
-        apex_q_state,
         razer_state,
         config,
     }
@@ -1319,46 +1008,6 @@ fn with_rollback_result<C: AutostartControl>(
             .with_detail("rollback", "failed")
             .with_detail("rollbackDetail", detail),
     }
-}
-
-fn validate_apex_q(config: &ApexQBackgroundConfig) -> IpcResult<()> {
-    let hotkey = config.hotkey.trim();
-    if hotkey.is_empty() || hotkey.len() > MAX_HOTKEY_LENGTH || hotkey.contains('\0') {
-        return Err(invalid_config("Apex Q hotkey is invalid"));
-    }
-    if config.delay_ms > MAX_DELAY_MS {
-        return Err(invalid_config("Apex Q capture delay is out of range"));
-    }
-    if config.overlay_hide_sec > MAX_OVERLAY_HIDE_SECONDS {
-        return Err(invalid_config("Apex Q overlay timeout is out of range"));
-    }
-    if !config.overlay_opacity.is_finite() || !(0.15..=1.0).contains(&config.overlay_opacity) {
-        return Err(invalid_config("Apex Q overlay opacity is out of range"));
-    }
-    if !(180..=640).contains(&config.overlay_w) || !(96..=480).contains(&config.overlay_h) {
-        return Err(invalid_config("Apex Q overlay size is out of range"));
-    }
-    if config.overlay_x.is_some_and(|value| !value.is_finite())
-        || config.overlay_y.is_some_and(|value| !value.is_finite())
-    {
-        return Err(invalid_config("Apex Q overlay position is invalid"));
-    }
-    validate_normalized_rect(&config.showpos_roi, "showpos ROI")?;
-    validate_normalized_rect(&config.ping_roi, "ping ROI")?;
-    if let Some(placement) = &config.overlay_placement {
-        if placement.version != 2 || placement.monitor_width == 0 || placement.monitor_height == 0 {
-            return Err(invalid_config("Apex Q overlay placement is invalid"));
-        }
-        validate_normalized_rect(&placement.rect, "overlay placement")?;
-    }
-    for deprecated in ["autostart", "closeToTray", "startInTray"] {
-        if config.extensions.contains_key(deprecated) {
-            return Err(invalid_config(format!(
-                "Deprecated Apex Q field must be migrated: {deprecated}"
-            )));
-        }
-    }
-    Ok(())
 }
 
 fn validate_razer(config: &RazerBackgroundConfig) -> IpcResult<()> {
@@ -1460,22 +1109,6 @@ fn valid_optional_matcher(value: &Option<String>) -> bool {
     value
         .as_ref()
         .is_none_or(|value| !value.trim().is_empty() && value.len() <= 32_767)
-}
-
-fn validate_normalized_rect(rect: &NormalizedRect, label: &str) -> IpcResult<()> {
-    let values = [rect.x, rect.y, rect.w, rect.h];
-    if values.iter().any(|value| !value.is_finite())
-        || rect.x < 0.0
-        || rect.y < 0.0
-        || rect.w <= 0.0
-        || rect.h <= 0.0
-        || rect.x + rect.w > 1.000_001
-        || rect.y + rect.h > 1.000_001
-    {
-        Err(invalid_config(format!("Apex Q {label} is invalid")))
-    } else {
-        Ok(())
-    }
 }
 
 fn load_config_unlocked(path: &Path) -> IpcResult<BackgroundRuntimeConfig> {
@@ -1626,14 +1259,6 @@ fn main_window_error(error: tauri::Error) -> IpcError {
     .with_detail("detail", error.to_string())
 }
 
-fn main_window_event_error(error: tauri::Error) -> IpcError {
-    runtime_error(
-        "main_window_event_failed",
-        "Failed to deliver an event to the main application window",
-    )
-    .with_detail("detail", error.to_string())
-}
-
 fn runtime_error(reason: &str, message: impl Into<String>) -> IpcError {
     IpcError::new(format!("background_runtime.{reason}"), message)
 }
@@ -1711,23 +1336,6 @@ mod tests {
     }
 
     #[test]
-    fn pending_main_window_events_are_removable_after_creation_failure() {
-        let id = queue_main_window_event("test-event", Value::String("payload".to_string()))
-            .expect("queue event");
-        assert!(pending_main_events()
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|event| event.id == id));
-        remove_pending_main_window_event(id);
-        assert!(!pending_main_events()
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|event| event.id == id));
-    }
-
-    #[test]
     fn runtime_config_rollback_result_is_reported() {
         let restored =
             with_runtime_config_rollback(runtime_error("apply_failed", "apply failed"), Ok(()));
@@ -1779,8 +1387,7 @@ mod tests {
             locale: RuntimeLocale::ZhCn,
             ..Default::default()
         };
-        config.apex_q.enabled = true;
-        config.apex_q.setup_done = true;
+        config.razer.enabled = true;
         store.save(&config).unwrap();
 
         assert_eq!(store.load().unwrap(), config);
@@ -1805,7 +1412,6 @@ mod tests {
             locale: RuntimeLocale::ZhCn,
             ..Default::default()
         };
-        original.apex_q.hotkey = "Ctrl+Alt+A".to_string();
         store.save(&original).unwrap();
 
         let mut razer = RazerBackgroundConfig {
@@ -1824,27 +1430,15 @@ mod tests {
         assert!(after_razer.autostart);
         assert!(after_razer.beta_features_enabled);
         assert_eq!(after_razer.locale, RuntimeLocale::ZhCn);
-        assert_eq!(after_razer.apex_q.hotkey, "Ctrl+Alt+A");
 
         let after_locale = commit_runtime_locale(&store, RuntimeLocale::EnUs).unwrap();
         assert_eq!(after_locale.locale, RuntimeLocale::EnUs);
         assert_eq!(after_locale.razer, razer);
         assert!(after_locale.autostart);
         assert!(after_locale.beta_features_enabled);
-        assert_eq!(after_locale.apex_q.hotkey, "Ctrl+Alt+A");
-
-        let mut apex_q = after_locale.apex_q.clone();
-        apex_q.hotkey = "Ctrl+Alt+Q".to_string();
-        let after_apex_q = commit_apex_q_config(&store, apex_q.clone()).unwrap();
-        assert_eq!(after_apex_q.apex_q, apex_q);
-        assert_eq!(after_apex_q.razer, razer);
-        assert_eq!(after_apex_q.locale, RuntimeLocale::EnUs);
-        assert!(after_apex_q.autostart);
-        assert!(after_apex_q.beta_features_enabled);
 
         let after_beta = commit_beta_features(&store, false).unwrap();
         assert!(!after_beta.beta_features_enabled);
-        assert_eq!(after_beta.apex_q, apex_q);
         assert_eq!(after_beta.razer, razer);
         assert_eq!(after_beta.locale, RuntimeLocale::EnUs);
         assert!(after_beta.autostart);
@@ -1872,12 +1466,12 @@ mod tests {
     #[test]
     fn validation_rejects_invalid_runtime_inputs() {
         let mut config = BackgroundRuntimeConfig::default();
-        config.apex_q.hotkey.clear();
+        config.schema_version = 99;
         assert_eq!(
             validate_background_runtime_config(&config)
                 .unwrap_err()
                 .code,
-            "background_runtime.invalid_config"
+            "background_runtime.unsupported_schema"
         );
 
         let mut config = BackgroundRuntimeConfig::default();

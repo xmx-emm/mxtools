@@ -71,6 +71,28 @@ now in the runtime verified-build list, so all three Apex pages show the same
 claim that every in-game effect has been manually confirmed; EA J57 is not
 promoted by this result. PUBG retains its separate launch-partial label.
 
+### November 3, 2026 J65 launch check
+
+The local Steam installation is now Build `25682878` / `v3.0.3.65`, exact build
+`R5pc_r5-301_J65_CL11630615_FSv30_1_2026_10_02_09_54`. A read-only catalog and
+binary check found the same 18 declared launch parameters and current
+hyphenated `reticle_color` form; all managed ConVar-backed values are still
+registered, and the managed engine flags remain launcher/parser strings without
+ConVar registrations. The catalog-only mouse-sensitivity constants in the
+product source already match the implementation. This is a launch/static
+review; it does not promote J65 to the build-level verified list because the
+current evidence has not yet repeated the complete J58 write/readback gate.
+
+### November 4, 2026 J24 launch check
+
+The local Steam installation is now Build `26174491` / `v3.0.4.24` on the
+FSv31_0 branch (a main-branch jump from J65's FSv30_1). A read-only catalog
+and binary check found the same 18 declared launch parameters, the current
+hyphenated `reticle_color` form, and all managed ConVar-backed values still
+registered. The managed engine flags remain launcher/parser strings without
+ConVar registrations. Product data and the verified-build list remain
+unchanged; J58 is still the latest fully gated build.
+
 ## PUBG
 
 - Graphics aliases serialize to one canonical token; conflicting graphics or

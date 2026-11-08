@@ -4,6 +4,7 @@ import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import AppTopBar from '@/components/AppTopBar.vue';
 import {formatIpcError} from '@/ipc/error.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
 import {diagnoseNetworkRepairCheck, repairNetwork} from '@/ipc/commands.ts';
 import type {
   NetworkRepairCheck,
@@ -219,9 +220,12 @@ async function repair() {
   if (selectedActions.value.length === 0 || isBusy.value) return;
   const selected = [...selectedActions.value];
   if (selected.some(needsConfirmation)) {
-    const confirmed = window.confirm(t('networkRepair.confirmBody', {
+    const confirmed = await confirm(t('networkRepair.confirmBody', {
       actions: selected.map(actionLabel).join(t('networkRepair.actionSeparator')),
-    }));
+    }), {
+      title: t('networkRepair.confirmTitle'),
+      kind: 'warning',
+    });
     if (!confirmed) return;
   }
 

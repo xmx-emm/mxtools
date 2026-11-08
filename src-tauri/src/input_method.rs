@@ -2,6 +2,7 @@
 
 use crate::elevated::require_elevated;
 use crate::ipc_error::{IpcError, IpcResult};
+use crate::utils::blocking_cmd;
 
 fn input_method_error(error: String) -> IpcError {
     IpcError::operation_failed("input_method", error)
@@ -66,10 +67,10 @@ fn open_ms_settings(uri: &str) -> Result<(), String> {
 const NOT_WINDOWS: &str = "Input method management is only supported on Windows";
 
 #[tauri::command]
-pub fn get_input_methods() -> IpcResult<Vec<InputMethodItem>> {
+pub async fn get_input_methods() -> IpcResult<Vec<InputMethodItem>> {
     #[cfg(windows)]
     {
-        wt_get().map_err(input_method_error)
+        blocking_cmd(wt_get).await.map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
@@ -78,10 +79,10 @@ pub fn get_input_methods() -> IpcResult<Vec<InputMethodItem>> {
 }
 
 #[tauri::command]
-pub fn get_available_input_methods() -> IpcResult<Vec<InputMethodItem>> {
+pub async fn get_available_input_methods() -> IpcResult<Vec<InputMethodItem>> {
     #[cfg(windows)]
     {
-        wt_available().map_err(input_method_error)
+        blocking_cmd(wt_available).await.map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
@@ -90,10 +91,55 @@ pub fn get_available_input_methods() -> IpcResult<Vec<InputMethodItem>> {
 }
 
 #[tauri::command]
-pub fn reorder_input_methods(ids: Vec<String>) -> IpcResult<()> {
+pub async fn reorder_input_methods(ids: Vec<String>) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        wt_reorder(ids).map_err(input_method_error)
+        blocking_cmd(move || wt_reorder(ids))
+            .await
+            .map_err(input_method_error)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = ids;
+        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
+    }
+}
+
+#[tauri::command]
+pub async fn add_input_method(id: String) -> IpcResult<()> {
+    #[cfg(windows)]
+    {
+        blocking_cmd(move || wt_add(&id))
+            .await
+            .map_err(input_method_error)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = id;
+        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
+    }
+}
+
+#[tauri::command]
+pub async fn remove_input_method(id: String, tip: Option<String>) -> IpcResult<()> {
+    #[cfg(windows)]
+    {
+        blocking_cmd(move || wt_remove(&id, tip.as_deref()))
+            .await
+            .map_err(input_method_error)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (id, tip);
+        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
+    }
+}
+
+#[tauri::command]
+pub async fn add_us_keyboard() -> IpcResult<()> {
+    #[cfg(windows)]
+    {
+        blocking_cmd(wt_add_us).await.map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
@@ -102,10 +148,30 @@ pub fn reorder_input_methods(ids: Vec<String>) -> IpcResult<()> {
 }
 
 #[tauri::command]
-pub fn add_input_method(id: String) -> IpcResult<()> {
+pub async fn open_input_method_settings(id: String, name: String) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        wt_add(&id).map_err(input_method_error)
+        blocking_cmd(move || {
+            let uri = wt_settings_uri(&id, &name)?;
+            open_ms_settings(&uri)
+        })
+        .await
+        .map_err(input_method_error)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (id, name);
+        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
+    }
+}
+
+#[tauri::command]
+pub async fn disable_chs_simplified_traditional_hotkey() -> IpcResult<()> {
+    #[cfg(windows)]
+    {
+        blocking_cmd(wt_disable_hotkey)
+            .await
+            .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
@@ -114,10 +180,10 @@ pub fn add_input_method(id: String) -> IpcResult<()> {
 }
 
 #[tauri::command]
-pub fn remove_input_method(id: String, tip: Option<String>) -> IpcResult<()> {
+pub async fn get_wubi_lexicon_info() -> IpcResult<WubiLexiconInfo> {
     #[cfg(windows)]
     {
-        wt_remove(&id, tip.as_deref()).map_err(input_method_error)
+        blocking_cmd(wt_wubi_info).await.map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
@@ -126,112 +192,89 @@ pub fn remove_input_method(id: String, tip: Option<String>) -> IpcResult<()> {
 }
 
 #[tauri::command]
-pub fn add_us_keyboard() -> IpcResult<()> {
+pub async fn import_wubi_system_lexicon(file_path: String) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        wt_add_us().map_err(input_method_error)
+        blocking_cmd(move || {
+            require_elevated()?;
+            let validated = crate::system::assert_user_data_path(&file_path)?;
+            wt_import_sys(&validated.to_string_lossy())
+        })
+        .await
+        .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
+        let _ = file_path;
         Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
     }
 }
 
 #[tauri::command]
-pub fn open_input_method_settings(id: String, name: String) -> IpcResult<()> {
+pub async fn import_wubi_user_phrases(file_path: String) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        let uri = wt_settings_uri(&id, &name).map_err(input_method_error)?;
-        open_ms_settings(&uri).map_err(input_method_error)
+        blocking_cmd(move || {
+            let validated = crate::system::assert_user_data_path(&file_path)?;
+            wt_import_udp(&validated.to_string_lossy())
+        })
+        .await
+        .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
+        let _ = file_path;
         Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
     }
 }
 
 #[tauri::command]
-pub fn disable_chs_simplified_traditional_hotkey() -> IpcResult<()> {
+pub async fn export_wubi_user_phrases(file_path: String) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        wt_disable_hotkey().map_err(input_method_error)
+        blocking_cmd(move || {
+            let validated = crate::system::assert_user_data_path(&file_path)?;
+            wt_export_udp(&validated.to_string_lossy())
+        })
+        .await
+        .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
+        let _ = file_path;
         Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
     }
 }
 
 #[tauri::command]
-pub fn get_wubi_lexicon_info() -> IpcResult<WubiLexiconInfo> {
+pub async fn restore_wubi_system_lexicon(backup_id: Option<String>) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        wt_wubi_info().map_err(input_method_error)
+        blocking_cmd(move || {
+            require_elevated()?;
+            wt_restore_sys(backup_id)
+        })
+        .await
+        .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
+        let _ = backup_id;
         Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
     }
 }
 
 #[tauri::command]
-pub fn import_wubi_system_lexicon(file_path: String) -> IpcResult<()> {
+pub async fn open_ms_settings_page(uri: String) -> IpcResult<()> {
     #[cfg(windows)]
     {
-        require_elevated().map_err(input_method_error)?;
-        wt_import_sys(&file_path).map_err(input_method_error)
+        blocking_cmd(move || open_ms_settings(&uri))
+            .await
+            .map_err(input_method_error)
     }
     #[cfg(not(windows))]
     {
-        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
-    }
-}
-
-#[tauri::command]
-pub fn import_wubi_user_phrases(file_path: String) -> IpcResult<()> {
-    #[cfg(windows)]
-    {
-        wt_import_udp(&file_path).map_err(input_method_error)
-    }
-    #[cfg(not(windows))]
-    {
-        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
-    }
-}
-
-#[tauri::command]
-pub fn export_wubi_user_phrases(file_path: String) -> IpcResult<()> {
-    #[cfg(windows)]
-    {
-        wt_export_udp(&file_path).map_err(input_method_error)
-    }
-    #[cfg(not(windows))]
-    {
-        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
-    }
-}
-
-#[tauri::command]
-pub fn restore_wubi_system_lexicon(backup_id: Option<String>) -> IpcResult<()> {
-    #[cfg(windows)]
-    {
-        require_elevated().map_err(input_method_error)?;
-        wt_restore_sys(backup_id).map_err(input_method_error)
-    }
-    #[cfg(not(windows))]
-    {
-        Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
-    }
-}
-
-#[tauri::command]
-pub fn open_ms_settings_page(uri: String) -> IpcResult<()> {
-    #[cfg(windows)]
-    {
-        open_ms_settings(&uri).map_err(input_method_error)
-    }
-    #[cfg(not(windows))]
-    {
+        let _ = uri;
         Err(IpcError::new("input_method.windows_only", NOT_WINDOWS))
     }
 }

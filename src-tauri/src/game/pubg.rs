@@ -71,28 +71,19 @@ pub async fn get_pubg_logs_folder_path() -> IpcResult<String> {
 }
 
 #[cfg(windows)]
-fn open_folder_windows(path: &str) -> Result<(), String> {
+fn shell_execute_open_dir(dir: &std::path::Path) -> Result<(), String> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
     use winapi::um::shellapi::ShellExecuteW;
     use winapi::um::winuser::SW_SHOWNORMAL;
 
-    let normalized = path.trim().replace('/', "\\");
-    assert_open_folder_path(&normalized)?;
-
-    // 仅对用户目录自动创建；已存在的游戏/库路径只打开不创建。
-    let p = std::path::Path::new(&normalized);
-    if !p.exists() {
-        if path_is_under_user_profile(&normalized) {
-            std::fs::create_dir_all(&normalized)
-                .map_err(|e| format!("pubg.errors.createDirFailed: {e}"))?;
-        } else {
-            return Err("pubg.errors.pathNotFound".into());
-        }
-    }
-
-    let file_w: Vec<u16> = OsStr::new(&normalized)
+    let verb_w: Vec<u16> = OsStr::new("explore")
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let file_w: Vec<u16> = dir
+        .as_os_str()
         .encode_wide()
         .chain(std::iter::once(0))
         .collect();
@@ -100,7 +91,7 @@ fn open_folder_windows(path: &str) -> Result<(), String> {
     let ret = unsafe {
         ShellExecuteW(
             ptr::null_mut(),
-            ptr::null(),
+            verb_w.as_ptr(),
             file_w.as_ptr(),
             ptr::null(),
             ptr::null(),
@@ -115,28 +106,41 @@ fn open_folder_windows(path: &str) -> Result<(), String> {
     }
 }
 
-fn assert_open_folder_path(path: &str) -> Result<(), String> {
-    if path.is_empty() || path.contains('\0') {
+pub(crate) fn assert_open_folder_path(path: &str) -> Result<std::path::PathBuf, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() || trimmed.contains('\0') {
         return Err("pubg.errors.emptyPath".into());
     }
-    if path.contains("..") {
+    if trimmed.starts_with('-') || trimmed.starts_with('/') || trimmed.starts_with(',') {
         return Err("pubg.errors.invalidPath".into());
     }
-    let lower = path.to_ascii_lowercase();
-    for b in [r"c:\windows", r"c:\programdata", r"\\.\"] {
-        if lower == b || lower.starts_with(&format!("{b}\\")) {
-            return Err("pubg.errors.pathNotAllowed".into());
-        }
-    }
-    Ok(())
+    crate::system::validate_local_path_with_rules(
+        trimmed,
+        false,
+        false,
+        crate::system::PathValidationErrors {
+            empty: "pubg.errors.emptyPath",
+            invalid: "pubg.errors.invalidPath",
+            not_absolute: "pubg.errors.invalidPath",
+            not_allowed: "pubg.errors.pathNotAllowed",
+        },
+    )
 }
 
-fn path_is_under_user_profile(path: &str) -> bool {
-    let lower = path.replace('/', "\\").to_ascii_lowercase();
+fn path_is_under_user_profile(path: &std::path::Path) -> bool {
+    let lower = path
+        .to_string_lossy()
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_ascii_lowercase();
     for key in ["USERPROFILE", "APPDATA", "LOCALAPPDATA"] {
         if let Ok(base) = std::env::var(key) {
-            let base = base.replace('/', "\\").to_ascii_lowercase();
-            if lower == base || lower.starts_with(&format!("{base}\\")) {
+            let base = base
+                .trim()
+                .replace('/', "\\")
+                .trim_end_matches('\\')
+                .to_ascii_lowercase();
+            if !base.is_empty() && (lower == base || lower.starts_with(&format!("{base}\\"))) {
                 return true;
             }
         }
@@ -144,7 +148,45 @@ fn path_is_under_user_profile(path: &str) -> bool {
     false
 }
 
-/// 在资源管理器中打开目录(先创建目录、宽字符 ShellExecute,失败再回退 explorer)
+pub(crate) fn prepare_open_folder_target(raw: &str) -> Result<std::path::PathBuf, String> {
+    let validated = assert_open_folder_path(raw)?;
+
+    // 仅对用户目录自动创建；已存在的游戏/库路径只打开不创建。
+    if !validated.exists() {
+        if path_is_under_user_profile(&validated) {
+            std::fs::create_dir_all(&validated)
+                .map_err(|e| format!("pubg.errors.createDirFailed: {e}"))?;
+        } else {
+            return Err("pubg.errors.pathNotFound".into());
+        }
+    }
+
+    #[cfg(windows)]
+    let resolved = {
+        let canon = std::fs::canonicalize(&validated)
+            .map_err(|_| "pubg.errors.pathNotFound".to_string())?;
+        let norm = crate::system::normalize_canonical_windows_path(&canon)
+            .ok_or_else(|| "pubg.errors.pathNotAllowed".to_string())?;
+        if crate::system::is_under_protected_windows_root(&norm, false) {
+            return Err("pubg.errors.pathNotAllowed".into());
+        }
+        norm
+    };
+
+    #[cfg(not(windows))]
+    let resolved = std::fs::canonicalize(&validated)
+        .map_err(|_| "pubg.errors.pathNotFound".to_string())?;
+
+    let meta = std::fs::metadata(&resolved)
+        .map_err(|_| "pubg.errors.pathNotFound".to_string())?;
+    if !meta.is_dir() {
+        return Err("pubg.errors.notADirectory".into());
+    }
+
+    Ok(resolved)
+}
+
+/// 在资源管理器中打开目录(先校验并确认目录存在，宽字符 ShellExecute 失败再安全回退 explorer)
 #[tauri::command]
 pub async fn open_folder_detached(path: String) -> IpcResult<()> {
     let path = path.trim().to_string();
@@ -156,13 +198,18 @@ pub async fn open_folder_detached(path: String) -> IpcResult<()> {
     }
     log_info!("open_folder_detached: {}", path);
     blocking_cmd(move || {
+        let target_dir = prepare_open_folder_target(&path)?;
         #[cfg(windows)]
         {
-            open_folder_windows(&path).or_else(|e| {
+            shell_execute_open_dir(&target_dir).or_else(|e| {
+                use std::os::windows::process::CommandExt;
                 log_info!("ShellExecute 失败,尝试 explorer: {}", e);
-                let normalized = path.replace('/', "\\");
+                let dir_str = target_dir.to_string_lossy();
+                if dir_str.contains('"') {
+                    return Err("pubg.errors.invalidPath".to_string());
+                }
                 std::process::Command::new("explorer.exe")
-                    .arg(normalized)
+                    .raw_arg(format!("\"{dir_str}\""))
                     .spawn()
                     .map_err(|e2| format!("{e}; explorer: {e2}"))?;
                 Ok(())
@@ -170,9 +217,8 @@ pub async fn open_folder_detached(path: String) -> IpcResult<()> {
         }
         #[cfg(not(windows))]
         {
-            std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
             std::process::Command::new("xdg-open")
-                .arg(&path)
+                .arg(&target_dir)
                 .spawn()
                 .map_err(|e| e.to_string())?;
             Ok(())

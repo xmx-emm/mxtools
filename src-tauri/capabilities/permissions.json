@@ -12,9 +12,7 @@
     "repair-onedrive-window",
     "repair-icon-cache-window",
     "repair-network-window",
-    "repair-apex-launch-window",
-    "apex-q-window",
-    "apex-q-overlay-window"
+    "repair-apex-launch-window"
   ],
   "permissions": [
     {

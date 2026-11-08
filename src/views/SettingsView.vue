@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, reactive, ref, watch} from 'vue';
+import {computed, nextTick, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {openPath} from '@tauri-apps/plugin-opener';
-import {getCurrentWindow} from '@tauri-apps/api/window';
-import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {useSettingsStore} from '@/stores/settings.ts';
 import {useDebugStore} from '@/stores/debug.ts';
 import {useUiStyleStore} from '@/stores/style.ts';
@@ -19,20 +17,10 @@ import OnlineAccountSection from '@/components/settings/OnlineAccountSection.vue
 import AppUpdateSection from '@/components/settings/AppUpdateSection.vue';
 import type {LocaleCode} from '@/utils/locale.ts';
 import {applyLocaleToggleShortcut, DEFAULT_TOGGLE_LOCALE_SHORTCUT, setSynchronizedAppLocale} from '@/utils/global-shortcuts.ts';
-import {
-  APEX_Q_PREFS_CHANGED_EVENT,
-  DEFAULT_APEX_Q_HOTKEY,
-  type ApexQPrefs,
-} from '@/types/apex_q.ts';
-import {loadApexQPrefs, patchApexQPrefs} from '@/stores/apex_q_preferences.ts';
-import {applyApexQPrefs, bootstrapApexQFromStorage, syncApexQHotkey} from '@/utils/apex_q.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
+import {useIsStoreBuild} from '@/utils/app_info.ts';
 
 type SettingsTab = 'general' | 'appearance' | 'shortcuts' | 'about';
-type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
-
-const isTauriRuntime = typeof window !== 'undefined'
-  && Boolean((window as TauriRuntimeWindow).__TAURI_INTERNALS__);
 
 const {t} = useI18n();
 const settingsStore = useSettingsStore();
@@ -40,12 +28,11 @@ const debugStore = useDebugStore();
 const uiStore = useUiStyleStore();
 const toast = useToast();
 const backgroundRuntime = useBackgroundRuntimeStore();
-const currentWindowLabel = isTauriRuntime ? getCurrentWindow().label : 'browser-preview';
-let unlistenApexQPrefs: UnlistenFn | null = null;
+// The Store manages updates, and a Run-key autostart cannot target an MSIX package.
+const isStoreBuild = useIsStoreBuild();
 
 const activeTab = ref<SettingsTab>('general');
 const editTheme = ref(uiStore.theme);
-const apexQPrefs = reactive<ApexQPrefs>(loadApexQPrefs());
 const localeApplying = ref(false);
 
 const tabs = computed(() => [
@@ -88,7 +75,6 @@ async function openLogFolder() {
 
 function onCleared() {
   editTheme.value = uiStore.theme;
-  Object.assign(apexQPrefs, loadApexQPrefs());
   void onBetaFeaturesEnabled(false);
 }
 
@@ -126,46 +112,12 @@ async function onBetaFeaturesEnabled(v: boolean | null) {
     console.warn('sync native beta features failed', error);
     settingsStore.setBetaFeaturesEnabled(previous);
     toast.error(String(error));
-    return;
-  }
-  try {
-    if (enabled) {
-      await bootstrapApexQFromStorage();
-    } else {
-      await syncApexQHotkey({...loadApexQPrefs(), enabled: false});
-    }
-  } catch (error) {
-    console.warn('sync beta apex-q state failed', error);
   }
 }
 
-async function persistApexQ(changedKeys: readonly (keyof ApexQPrefs)[]) {
-  try {
-    await applyApexQPrefs(apexQPrefs, {changedKeys});
-  } catch {
-    toast.error(t('settings.shortcutRegisterFailed'));
-  }
-}
-
-async function onApexQEnabled(v: boolean | null) {
-  apexQPrefs.enabled = v ?? false;
-  await persistApexQ(['enabled']);
-  if (apexQPrefs.enabled && !apexQPrefs.setupDone) {
-    toast.info(t('settings.shortcutApexQNeedSetup'));
-  }
-}
-
-async function onApexQHotkey(value: string) {
-  apexQPrefs.hotkey = value || DEFAULT_APEX_Q_HOTKEY;
-  await persistApexQ(['hotkey']);
-  if (!value) toast.info(t('settings.shortcutResetDefault'));
-}
-
-function onShortcutCaptureError(reason: 'invalid' | 'empty', scope: 'app' | 'apexQ' = 'app') {
+function onShortcutCaptureError(reason: 'invalid' | 'empty') {
   if (reason !== 'invalid') return;
-  toast.warning(scope === 'apexQ'
-    ? t('settings.shortcutApexQInvalid')
-    : t('settings.shortcutInvalid'));
+  toast.warning(t('settings.shortcutInvalid'));
 }
 
 async function focusTabAt(index: number) {
@@ -187,25 +139,6 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
   void focusTabAt(nextIndex);
 }
 
-watch(activeTab, (tab) => {
-  if (tab === 'shortcuts') Object.assign(apexQPrefs, loadApexQPrefs());
-});
-
-onMounted(async () => {
-  if (!isTauriRuntime) return;
-  unlistenApexQPrefs = await listen<{source?: unknown; prefs?: Partial<ApexQPrefs>}>(APEX_Q_PREFS_CHANGED_EVENT, (event) => {
-    if (event.payload?.source !== currentWindowLabel) {
-      if (event.payload?.prefs && typeof event.payload.prefs === 'object') {
-        patchApexQPrefs(event.payload.prefs);
-      }
-      Object.assign(apexQPrefs, loadApexQPrefs());
-    }
-  });
-});
-onUnmounted(() => {
-  unlistenApexQPrefs?.();
-  unlistenApexQPrefs = null;
-});
 </script>
 
 <template>
@@ -255,7 +188,7 @@ onUnmounted(() => {
               </div>
             </header>
             <div class="settings-rows">
-              <BackgroundAutostartSwitch />
+              <BackgroundAutostartSwitch v-if="isStoreBuild === false" />
               <label class="setting-row">
                 <span>
                   <strong>{{ t('settings.closeToTray') }}</strong>
@@ -329,7 +262,7 @@ onUnmounted(() => {
           </section>
 
           <OnlineAccountSection v-if="settingsStore.betaFeaturesEnabled"/>
-          <AppUpdateSection/>
+          <AppUpdateSection v-if="isStoreBuild === false"/>
         </div>
 
         <div
@@ -405,7 +338,7 @@ onUnmounted(() => {
                     :disabled="!settingsStore.toggleLocaleShortcutEnabled"
                     :model-value="settingsStore.resolvedToggleLocaleShortcut"
                     @update:model-value="onToggleLocaleShortcut"
-                    @capture-error="onShortcutCaptureError($event, 'app')"
+                    @capture-error="onShortcutCaptureError"
                   />
                   <v-btn
                     class="mx-compact-icon-button shortcut-reset-button"
@@ -417,29 +350,6 @@ onUnmounted(() => {
                     @click="resetToggleLocaleShortcut"
                   />
                 </div>
-              </article>
-              <article v-if="settingsStore.betaFeaturesEnabled" class="shortcut-row">
-                <v-switch
-                  :model-value="apexQPrefs.enabled"
-                  hide-details
-                  color="primary"
-                  @update:model-value="onApexQEnabled"
-                />
-                <div class="shortcut-copy">
-                  <strong>
-                    {{ t('settings.shortcutApexQ') }}
-                    <span class="mx-beta-badge ml-1" :title="t('settings.betaFeaturesHint')">{{ t('common.beta') }}</span>
-                  </strong>
-                  <span>{{ t('settings.shortcutGlobalOnlyHint') }}</span>
-                </div>
-                <span class="scope-badge scope-badge--global">{{ t('settings.shortcutGlobal') }}</span>
-                <ShortcutInput
-                  scope="apexQ"
-                  :disabled="!apexQPrefs.enabled"
-                  :model-value="apexQPrefs.hotkey || DEFAULT_APEX_Q_HOTKEY"
-                  @update:model-value="onApexQHotkey"
-                  @capture-error="onShortcutCaptureError($event, 'apexQ')"
-                />
               </article>
             </div>
           </section>
@@ -603,7 +513,6 @@ onUnmounted(() => {
   font-size: 8px;
   font-weight: 680;
 }
-.scope-badge--global { color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.09); }
 .shortcut-editor-actions {
   display: flex;
   align-items: center;

@@ -15,7 +15,7 @@ const paletteSource = source('../../../../src/components/command/AppCommandPalet
 describe('Apex Launch Repair beta contract', () => {
   it('gates toolbar, catalog, command search, and direct routing', () => {
     expect(apexPageSource).toMatch(
-      /v-if="settings_store\.betaFeaturesEnabled"[^>]*apex-q-tool-slot[\s\S]{0,500}open_launch_repair/,
+      /v-if="settings_store\.betaFeaturesEnabled"[^>]*apex-beta-tool-slot[\s\S]{0,500}open_launch_repair/,
     );
     expect(catalogSource).toContain(
       'items: group.items.filter(item => !item.beta || settingsStore.betaFeaturesEnabled)',

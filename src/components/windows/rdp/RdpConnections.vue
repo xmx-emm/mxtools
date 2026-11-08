@@ -7,6 +7,8 @@ import {save} from '@tauri-apps/plugin-dialog';
 import {useRdpStore} from '@/stores/rdp.ts';
 import type {RdpConnection} from '@/types/rdp.ts';
 import {connectRdp, exportRdpFile} from '@/ipc/commands.ts';
+import {formatIpcError} from '@/ipc/error.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
 
 type CredentialMode = 'prompt' | 'local' | 'microsoft' | 'organization';
 type DialogMode = 'add' | 'edit';
@@ -135,7 +137,7 @@ async function persistConnection() {
     } else if (previous) {
       store.connections[editIndex.value] = previous;
     }
-    toast.error(String(error) || t('rdp.connect.saveFailed'));
+    toast.error(formatIpcError(error));
   } finally {
     savingConnection.value = false;
   }
@@ -143,14 +145,20 @@ async function persistConnection() {
 
 async function deleteConnection(index: number) {
   const connection = store.connections[index];
-  if (!connection || !confirm(t('rdp.connect.deleteConfirm', {name: connection.name}))) return;
+  if (!connection) return;
+  const accepted = await confirm(t('rdp.connect.deleteConfirm', {name: connection.name}), {
+    title: t('rdp.connect.deleteTitle'),
+    kind: 'warning',
+    confirmText: t('rdp.connect.delete'),
+  });
+  if (!accepted || store.connections[index] !== connection) return;
   const removed = store.connections.splice(index, 1);
   try {
     await store.saveConnections();
     toast.success(t('rdp.connect.deleted'));
   } catch (error: unknown) {
     if (removed[0]) store.connections.splice(index, 0, removed[0]);
-    toast.error(String(error) || t('rdp.connect.saveFailed'));
+    toast.error(formatIpcError(error));
   }
 }
 
@@ -163,7 +171,7 @@ async function connectTo(connection: RdpConnection, index: number) {
       username: connection.username || null,
     });
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     connecting.value = null;
   }
@@ -179,7 +187,7 @@ async function exportRdp(connection: RdpConnection) {
     await exportRdpFile({connection, path});
     toast.success(t('rdp.connect.exportSuccess'));
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   }
 }
 
@@ -189,7 +197,7 @@ async function copyUsername() {
     await writeText(usernamePreview.value);
     toast.success(t('rdp.user.loginNameCopied'));
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   }
 }
 

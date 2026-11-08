@@ -19,6 +19,7 @@ enum UpdateSource {
     GitHub,
 }
 
+#[derive(Clone)]
 struct PendingUpdate {
     update: Update,
     source: UpdateSource,
@@ -38,20 +39,7 @@ fn error(message: impl Into<String>) -> IpcError {
 }
 
 fn packaged_windows_app() -> bool {
-    #[cfg(windows)]
-    {
-        #[link(name = "kernel32")]
-        extern "system" {
-            fn GetCurrentPackageFullName(length: *mut u32, name: *mut u16) -> i32;
-        }
-        let mut length = 0;
-        // APPMODEL_ERROR_NO_PACKAGE is 15700. All other results are conservative.
-        unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) != 15700 }
-    }
-    #[cfg(not(windows))]
-    {
-        false
-    }
+    crate::app_info::is_packaged_app()
 }
 
 fn availability(app: &tauri::AppHandle) -> &'static str {
@@ -256,11 +244,13 @@ pub async fn install_app_update(
     let pending = PENDING
         .lock()
         .map_err(|_| error("updates.busy"))?
-        .take()
+        .clone()
         .ok_or_else(|| error("updates.checkFirst"))?;
     if pending.update.version != version {
         return Err(error("updates.checkFirst"));
     }
+    // PENDING stays set until install succeeds, so a failed download or
+    // portable preparation can be retried without another check.
     let portable = if get_app_info().distribution == AppDistribution::Portable {
         Some(crate::portable_update::context().ok_or_else(|| error("updates.checkFirst"))?)
     } else {
@@ -293,7 +283,11 @@ pub async fn install_app_update(
         std::process::exit(0);
     }
     let _ = app.emit_to("main", "app-update-installing", ());
-    update.install(bytes).map_err(|e| error(e.to_string()))
+    update.install(bytes).map_err(|e| error(e.to_string()))?;
+    if let Ok(mut pending) = PENDING.lock() {
+        *pending = None;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

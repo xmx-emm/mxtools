@@ -6,6 +6,8 @@ pub enum AppDistribution {
     Development,
     Portable,
     Installer,
+    /// MSIX package installed from the Microsoft Store (or sideloaded for testing).
+    Store,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,6 +30,10 @@ fn detect_distribution() -> AppDistribution {
         return AppDistribution::Development;
     }
 
+    if is_packaged_app() {
+        return AppDistribution::Store;
+    }
+
     if is_portable_exe_name() || crate::portable_update::context().is_some() {
         return AppDistribution::Portable;
     }
@@ -37,6 +43,25 @@ fn detect_distribution() -> AppDistribution {
     }
 
     AppDistribution::Portable
+}
+
+/// True when the process runs with MSIX package identity. The Store owns
+/// updates and the install location of such builds.
+pub fn is_packaged_app() -> bool {
+    #[cfg(windows)]
+    {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetCurrentPackageFullName(length: *mut u32, name: *mut u16) -> i32;
+        }
+        let mut length = 0;
+        // APPMODEL_ERROR_NO_PACKAGE is 15700. All other results are conservative.
+        unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) != 15700 }
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
 }
 
 fn exe_stem() -> Option<String> {

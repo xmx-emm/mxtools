@@ -25,7 +25,9 @@ vi.mock('vuetify/components/VBtnToggle', () => ({VBtnToggle: {}}));
 vi.mock('vuetify/components/VBtn', () => ({VBtn: {}}));
 vi.mock('vuetify/components/VGrid', () => ({VSpacer: {}}));
 vi.mock('vuetify/components/VProgressCircular', () => ({VProgressCircular: {}}));
-vi.mock('vuetify/components/VCheckbox', () => ({VCheckbox: {}}));
+vi.mock('vuetify/components/VCheckbox', () => ({VCheckbox: {}, VCheckboxBtn: {}}));
+vi.mock('vuetify/components/VIcon', () => ({VIcon: {}}));
+vi.mock('vuetify/components/transitions', () => ({VExpandTransition: {}}));
 vi.mock('vuetify/components/VSelect', () => ({VSelect: {}}));
 import Component from '@/components/game/apex/preset/ApexOnlinePresetsDialog.vue';
 

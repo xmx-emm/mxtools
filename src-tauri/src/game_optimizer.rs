@@ -156,6 +156,7 @@ mod win {
         process::Command, time::Instant,
     };
     use sysinfo::{ProcessesToUpdate, System};
+    use windows_tool::utils::CommandHiddenWindowExt;
     use winapi::shared::minwindef::{DWORD, UINT};
     use winapi::um::{
         wingdi::DEVMODEW,
@@ -292,6 +293,7 @@ mod win {
     }
     fn cmd(args: &[&str]) -> String {
         Command::new(args[0])
+            .with_hidden_window()
             .args(&args[1..])
             .output()
             .ok()
@@ -422,6 +424,7 @@ mod win {
     fn network() -> (NetworkStatus, Vec<String>) {
         let ps = "$ErrorActionPreference='Stop'; $OutputEncoding=[Text.UTF8Encoding]::new(); $items=@(Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | ForEach-Object { [PSCustomObject]@{ Name=[string]$_.Name; Description=[string]$_.InterfaceDescription; Medium=[string]$_.NdisPhysicalMedium; LinkSpeed=[string]$_.LinkSpeed } }); ConvertTo-Json -InputObject $items -Compress";
         let out = Command::new("powershell")
+            .with_hidden_window()
             .args(["-NoProfile", "-NonInteractive", "-Command", ps])
             .output();
         let mut un = Vec::new();
@@ -499,6 +502,7 @@ mod win {
         }
         let ps = "$ErrorActionPreference='Stop'; $d=Get-Partition -DriveLetter $env:MXTOOLS_GAME_DRIVE | Get-Disk; [PSCustomObject]@{MediaType=[string]$d.MediaType;BusType=[string]$d.BusType} | ConvertTo-Json -Compress";
         let output = Command::new("powershell")
+            .with_hidden_window()
             .env("MXTOOLS_GAME_DRIVE", drive.trim_end_matches(':'))
             .args(["-NoProfile", "-NonInteractive", "-Command", ps])
             .output();
@@ -546,7 +550,7 @@ mod win {
             .collect()
     }
     fn apps() -> (Vec<RunningApp>, Vec<RunningApp>) {
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         sys.refresh_processes(ProcessesToUpdate::All, true);
         let mut seen = HashSet::new();
         let mut overlays = Vec::new();
@@ -701,6 +705,7 @@ mod win {
                 }
                 "usb_selective_suspend" => {
                     let a = Command::new("powercfg")
+                        .with_hidden_window()
                         .args([
                             "/setacvalueindex",
                             "SCHEME_CURRENT",
@@ -712,6 +717,7 @@ mod win {
                         .map(|x| x.success())
                         .unwrap_or(false);
                     let d = Command::new("powercfg")
+                        .with_hidden_window()
                         .args([
                             "/setdcvalueindex",
                             "SCHEME_CURRENT",
@@ -723,6 +729,7 @@ mod win {
                         .map(|x| x.success())
                         .unwrap_or(false);
                     let s = Command::new("powercfg")
+                        .with_hidden_window()
                         .args(["/setactive", "SCHEME_CURRENT"])
                         .status()
                         .map(|x| x.success())
@@ -819,7 +826,8 @@ mod win {
     pub fn benchmark(host: String, count: u32) -> Result<NetworkBenchmark, String> {
         let start = Instant::now();
         let out = Command::new("ping")
-            .args(["-n", &count.to_string(), &host])
+            .with_hidden_window()
+            .args(["-n", &count.to_string(), "-w", "2000", &host])
             .output()
             .map_err(|e| e.to_string())?;
         let text = String::from_utf8_lossy(&out.stdout);
@@ -897,14 +905,17 @@ fn apply_inner(a: Vec<String>) -> Result<Vec<GameOptimizerActionResult>, String>
 fn apply_inner(_: Vec<String>) -> Result<Vec<GameOptimizerActionResult>, String> {
     Err("system.errors.windowsOnly".into())
 }
+/// 只接受主机名或 IP 字面量；以 `-`/`/` 开头的值会被 ping 当作开关解析。
+fn is_valid_benchmark_host(h: &str) -> bool {
+    !h.is_empty()
+        && h.len() <= 253
+        && !h.starts_with(['-', '/'])
+        && h.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b':' || b == b'-' || b == b'_')
+}
 #[cfg(windows)]
 fn benchmark_inner(h: String, c: Option<u32>) -> Result<NetworkBenchmark, String> {
-    if h.is_empty()
-        || h.len() > 253
-        || !h
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b':' || b == b'-' || b == b'_')
-    {
+    if !is_valid_benchmark_host(&h) {
         return Err("system.errors.invalidHost".into());
     }
     win::benchmark(h, c.unwrap_or(8).clamp(4, 20))
@@ -959,4 +970,12 @@ mod tests {
         assert!(report.scanned_at_ms > 0);
         assert!(report.storage.is_none());
     }
+}
+
+#[cfg(test)]
+mod benchmark_host_tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game_optimizer_benchmark_host.rs"
+    ));
 }

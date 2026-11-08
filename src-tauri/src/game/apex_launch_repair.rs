@@ -312,6 +312,7 @@ pub async fn repair_apex_launch_issues(
 #[cfg(windows)]
 mod windows_impl {
     use super::*;
+    use crate::elevated_batch::{run_action_batch, ActionCommands};
     use std::process::Command;
     use sysinfo::{ProcessesToUpdate, System};
     use windows_tool::elevated::is_elevated;
@@ -320,14 +321,12 @@ mod windows_impl {
         ApexCfgDocument, ApexConfigFileKind,
     };
     use windows_tool::game::steam::get_steam_game_library_folder_by_game_id;
-    use windows_tool::utils::{
-        decode_process_output, run_multiple_commands, CommandHiddenWindowExt, RunCommandOptions,
-    };
+    use windows_tool::utils::{decode_process_output, CommandHiddenWindowExt};
     use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
 
     fn process_names() -> Vec<String> {
-        let mut system = System::new_all();
+        let mut system = System::new();
         system.refresh_processes(ProcessesToUpdate::All, true);
         system
             .processes()
@@ -1260,17 +1259,18 @@ mod windows_impl {
             "repair_windows_components",
         ];
         let mut results = Vec::new();
-        let mut admin_commands_all = Vec::new();
+        let mut admin_groups = Vec::new();
         let mut admin_changed = HashMap::<String, Vec<String>>::new();
-        let mut runnable_admin = Vec::new();
 
         for action in &actions {
             if admin_ids.contains(&action.as_str()) {
                 match admin_commands(&target, action) {
                     Ok((commands, changed)) => {
-                        admin_commands_all.extend(commands);
                         admin_changed.insert(action.clone(), changed);
-                        runnable_admin.push(action.clone());
+                        admin_groups.push(ActionCommands {
+                            action: action.clone(),
+                            commands,
+                        });
                     }
                     Err(error) => {
                         results.push(ApexLaunchRepairActionResult::failure(action, error))
@@ -1288,26 +1288,20 @@ mod windows_impl {
             }
         }
 
-        let admin_result = if admin_commands_all.is_empty() {
-            Ok(())
-        } else {
-            run_multiple_commands(
-                &admin_commands_all,
-                RunCommandOptions::new(true, !is_elevated(), false),
-            )
-            .map(|_| ())
-        };
-        for action in runnable_admin {
-            match &admin_result {
+        // 单次 UAC，按动作记录成败：某个动作失败不再连带后续动作被跳过或误报。
+        let mut admin_results = run_action_batch(&admin_groups, !is_elevated());
+        for group in admin_groups {
+            let action = group.action;
+            match admin_results
+                .remove(&action)
+                .unwrap_or_else(|| Err("elevated batch failed".to_string()))
+            {
                 Ok(()) => results.push(ApexLaunchRepairActionResult::success(
                     &action,
                     action == "remove_stale_eac_driver",
                     admin_changed.remove(&action).unwrap_or_default(),
                 )),
-                Err(error) => results.push(ApexLaunchRepairActionResult::failure(
-                    &action,
-                    error.clone(),
-                )),
+                Err(error) => results.push(ApexLaunchRepairActionResult::failure(&action, error)),
             }
         }
         results.sort_by_key(|result| {

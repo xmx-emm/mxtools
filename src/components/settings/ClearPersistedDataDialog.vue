@@ -17,7 +17,6 @@ import {
   applyWindowBehavior,
   defaultWindowBehaviorPrefs,
 } from '@/utils/window_behavior.ts';
-import {useApexQPreferencesStore} from '@/stores/apex_q_preferences.ts';
 
 const emit = defineEmits<{ cleared: [] }>();
 
@@ -29,7 +28,6 @@ const uiStore = useUiStyleStore();
 const steam_store = useSteamStore();
 const ea_store = useEaStore();
 const apex_store = useApexStore();
-const apexQPreferencesStore = useApexQPreferencesStore();
 
 const clearConfirmDialog = ref(false);
 
@@ -41,7 +39,6 @@ async function clearPersistedData() {
   steam_store.$reset();
   ea_store.$reset();
   apex_store.$reset();
-  apexQPreferencesStore.$reset();
   applyAccentTheme(DEFAULT_ACCENT);
   i18nLocale.value = resolveLocale(settingsStore.locale);
   applyDocumentLocale(settingsStore.locale);

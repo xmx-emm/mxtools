@@ -1,13 +1,9 @@
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow';
 import type {WebviewOptions} from '@tauri-apps/api/webview';
 import type {WindowOptions} from '@tauri-apps/api/window';
-import {emit, emitTo} from '@tauri-apps/api/event';
+import {emitTo} from '@tauri-apps/api/event';
 import i18n from '@/i18n/i18n.ts';
 import {prepareSnapshotWindow, SNAPSHOT_WINDOW_PROBE} from '@/utils/game/apex_snapshot_window.ts';
-import {
-  APEX_Q_WINDOW_NAVIGATE_EVENT,
-  type ApexQWindowTarget,
-} from '@/types/apex_q.ts';
 import {
   emitApexLaunchRepairAccount,
   emitApexQuickPresetAccount,
@@ -112,28 +108,6 @@ async function openWebWindow(route: string, options?: OpenWebWindowOptions) {
 function openAboutWindow() {
   openWebWindow('about', { height: 600, title: '关于' }).then(() => {
   });
-}
-
-async function openApexQWindow(target: ApexQWindowTarget = 'workspace') {
-  await openWebWindow('apex-q', {
-    // A new WebView receives its initial destination from the URL, before its
-    // Vue event listener can be mounted. Existing windows still use the event
-    // below so they navigate without being recreated.
-    url: `#/apex-q?target=${encodeURIComponent(target)}`,
-    width: 900,
-    height: 680,
-    minWidth: 720,
-    minHeight: 520,
-    title: String(i18n.global.t('apex.apexQ.windowTitle')),
-    decorations: false,
-    center: true,
-    preventOverflow: true,
-  });
-  try {
-    await emit(APEX_Q_WINDOW_NAVIGATE_EVENT, {target});
-  } catch {
-    /* A newly-created workbench reads its deterministic route target on mount. */
-  }
 }
 
 async function openApexQuickPresetWindow(accountKey: string | null = null) {
@@ -249,7 +223,6 @@ async function openRepairToolWindow(
 export {
   openWebWindow,
   openAboutWindow,
-  openApexQWindow,
   openApexQuickPresetWindow,
   openApexConfigSnapshotWindow,
   openRepairToolWindow,

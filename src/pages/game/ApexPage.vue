@@ -27,7 +27,7 @@ import ApexGameSettingsApply from '@/components/game/apex/settings/ApexGameSetti
 import ApexOnlinePresetsDialog from '@/components/game/apex/preset/ApexOnlinePresetsDialog.vue';
 import ApexConfigHistoryDialog from '@/components/game/apex/history/ApexConfigHistoryDialog.vue';
 import ApexResetDefaultsDialog from '@/components/game/apex/history/ApexResetDefaultsDialog.vue';
-import {openApexConfigSnapshotWindow, openApexQWindow, openRepairToolWindow} from '@/utils/windows.ts';
+import {openApexConfigSnapshotWindow, openRepairToolWindow} from '@/utils/windows.ts';
 import GameRefreshIconButton from '@/components/game/common/GameRefreshIconButton.vue';
 import GameVersionStatus from '@/components/game/common/GameVersionStatus.vue';
 import GameTipDialog from '@/components/game/common/GameTipDialog.vue';
@@ -395,11 +395,6 @@ function open_launch_repair() {
     .catch((error) => toast.error(String(error)));
 }
 
-function open_apex_q() {
-  if (!isTauriRuntime) return;
-  void openApexQWindow().catch((error) => toast.error(String(error)));
-}
-
 async function open_config_export() {
   try {
     const snapshot = await apex_store.build_config_snapshot({launchOptions: true, videoConfig: true,
@@ -449,7 +444,7 @@ async function open_config_import() {
       />
       <div class="apex-page-toolbar-controls">
         <div class="apex-toolbar-utility-actions">
-          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
+          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-beta-tool-slot">
             <v-btn
               icon="mdi-auto-fix"
               size="small"
@@ -461,7 +456,7 @@ async function open_config_import() {
               @click="open_launch_repair"
             />
             <span
-              class="mx-beta-badge apex-q-beta-badge"
+              class="mx-beta-badge apex-toolbar-beta-badge"
               :title="t('settings.betaFeaturesHint')"
             >{{ t('common.beta') }}</span>
           </div>
@@ -477,22 +472,6 @@ async function open_config_import() {
             >
               <v-icon icon="mdi-lightning-bolt-outline" size="small" />
             </v-btn>
-          </div>
-          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
-            <v-btn
-              icon="mdi-angle-acute"
-              size="small"
-              variant="text"
-              density="compact"
-              class="apex-preset-btn"
-              :title="t('apex.apexQ.toolbarTip')"
-              :aria-label="t('apex.apexQ.toolbarTip')"
-              @click="open_apex_q"
-            />
-            <span
-              class="mx-beta-badge apex-q-beta-badge"
-              :title="t('settings.betaFeaturesHint')"
-            >{{ t('common.beta') }}</span>
           </div>
           <div class="apex-toolbar-control-slot">
             <v-btn
@@ -520,7 +499,7 @@ async function open_config_import() {
               <v-icon icon="mdi-application-import" size="small" />
             </v-btn>
           </div>
-          <div v-if="settings_store.betaFeaturesEnabled" class="apex-toolbar-control-slot apex-q-tool-slot">
+          <div class="apex-toolbar-control-slot">
             <v-btn
               icon="mdi-cloud-outline"
               size="small"
@@ -531,10 +510,6 @@ async function open_config_import() {
               :aria-label="t('apex.onlinePresets.toolbarTip')"
               @click="online_presets_dialog = true"
             />
-            <span
-              class="mx-beta-badge apex-q-beta-badge"
-              :title="t('settings.betaFeaturesHint')"
-            >{{ t('common.beta') }}</span>
           </div>
         </div>
         <div class="apex-page-switcher" role="region" :aria-label="t('apex.pageSwitcherLabel')">
@@ -761,7 +736,7 @@ async function open_config_import() {
   height: var(--game-page-control-height);
 }
 
-.apex-q-beta-badge {
+.apex-toolbar-beta-badge {
   position: absolute;
   z-index: 2;
   top: -7px;

@@ -79,28 +79,4 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-  // APEX Q remains deliberately split into small, independently testable SFCs.
-  // Count the complete SFC (script, template, and styles) so styles cannot hide
-  // a component that has outgrown its responsibility.
-  {
-    files: ['src/components/game/apex/apex_q/**/*.vue'],
-    rules: {
-      'max-lines': ['error', {max: 700, skipBlankLines: false, skipComments: false}],
-    },
-  },
-  {
-    files: ['src/components/game/apex/apex_q/ApexQDialog.vue'],
-    rules: {
-      'max-lines': ['error', {max: 700, skipBlankLines: false, skipComments: false}],
-    },
-  },
-  {
-    files: [
-      'src/components/game/apex/apex_q/ApexQRoiCalibrateDialog.vue',
-      'src/components/game/apex/apex_q/ApexQOverlayPlaceDialog.vue',
-    ],
-    rules: {
-      'max-lines': ['error', {max: 500, skipBlankLines: false, skipComments: false}],
-    },
-  },
 );

@@ -12,11 +12,18 @@ const registry = readFileSync(
 );
 
 describe('apex online presets contract', () => {
-  it('keeps the toolbar entry behind the beta gate with the shared badge', () => {
-    expect(apexPage).toMatch(
-      /v-if="settings_store\.betaFeaturesEnabled"[^>]*class="apex-toolbar-control-slot apex-q-tool-slot"[\s\S]{0,400}mdi-cloud-outline/,
-    );
+  it('exposes the toolbar entry without the beta gate or badge', () => {
+    const entry = apexPage.match(/<div class="apex-toolbar-control-slot">\s*<v-btn\s+icon="mdi-cloud-outline"[\s\S]*?<\/div>/);
+    expect(entry, 'online presets toolbar entry').not.toBeNull();
+    expect(entry![0]).not.toContain('betaFeaturesEnabled');
+    expect(entry![0]).not.toContain('mx-beta-badge');
     expect(apexPage).toContain('<ApexOnlinePresetsDialog v-model="online_presets_dialog"/>');
+  });
+
+  it('distinguishes an empty search from an empty catalog', () => {
+    expect(dialog).toContain("t('apex.onlinePresets.emptySearch')");
+    expect(dialog).toContain("t('apex.onlinePresets.emptyList')");
+    expect(dialog).toContain('{{ empty_text }}');
   });
 
   it('uses anonymous use flow that lands in the existing import preview transaction', () => {
@@ -62,6 +69,8 @@ describe('apex online presets contract', () => {
   it('only references icons registered in the mdi registry', () => {
     const icons = [
       ...dialog.matchAll(/(?:icon|prepend-inner-icon|prepend-icon)="(mdi-[a-z0-9-]+)"/g),
+      // Icons chosen in script helpers or ternaries are only visible as string literals.
+      ...dialog.matchAll(/'(mdi-[a-z0-9-]+)'/g),
     ].map((match) => match[1]);
     expect(icons.length).toBeGreaterThan(0);
     for (const icon of icons) {

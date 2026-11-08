@@ -287,9 +287,13 @@ function close() {
               <v-btn-toggle
                 v-if="selectedSids.includes(account.sid)"
                 :model-value="permissions[account.sid] ?? 'read'"
+                class="game-page-segmented-toggle"
                 mandatory
+                border
+                divided
                 density="compact"
-                variant="outlined"
+                color="primary"
+                variant="text"
                 @update:model-value="setPermission(account.sid, $event)"
               >
                 <v-btn value="read" size="small">{{ t('folderSharing.permissions.read') }}</v-btn>
@@ -406,7 +410,7 @@ function close() {
 .fixed-admin > div, .account-copy { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
 .fixed-admin b, .account-copy b { font-size: 0.8rem; }
 .fixed-admin span, .account-copy span { overflow: hidden; color: rgba(var(--v-theme-on-surface), 0.55); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
-.account-row :deep(.v-btn-toggle) { flex: 0 0 auto; height: 30px; }
+.account-row :deep(.v-btn-toggle) { flex: 0 0 auto; }
 .account-row :deep(.v-btn) { min-height: 30px; padding-inline: 10px; font-size: 0.7rem; }
 .unavailable-accounts, .sddl-preview { padding: 10px; border: 1px solid rgba(var(--v-border-color), 0.12); border-radius: 6px; font-size: 0.72rem; }
 .unavailable-accounts summary, .sddl-preview summary { cursor: pointer; font-weight: 600; }

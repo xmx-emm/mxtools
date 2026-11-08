@@ -14,6 +14,7 @@
     "tauri dev": "node scripts/tauri-dev.mjs",
     "build window": "tauri build",
     "build window release": "node scripts/build-windows-release.mjs",
+    "build window msix": "node scripts/build-msix.mjs",
     "release:size:check": "node scripts/release-size-budget.mjs",
     "release:inputs:check": "node scripts/verify-release-inputs.mjs",
     "lint": "eslint .",

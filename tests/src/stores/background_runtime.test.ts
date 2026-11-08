@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   setBackgroundRuntimeBetaFeatures: vi.fn(),
   configureBackgroundRuntime: vi.fn(),
   setBackgroundRuntimeLocale: vi.fn(),
-  updateBackgroundRuntimeApexQ: vi.fn(),
   updateBackgroundRuntimeRazer: vi.fn(),
 }));
 
@@ -21,7 +20,6 @@ vi.mock('@/ipc/commands.ts', () => ({
   setBackgroundRuntimeBetaFeatures: mocks.setBackgroundRuntimeBetaFeatures,
   configureBackgroundRuntime: mocks.configureBackgroundRuntime,
   setBackgroundRuntimeLocale: mocks.setBackgroundRuntimeLocale,
-  updateBackgroundRuntimeApexQ: mocks.updateBackgroundRuntimeApexQ,
   updateBackgroundRuntimeRazer: mocks.updateBackgroundRuntimeRazer,
 }));
 
@@ -36,14 +34,12 @@ function snapshot(overrides: Partial<BackgroundRuntimeSnapshot['config']> = {}):
     autostartEnabled: false,
     configuredAutostart: false,
     launchMode: 'interactive',
-    apexQState: 'disabled',
     razerState: 'disabled',
     config: {
       schemaVersion: 1,
       autostart: false,
       betaFeaturesEnabled: true,
       locale: 'zh-CN',
-      apexQ: {enabled: false, setupDone: false, hotkey: 'F12'},
       razer: {enabled: false, deviceProfiles: {}, games: []},
       ...overrides,
     },
@@ -147,18 +143,10 @@ describe('background runtime store synchronization', () => {
     expect(runtime.snapshot).toEqual(updated);
   });
 
-  it('updates Apex Q and Beta through atomic partial commands', async () => {
-    const apexUpdated = snapshot({
-      apexQ: {enabled: true, setupDone: true, hotkey: 'Ctrl+Alt+Q'},
-    });
+  it('updates Beta through an atomic partial command', async () => {
     const betaUpdated = snapshot({betaFeaturesEnabled: false});
-    mocks.updateBackgroundRuntimeApexQ.mockResolvedValue(apexUpdated);
     mocks.setBackgroundRuntimeBetaFeatures.mockResolvedValue(betaUpdated);
     const runtime = useBackgroundRuntimeStore();
-
-    await runtime.configureApexQ(apexUpdated.config.apexQ);
-    expect(mocks.updateBackgroundRuntimeApexQ).toHaveBeenCalledWith(apexUpdated.config.apexQ);
-    expect(runtime.snapshot).toEqual(apexUpdated);
 
     await runtime.setBetaFeatures(false);
     expect(mocks.setBackgroundRuntimeBetaFeatures).toHaveBeenCalledWith(false);

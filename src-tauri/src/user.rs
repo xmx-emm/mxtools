@@ -1,7 +1,9 @@
 use crate::elevated::require_elevated;
 use crate::ipc_error::{IpcError, IpcResult};
+use crate::utils::blocking_cmd;
 use serde::{Deserialize, Serialize};
 pub use windows_tool::utils::{run_cmd, run_powershell};
+use zeroize::Zeroize;
 
 fn user_error(error: String) -> IpcError {
     IpcError::operation_failed("user", error)
@@ -155,14 +157,18 @@ pub fn parse_group_members(output: &str) -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn get_windows_users() -> IpcResult<Vec<WindowsUser>> {
-    if let Ok(output) = run_powershell(WINDOWS_USER_QUERY_SCRIPT) {
-        if let Ok(users) = serde_json::from_str::<Vec<RawWindowsUser>>(output.trim()) {
-            return Ok(users.into_iter().map(map_windows_user).collect());
+pub async fn get_windows_users() -> IpcResult<Vec<WindowsUser>> {
+    blocking_cmd(|| {
+        if let Ok(output) = run_powershell(WINDOWS_USER_QUERY_SCRIPT) {
+            if let Ok(users) = serde_json::from_str::<Vec<RawWindowsUser>>(output.trim()) {
+                return Ok(users.into_iter().map(map_windows_user).collect());
+            }
         }
-    }
 
-    get_windows_users_fallback()
+        get_windows_users_fallback()
+    })
+    .await
+    .map_err(user_error)
 }
 
 fn map_windows_user(user: RawWindowsUser) -> WindowsUser {
@@ -199,27 +205,127 @@ fn non_empty(value: String) -> Option<String> {
     (!value.is_empty()).then(|| value.to_string())
 }
 
-fn get_windows_users_fallback() -> IpcResult<Vec<WindowsUser>> {
-    let user_output = run_cmd(&["net", "user"]).map_err(user_error)?;
+#[cfg(windows)]
+fn resolve_well_known_group_name(sid_str: &str) -> Option<String> {
+    use std::ptr;
+    use winapi::shared::minwindef::DWORD;
+    use winapi::shared::sddl::ConvertStringSidToSidW;
+    use winapi::um::winbase::{LocalFree, LookupAccountSidW};
+    use winapi::um::winnt::{PSID, SID_NAME_USE};
+
+    let sid_w = to_wide_null(sid_str);
+    let mut psid: PSID = ptr::null_mut();
+    if unsafe { ConvertStringSidToSidW(sid_w.as_ptr(), &mut psid) } == 0 || psid.is_null() {
+        return None;
+    }
+
+    let mut name_len: DWORD = 0;
+    let mut domain_len: DWORD = 0;
+    let mut sid_use: SID_NAME_USE = 0;
+    unsafe {
+        LookupAccountSidW(
+            ptr::null(),
+            psid,
+            ptr::null_mut(),
+            &mut name_len,
+            ptr::null_mut(),
+            &mut domain_len,
+            &mut sid_use,
+        );
+    }
+    if name_len == 0 {
+        unsafe { LocalFree(psid as *mut _) };
+        return None;
+    }
+
+    let mut name_buf = vec![0u16; name_len as usize];
+    let mut domain_buf = vec![0u16; domain_len.max(1) as usize];
+    let ok = unsafe {
+        LookupAccountSidW(
+            ptr::null(),
+            psid,
+            name_buf.as_mut_ptr(),
+            &mut name_len,
+            domain_buf.as_mut_ptr(),
+            &mut domain_len,
+            &mut sid_use,
+        )
+    };
+    unsafe { LocalFree(psid as *mut _) };
+    if ok == 0 {
+        return None;
+    }
+
+    let end = name_buf
+        .iter()
+        .position(|&c| c == 0)
+        .unwrap_or(name_buf.len());
+    let resolved = String::from_utf16_lossy(&name_buf[..end]).trim().to_string();
+    (!resolved.is_empty()).then_some(resolved)
+}
+
+#[cfg(not(windows))]
+fn resolve_well_known_group_name(_sid_str: &str) -> Option<String> {
+    None
+}
+
+fn current_windows_username() -> String {
+    #[cfg(windows)]
+    {
+        use winapi::shared::minwindef::DWORD;
+        use winapi::shared::lmcons::UNLEN;
+        use winapi::um::winbase::GetUserNameW;
+
+        let mut buf = vec![0u16; (UNLEN + 1) as usize];
+        let mut len: DWORD = buf.len() as DWORD;
+        if unsafe { GetUserNameW(buf.as_mut_ptr(), &mut len) } != 0 && len > 0 {
+            let max = (len as usize).saturating_sub(1).min(buf.len());
+            let end = buf[..max].iter().position(|&c| c == 0).unwrap_or(max);
+            let s = String::from_utf16_lossy(&buf[..end]).trim().to_string();
+            if !s.is_empty() {
+                return s;
+            }
+        }
+    }
+    std::env::var("USERNAME").unwrap_or_default()
+}
+
+pub(crate) fn is_protected_windows_account(name: &str) -> bool {
+    matches!(
+        name.trim().to_ascii_lowercase().as_str(),
+        "administrator"
+            | "guest"
+            | "defaultaccount"
+            | "wdagutilityaccount"
+            | "krbtgt"
+            | "system"
+            | "local service"
+            | "localservice"
+            | "network service"
+            | "networkservice"
+    )
+}
+
+fn get_windows_users_fallback() -> Result<Vec<WindowsUser>, String> {
+    let user_output = run_cmd(&["net", "user"])?;
     let all_users = parse_user_list_from_net_user(&user_output);
 
-    let rdp_output = run_cmd(&["net", "localgroup", "Remote Desktop Users"]);
+    let rdp_group_name = resolve_well_known_group_name("S-1-5-32-555")
+        .unwrap_or_else(|| "Remote Desktop Users".to_string());
+    let rdp_output = run_cmd(&["net", "localgroup", &rdp_group_name]);
     let rdp_users = match rdp_output {
         Ok(out) => parse_group_members(&out),
         Err(_) => Vec::new(),
     };
 
     let computer_name = std::env::var("COMPUTERNAME").unwrap_or_else(|_| ".".into());
-    let current_name = std::env::var("USERNAME").unwrap_or_default();
+    let current_name = current_windows_username();
 
     let users: Vec<WindowsUser> = all_users
         .into_iter()
         .map(|name| {
             let account_name = format!(r"{}\{}", computer_name, name);
-            let is_system = matches!(
-                name.to_ascii_lowercase().as_str(),
-                "administrator" | "guest" | "defaultaccount" | "wdagutilityaccount"
-            );
+            let is_system = is_protected_windows_account(&name);
             WindowsUser {
                 full_name: None,
                 sid: String::new(),
@@ -228,7 +334,7 @@ fn get_windows_users_fallback() -> IpcResult<Vec<WindowsUser>> {
                 rdp_username: Some(account_name),
                 enabled: true,
                 password_required: true,
-                is_current: name.eq_ignore_ascii_case(&current_name),
+                is_current: !current_name.is_empty() && name.eq_ignore_ascii_case(&current_name),
                 is_rdp_user: rdp_users.iter().any(|member| {
                     member.eq_ignore_ascii_case(&name)
                         || member
@@ -247,60 +353,103 @@ fn get_windows_users_fallback() -> IpcResult<Vec<WindowsUser>> {
 }
 
 #[tauri::command]
-pub fn add_windows_user(username: String, password: String) -> IpcResult<()> {
-    require_elevated().map_err(user_error)?;
-    validate_windows_username(&username).map_err(user_error)?;
-    validate_windows_password(&password).map_err(user_error)?;
-    #[cfg(windows)]
-    {
-        net_user_add(&username, &password).map_err(user_error)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = password;
-        Err(IpcError::new("user.windows_only", "Windows only"))
-    }
+pub async fn add_windows_user(username: String, mut password: String) -> IpcResult<()> {
+    blocking_cmd(move || {
+        let result = (|| {
+            require_elevated()?;
+            validate_windows_username(&username)?;
+            validate_windows_password(&password)?;
+            #[cfg(windows)]
+            {
+                net_user_add(&username, &password)
+            }
+            #[cfg(not(windows))]
+            {
+                Err("user.errors.windowsOnly".to_string())
+            }
+        })();
+        password.zeroize();
+        result
+    })
+    .await
+    .map_err(user_error)
 }
 
-#[tauri::command]
-pub fn delete_windows_user(username: String) -> IpcResult<()> {
-    require_elevated().map_err(user_error)?;
-    validate_windows_username(&username).map_err(user_error)?;
-    run_cmd(&["net", "user", &username, "/delete"]).map_err(user_error)?;
+pub(crate) fn ensure_deletable_windows_user(
+    username: &str,
+    current_user: &str,
+) -> Result<(), String> {
+    validate_windows_username(username)?;
+    if is_protected_windows_account(username) {
+        return Err("user.errors.protectedAccount".into());
+    }
+    if !current_user.trim().is_empty() && username.eq_ignore_ascii_case(current_user.trim()) {
+        return Err("user.errors.cannotDeleteCurrentUser".into());
+    }
     Ok(())
 }
 
 #[tauri::command]
-pub fn modify_windows_user_password(username: String, new_password: String) -> IpcResult<()> {
-    require_elevated().map_err(user_error)?;
-    validate_windows_username(&username).map_err(user_error)?;
-    validate_windows_password(&new_password).map_err(user_error)?;
-    #[cfg(windows)]
-    {
-        net_user_set_password(&username, &new_password).map_err(user_error)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = new_password;
-        Err(IpcError::new("user.windows_only", "Windows only"))
-    }
+pub async fn delete_windows_user(username: String) -> IpcResult<()> {
+    blocking_cmd(move || {
+        require_elevated()?;
+        let current = current_windows_username();
+        ensure_deletable_windows_user(&username, &current)?;
+        run_cmd(&["net", "user", &username, "/delete"])?;
+        Ok(())
+    })
+    .await
+    .map_err(user_error)
 }
 
 #[tauri::command]
-pub fn rename_windows_user(old_name: String, new_name: String) -> IpcResult<()> {
-    require_elevated().map_err(user_error)?;
-    validate_windows_username(&old_name).map_err(user_error)?;
-    validate_windows_username(&new_name).map_err(user_error)?;
-    let script = format!(
-        "Rename-LocalUser -Name '{}' -NewName '{}'",
-        escape_powershell_single_quoted(&old_name),
-        escape_powershell_single_quoted(&new_name)
-    );
-    run_powershell(&script).map_err(user_error)?;
-    Ok(())
+pub async fn modify_windows_user_password(
+    username: String,
+    mut new_password: String,
+) -> IpcResult<()> {
+    blocking_cmd(move || {
+        let result = (|| {
+            require_elevated()?;
+            validate_windows_username(&username)?;
+            validate_windows_password(&new_password)?;
+            #[cfg(windows)]
+            {
+                net_user_set_password(&username, &new_password)
+            }
+            #[cfg(not(windows))]
+            {
+                Err("user.errors.windowsOnly".to_string())
+            }
+        })();
+        new_password.zeroize();
+        result
+    })
+    .await
+    .map_err(user_error)
 }
 
-/// 本地帐户名：非空、≤20、不含 SAM 非法字符。
+#[tauri::command]
+pub async fn rename_windows_user(old_name: String, new_name: String) -> IpcResult<()> {
+    blocking_cmd(move || {
+        require_elevated()?;
+        validate_windows_username(&old_name)?;
+        validate_windows_username(&new_name)?;
+        if is_protected_windows_account(&old_name) || is_protected_windows_account(&new_name) {
+            return Err("user.errors.protectedAccount".into());
+        }
+        let script = format!(
+            "Rename-LocalUser -Name '{}' -NewName '{}'",
+            escape_powershell_single_quoted(&old_name),
+            escape_powershell_single_quoted(&new_name)
+        );
+        run_powershell(&script)?;
+        Ok(())
+    })
+    .await
+    .map_err(user_error)
+}
+
+/// 本地帐户名：非空、≤20 个 UTF-16 码元、无首尾空白、不以句点结尾且不含 SAM 非法字符。
 pub fn validate_windows_username_pub(name: &str) -> Result<(), String> {
     validate_windows_username(name)
 }
@@ -310,30 +459,36 @@ pub fn validate_windows_password_pub(password: &str) -> Result<(), String> {
 }
 
 fn validate_windows_username(name: &str) -> Result<(), String> {
-    let name = name.trim();
-    if name.is_empty() || name.len() > 20 {
+    if name.is_empty() || name != name.trim() {
+        return Err("user.errors.invalidUsername".into());
+    }
+    if name.encode_utf16().count() > 20 {
+        return Err("user.errors.invalidUsername".into());
+    }
+    if name.ends_with('.') || name.chars().all(|c| c == '.') {
         return Err("user.errors.invalidUsername".into());
     }
     if name.chars().any(|c| {
-        matches!(
-            c,
-            '"' | '/'
-                | '\\'
-                | '['
-                | ']'
-                | ':'
-                | ';'
-                | '|'
-                | '='
-                | ','
-                | '+'
-                | '*'
-                | '?'
-                | '<'
-                | '>'
-                | '@'
-                | ' '
-        )
+        c.is_control()
+            || matches!(
+                c,
+                '"' | '/'
+                    | '\\'
+                    | '['
+                    | ']'
+                    | ':'
+                    | ';'
+                    | '|'
+                    | '='
+                    | ','
+                    | '+'
+                    | '*'
+                    | '?'
+                    | '<'
+                    | '>'
+                    | '@'
+                    | ' '
+            )
     }) {
         return Err("user.errors.invalidUsername".into());
     }

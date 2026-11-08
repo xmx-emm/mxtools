@@ -6,6 +6,8 @@ import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {openUrl} from '@tauri-apps/plugin-opener';
 import {useWindowsUserStore} from '@/stores/windows_user.ts';
 import type {WindowsUser} from '@/types/windows.ts';
+import {formatIpcError} from '@/ipc/error.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
 import {
   addRdpUser,
   createRdpLocalUser,
@@ -114,7 +116,7 @@ async function createRemoteUser() {
     setCreateDialog(false);
     await store.loadUsers();
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     actionLoading.value = false;
   }
@@ -134,7 +136,7 @@ async function toggleRdpUser(user: WindowsUser) {
     }
     await store.loadUsers();
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     rowAction.value = '';
   }
@@ -146,7 +148,7 @@ async function copyLoginName(value: string) {
     await writeText(value);
     toast.success(t('rdp.user.loginNameCopied'));
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   }
 }
 
@@ -154,7 +156,7 @@ async function openAccountInfo() {
   try {
     await openMsSettingsPage({uri: 'ms-settings:yourinfo'});
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   }
 }
 
@@ -162,7 +164,7 @@ async function openPasswordReset() {
   try {
     await openUrl(MICROSOFT_PASSWORD_RESET_URL);
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   }
 }
 
@@ -188,7 +190,7 @@ async function submitPasswordChange() {
     showModifyDialog.value = false;
     modifyPasswordValue.value = '';
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     actionLoading.value = false;
   }
@@ -213,21 +215,27 @@ async function renameUser() {
     showRenameDialog.value = false;
     await store.loadUsers();
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     actionLoading.value = false;
   }
 }
 
 async function deleteUser(user: WindowsUser) {
-  if (user.is_current || !confirm(t('rdp.user.deleteConfirm', {name: user.name}))) return;
+  if (user.is_current) return;
+  const accepted = await confirm(t('rdp.user.deleteConfirm', {name: user.name}), {
+    title: t('rdp.user.deleteTitle'),
+    kind: 'warning',
+    confirmText: t('rdp.connect.delete'),
+  });
+  if (!accepted) return;
   rowAction.value = `${userKey(user)}:delete`;
   try {
     await deleteWindowsUser({username: user.name});
     toast.success(t('rdp.user.deleteSuccess'));
     await store.loadUsers();
   } catch (error: unknown) {
-    toast.error(String(error));
+    toast.error(formatIpcError(error));
   } finally {
     rowAction.value = '';
   }

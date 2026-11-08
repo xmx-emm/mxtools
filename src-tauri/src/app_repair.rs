@@ -138,6 +138,15 @@ fn app_repair_error(reason: &str, message: impl Into<String>) -> IpcError {
     IpcError::new(format!("app_repair.{reason}"), message)
 }
 
+/// 把被禁用服务的启动类型改回手动（`Start=3`），绕开服务 DACL 对
+/// `sc.exe config` 的限制。
+#[cfg_attr(not(windows), allow(dead_code))]
+fn enable_service_registry_command(service: &str) -> String {
+    format!(
+        r#"reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\{service}" /v Start /t REG_DWORD /d 3 /f"#
+    )
+}
+
 fn validate_check(target: AppRepairTarget, check_id: &str) -> IpcResult<()> {
     if target.check_ids().contains(&check_id) {
         Ok(())
@@ -203,15 +212,15 @@ pub async fn repair_app_issues(
 #[cfg(windows)]
 mod windows_impl {
     use super::*;
+    use crate::elevated_batch::{run_action_batch, ActionCommands};
+    use std::collections::HashMap;
     use std::path::{Path, PathBuf};
     use std::process::{Command, Output};
     use std::thread;
     use std::time::Duration;
     use sysinfo::{ProcessesToUpdate, System};
     use windows_tool::elevated::is_elevated;
-    use windows_tool::utils::{
-        decode_process_output, run_multiple_commands, CommandHiddenWindowExt, RunCommandOptions,
-    };
+    use windows_tool::utils::{decode_process_output, CommandHiddenWindowExt};
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use winreg::RegKey;
 
@@ -533,32 +542,26 @@ mod windows_impl {
         }
     }
 
+    /// AppXSvc / ClipSVC 的服务 DACL 拒绝管理员 `SERVICE_CHANGE_CONFIG`，
+    /// `sc.exe config` 会返回拒绝访问；直接把注册表 `Start` 改回 3（手动）。
     fn disabled_service_commands(services: &[&str]) -> Vec<String> {
         services
             .iter()
             .filter(|name| service_start_value(name).ok() == Some(4))
-            .map(|name| format!("sc.exe config {name} start= demand"))
+            .map(|name| super::enable_service_registry_command(name))
             .collect()
     }
 
-    fn admin_commands(actions: &[String]) -> Vec<String> {
-        let mut commands = Vec::new();
-        for action in actions {
-            match action.as_str() {
-                "enable_store_services" => commands.extend(disabled_service_commands(&[
-                    "AppXSvc",
-                    "ClipSVC",
-                    "InstallService",
-                ])),
-                "enable_update_services" => {
-                    commands.extend(disabled_service_commands(&["BITS", "wuauserv"]))
-                }
-                "reregister_store" => commands.push(REREGISTER_STORE_COMMAND.to_string()),
-                "enable_cldflt" => commands.push("sc.exe config CldFlt start= auto".to_string()),
-                _ => {}
+    fn admin_commands(action: &str) -> Vec<String> {
+        match action {
+            "enable_store_services" => {
+                disabled_service_commands(&["AppXSvc", "ClipSVC", "InstallService"])
             }
+            "enable_update_services" => disabled_service_commands(&["BITS", "wuauserv"]),
+            "reregister_store" => vec![REREGISTER_STORE_COMMAND.to_string()],
+            "enable_cldflt" => vec!["sc.exe config CldFlt start= auto".to_string()],
+            _ => Vec::new(),
         }
-        commands
     }
 
     fn is_admin_action(action: &str) -> bool {
@@ -571,16 +574,15 @@ mod windows_impl {
         )
     }
 
-    fn run_admin_batch(actions: &[String]) -> Result<(), String> {
-        let commands = admin_commands(actions);
-        if commands.is_empty() {
-            return Ok(());
-        }
-        run_multiple_commands(
-            &commands,
-            RunCommandOptions::new(true, !is_elevated(), false),
-        )
-        .map(|_| ())
+    fn run_admin_batch(actions: &[String]) -> HashMap<String, Result<(), String>> {
+        let groups = actions
+            .iter()
+            .map(|action| ActionCommands {
+                action: action.clone(),
+                commands: admin_commands(action),
+            })
+            .collect::<Vec<_>>();
+        run_action_batch(&groups, !is_elevated())
     }
 
     fn run_executable(path: &Path, argument: Option<&str>, wait: bool) -> Result<(), String> {
@@ -648,17 +650,17 @@ mod windows_impl {
             .filter(|action| is_admin_action(action))
             .cloned()
             .collect::<Vec<_>>();
-        let admin_result = run_admin_batch(&admin_actions);
+        let admin_results = run_admin_batch(&admin_actions);
 
         actions
             .into_iter()
             .map(|action| {
                 if is_admin_action(&action) {
-                    match &admin_result {
-                        Ok(()) => {
+                    match admin_results.get(&action) {
+                        Some(Ok(())) => {
                             AppRepairActionResult::success(&action, action == "enable_cldflt")
                         }
-                        Err(_) => AppRepairActionResult::failure(&action, "adminFailed"),
+                        _ => AppRepairActionResult::failure(&action, "adminFailed"),
                     }
                 } else {
                     match run_user_action(&action) {
@@ -711,6 +713,13 @@ fn repair_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod service_commands {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/rust/src-tauri/app_repair_service_commands.rs"
+        ));
+    }
 
     #[test]
     fn rejects_cross_target_and_unknown_actions() {

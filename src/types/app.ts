@@ -1,4 +1,4 @@
-export type AppDistribution = 'development' | 'portable' | 'installer';
+export type AppDistribution = 'development' | 'portable' | 'installer' | 'store';
 
 export interface AppInfo {
   version: string;

@@ -5,6 +5,7 @@ describe('Game compatibility uses exact verified builds', () => {
   it('does not infer compatibility from a matching short version', () => {
     expect(verifiedGameBuilds.apex).toEqual([
       'R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15',
+      'R5pc_r5-310_J24_CL11700487_FSv31_0_2026_10_23_17_04',
     ]);
     expect(gameVersionStatus('apex', {installed: true, version: 'v3.0.4.57', build: 'R5pc_r5-300_J57_CL11457258_2026_08_19_15_40'})).toBe('unverified');
     expect(gameVersionStatus('apex', {installed: true, version: 'v3.0.5.20', build: 'R5pc_r5-301_J20_CL11528440_FSv30_1_2026_09_04_16_06'})).toBe('unverified');

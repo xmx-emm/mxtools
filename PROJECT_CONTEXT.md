@@ -2,9 +2,9 @@
 
 ## Purpose
 
-MxTools is a Windows-focused Tauri + Vue desktop toolbox. Its APEX Q
-workflow reads Steam screenshots with local OCR, calculates launch angles, and
-can show a click-through result overlay. Original project material is
+MxTools is a Windows-focused Tauri + Vue desktop toolbox for local Apex and
+PUBG configuration plus Windows maintenance tools. The former APEX Q
+OCR/angle workflow and its OCR runtime download were removed. Original project material is
 source-available under the custom MxTools Noncommercial License 1.0;
 noncommercial mirrors and public modified versions are allowed.
 
@@ -34,6 +34,9 @@ noncommercial mirrors and public modified versions are allowed.
   (`MXTOOLS_ONLINE_API_BASE` accepts only loopback URLs in debug builds), the
   `deviceCode` never enters the WebView, and returned browser URLs must share
   the configured API origin. Release builds use the official HTTPS origin.
+  Access tokens are reused only while at least 60 s from expiry; refreshes are
+  serialized by one process-wide lock so concurrent requests cannot spend the
+  same refresh token twice.
   The browser-open command accepts no URL input: it uses only the unexpired,
   origin-validated pending native login. This also supports local development
   without widening the WebView opener allowlist.
@@ -76,11 +79,15 @@ noncommercial mirrors and public modified versions are allowed.
 - The Rust background runtime is coordinated by
   `src-tauri/src/background_coordinator.rs` and
   `src-tauri/src/background_runtime.rs`. `background-runtime.json` is the
-  native source of truth for locale, Beta, shared autostart, active Apex Q
-  runtime, and Razer state. The native tray stays resident in both interactive
+  native source of truth for locale, Beta, shared autostart,
+  and Razer state. The native tray stays resident in both interactive
   and `--autostart` modes. Frontend startup refreshes are single-flight, and
   pages that mount during startup await the shared snapshot rather than
   initializing from defaults.
+  The tray close-to-tray flag is hydrated from the persisted settings store
+  file before the tray is created. Elevated relaunch starts the new process
+  with `--elevated-relaunch-after <pid>`; it waits for that parent to exit
+  before single-instance initialization.
 - Installed game discovery: `src-tauri/src/game_scan.rs` runs a user-triggered,
   bounded local scan of Steam/Epic/Xbox manifests and EA/Ubisoft/Battle.net
   registry or local manifests without disk-wide traversal, networking, or
@@ -97,6 +104,8 @@ noncommercial mirrors and public modified versions are allowed.
   cross-window state with debounced native synchronization and disk saves.
   Game icons retry a bounded set of manifest executable paths, including
   mixed-slash Steam paths, before showing the generic fallback.
+  Merging and deduplicating scan candidates backfills a missing
+  `install_location` from a later duplicate without replacing a known one.
 - Accent palettes and their accessible Vuetify color derivation live in
   `src/themes.ts`. APEX red is the default for new or reset preferences.
 - `settings.performanceMode` is a persisted, default-off preference that
@@ -177,15 +186,15 @@ noncommercial mirrors and public modified versions are allowed.
   launch-statically-reviewed only; configuration pages remain unverified and the
   local EA build is still J57. See `docs/GAME_LAUNCH_COMPATIBILITY.md` and
   `docs/APEX_SETTINGS_COMPATIBILITY.md`; detailed evidence stays in the Apex project.
-- On October 6, 2026 the local Steam installation remains Build 25666084 /
-  `v3.0.2.58`, exact `R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15`.
-  After Apex exited, the launch, video, game-settings, bindings, and Steam/EA
-  configuration-file write/readback/reopen/reset gates passed 47/47. J58 is
-  now in the build-level verified list, so the launch, video, and game-settings
-  pages share the same “已适配” status. This is static catalog and file-round-
-  trip evidence, not a claim that every in-game effect was manually verified;
-  EA J57 is not promoted by this result. Apex status is intentionally computed
-  at build level so one page cannot claim support while another remains pending.
+- On November 4, 2026 the local Steam installation is Build 26174491 /
+  v3.0.4.24, exact R5pc_r5-310_J24_CL11700487_FSv31_0_2026_10_23_17_04 on the
+  FSv31_0 branch. The read-only J24 audit recovered 3772 ConVar registrations
+  (net +13 vs J65); all 183 product template defaults, 133 controls / 134
+  storage keys, 427 boundary samples, 108 bindings, 18 declared launch
+  parameters, and the identical 42-key videoconfig serialization are unchanged.
+  Registration deltas are engine-internal or development-only; no user-visible
+  parameter changed. Product data and the verified-build list remain unchanged.
+
 - PUBG launch parsing in `src/stores/game/pubg/parse.ts` uses complete token
   boundaries and protects the argument following `+exec`; graphics aliases
   (`-dx9`, `-sm4`/`-d3d10`/`-dx10`, `-d3d11`/`-dx11`, and
@@ -219,7 +228,12 @@ noncommercial mirrors and public modified versions are allowed.
   `src-tauri/src/game/apex_language_download{,_ea}.rs`, share one native
   progress gate whose `apex-miles-download-progress` event is restored by
   `actions_miles.ts`, and only restart a client after its running-game check
-  passes.
+  passes. Each run records whether the client was already debuggable, restarted
+  or launched; afterwards a Steam session it started is shut down (and a
+  previously running Steam is relaunched normally) unless a game is running.
+  EA cleanup closes the debug session only after a successful switch, because
+  EA may still be installing after failure or cancel. Focused coverage:
+  `tests/rust/src-tauri/game/miles{,_ea}_debug_session_cleanup.rs`.
 - Download management lives at `/downloads`, above Settings in navigation.
   Clicking the navigation entry first opens an anchored compact queue popover
   without leaving the current page. Its expand icon opens `/downloads`.
@@ -374,16 +388,21 @@ noncommercial mirrors and public modified versions are allowed.
   `src-tauri/src/app_repair.rs`. Network repair lives in
   `src/pages/windows/NetworkRepairPage.vue` and
   `src-tauri/src/network_repair.rs`.
-- APEX Q preferences and shared types: `src/types/apex_q.ts`; all storage,
-  window, route, event, IPC command, and error-code contracts use the
-  `apex-q` / `apex_q` namespace. Coordination, overlay placement, and hotkeys:
-  `src/utils/apex_q.ts`; workbench coordinator:
-  `src/components/game/apex/apex_q/ApexQDialog.vue`; controllers under
-  `src/composables/apex_q/`; overlay window: `src/views/ApexQOverlayView.vue`;
-  tray behavior: `src-tauri/src/tray.rs`; frontend event listeners:
-  `src/main.ts`.
+  App and Apex launch repairs run elevated actions through one UAC prompt in
+  `src-tauri/src/elevated_batch.rs`, which records per-action success in a
+  temporary status file so one failed action does not hide the others.
+  Network repair reads WinHTTP proxy state from the registry
+  `WinHttpSettings` blob, and broadcasts environment changes after proxy edits.
+  Saved RDP connections live in the Tauri app-data directory as
+  `rdp_connections.json` (legacy `%APPDATA%/mxtools` copies are migrated);
+  native RDP work runs off the async runtime. Windows-user command errors map
+  to `rdp.errors.*`, and the RDP, account, input-method and network-repair
+  destructive actions use the shared app confirmation dialog instead of
+  `window.confirm`.
+- Close-to-tray is synchronized through `tray_set_close_to_tray`
+  (`src-tauri/src/tray.rs`) from `src/utils/window_behavior.ts`.
 - `settings.betaFeaturesEnabled` is the persisted, default-off feature gate for
-  in-development UI. APEX Q, Game Checkup, LAN sharing,
+  in-development UI. Game Checkup, LAN sharing,
   Remote Desktop, Input Method, and Explorer context-menu management are
   currently behind this gate; gated tools are removed from navigation,
   dashboard, command search, category indexes, shortcuts, tray entries, and
@@ -407,6 +426,12 @@ noncommercial mirrors and public modified versions are allowed.
   The background thread initializes COM before calling the Shell API. Icons
   retry bounded executable candidates to cover transient Shell failures and
   are transient PNG data URLs with a generic fallback, never executed.
+  Games can be removed after confirmation; a removed scanned game is recorded
+  in `dismissedGameIds` so later scans list it under Other Games instead of
+  re-adding it, and adding it again clears the dismissal. A device connected
+  after games were added gets its verified maximum for each game, idle rates are
+  clamped to the verified set, a failed restore re-reads devices, and the worker
+  re-enumerates devices only on `WM_DEVICECHANGE`.
 - GitHub Actions release gates are defined in `.github/workflows/ci.yml`. The
   0.0.7 release pins windows_tool revision
   `63be28c24cc093a8d160d902cb983331dc9c9e2e`, including EA installation validation.
@@ -447,12 +472,26 @@ noncommercial mirrors and public modified versions are allowed.
   and runs the cached payload as a pre-Tauri helper. The helper re-verifies the
   signature, acquires both process handles before the exit handshake, waits for
   the app and launcher to exit, preserves the original file on replacement/start
-  failure, and restarts the original user filename. No installer or registry
+  failure, and restarts the original user filename. Renames retry transient
+  sharing/access failures a bounded number of times. A pending signed update is
+  retained until installation succeeds, so a failed install can be retried. No installer or registry
   installation is used. Legacy portable launchers/development builds remain
   manual; packaged Store apps use Store updates. Portable autostart targets the
   quoted original launcher path; updating migrates an already-enabled entry only
   when it points to the current cached payload, preserving unrelated installations.
   `auto-launch` and `minisign-verify` directly reuse versions already in the lockfile.
+- Microsoft Store MSIX: `npm run "build window msix"` (`scripts/build-msix.mjs`)
+  builds the release exe, renders `AppxManifest.xml` via `scripts/msix-manifest.mjs`
+  (Partner Center identity by default, `MXTOOLS_MSIX_*` env overrides; full trust, allowElevation, write
+  virtualization disabled) and packs an unsigned `.msix` with the SDK makeappx.
+  `app_info::is_packaged_app()` (package identity) reports distribution `store`,
+  turns the updater to Store availability and disables Run-key autostart.
+  The frontend reads it through `isStoreBuild()` / `useIsStoreBuild()` in
+  `src/utils/app_info.ts` (cached, `null` until known). The Store build hides
+  the autostart switches (settings and Razer page) and the app-update section;
+  every other feature, including sponsor QR, EAC driver removal, and automatic
+  voice-pack downloads, matches the desktop build. Store listing copy, IARC notes, and
+  WACK checks live in `docs/MICROSOFT_STORE_MSIX.md`.
   The Windows
   before-exit hook restores background hardware state and retains Tauri cleanup.
   `Publish signed Windows release` builds, verifies tamper rejection, upgrades
@@ -468,10 +507,7 @@ noncommercial mirrors and public modified versions are allowed.
   Release builds retain Tauri's default manifest. CI and the signed release gate
   run full `cargo test`, including the binary test harness, not only library tests.
 - Licensing scope is defined by root `LICENSE`, `NOTICE`, and
-  `THIRD_PARTY_NOTICES.md`. The APEX Q calculation port is used under
-  project-specific written permission granted by the upstream author on
-  2026-06-13, with attribution; the maintainer retains the original Bilibili
-  private-message evidence.
+  `THIRD_PARTY_NOTICES.md`.
 
 ## Important Workflows
 
@@ -521,16 +557,6 @@ noncommercial mirrors and public modified versions are allowed.
   editors first. The shared confirmation can keep the window open and navigate
   back to the currently visible dirty editor; otherwise it selects the first
   dirty Apex launch, video, or game-settings tab, then PUBG.
-- `openApexQWindow(target)` in `src/utils/windows.ts` creates or activates the
-  APEX Q workbench and navigates to `workspace`, `ocr`, `settings`,
-  `background`, or `overlay`. The tray exposes direct Workspace, OCR, and
-  Settings entries and sends the navigation target to the frontend through the
-  APEX Q open event.
-- OCR capture starts from the global hotkey or workbench and calls
-  `apex_q_from_latest_screenshot` implemented in `src-tauri/src/game/apex_q.rs`.
-  OCR/model downloads use Reqwest streaming over the Windows SChannel TLS stack;
-  downloaded files retain SHA-256 verification and progress events without
-  statically linking Rustls into the Windows release executable.
 - Long-lived UI preferences are stored in the persisted `settings` Pinia store
   (`@tauri-store/pinia`). Web Storage (`localStorage`/`sessionStorage`) is
   prohibited throughout production code; persist frontend state through Pinia
@@ -590,7 +616,10 @@ noncommercial mirrors and public modified versions are allowed.
   full-row summaries with right-side chevrons and independent selection boxes.
   Expanded tables show every value, file, binding context, and occurrence.
   Loading failures show an error and retry; native close is blocked during writes.
-  Online presets use the same import page. The Beta online-presets dialog
+  Online presets use the same import page. The online-presets dialog (always
+  available from the Apex toolbar cloud button, no longer beta-gated) is a
+  card list with scope chips, usage/comment stats, inline comment panels, skeleton
+  loading, and search-aware empty text; it
   lists the service's raw CUID-paginated results, lets anonymous users fetch a
   snapshot for review, and gates publishing, comments, one-level replies, and
   reports on the browser device-login account. List and comment generations
@@ -599,6 +628,16 @@ noncommercial mirrors and public modified versions are allowed.
   an old completion cannot clear a newer draft or loading state;
   the Rust boundary rejects unsafe preset path segments and trims comments to
   the service's 1000 UTF-16-code-unit limit before sending them.
+  Publishing (`apex_publish_payload.ts`) loads the current draft and the game
+  defaults (`loadApexSnapshotBaseline`) in parallel and uploads only changed
+  values (`changedSnapshot`, v2 `bindingsMode: 'patch'` when bindings differ).
+  It strips monitor geometry, machine-local devices, and Apex-managed keys,
+  and removes launch option groups containing paths or e-mail addresses. The
+  dialog previews exactly those rows per block via ApexSnapshotSection with
+  per-block opt-out and lists what was removed; title/description are cleaned
+  of control characters and capped at 80/400. `online_preset_publish` then
+  revalidates title, description, kind, and a 256 KiB payload cap natively
+  (`online_presets.invalid_publish`); the service schema repeats all checks.
   Successful import sends snapshotImported through the existing config-changed
   event before closing its window. The main-window listener displays the success
   toast independently of the active route or configuration refresh outcome.
@@ -739,11 +778,8 @@ noncommercial mirrors and public modified versions are allowed.
   EAC repair, or DISM/SFC through the repair IPC on a development machine.
   Native tests use path fixtures and action validation; Steam/EA acceptance is
   a separate controlled Windows run.
-- Avoid treating an old Steam screenshot as a fresh hotkey capture.
 - Keep root `package-lock.json` and `src-tauri/Cargo.lock` versioned so CI and
   release builds use reproducible dependency resolution.
-- APEX Q SFC line limits are enforced by ESLint: coordinator and new panels
-  are capped at 700 lines, calibration wrappers at 500.
 - Bundle size budgets remain visible in `dist/bundle-report.json`. The default
   browser-only build reports them, while CI and all Tauri builds enforce the
   strict `npm run bundle:check` gate.
@@ -804,7 +840,7 @@ noncommercial mirrors and public modified versions are allowed.
   states, and icon-only buttons.
 - Steam account switching, input-method installation, RDP/firewall changes,
   Microsoft-account source detection, dedicated RDP account creation/rollback,
-  SMB integration, and mixed-DPI APEX Q placement still require controlled
+  and SMB integration still require controlled
   Windows machine smoke tests before a public release.
 - Microsoft Store package registration/reset, UAC-batched service recovery,
   OneDrive reset/restart, and post-reboot `CldFlt` verification still require a
@@ -825,20 +861,10 @@ noncommercial mirrors and public modified versions are allowed.
   workflow does not download or publish it; selecting the workflow's
   `include_store` input enables the cache/download, Store bundle, and labeled
   offline asset while leaving the compact portable/setup budgets unchanged.
-- `src-tauri/src/game/apex_theta.rs` is a close Rust port of
-  `NYTN02/APEX_thetacalculation`. Its inspected upstream commit has no general
-  license, so reuse outside MxTools is not authorized by this repository; the
-  MxTools port relies on the project-specific written permission recorded in
-  `THIRD_PARTY_NOTICES.md`.
 
 ```mermaid
 graph TD
-  Workbench["APEX Q Coordinator"] --> Panels["Typed Workbench Panels"]
-  Workbench --> Controllers["Preferences, OCR, Screenshot and ROI Controllers"]
-  Controllers --> Prefs["apex_q.ts preferences"]
-  Workbench --> IPC["ipcInvoke / IpcCommandError"]
-  IPC --> Contract["Rust IpcError domain.reason"]
-  Contract --> Rust["Rust OCR and screenshot capture"]
+  IPC["ipcInvoke / IpcCommandError"] --> Contract["Rust IpcError domain.reason"]
   LocaleLoader["Async Locale Loader"] --> LocaleChunks["Domain Locale Chunks"]
   LocaleChunks --> LocaleParity["Locale and Apex Preset Parity Tests"]
   UITokens["Compact 28 / Dialog 32 / Form 40 px"] --> ApexUI["Apex Toolbars, Filters and Editors"]
@@ -851,7 +877,7 @@ graph TD
   Themes["Accent Palettes / APEX Red Default"] --> Vuetify["Accessible Light and Dark Colors"]
   Themes --> StartupChrome["Splash and Tray Tooltip Fallbacks"]
   Settings["Persisted Settings"] --> BetaGate["Beta Features Gate"]
-  BetaGate --> BetaEntries["APEX Q and Untested Tool Entries"]
+  BetaGate --> BetaEntries["Untested Tool Entries"]
   ApexPage["Apex Page Coordinator"] --> ApexStore["Cached Load State Machines"]
   PubgPage["PUBG Launch Page"] --> PubgOptions["Launch Options / Compact Account Toolbar"]
   PubgOptions --> IPC

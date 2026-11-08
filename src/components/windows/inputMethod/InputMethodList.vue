@@ -2,6 +2,7 @@
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import type {InputMethodItem} from '@/types/inputMethod.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
 import {
   disableChsSimplifiedTraditionalHotkey,
   openInputMethodSettings,
@@ -67,7 +68,12 @@ async function removeItem(item: InputMethodItem) {
     return;
   }
   const name = inputMethodDisplayName(item, locale.value);
-  if (!window.confirm(t('inputMethod.removeConfirm', {name}))) return;
+  const accepted = await confirm(t('inputMethod.removeConfirm', {name}), {
+    title: t('inputMethod.removeTitle'),
+    kind: 'warning',
+    confirmText: t('inputMethod.remove'),
+  });
+  if (!accepted) return;
 
   await withSaving(async () => {
     try {

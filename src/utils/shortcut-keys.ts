@@ -121,13 +121,6 @@ export function isValidGlobalAccelerator(accelerator: string): boolean {
   return isValidAccelerator(accelerator, true);
 }
 
-/** APEX Q 计算器热键：允许单独 F1–F12（对接 Steam 截图），或带修饰键的组合。 */
-export function isValidApexQAccelerator(accelerator: string): boolean {
-  if (!accelerator) return false;
-  if (/^F([1-9]|1[0-2])$/i.test(accelerator)) return true;
-  return isValidAccelerator(accelerator, true);
-}
-
 export function matchesAccelerator(e: KeyboardEvent, accelerator: string): boolean {
   if (!accelerator) return false;
   const current = eventToAccelerator(e);

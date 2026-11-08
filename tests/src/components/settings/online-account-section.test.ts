@@ -34,7 +34,7 @@ describe('online account section contract', () => {
     const registry = readFileSync(new URL('../../../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
     expect(commands).toContain("ipcInvoke<void>('online_auth_open_verification');");
     expect(native).toContain('pub fn online_auth_open_verification(app: tauri::AppHandle)');
-    expect(native).toContain('validate_verification_url(&base, started.verification_uri_complete)?');
+    expect(native).toContain('std::mem::take(&mut started.verification_uri_complete),');
     expect(native).toContain('verification_uri_complete: verification_uri_complete.clone()');
     expect(native).toContain('let url = pending_verification_url(');
     expect(registry).toContain('            online_auth_open_verification,');

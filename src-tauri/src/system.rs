@@ -47,13 +47,16 @@ fn get_primary_display_info_inner() -> Result<PrimaryDisplayInfo, String> {
         if ok == 0 {
             break;
         }
-        if mode.dmDisplayFrequency > max_refresh {
+        if mode.dmPelsWidth == width
+            && mode.dmPelsHeight == height
+            && mode.dmDisplayFrequency > max_refresh
+        {
             max_refresh = mode.dmDisplayFrequency;
         }
         i = i.saturating_add(1);
     }
 
-    if max_refresh == 0 {
+    if max_refresh <= 1 {
         max_refresh = 60;
     }
 
@@ -142,12 +145,11 @@ pub async fn system_info() -> IpcResult<Vec<(String, String)>> {
 
 fn system_info_inner() -> Vec<(String, String)> {
     let mut res: Vec<(String, String)> = Vec::new();
-    let mut sys = System::new_with_specifics(
+    let sys = System::new_with_specifics(
         RefreshKind::nothing()
             .with_cpu(CpuRefreshKind::everything())
             .with_memory(MemoryRefreshKind::everything()),
     );
-    sys.refresh_all();
 
     // System
     let sys_name = System::name().unwrap_or_default();
@@ -227,41 +229,265 @@ pub async fn system_total_memory_mb() -> IpcResult<u64> {
 
 const MAX_UTF8_FILE_BYTES: u64 = 8 * 1024 * 1024;
 
-/// 拒绝系统敏感目录与路径穿越；允许用户目录及对话框所选的普通盘符路径。
-fn assert_user_data_path(path: &str) -> Result<std::path::PathBuf, String> {
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PathValidationErrors<'a> {
+    pub empty: &'a str,
+    pub invalid: &'a str,
+    pub not_absolute: &'a str,
+    pub not_allowed: &'a str,
+}
+
+fn protected_windows_roots(include_program_files: bool) -> Vec<String> {
+    let mut roots = vec![r"c:\windows".to_string(), r"c:\programdata".to_string()];
+    if include_program_files {
+        roots.push(r"c:\program files".to_string());
+        roots.push(r"c:\program files (x86)".to_string());
+    }
+    let env_keys: &[&str] = if include_program_files {
+        &[
+            "SystemRoot",
+            "WINDIR",
+            "ProgramData",
+            "ProgramFiles",
+            "ProgramFiles(x86)",
+            "ProgramW6432",
+        ]
+    } else {
+        &["SystemRoot", "WINDIR", "ProgramData"]
+    };
+    for key in env_keys {
+        if let Ok(val) = std::env::var(key) {
+            let norm = val
+                .trim()
+                .replace('/', "\\")
+                .trim_end_matches('\\')
+                .to_ascii_lowercase();
+            if !norm.is_empty() && !roots.contains(&norm) {
+                roots.push(norm);
+            }
+        }
+    }
+    roots
+}
+
+pub(crate) fn is_under_protected_windows_root(
+    candidate: &std::path::Path,
+    include_program_files: bool,
+) -> bool {
+    let raw = candidate.to_string_lossy();
+    let mut lower = raw.replace('/', "\\").to_ascii_lowercase();
+    if let Some(rest) = lower.strip_prefix(r"\\?\") {
+        lower = rest.to_string();
+    }
+    let trimmed = lower.trim_end_matches('\\');
+    if trimmed.starts_with(r"\\.\") || trimmed.starts_with(r"\??\") {
+        return true;
+    }
+    for root in protected_windows_roots(include_program_files) {
+        if trimmed == root || trimmed.starts_with(&format!(r"{root}\")) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_local_unc_host(host: &str) -> bool {
+    let host_lower = host.trim().to_ascii_lowercase();
+    if host_lower.is_empty()
+        || host_lower == "."
+        || host_lower == "localhost"
+        || host_lower == "::1"
+        || host_lower == "[::1]"
+        || host_lower.starts_with("127.")
+    {
+        return true;
+    }
+    if let Ok(comp) = std::env::var("COMPUTERNAME") {
+        if !comp.trim().is_empty() && host_lower == comp.trim().to_ascii_lowercase() {
+            return true;
+        }
+    }
+    false
+}
+
+/// 将 `canonicalize` 返回的 `\\?\C:\...` 还原为普通盘符路径；
+/// 对指向本机回环的 UNC（如 `\\?\UNC\127.0.0.1\c$\Windows`）或设备命名空间返回 `None`。
+pub(crate) fn normalize_canonical_windows_path(
+    canon: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let raw = canon.to_string_lossy().replace('/', "\\");
+    if raw.starts_with(r"\\.\") || raw.starts_with(r"\??\") {
+        return None;
+    }
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        if bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && bytes[2] == b'\\'
+        {
+            return Some(std::path::PathBuf::from(rest));
+        }
+        if let Some(unc_rest) = rest
+            .strip_prefix(r"UNC\")
+            .or_else(|| rest.strip_prefix(r"unc\"))
+        {
+            let server = unc_rest.split('\\').next().unwrap_or("");
+            if is_local_unc_host(server) {
+                return None;
+            }
+            return Some(std::path::PathBuf::from(format!(r"\\{unc_rest}")));
+        }
+        return None;
+    }
+    if let Some(unc_rest) = raw.strip_prefix(r"\\") {
+        let server = unc_rest.split('\\').next().unwrap_or("");
+        if is_local_unc_host(server) {
+            return None;
+        }
+    }
+    Some(std::path::PathBuf::from(raw))
+}
+
+pub(crate) fn validate_local_path_with_rules(
+    path: &str,
+    include_program_files: bool,
+    require_leaf_name: bool,
+    errors: PathValidationErrors<'_>,
+) -> Result<std::path::PathBuf, String> {
     let raw = path.trim();
     if raw.is_empty() {
-        return Err("system.errors.invalidPath".to_string());
+        return Err(errors.empty.to_string());
     }
     if raw.contains('\0') || raw.chars().any(|c| c.is_control()) {
-        return Err("system.errors.invalidPath".to_string());
-    }
-    let p = std::path::PathBuf::from(raw);
-    if !p.is_absolute() {
-        return Err("system.errors.pathMustBeAbsolute".to_string());
-    }
-    if p.components()
-        .any(|c| matches!(c, std::path::Component::ParentDir))
-    {
-        return Err("system.errors.invalidPath".to_string());
+        return Err(errors.invalid.to_string());
     }
 
-    let lower = raw.replace('/', "\\").to_ascii_lowercase();
-    let blocked_prefixes = [
-        r"c:\windows\",
-        r"c:\windows",
-        r"c:\program files\",
-        r"c:\program files (x86)\",
-        r"c:\programdata\",
-        r"\\.\",
-    ];
-    // 精确匹配根目录或带子路径
-    for b in blocked_prefixes {
-        if lower == b.trim_end_matches('\\') || lower.starts_with(b) {
-            // Steam 等安装在 Program Files 下时，仅禁止写入系统目录；
-            // 读写 utf8 配置快照不应落在这些路径。
-            return Err("system.errors.pathNotAllowed".to_string());
+    #[cfg(windows)]
+    {
+        let mut normalized = raw.replace('/', "\\");
+        if normalized.starts_with(r"\\.\") || normalized.starts_with(r"\??\") {
+            return Err(errors.not_allowed.to_string());
         }
+        if let Some(rest) = normalized.strip_prefix(r"\\?\") {
+            let bytes = rest.as_bytes();
+            if bytes.len() >= 3
+                && bytes[0].is_ascii_alphabetic()
+                && bytes[1] == b':'
+                && bytes[2] == b'\\'
+            {
+                normalized = rest.to_string();
+            } else {
+                return Err(errors.not_allowed.to_string());
+            }
+        } else if normalized.starts_with(r"\\") {
+            return Err(errors.not_allowed.to_string());
+        }
+
+        let bytes = normalized.as_bytes();
+        if bytes.len() < 3
+            || !bytes[0].is_ascii_alphabetic()
+            || bytes[1] != b':'
+            || bytes[2] != b'\\'
+        {
+            return Err(errors.not_absolute.to_string());
+        }
+
+        let after_root = &normalized[3..];
+        for seg in after_root.split('\\').filter(|s| !s.is_empty()) {
+            if seg == "." || seg == ".." || seg.contains(':') {
+                return Err(errors.invalid.to_string());
+            }
+        }
+
+        let p = std::path::PathBuf::from(&normalized);
+        if !p.is_absolute() {
+            return Err(errors.not_absolute.to_string());
+        }
+        if p.components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(errors.invalid.to_string());
+        }
+        if require_leaf_name && p.file_name().is_none() {
+            return Err(errors.invalid.to_string());
+        }
+        if is_under_protected_windows_root(&p, include_program_files) {
+            return Err(errors.not_allowed.to_string());
+        }
+
+        let mut cursor: &std::path::Path = p.as_path();
+        let mut missing_tail: Vec<std::ffi::OsString> = Vec::new();
+        while !cursor.exists() {
+            if let Some(name) = cursor.file_name() {
+                missing_tail.push(name.to_os_string());
+            }
+            match cursor.parent() {
+                Some(parent) if parent != cursor => cursor = parent,
+                _ => break,
+            }
+        }
+        if cursor.exists() {
+            if let Ok(canon) = std::fs::canonicalize(cursor) {
+                let mut resolved = normalize_canonical_windows_path(&canon)
+                    .ok_or_else(|| errors.not_allowed.to_string())?;
+                for part in missing_tail.into_iter().rev() {
+                    resolved.push(part);
+                }
+                if is_under_protected_windows_root(&resolved, include_program_files) {
+                    return Err(errors.not_allowed.to_string());
+                }
+            }
+        }
+
+        Ok(p)
+    }
+
+    #[cfg(not(windows))]
+    {
+        let p = std::path::PathBuf::from(raw);
+        if !p.is_absolute() {
+            return Err(errors.not_absolute.to_string());
+        }
+        if p.components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(errors.invalid.to_string());
+        }
+        if require_leaf_name && p.file_name().is_none() {
+            return Err(errors.invalid.to_string());
+        }
+        let _ = include_program_files;
+        Ok(p)
+    }
+}
+
+/// 拒绝系统敏感目录与路径穿越；允许用户目录及对话框所选的普通盘符路径。
+pub(crate) fn assert_user_data_path(path: &str) -> Result<std::path::PathBuf, String> {
+    validate_local_path_with_rules(
+        path,
+        true,
+        true,
+        PathValidationErrors {
+            empty: "system.errors.invalidPath",
+            invalid: "system.errors.invalidPath",
+            not_absolute: "system.errors.pathMustBeAbsolute",
+            not_allowed: "system.errors.pathNotAllowed",
+        },
+    )
+}
+
+pub(crate) fn assert_user_data_file_with_extension(
+    path: &str,
+    expected_ext: &str,
+) -> Result<std::path::PathBuf, String> {
+    let p = assert_user_data_path(path)?;
+    let has_ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(expected_ext));
+    if !has_ext {
+        return Err("system.errors.invalidFileExtension".to_string());
     }
     Ok(p)
 }

@@ -33,6 +33,8 @@ export interface RazerBackgroundConfig {
   deviceProfiles: Record<string, RazerBackgroundDeviceProfile>;
   modelPresets?: RazerBackgroundModelPresets;
   games: RazerBackgroundGame[];
+  /** Scanned game IDs the user removed; automatic scans must not re-add them. */
+  dismissedGameIds?: string[];
   [key: string]: unknown;
 }
 
@@ -41,11 +43,6 @@ export interface BackgroundRuntimeConfig {
   autostart: boolean;
   betaFeaturesEnabled: boolean;
   locale: 'system' | 'zh-CN' | 'en-US';
-  apexQ: Record<string, unknown> & {
-    enabled: boolean;
-    setupDone: boolean;
-    hotkey: string;
-  };
   razer: RazerBackgroundConfig;
 }
 
@@ -54,7 +51,6 @@ export interface BackgroundRuntimeSnapshot {
   autostartEnabled: boolean;
   configuredAutostart: boolean;
   launchMode: BackgroundLaunchMode;
-  apexQState: BackgroundFeatureState;
   razerState: BackgroundFeatureState;
   config: BackgroundRuntimeConfig;
 }

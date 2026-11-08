@@ -92,7 +92,7 @@ describe('IPC error normalization', () => {
     expect(ipcErrorKey({code: 'razer_polling.no_response', message: 'no response'}))
       .toBe('razerPolling.errors.noResponse');
     expect(formatIpcError(known)).toBe('Credentials rejected for alice');
-    expect(formatIpcError({code: 'apex_q.operation_failed', message: 'native failure'}))
+    expect(formatIpcError({code: 'tray.operation_failed', message: 'native failure'}))
       .toBe('Command failed: native failure');
   });
 });

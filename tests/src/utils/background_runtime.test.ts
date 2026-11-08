@@ -25,7 +25,6 @@ function runtimeConfig(): BackgroundRuntimeConfig {
     autostart: false,
     betaFeaturesEnabled: true,
     locale: 'zh-CN',
-    apexQ: {enabled: false, setupDone: false, hotkey: 'F12'},
     razer: razerConfig(),
   };
 }

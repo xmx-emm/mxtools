@@ -219,15 +219,6 @@ export const apexPresetActions = {
       .catch((error) => console.warn('open apex quick preset failed', error));
   },
 
-  open_apex_q_dialog(this: ApexStoreThis) {
-    void import('@/utils/windows.ts')
-      .then(({openApexQWindow}) => openApexQWindow())
-      .catch((error) => console.warn('open apex-q preset failed', error));
-  },
-
-  close_apex_q_dialog(this: ApexStoreThis) {
-    this.apex_q_dialog = false;
-  },
 
   set_quick_preset_display(this: ApexStoreThis, info: PrimaryDisplayInfo | null) {
     this.quick_preset_display = info;

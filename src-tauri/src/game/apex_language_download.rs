@@ -250,13 +250,14 @@ pub(super) async fn ensure_cef_debugging(
     depot: u32,
     cancel: &Arc<AtomicBool>,
     report: &(dyn Fn(&MilesDownloadProgress) + Send + Sync),
-) -> Result<(), String> {
+) -> Result<CefSession, String> {
     reject_running_steam_game(steam_running_app_id())?;
     if list_targets(STEAM_CEF_PORT).await.is_ok() {
-        return Ok(());
+        return Ok(CefSession::Existing);
     }
 
-    if steam_is_running_sync()? {
+    let was_running = steam_is_running_sync()?;
+    if was_running {
         report(&MilesDownloadProgress::new(depot, phase::RESTARTING_STEAM));
         let exe = steam_exe_path()?;
         let _ = std::process::Command::new(&exe)
@@ -285,6 +286,11 @@ pub(super) async fn ensure_cef_debugging(
         .with_hidden_window()
         .spawn()
         .map_err(|e| format!("apex.milesDl.steamLaunchFailed: {e}"))?;
+    let session = if was_running {
+        CefSession::Restarted
+    } else {
+        CefSession::Launched
+    };
 
     let deadline = Instant::now() + CEF_PORT_TIMEOUT;
     while list_targets(STEAM_CEF_PORT).await.is_err() {
@@ -308,7 +314,71 @@ pub(super) async fn ensure_cef_debugging(
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
-    Ok(())
+    Ok(session)
+}
+
+/// How Steam was prepared for CEF access. Only debug sessions MxTools started
+/// are undone afterwards; a user-enabled debug port is left alone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum CefSession {
+    Existing,
+    /// Steam was running and MxTools restarted it with the debug flag.
+    Restarted,
+    /// Steam was not running and MxTools launched it with the debug flag.
+    Launched,
+}
+
+/// What to do with Steam once the download no longer needs the debug port.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum CefCleanup {
+    None,
+    Shutdown,
+    RestartNormally,
+}
+
+pub(super) fn cef_cleanup_action(session: CefSession, running_app_id: u32) -> CefCleanup {
+    // Never interrupt a game the user started meanwhile.
+    if running_app_id != 0 {
+        return CefCleanup::None;
+    }
+    match session {
+        CefSession::Existing => CefCleanup::None,
+        CefSession::Restarted => CefCleanup::RestartNormally,
+        CefSession::Launched => CefCleanup::Shutdown,
+    }
+}
+
+/// Best-effort: close the CEF debug port MxTools opened, restoring Steam to
+/// its previous running state without the debug flag.
+pub(super) async fn release_cef_debugging(session: CefSession) {
+    let action = cef_cleanup_action(session, steam_running_app_id());
+    if action == CefCleanup::None {
+        return;
+    }
+    let Ok(exe) = steam_exe_path() else {
+        return;
+    };
+    let _ = std::process::Command::new(&exe)
+        .arg("-shutdown")
+        .with_hidden_window()
+        .spawn();
+    let deadline = Instant::now() + STEAM_EXIT_TIMEOUT;
+    while steam_is_running_sync().unwrap_or(false) {
+        if Instant::now() > deadline {
+            log_info!("Steam 调试模式清理：等待退出超时，保留当前实例");
+            return;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    if action == CefCleanup::RestartNormally {
+        if let Err(e) = std::process::Command::new(&exe)
+            .arg("-silent")
+            .with_hidden_window()
+            .spawn()
+        {
+            log_info!("Steam 调试模式清理：重新启动失败 {e}");
+        }
+    }
 }
 
 /// 连接 SharedJSContext 并做能力探测 + 版本记录；探测失败返回回退错误。
@@ -522,6 +592,18 @@ async fn run_download_inner(
     depot: u32,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), String> {
+    let mut session = CefSession::Existing;
+    let result = run_download_steps(app, depot, cancel, &mut session).await;
+    release_cef_debugging(session).await;
+    result
+}
+
+async fn run_download_steps(
+    app: &AppHandle,
+    depot: u32,
+    cancel: &Arc<AtomicBool>,
+    session: &mut CefSession,
+) -> Result<(), String> {
     if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".into());
     }
@@ -536,7 +618,7 @@ async fn run_download_inner(
         .map(|p| p.to_path_buf())
         .unwrap_or(depot_dir.clone());
 
-    ensure_cef_debugging(depot, cancel, &|p| emit(app, p)).await?;
+    *session = ensure_cef_debugging(depot, cancel, &|p| emit(app, p)).await?;
     if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".to_string());
     }
@@ -678,5 +760,13 @@ mod language_download_tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/miles_download_progress.rs"
+    ));
+}
+
+#[cfg(test)]
+mod debug_session_cleanup {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/miles_debug_session_cleanup.rs"
     ));
 }

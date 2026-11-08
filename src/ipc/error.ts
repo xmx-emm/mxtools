@@ -15,7 +15,6 @@ function toSnakeCase(value: string): string {
 }
 
 function commandDomain(command: string): string {
-  if (command.startsWith('apex_q_')) return 'apex_q';
   if (command.includes('apex_launch_repair') || command === 'repair_apex_launch_issues') {
     return 'apex_launch_repair';
   }
@@ -123,12 +122,6 @@ export const IPC_ERROR_I18N_KEYS: Readonly<Record<string, string>> = {
   'apex.running': 'apex.gameSettings.errors.apexRunning',
   'apex.no_changes': 'apex.gameSettings.errors.noChanges',
   'apex.no_restore_selection': 'apex.gameSettings.errors.noRestoreSelection',
-  'apex_q.screenshot_folder_not_found': 'ipc.errors.screenshotFolderNotFound',
-  'apex_q.screenshot_not_found': 'ipc.errors.screenshotNotFound',
-  'apex_q.invalid_distance': 'ipc.errors.invalidDistance',
-  'apex_q.invalid_alpha': 'ipc.errors.invalidAlpha',
-  'apex_q.ocr_download_failed': 'ipc.errors.ocrDownloadFailed',
-  'apex_q.ocr_delete_failed': 'ipc.errors.ocrDeleteFailed',
 };
 
 export function ipcErrorKey(error: unknown): string | null {
@@ -157,7 +150,8 @@ export function ipcErrorKey(error: unknown): string | null {
     candidates.push(`networkRepair.errors.${camelCase(reason)}`);
   } else if (domain === 'apex_launch_repair') {
     candidates.push(`apexLaunchRepair.errors.${camelCase(reason)}`);
-  } else if (domain === 'rdp') {
+  } else if (domain === 'rdp' || domain === 'windows_user') {
+    // Windows account management is surfaced on the Remote Desktop page.
     candidates.push(`rdp.errors.${camelCase(reason)}`);
   } else if (domain === 'pubg') {
     candidates.push(`pubg.errors.${camelCase(reason)}`);

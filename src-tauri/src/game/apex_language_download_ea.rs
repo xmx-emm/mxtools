@@ -350,12 +350,74 @@ fn save_probe_record(user_agent: &str, ok: bool) {
 }
 
 /// 确保 EA App 以调试模式运行并返回页面会话；必要时杀进程重拉（含自更新丢参数的情形）。
-async fn ensure_ea_debugging(app: &AppHandle) -> Result<CefPage, String> {
+/// How EA Desktop was prepared for CEF access; only MxTools-started debug
+/// instances are undone after the download.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EaSession {
+    Existing,
+    Restarted,
+    Launched,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EaCleanup {
+    None,
+    Close,
+    RestartNormally,
+}
+
+fn ea_cleanup_action(session: EaSession, other_game_running: bool) -> EaCleanup {
+    if other_game_running {
+        return EaCleanup::None;
+    }
+    match session {
+        EaSession::Existing => EaCleanup::None,
+        EaSession::Restarted => EaCleanup::RestartNormally,
+        EaSession::Launched => EaCleanup::Close,
+    }
+}
+
+/// Best-effort: close the debug-enabled EA instance MxTools started and, when
+/// EA was already running before, relaunch it without the debug port.
+async fn release_ea_debugging(session: EaSession) {
+    let action = ea_cleanup_action(session, ea_other_game_running());
+    if action == EaCleanup::None {
+        return;
+    }
+    kill_processes_by_names(
+        &[
+            "eadesktop.exe",
+            "ealauncher.exe",
+            "eabackgroundagent.exe",
+            "easteamproxy.exe",
+            "link2ea.exe",
+        ],
+        ProcessNameMatchMode::Exact,
+    );
+    if action == EaCleanup::RestartNormally {
+        tokio::time::sleep(Duration::from_secs(4)).await;
+        match ea_desktop_exe() {
+            Ok(exe) => {
+                if let Err(e) = std::process::Command::new(&exe).spawn() {
+                    log_info!("EA 调试模式清理：重新启动失败 {e}");
+                }
+            }
+            Err(e) => log_info!("EA 调试模式清理：找不到 EA Desktop {e}"),
+        }
+    }
+}
+
+async fn ensure_ea_debugging(app: &AppHandle) -> Result<(CefPage, EaSession), String> {
     // 已就绪：直接用
     if let Ok(page) = try_connect_ea_page().await {
-        return Ok(page);
+        return Ok((page, EaSession::Existing));
     }
 
+    let session = if ea_process_running() {
+        EaSession::Restarted
+    } else {
+        EaSession::Launched
+    };
     for attempt in 0..2 {
         if session_cancelled() {
             return Err("cancelled".into());
@@ -398,7 +460,7 @@ async fn ensure_ea_debugging(app: &AppHandle) -> Result<CefPage, String> {
             tokio::time::sleep(Duration::from_secs(2)).await;
             if let Ok(page) = try_connect_ea_page().await {
                 minimize_ea_window();
-                return Ok(page);
+                return Ok((page, session));
             }
             if Instant::now() > deadline {
                 return Err("apex.milesDlEa.eaPortTimeout".to_string());
@@ -611,11 +673,31 @@ async fn run_download_inner(
     let started = Instant::now();
     emit(app, &MilesDownloadProgress::new(0, phase::CHECKING));
 
+    // Validate before touching EA so a bad language never restarts the client.
+    let target_slug = ea_language_slug(language).ok_or("apex.milesDlEa.badLanguage")?;
+    ea_slug_to_locale(target_slug).ok_or("apex.milesDlEa.badLanguage")?;
+
+    let (page, session) = ensure_ea_debugging(app).await?;
+    let result = run_language_switch(app, language, ea_user_id, cancel, page, started).await;
+    // A failed or cancelled switch may still be installing inside EA; only
+    // close the debug instance once the locale work has finished cleanly.
+    if result.is_ok() {
+        release_ea_debugging(session).await;
+    }
+    result
+}
+
+async fn run_language_switch(
+    app: &AppHandle,
+    language: &str,
+    ea_user_id: &str,
+    cancel: &Arc<AtomicBool>,
+    mut page: CefPage,
+    started: Instant,
+) -> Result<(), String> {
     let target_slug = ea_language_slug(language).ok_or("apex.milesDlEa.badLanguage")?;
     let target_locale = ea_slug_to_locale(target_slug).ok_or("apex.milesDlEa.badLanguage")?;
     let restore_key = format!("{ea_user_id}:{language}");
-
-    let mut page = ensure_ea_debugging(app).await?;
     wait_bridge_ready(&mut page).await?;
     if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".to_string());
@@ -933,5 +1015,13 @@ mod language_download_ea_tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/game/miles_ea_payloads.rs"
+    ));
+}
+
+#[cfg(test)]
+mod debug_session_cleanup {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game/miles_ea_debug_session_cleanup.rs"
     ));
 }

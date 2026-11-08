@@ -49,7 +49,6 @@ describe('Apex page toolbar visual contract', () => {
     expect(utilitySource).toContain('@click="open_launch_repair"');
     expect(utilitySource).toContain('@click="open_quick_preset"');
     expect(utilitySource).toContain('v-if="settings_store.betaFeaturesEnabled"');
-    expect(utilitySource).toContain('@click="open_apex_q"');
     expect(utilitySource).toContain('@click="open_config_export"');
     expect(utilitySource).toContain('@click="open_config_import"');
   });

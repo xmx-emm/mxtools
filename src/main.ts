@@ -40,11 +40,6 @@ import {startTauriStoreOnce} from '@/utils/tauri_store.ts';
 import {settleStartupTask, type StartupTaskResult} from '@/utils/startup.ts';
 import {installNativeTooltip} from '@/utils/native_tooltip.ts';
 import type {ApexPageTypeEnum} from '@/enum.ts';
-import {
-  bindApexQPreferencesStore,
-  loadApexQPrefs,
-  useApexQPreferencesStore,
-} from '@/stores/apex_q_preferences.ts';
 import {confirm} from '@/utils/app_confirmation.ts';
 
 type TauriRuntimeWindow = Window & {
@@ -157,87 +152,10 @@ if (isTauriRuntime) {
 
 const disposeNativeTooltip = installNativeTooltip('mx-native-tooltip');
 let vueApp: VueApp | null = null;
-let stopApexQOpenRequest: UnlistenFn | null = null;
-let stopApexQAdjustRequest: UnlistenFn | null = null;
-let apexQRequestListenersStarting: Promise<void> | null = null;
-let apexQRequestListenersDisposed = false;
-let apexQRequestCleanupRegistered = false;
-
-function reportApexQWindowOpenFailure(error: unknown) {
-  console.warn('open apex-q window failed', error);
-}
-
-function parseApexQTrayTarget(value: unknown) {
-  const target = typeof value === 'string'
-    ? value
-    : value && typeof value === 'object'
-      ? (value as {target?: unknown}).target
-      : null;
-  return target === 'ocr' || target === 'settings' || target === 'background' || target === 'overlay'
-    ? target
-    : 'workspace' as const;
-}
-
-async function ensureApexQRequestListeners() {
-  if (!isMainWindow || apexQRequestListenersDisposed) return;
-  if (!apexQRequestCleanupRegistered) {
-    apexQRequestCleanupRegistered = true;
-    registerHmrCleanup(() => {
-      apexQRequestListenersDisposed = true;
-      stopApexQOpenRequest?.();
-      stopApexQOpenRequest = null;
-      stopApexQAdjustRequest?.();
-      stopApexQAdjustRequest = null;
-      apexQRequestListenersStarting = null;
-    });
-  }
-  if (!apexQRequestListenersStarting) {
-    apexQRequestListenersStarting = (async () => {
-      if (!stopApexQOpenRequest) {
-        const unlisten = await listen<unknown>('apex-q-open-request', (event) => {
-          void import('@/utils/windows.ts')
-            .then(({openApexQWindow}) => openApexQWindow(parseApexQTrayTarget(event.payload)))
-            .catch(reportApexQWindowOpenFailure);
-        });
-        if (apexQRequestListenersDisposed) unlisten();
-        else stopApexQOpenRequest = unlisten;
-      }
-      if (!stopApexQAdjustRequest && !apexQRequestListenersDisposed) {
-        const unlisten = await listen('apex-q-overlay-adjust-request', () => {
-          void (async () => {
-            const [{setApexQOverlayInteractionMode}, {openApexQWindow}] = await Promise.all([
-              import('@/utils/apex_q.ts'),
-              import('@/utils/windows.ts'),
-            ]);
-            const hasOverlay = await setApexQOverlayInteractionMode('adjusting');
-            if (!hasOverlay) await openApexQWindow('overlay');
-          })().catch(reportApexQWindowOpenFailure);
-        });
-        if (apexQRequestListenersDisposed) unlisten();
-        else stopApexQAdjustRequest = unlisten;
-      }
-    })().finally(() => {
-      apexQRequestListenersStarting = null;
-    });
-  }
-  await apexQRequestListenersStarting;
-}
-
 // 正常/调试启动始终显示主窗口；仅开机自启且勾选「启动进托盘」时保持隐藏。
 // 主窗口显示时不显示托盘，隐藏时才显示。
 if (isTauriRuntime && isMainWindow) {
   void (async () => {
-    try {
-      await ensureApexQRequestListeners();
-    } catch (e) {
-      console.warn('register apex-q window listeners failed', e);
-    }
-    try {
-      const {bootstrapApexQEventListeners} = await import('@/utils/apex_q.ts');
-      await bootstrapApexQEventListeners();
-    } catch (e) {
-      console.warn('register apex-q event listeners failed', e);
-    }
     await syncTrayWithMainWindow();
   })().catch((e) => console.warn('initialize main window visibility failed', e));
 }
@@ -270,18 +188,12 @@ async function bootstrap() {
   const backgroundRuntime = useBackgroundRuntimeStore();
   const debugStore = useDebugStore();
   const style = useUiStyleStore();
-  const apexQPreferences = useApexQPreferencesStore();
   const razerGameScan = useRazerGameScanStore();
-  bindApexQPreferencesStore(apexQPreferences);
   if (isTauriRuntime) {
     await Promise.all([
       runStartupTask('settings store', () => startTauriStoreOnce('settings', () => settings.$tauri.start())),
       runStartupTask('debug store', () => startTauriStoreOnce('debug', () => debugStore.$tauri.start())),
       runStartupTask('style store', () => startTauriStoreOnce('style', () => style.$tauri.start())),
-      runStartupTask('apex-q preferences store', () => startTauriStoreOnce(
-        'apex-q-preferences',
-        () => apexQPreferences.$tauri.start(),
-      )),
       runStartupTask('razer game scan store', () => startTauriStoreOnce(
         'razer-game-scan',
         () => razerGameScan.$tauri.start(),
@@ -348,7 +260,6 @@ async function bootstrap() {
   }
   if (isMainWindow) {
     try {
-      await ensureApexQRequestListeners();
       await markBackgroundMainWindowReady();
     } catch (e) {
       console.warn('register main-window background listeners after mount failed', e);
@@ -372,19 +283,6 @@ async function bootstrap() {
       await localeShortcutSetup;
     } catch (e) {
       console.warn('setup locale toggle shortcut failed', e);
-    }
-    try {
-      const {
-        bootstrapApexQFromStorage,
-        syncApexQHotkey,
-      } = await import('@/utils/apex_q.ts');
-      if (settings.betaFeaturesEnabled) {
-        await bootstrapApexQFromStorage();
-      } else {
-        await syncApexQHotkey({...loadApexQPrefs(), enabled: false});
-      }
-    } catch (e) {
-      console.warn('sync beta apex-q state failed', e);
     }
   }
 }

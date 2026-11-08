@@ -74,7 +74,7 @@ describe('Razer polling page visual contract', () => {
     expect(configSource).toContain("matcher.kind === 'executablePath'");
     expect(configSource).toContain('{executable: matcher.value, packageFamilyName: null');
     expect(configSource).toContain('{executable: null, packageFamilyName: matcher.value');
-    expect(pageSource).toContain('.filter(game => !game.isShooter');
+    expect(pageSource).toContain('.filter(game => (!game.isShooter || isDismissedGame(config.value, game.logicalId))');
     expect(pageSource).toContain('!configuredIds.value.has(game.logicalId)');
     expect(pageSource).toContain('v-for="game in config.games"');
     expect(pageSource).toContain('v-if="scanReport" class="razer-scan-results"');
@@ -88,7 +88,7 @@ describe('Razer polling page visual contract', () => {
     expect(pageSource).toContain('v-for="(path, index) in manualExecutables"');
     expect(pageSource).toContain('@click="manualExecutables.splice(index, 1)"');
     expect(pageSource).toContain(
-      'config.value.games.push(createManualGame(id, name, manualExecutables.value, statuses.value))',
+      'id, name, manualExecutables.value, statuses.value, config.value,',
     );
     expect(pageSource).toContain(':disabled="!manualName.trim() || !manualExecutables.length"');
     expect(configSource).toContain('export function createManualGame(');
@@ -123,7 +123,7 @@ describe('Razer polling page visual contract', () => {
     expect(pageSource).toContain(
       "import BackgroundAutostartSwitch from '@/components/settings/BackgroundAutostartSwitch.vue'",
     );
-    expect(pageSource).toContain('<div class="razer-autostart-row">');
+    expect(pageSource).toContain('<div v-if="isStoreBuild === false" class="razer-autostart-row">');
     expect(pageSource).toContain('<BackgroundAutostartSwitch compact />');
     expect(pageSource).toMatch(
       /\.razer-autostart-row \{ border-top: 1px solid var\(--app-border\); \}/,

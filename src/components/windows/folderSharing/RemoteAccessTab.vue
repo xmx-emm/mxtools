@@ -406,13 +406,17 @@ onMounted(() => {
           <div class="target-path selectable-text">{{ connectTarget?.uncPath }}</div>
           <v-btn-toggle
             :model-value="connectMode"
+            class="game-page-segmented-toggle"
             mandatory
+            border
+            divided
             density="compact"
-            variant="outlined"
+            color="primary"
+            variant="text"
             @update:model-value="setConnectMode"
           >
-            <v-btn value="temporary">{{ t('folderSharing.remote.temporary') }}</v-btn>
-            <v-btn value="drive">{{ t('folderSharing.remote.mapDrive') }}</v-btn>
+            <v-btn value="temporary" size="small">{{ t('folderSharing.remote.temporary') }}</v-btn>
+            <v-btn value="drive" size="small">{{ t('folderSharing.remote.mapDrive') }}</v-btn>
           </v-btn-toggle>
 
           <div v-if="connectMode === 'drive'" class="drive-options">

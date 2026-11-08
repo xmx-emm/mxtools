@@ -18,7 +18,6 @@ import type {
   ApexLauncherRef,
   ApexResetResult,
 } from '@/types/apex_history.ts';
-import type {ApexQCaptureResult, ApexQRoi, ApexQThetaResult} from '@/types/apex_q.ts';
 import type {
   ApexGameSettingsApplyRequest,
   ApexGameSettingsReport,
@@ -114,12 +113,6 @@ export function setBackgroundRuntimeAutostart(enabled: boolean): Promise<Backgro
 
 export function configureBackgroundRuntime(config: BackgroundRuntimeConfig): Promise<BackgroundRuntimeSnapshot> {
   return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_configure', {config});
-}
-
-export function updateBackgroundRuntimeApexQ(
-  apexQ: BackgroundRuntimeConfig['apexQ'],
-): Promise<BackgroundRuntimeSnapshot> {
-  return ipcInvoke<BackgroundRuntimeSnapshot>('background_runtime_update_apex_q', {apexQ});
 }
 
 export function setBackgroundRuntimeBetaFeatures(enabled: boolean): Promise<BackgroundRuntimeSnapshot> {
@@ -935,125 +928,8 @@ export function openDevtools(): Promise<void> {
   return ipcInvoke<void>('open_devtools');
 }
 
-// ── APEX Q ballistics calculator ──────────────────────────
-export function apexQOcrAvailable(): Promise<boolean> {
-  return ipcInvoke<boolean>('apex_q_ocr_available');
-}
-
-export type ApexQOcrStatus = {
-  rapidReady: boolean;
-  winReady: boolean;
-  installDir: string;
-  activeEngine: string;
-};
-
-export function apexQOcrStatus(): Promise<ApexQOcrStatus> {
-  return ipcInvoke<ApexQOcrStatus>('apex_q_ocr_status');
-}
-
-export function apexQOcrDownload(): Promise<void> {
-  return ipcInvoke<void>('apex_q_ocr_download');
-}
-
-export function apexQOcrDelete(): Promise<void> {
-  return ipcInvoke<void>('apex_q_ocr_delete');
-}
-
-export type ApexQSteamScreenshotDir = {
-  userId: string;
-  userName: string;
-  path: string;
-  exists: boolean;
-};
-
-export function apexQNormalizePath(args: {path: string}): Promise<string> {
-  return ipcInvoke<string>('apex_q_normalize_path', args);
-}
-
-export function apexQListSteamScreenshotDirs(): Promise<ApexQSteamScreenshotDir[]> {
-  return ipcInvoke<ApexQSteamScreenshotDir[]>('apex_q_list_steam_screenshot_dirs');
-}
-
-export function apexQSuggestedScreenshotDir(): Promise<string | null> {
-  return ipcInvoke<string | null>('apex_q_suggested_screenshot_dir');
-}
-
-export function apexQLatestScreenshot(args: {folder: string}): Promise<string> {
-  return ipcInvoke<string>('apex_q_latest_screenshot', args);
-}
-
-export function apexQListRecentScreenshots(args: {
-  folder: string;
-  limit: number;
-}): Promise<string[]> {
-  return ipcInvoke<string[]>('apex_q_list_recent_screenshots', args);
-}
-
-export function apexQScreenshotPreview(args: {
-  path: string;
-  maxEdge: number;
-}): Promise<string> {
-  return ipcInvoke<string>('apex_q_screenshot_preview', args);
-}
-
-export type ApexQOcrParseResult = {
-  alpha: number | null;
-  angYaw: number | null;
-  angRoll: number | null;
-  distanceM: number | null;
-  showposText: string;
-  pingText: string;
-  showposPreview: string;
-  pingPreview: string;
-  showposEngine: string;
-  pingEngine: string;
-  showposConfidence: number | null;
-  pingConfidence: number | null;
-};
-
-export function apexQTestOcr(args: {
-  path: string;
-  showposRoi: ApexQRoi;
-  pingRoi: ApexQRoi;
-  /** 只识别当前校准项；缺省则两个都识别 */
-  kind?: 'showpos' | 'ping';
-  /** rapid | win | auto；缺省 auto */
-  engine?: 'rapid' | 'win' | 'auto';
-}): Promise<ApexQOcrParseResult> {
-  return ipcInvoke<ApexQOcrParseResult>('apex_q_test_ocr', args);
-}
-
-export function apexQComputeTheta(args: {r: number; alpha: number}): Promise<ApexQThetaResult> {
-  return ipcInvoke<ApexQThetaResult>('apex_q_compute_theta', args);
-}
-
-export function apexQDefaultRois(): Promise<[ApexQRoi, ApexQRoi]> {
-  return ipcInvoke<[ApexQRoi, ApexQRoi]>('apex_q_default_rois');
-}
-
-export function apexQFromLatestScreenshot(args: {
-  folder: string;
-  delayMs: number;
-  showposRoi: ApexQRoi;
-  pingRoi: ApexQRoi;
-  engine?: 'rapid' | 'win' | 'auto';
-  /**
-   * Unix epoch milliseconds captured immediately before a hotkey-triggered
-   * capture. The backend uses this to reject an older screenshot.
-   */
-  captureStartedAtMs?: number;
-  /** Require the selected image to be newer than captureStartedAtMs. */
-  requireFresh?: boolean;
-}): Promise<ApexQCaptureResult> {
-  return ipcInvoke<ApexQCaptureResult>('apex_q_from_latest_screenshot', args);
-}
-
-export function apexQOpenOcrSettings(): Promise<void> {
-  return ipcInvoke<void>('apex_q_open_ocr_settings');
-}
-
-export function apexQSetCloseToTray(args: {enabled: boolean}): Promise<void> {
-  return ipcInvoke<void>('apex_q_set_close_to_tray', args);
+export function setCloseToTray(args: {enabled: boolean}): Promise<void> {
+  return ipcInvoke<void>('tray_set_close_to_tray', args);
 }
 
 /** 主窗口可见时隐藏托盘，隐藏时显示托盘 */

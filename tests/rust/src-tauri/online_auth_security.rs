@@ -82,3 +82,27 @@ fn local_authorization_url_requires_the_configured_origin_and_port() {
         assert!(super::validate_verification_url(base, invalid.into()).is_err());
     }
 }
+
+#[test]
+fn access_token_freshness_is_decided_locally_with_skew() {
+    let now = chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    assert_eq!(
+        super::access_token_is_fresh("2026-01-01T00:10:00Z", now),
+        Some(true)
+    );
+    assert_eq!(
+        super::access_token_is_fresh("2026-01-01T00:00:30Z", now),
+        Some(false)
+    );
+    assert_eq!(
+        super::access_token_is_fresh("2025-12-31T23:59:00Z", now),
+        Some(false)
+    );
+    assert_eq!(
+        super::access_token_is_fresh("2026-01-01T08:10:00+08:00", now),
+        Some(true)
+    );
+    assert_eq!(super::access_token_is_fresh("not-a-date", now), None);
+}

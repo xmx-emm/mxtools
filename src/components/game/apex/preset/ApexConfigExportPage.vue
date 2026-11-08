@@ -4,7 +4,8 @@ import {useI18n} from 'vue-i18n';
 import {save} from '@tauri-apps/plugin-dialog';
 import {useToast} from 'vue-toastification';
 import {emitApexConfigChanged} from '@/utils/game/apex_config_events.ts';
-import {explorerFolder, getApexSnapshotDefaults, writeUtf8File} from '@/ipc/commands.ts';
+import {explorerFolder, writeUtf8File} from '@/ipc/commands.ts';
+import {launcherRefFromKey, loadApexSnapshotBaseline} from '@/utils/game/apex_publish_payload.ts';
 import {changedSnapshot} from '@/utils/game/apex_snapshot_changes.ts';
 import type {ApexConfigSnapshot} from '@/types/apex_config_snapshot.ts';
 import {apexConfigSnapshotFilename, buildApexConfigSnapshot, stringifyApexConfigSnapshot} from '@/utils/game/apex_config_snapshot.ts';
@@ -25,11 +26,9 @@ async function loadDefaults() {
   defaults_loading.value = true;
   defaults_error.value = '';
   try {
-    const [kind, ...id] = (props.account ?? '').split(':');
-    if ((kind !== 'steam' && kind !== 'ea') || !id.join(':')) throw new Error(t('apex.noLauncherAccount'));
-    const value = await getApexSnapshotDefaults({launcher: {kind, id: id.join(':'), name: ''}});
-    baseline.value = {kind: 'apex-config-snapshot', version: 1, exportedAt: '', launchOptions: {raw: ''},
-      videoConfig: value.videoConfig, gameSettings: {settings: value.settings, profile: value.profile, bindings: value.bindings}};
+    const launcher = launcherRefFromKey(props.account);
+    if (!launcher) throw new Error(t('apex.noLauncherAccount'));
+    baseline.value = await loadApexSnapshotBaseline(launcher);
   } catch (error) { defaults_error.value = String(error); }
   finally { defaults_loading.value = false; }
 }

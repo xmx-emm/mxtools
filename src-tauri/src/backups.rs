@@ -1,7 +1,7 @@
 use crate::elevated::require_elevated;
 use crate::ipc_error::{IpcError, IpcResult};
 use crate::log_info;
-use crate::utils::{await_time, OUTPUT_FOLDER_CATEGORIZE};
+use crate::utils::{await_time, blocking_cmd, blocking_value, OUTPUT_FOLDER_CATEGORIZE};
 use windows_tool::port_forwarding::backups::{backups_to_file, load_by_file};
 use windows_tool::port_forwarding::PortForwarding;
 use windows_tool::registry::backups::{
@@ -35,20 +35,33 @@ fn validate_port_forwarding_import(list: &[PortForwarding]) -> Result<(), String
     Ok(())
 }
 
-#[tauri::command]
-pub fn check_backups_explorer_registry() -> bool {
-    explorer_check(OUTPUT_FOLDER_CATEGORIZE)
+fn backups_error(error: String) -> IpcError {
+    IpcError::operation_failed("backups", error)
 }
 
 #[tauri::command]
-pub fn backups_explorer_registry() -> IpcResult<bool> {
-    require_elevated().map_err(|error| IpcError::operation_failed("backups", error))?;
-    Ok(backups_explorer(OUTPUT_FOLDER_CATEGORIZE))
+pub async fn check_backups_explorer_registry() -> bool {
+    blocking_value(|| explorer_check(OUTPUT_FOLDER_CATEGORIZE))
+        .await
+        .unwrap_or(false)
 }
 
 #[tauri::command]
-pub fn explorer_registry_path() -> IpcResult<String> {
-    match backups_explorer_registry_path(OUTPUT_FOLDER_CATEGORIZE, true) {
+pub async fn backups_explorer_registry() -> IpcResult<bool> {
+    blocking_cmd(|| {
+        require_elevated()?;
+        Ok(backups_explorer(OUTPUT_FOLDER_CATEGORIZE))
+    })
+    .await
+    .map_err(backups_error)
+}
+
+#[tauri::command]
+pub async fn explorer_registry_path() -> IpcResult<String> {
+    let maybe_path = blocking_value(|| backups_explorer_registry_path(OUTPUT_FOLDER_CATEGORIZE, true))
+        .await
+        .map_err(backups_error)?;
+    match maybe_path {
         Some(path) => Ok(path),
         None => Err(IpcError::new(
             "backups.explorer_path_not_found",
@@ -58,8 +71,11 @@ pub fn explorer_registry_path() -> IpcResult<String> {
 }
 
 #[tauri::command]
-pub fn explorer_folder() -> IpcResult<String> {
-    match backups_folder(OUTPUT_FOLDER_CATEGORIZE, true) {
+pub async fn explorer_folder() -> IpcResult<String> {
+    let maybe_path = blocking_value(|| backups_folder(OUTPUT_FOLDER_CATEGORIZE, true))
+        .await
+        .map_err(backups_error)?;
+    match maybe_path {
         Some(path) => Ok(path.to_string_lossy().to_string()),
         None => Err(IpcError::new(
             "backups.explorer_path_not_found",
@@ -69,31 +85,51 @@ pub fn explorer_folder() -> IpcResult<String> {
 }
 
 #[tauri::command]
-pub fn backups_port_forwarding(output: String) -> IpcResult<bool> {
-    require_elevated().map_err(|error| IpcError::operation_failed("backups", error))?;
-    backups_to_file(output).map_err(|error| IpcError::operation_failed("backups", error))
+pub async fn backups_port_forwarding(output: String) -> IpcResult<bool> {
+    blocking_cmd(move || {
+        require_elevated()?;
+        let validated = crate::system::assert_user_data_file_with_extension(&output, "json")?;
+        if let Some(parent) = validated.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+        }
+        backups_to_file(validated.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(backups_error)
 }
 
 #[tauri::command]
-pub fn backups_port_forwarding_default_path() -> Option<String> {
-    backups_port_forwarding_json_path(OUTPUT_FOLDER_CATEGORIZE, true)
+pub async fn backups_port_forwarding_default_path() -> Option<String> {
+    blocking_value(|| backups_port_forwarding_json_path(OUTPUT_FOLDER_CATEGORIZE, true))
+        .await
+        .ok()
+        .flatten()
 }
 
 #[tauri::command]
 pub async fn load_port_forwarding(filepath: String) -> IpcResult<Vec<PortForwarding>> {
-    require_elevated().map_err(|error| IpcError::operation_failed("backups", error))?;
+    require_elevated().map_err(backups_error)?;
     log_info!("Loading port forwarding {}", filepath);
-    let list =
-        load_by_file(&filepath).map_err(|error| IpcError::operation_failed("backups", error))?;
-    validate_port_forwarding_import(&list)
-        .map_err(|error| IpcError::operation_failed("backups", error))?;
+    let list = blocking_cmd(move || {
+        let validated = crate::system::assert_user_data_file_with_extension(&filepath, "json")?;
+        let loaded = load_by_file(validated.to_string_lossy())?;
+        validate_port_forwarding_import(&loaded)?;
+        Ok(loaded)
+    })
+    .await
+    .map_err(backups_error)?;
     log_info!("load by file validated, {} rules", list.len());
     if !list.is_empty() {
-        PortForwarding::new_multiple(list)
-            .map_err(|error| IpcError::operation_failed("backups", error))?;
+        blocking_cmd(move || PortForwarding::new_multiple(list))
+            .await
+            .map_err(backups_error)?;
         await_time().await;
     }
-    PortForwarding::get_ipv4_to_ipv4().map_err(|error| IpcError::operation_failed("backups", error))
+    blocking_cmd(PortForwarding::get_ipv4_to_ipv4)
+        .await
+        .map_err(backups_error)
 }
 
 #[cfg(test)]

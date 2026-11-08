@@ -21,6 +21,12 @@ struct PendingDeviceLogin {
     verification_uri_complete: String,
 }
 
+impl Drop for PendingDeviceLogin {
+    fn drop(&mut self) {
+        self.device_code.zeroize();
+    }
+}
+
 static PENDING_LOGIN: Mutex<Option<PendingDeviceLogin>> = Mutex::new(None);
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -31,6 +37,20 @@ pub(super) struct StoredTokens {
     pub(super) access_token_expires_at: String,
     pub(super) refresh_token_expires_at: String,
 }
+
+impl Drop for StoredTokens {
+    fn drop(&mut self) {
+        self.access_token.zeroize();
+        self.refresh_token.zeroize();
+    }
+}
+
+/// 串行化 refresh：refresh token 会轮换，并发请求用同一个旧 token 时，
+/// 落败者会收到 400/401 并误删刚轮换出的新凭据。
+static REFRESH_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// access token 剩余有效期不足该值时提前 refresh，吸收时钟偏差与请求耗时。
+const ACCESS_TOKEN_REFRESH_SKEW_SECS: i64 = 60;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -72,6 +92,12 @@ struct DeviceStartResponse {
     interval: u64,
 }
 
+impl Drop for DeviceStartResponse {
+    fn drop(&mut self) {
+        self.device_code.zeroize();
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DevicePollResponse {
@@ -80,6 +106,17 @@ struct DevicePollResponse {
     refresh_token: Option<String>,
     access_token_expires_at: Option<String>,
     refresh_token_expires_at: Option<String>,
+}
+
+impl Drop for DevicePollResponse {
+    fn drop(&mut self) {
+        if let Some(token) = self.access_token.as_mut() {
+            token.zeroize();
+        }
+        if let Some(token) = self.refresh_token.as_mut() {
+            token.zeroize();
+        }
+    }
 }
 
 /// 服务端错误体（NestJS 统一格式）。`message` 可能是字符串或数组。
@@ -180,22 +217,25 @@ pub async fn online_auth_start_device_login() -> IpcResult<DeviceLoginStart> {
     if !response.status().is_success() {
         return Err(error_from_response(response).await);
     }
-    let started = response
+    let mut started = response
         .json::<DeviceStartResponse>()
         .await
         .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))?;
-    let verification_uri = validate_verification_url(&base, started.verification_uri)?;
-    let verification_uri_complete =
-        validate_verification_url(&base, started.verification_uri_complete)?;
+    let verification_uri =
+        validate_verification_url(&base, std::mem::take(&mut started.verification_uri))?;
+    let verification_uri_complete = validate_verification_url(
+        &base,
+        std::mem::take(&mut started.verification_uri_complete),
+    )?;
 
     *PENDING_LOGIN.lock().expect("pending login lock poisoned") = Some(PendingDeviceLogin {
-        device_code: started.device_code,
+        device_code: std::mem::take(&mut started.device_code),
         deadline: Instant::now() + Duration::from_secs(started.expires_in),
         verification_uri_complete: verification_uri_complete.clone(),
     });
 
     Ok(DeviceLoginStart {
-        user_code: started.user_code,
+        user_code: std::mem::take(&mut started.user_code),
         verification_uri,
         verification_uri_complete,
         expires_in: started.expires_in,
@@ -262,7 +302,7 @@ pub async fn online_auth_poll_device_login() -> IpcResult<DeviceLoginPoll> {
     if !response.status().is_success() {
         return Err(error_from_response(response).await);
     }
-    let poll = response
+    let mut poll = response
         .json::<DevicePollResponse>()
         .await
         .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))?;
@@ -280,13 +320,15 @@ pub async fn online_auth_poll_device_login() -> IpcResult<DeviceLoginPoll> {
         "approved" => {
             clear_pending_login();
             let tokens = StoredTokens {
-                access_token: poll.access_token.ok_or_else(missing_token_error)?,
-                refresh_token: poll.refresh_token.ok_or_else(missing_token_error)?,
+                access_token: poll.access_token.take().ok_or_else(missing_token_error)?,
+                refresh_token: poll.refresh_token.take().ok_or_else(missing_token_error)?,
                 access_token_expires_at: poll
                     .access_token_expires_at
+                    .take()
                     .ok_or_else(missing_token_error)?,
                 refresh_token_expires_at: poll
                     .refresh_token_expires_at
+                    .take()
                     .ok_or_else(missing_token_error)?,
             };
             save_tokens(&tokens)?;
@@ -357,6 +399,45 @@ async fn refresh_tokens(
     Ok(Some(tokens))
 }
 
+/// 在 [`REFRESH_LOCK`] 内 refresh。进锁后重新读取凭据：若其他调用已轮换
+/// refresh token，直接复用新凭据；refresh 失效时，仅当凭据仍是本次使用的
+/// 旧凭据才删除，避免误删并发的新登录。返回 `Ok(None)` 表示应视为未登录。
+async fn refresh_serialized(
+    client: &reqwest::Client,
+    stale: &StoredTokens,
+) -> IpcResult<Option<StoredTokens>> {
+    let _guard = REFRESH_LOCK.lock().await;
+    let Some(current) = load_tokens()? else {
+        return Ok(None);
+    };
+    if current.refresh_token != stale.refresh_token {
+        return Ok(Some(current));
+    }
+    if let Some(renewed) = refresh_tokens(client, &current.refresh_token).await? {
+        return Ok(Some(renewed));
+    }
+    match load_tokens()? {
+        Some(latest) if latest.refresh_token != stale.refresh_token => Ok(Some(latest)),
+        _ => {
+            credential_store::delete().map_err(credential_error)?;
+            Ok(None)
+        }
+    }
+}
+
+/// access token 是否仍在有效期内（留出 [`ACCESS_TOKEN_REFRESH_SKEW_SECS`]）。
+/// 过期时间无法解析时返回 `None`，由调用方向服务端探测。
+pub(super) fn access_token_is_fresh(
+    expires_at: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<bool> {
+    let expires_at = chrono::DateTime::parse_from_rfc3339(expires_at.trim()).ok()?;
+    Some(
+        expires_at.with_timezone(&chrono::Utc)
+            > now + chrono::Duration::seconds(ACCESS_TOKEN_REFRESH_SKEW_SECS),
+    )
+}
+
 /// 读取当前登录账号；未登录返回 `null`。令牌过期时自动 refresh，
 /// refresh 失效则清除本地凭据并视为未登录。网络故障返回错误而不是登出。
 #[tauri::command]
@@ -383,46 +464,47 @@ pub async fn online_auth_get_account() -> IpcResult<Option<OnlineAccount>> {
         return Err(error_from_response(response).await);
     }
 
-    match refresh_tokens(&client, &tokens.refresh_token).await? {
+    match refresh_serialized(&client, &tokens).await? {
         Some(renewed) => Ok(Some(fetch_me(&client, &renewed.access_token).await?)),
-        None => {
-            credential_store::delete().map_err(credential_error)?;
-            Ok(None)
-        }
+        None => Ok(None),
     }
 }
 
 /// 供其他在线功能以登录态调用 API：返回当前有效的 access token，
 /// 必要时自动 refresh；refresh 失效时清除本地凭据并返回 `None`。
+/// 过期时间可解析时只做本地判断，不再为每次调用额外请求 `/me`。
 pub(super) async fn current_access_token() -> IpcResult<Option<String>> {
-    let Some(tokens) = load_tokens()? else {
+    let Some(mut tokens) = load_tokens()? else {
         return Ok(None);
     };
     let client = http_client()?;
-    let probe = client
-        .get(format!("{}/me", api_base()))
-        .bearer_auth(&tokens.access_token)
-        .send()
-        .await
-        .map_err(network_error)?;
-    if probe.status().is_success() {
-        return Ok(Some(tokens.access_token));
-    }
-    if probe.status().as_u16() != 401 {
-        return Err(error_from_response(probe).await);
-    }
-    match refresh_tokens(&client, &tokens.refresh_token).await? {
-        Some(renewed) => Ok(Some(renewed.access_token)),
+    match access_token_is_fresh(&tokens.access_token_expires_at, chrono::Utc::now()) {
+        Some(true) => return Ok(Some(std::mem::take(&mut tokens.access_token))),
+        Some(false) => {}
         None => {
-            credential_store::delete().map_err(credential_error)?;
-            Ok(None)
+            let probe = client
+                .get(format!("{}/me", api_base()))
+                .bearer_auth(&tokens.access_token)
+                .send()
+                .await
+                .map_err(network_error)?;
+            if probe.status().is_success() {
+                return Ok(Some(std::mem::take(&mut tokens.access_token)));
+            }
+            if probe.status().as_u16() != 401 {
+                return Err(error_from_response(probe).await);
+            }
         }
     }
+    Ok(refresh_serialized(&client, &tokens)
+        .await?
+        .map(|mut renewed| std::mem::take(&mut renewed.access_token)))
 }
 
 /// 登出：撤销 refresh token（尽力而为）并删除本地凭据。
 #[tauri::command]
 pub async fn online_auth_logout() -> IpcResult<()> {
+    let _guard = REFRESH_LOCK.lock().await;
     if let Some(tokens) = load_tokens()? {
         if let Ok(client) = http_client() {
             let _ = client

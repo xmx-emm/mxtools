@@ -8,7 +8,10 @@ export type GameCompatibilityScope = 'configuration' | 'launch';
 
 // Advisory status only; never gate edits/reset or select historical defaults.
 export const verifiedGameBuilds: Record<SupportedGame, readonly string[]> = {
-  apex: ['R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15'],
+  apex: [
+    'R5pc_r5-301_J58_CL11595978_FSv30_1_EX_2026_10_01_16_15',
+    'R5pc_r5-310_J24_CL11700487_FSv31_0_2026_10_23_17_04',
+  ],
   pubg: [],
 };
 

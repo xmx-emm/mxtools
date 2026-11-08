@@ -1761,6 +1761,10 @@ fn merge_candidates(candidates: Vec<CandidateGame>) -> Vec<InstalledGame> {
             if existing.source_game_id.is_none() {
                 existing.source_game_id = candidate.source_game_id.clone();
             }
+            // A match by external ID may come from a source that knew the path.
+            if existing.install_location.is_none() {
+                existing.install_location = install_location;
+            }
             existing.matchers.extend(candidate.matchers);
             sort_deduplicate_matchers(&mut existing.matchers);
         } else {
@@ -1836,6 +1840,9 @@ fn deduplicate_candidates(candidates: &mut Vec<CandidateGame>) {
         }) {
             if existing.source_game_id.is_none() {
                 existing.source_game_id = candidate.source_game_id.clone();
+            }
+            if existing.install_location.is_none() {
+                existing.install_location = candidate.install_location;
             }
             existing.matchers.extend(candidate.matchers);
             sort_deduplicate_matchers(&mut existing.matchers);
@@ -2340,4 +2347,12 @@ mod tests {
             "/../tests/rust/src-tauri/game_scan_other_games.rs"
         ));
     }
+}
+
+#[cfg(test)]
+mod install_location_backfill {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/game_scan_install_location_backfill.rs"
+    ));
 }

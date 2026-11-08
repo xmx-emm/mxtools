@@ -101,8 +101,8 @@ pub(super) async fn download(
         .and_then(Path::parent)
         .ok_or("apex.milesDl.badDepot")?
         .to_path_buf();
-    steam::ensure_cef_debugging(depot, cancel, report).await?;
-    steam::download_depot_via_cef(
+    let session = steam::ensure_cef_debugging(depot, cancel, report).await?;
+    let downloaded = steam::download_depot_via_cef(
         &steam::DownloadTarget {
             app_id: 1172470,
             depot,
@@ -120,7 +120,9 @@ pub(super) async fn download(
             report(&p);
         },
     )
-    .await?;
+    .await;
+    steam::release_cef_debugging(session).await;
+    downloaded?;
     if cancel.load(Ordering::Relaxed) {
         return Err("cancelled".into());
     }

@@ -41,7 +41,6 @@ const gameItems = computed(() => ([
     features: [
       t('game.featureLaunch'),
       t('game.featureVideo'),
-      ...(settingsStore.betaFeaturesEnabled ? [t('game.featureApexQ')] : []),
     ],
   },
   {

@@ -33,6 +33,46 @@ pub(super) fn validate_comment_body(body: String) -> IpcResult<String> {
     Ok(body)
 }
 
+/// Upper bound for one serialized preset payload sent to the service.
+pub(super) const PUBLISH_PAYLOAD_MAX_BYTES: usize = 256 * 1024;
+
+fn invalid_publish(message: &str) -> IpcError {
+    IpcError::new("online_presets.invalid_publish", message)
+}
+
+/// Validate user-entered publish fields and the payload before any upload.
+/// Lengths mirror the service's Zod limits (UTF-16 code units).
+pub(super) fn validate_publish_input(
+    title: String,
+    description: Option<String>,
+    payload: &Value,
+) -> IpcResult<(String, Option<String>)> {
+    let title = title.trim().to_string();
+    if title.is_empty() || title.encode_utf16().count() > 80 || title.chars().any(char::is_control) {
+        return Err(invalid_publish("预设标题无效"));
+    }
+    let description = description
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if let Some(value) = &description {
+        let bad_control = value
+            .chars()
+            .any(|ch| ch.is_control() && !matches!(ch, '\n' | '\r' | '\t'));
+        if value.encode_utf16().count() > 400 || bad_control {
+            return Err(invalid_publish("预设描述无效"));
+        }
+    }
+    let is_snapshot = payload
+        .get("kind")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| kind == "apex-config-snapshot");
+    let size = serde_json::to_vec(payload).map(|bytes| bytes.len()).unwrap_or(usize::MAX);
+    if !is_snapshot || size > PUBLISH_PAYLOAD_MAX_BYTES {
+        return Err(invalid_publish("预设内容无效"));
+    }
+    Ok((title, description))
+}
+
 pub(super) fn preset_id(id: String) -> IpcResult<String> {
     let valid = !id.is_empty()
         && id.len() <= 128
@@ -126,6 +166,7 @@ pub async fn online_preset_publish(
     description: Option<String>,
     payload: Value,
 ) -> IpcResult<Value> {
+    let (title, description) = validate_publish_input(title, description, &payload)?;
     let token = bearer_token().await?;
     let client = http_client()?;
     let response = client
@@ -198,4 +239,12 @@ pub async fn online_preset_report(
         .await
         .map_err(network_error)?;
     read_json(response).await
+}
+
+#[cfg(test)]
+mod publish_tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/online_presets_publish.test.rs"
+    ));
 }

@@ -117,8 +117,6 @@ export type ApexActions = {
   restore_apex_game_settings(restoreSettings: boolean, restoreProfile: boolean): Promise<boolean>;
   replace_game_settings_bindings(bindings: ApexBinding[]): void;
   open_quick_preset_window(): void;
-  open_apex_q_dialog(): void;
-  close_apex_q_dialog(): void;
   set_quick_preset_display(info: PrimaryDisplayInfo | null): void;
   prepare_quick_preset(screen: PrimaryDisplayInfo, selection: ApexQuickPresetSelection): void;
   ensure_configs_loaded_for_preset(): Promise<void>;

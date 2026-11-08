@@ -251,6 +251,36 @@ fn clean_staging(directory: &Path) {
     let _ = fs::remove_dir(directory);
 }
 
+/// Antivirus scanners and the exiting launcher can briefly hold the file
+/// open after the process wait returns; transient denials are retried.
+const RENAME_ATTEMPTS: u32 = 8;
+
+fn is_transient_rename_error(error: &std::io::Error) -> bool {
+    // ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION
+    error.kind() == std::io::ErrorKind::PermissionDenied
+        || matches!(error.raw_os_error(), Some(5 | 32 | 33))
+}
+
+fn retry_transient<F: FnMut() -> std::io::Result<()>>(
+    mut operation: F,
+    mut sleep: impl FnMut(Duration),
+) -> std::io::Result<()> {
+    let mut attempt = 1;
+    loop {
+        match operation() {
+            Err(error) if attempt < RENAME_ATTEMPTS && is_transient_rename_error(&error) => {
+                sleep(Duration::from_millis(50 * u64::from(attempt)));
+                attempt += 1;
+            }
+            result => return result,
+        }
+    }
+}
+
+fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
+    retry_transient(|| fs::rename(from, to), std::thread::sleep)
+}
+
 fn replace_and_restart<F: FnOnce(&Path) -> Result<(), String>>(
     directory: &Path,
     plan: &Plan,
@@ -263,9 +293,9 @@ fn replace_and_restart<F: FnOnce(&Path) -> Result<(), String>>(
     if backup.exists() {
         return Err("Portable update backup already exists".into());
     }
-    fs::rename(&plan.launcher, &backup).map_err(|e| e.to_string())?;
-    if let Err(e) = fs::rename(directory.join("update.exe"), &plan.launcher) {
-        fs::rename(&backup, &plan.launcher).map_err(|restore| {
+    rename_with_retry(&plan.launcher, &backup).map_err(|e| e.to_string())?;
+    if let Err(e) = rename_with_retry(&directory.join("update.exe"), &plan.launcher) {
+        rename_with_retry(&backup, &plan.launcher).map_err(|restore| {
             format!(
                 "{e}; restore failed: {restore}; backup: {}",
                 backup.display()
@@ -275,9 +305,9 @@ fn replace_and_restart<F: FnOnce(&Path) -> Result<(), String>>(
     }
     if let Err(e) = restart(&plan.launcher) {
         // Move the failed replacement aside before restoring the original.
-        fs::rename(&plan.launcher, directory.join("update.exe"))
+        rename_with_retry(&plan.launcher, &directory.join("update.exe"))
             .map_err(|restore| format!("{e}; rollback: {restore}"))?;
-        fs::rename(&backup, &plan.launcher)
+        rename_with_retry(&backup, &plan.launcher)
             .map_err(|restore| format!("{e}; restore: {restore}"))?;
         return Err(e);
     }
@@ -399,5 +429,13 @@ mod tests {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../tests/rust/src-tauri/portable_update.rs"
+    ));
+}
+
+#[cfg(test)]
+mod rename_retry {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/portable_update_rename_retry.rs"
     ));
 }

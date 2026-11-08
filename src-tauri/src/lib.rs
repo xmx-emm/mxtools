@@ -7,6 +7,7 @@ mod backups;
 mod cef_debug;
 mod cursor;
 mod elevated;
+mod elevated_batch;
 mod folder_sharing;
 mod game;
 mod game_icon;
@@ -29,8 +30,6 @@ mod user;
 mod utils;
 mod windows_shell;
 
-use tauri::Manager;
-
 use crate::app_info::get_app_info;
 use crate::app_repair::{diagnose_app_repair_check, repair_app_issues};
 use crate::background_coordinator::BackgroundCoordinator;
@@ -39,7 +38,7 @@ use crate::background_runtime::BackgroundRuntimeStore;
 use crate::background_runtime::{
     background_runtime_configure, background_runtime_get, background_runtime_main_window_ready,
     background_runtime_set_autostart, background_runtime_set_beta_features,
-    background_runtime_set_locale, background_runtime_update_apex_q,
+    background_runtime_set_locale,
     background_runtime_update_razer, destroy_main_window, ensure_main_window, LaunchMode,
 };
 use crate::backups::{
@@ -75,13 +74,6 @@ use crate::game::apex_language_download_ea::{
 };
 use crate::game::apex_launch_repair::{
     diagnose_apex_launch_repair_check, repair_apex_launch_issues,
-};
-use crate::game::apex_q::{
-    apex_q_compute_theta, apex_q_default_rois, apex_q_from_latest_screenshot,
-    apex_q_latest_screenshot, apex_q_list_recent_screenshots, apex_q_list_steam_screenshot_dirs,
-    apex_q_normalize_path, apex_q_ocr_available, apex_q_ocr_delete, apex_q_ocr_download,
-    apex_q_ocr_status, apex_q_open_ocr_settings, apex_q_screenshot_preview,
-    apex_q_suggested_screenshot_dir, apex_q_test_ocr,
 };
 use crate::game::apex_settings::{
     apply_apex_game_settings, get_apex_game_settings, get_apex_snapshot_defaults,
@@ -138,8 +130,8 @@ use crate::system::{
     get_primary_display_info, read_utf8_file, system_info, system_total_memory_mb, write_utf8_file,
 };
 use crate::tray::{
-    apex_q_set_close_to_tray, handle_close_requested, set_tray_beta_features, set_tray_locale,
-    setup_tray, sync_tray_with_main_window,
+    handle_close_requested, set_tray_beta_features, set_tray_locale,
+    setup_tray, sync_tray_with_main_window, tray_set_close_to_tray,
 };
 use crate::user::{
     add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,
@@ -170,27 +162,6 @@ fn is_launched_from_autostart() -> bool {
     std::env::args().any(|a| a == "--autostart")
 }
 
-/// RapidOCR uses ort `load-dynamic`; prefer AppData DLL (downloaded with OCR pack).
-#[cfg(windows)]
-fn init_ort_dylib_path(app: &tauri::AppHandle) {
-    if std::env::var_os("ORT_DYLIB_PATH").is_some() {
-        return;
-    }
-    if let Ok(dll) = crate::game::apex_q_rapid_ocr::ort_dll_path() {
-        if dll.is_file() {
-            crate::game::apex_q_rapid_ocr::set_ort_dylib_env(&dll);
-            return;
-        }
-    }
-    // Legacy: older installs that still ship the DLL next to resources.
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let bundled = resource_dir.join("onnxruntime.dll");
-        if bundled.is_file() {
-            crate::game::apex_q_rapid_ocr::set_ort_dylib_env(&bundled);
-        }
-    }
-}
-
 /// 将控制台输入/输出代码页设为 UTF-8,避免 `println!` 与 stdio tee 写入的字节在 GBK 控制台下显示为乱码.
 #[cfg(windows)]
 fn init_windows_console_utf8() {
@@ -216,6 +187,7 @@ pub fn run() {
     #[cfg(not(debug_assertions))]
     windows_tool::utils::log::set_verbose(false);
     logger::init_log_path();
+    elevated::wait_for_relaunch_parent();
     let app = tauri::Builder::default()
         // This must stay first: a second process delegates to the resident
         // background coordinator before any other plugin can initialize.
@@ -238,8 +210,6 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            #[cfg(windows)]
-            init_ort_dylib_path(app.handle());
             #[cfg(all(windows, debug_assertions))]
             {
                 let _ = crate::background_runtime::cleanup_current_debug_autostart_registration();
@@ -247,6 +217,7 @@ pub fn run() {
                     .and_then(|store| store.enforce_current_build_invariants().map(|_| ()))
                     .map_err(|error| error.to_string())?;
             }
+            crate::tray::hydrate_close_to_tray(app.handle());
             setup_tray(app.handle())?;
             BackgroundCoordinator::start(app.handle()).map_err(|error| error.to_string())?;
             if LaunchMode::current() == LaunchMode::Interactive {
@@ -281,7 +252,6 @@ pub fn run() {
             background_runtime_set_autostart,
             background_runtime_set_beta_features,
             background_runtime_set_locale,
-            background_runtime_update_apex_q,
             background_runtime_update_razer,
             background_runtime_configure,
             destroy_main_window,
@@ -411,24 +381,9 @@ pub fn run() {
             start_apex_language_download_ea,
             cancel_apex_language_download_ea,
             get_apex_language_download_state_ea,
-            apex_q_ocr_available,
-            apex_q_ocr_status,
-            apex_q_ocr_download,
-            apex_q_ocr_delete,
-            apex_q_normalize_path,
-            apex_q_list_steam_screenshot_dirs,
-            apex_q_suggested_screenshot_dir,
-            apex_q_latest_screenshot,
-            apex_q_list_recent_screenshots,
-            apex_q_screenshot_preview,
-            apex_q_test_ocr,
-            apex_q_compute_theta,
-            apex_q_default_rois,
-            apex_q_from_latest_screenshot,
-            apex_q_open_ocr_settings,
-            apex_q_set_close_to_tray,
             set_tray_beta_features,
             set_tray_locale,
+            tray_set_close_to_tray,
             sync_tray_with_main_window,
             get_apex_video_config,
             get_apex_videoconfig_folder_path,

@@ -209,7 +209,26 @@ fn frontend_path_for_write() -> Option<PathBuf> {
     with_rotated_state(|s| s.frontend_path.clone()).or_else(fallback_frontend_path)
 }
 
-/// 若文件超过 MAX_LOG_FILE_SIZE,保留后半部分
+/// 将截断后的缓冲对齐到行首或合法的 UTF-8 起始字节，避免切断多字节字符。
+pub(crate) fn slice_truncated_log_tail(buf: &[u8]) -> &[u8] {
+    if let Some(nl_pos) = buf.iter().position(|&b| b == b'\n') {
+        let rest = &buf[nl_pos + 1..];
+        if !rest.is_empty() {
+            let utf8_start = rest
+                .iter()
+                .position(|&b| (b & 0b1100_0000) != 0b1000_0000)
+                .unwrap_or(rest.len());
+            return &rest[utf8_start..];
+        }
+    }
+    let utf8_start = buf
+        .iter()
+        .position(|&b| (b & 0b1100_0000) != 0b1000_0000)
+        .unwrap_or(buf.len());
+    &buf[utf8_start..]
+}
+
+/// 若文件超过 MAX_LOG_FILE_SIZE,保留后半部分并对齐到 UTF-8 / 换行边界
 pub(crate) fn maybe_truncate_log(path: &Path) {
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.len() >= MAX_LOG_FILE_SIZE {
@@ -218,7 +237,8 @@ pub(crate) fn maybe_truncate_log(path: &Path) {
                 if f.seek(SeekFrom::End(-(keep as i64))).is_ok() {
                     let mut buf = vec![0u8; keep];
                     if f.read_exact(&mut buf).is_ok() {
-                        let _ = std::fs::write(path, buf);
+                        let aligned = slice_truncated_log_tail(&buf);
+                        let _ = std::fs::write(path, aligned);
                     }
                 }
             }
@@ -309,49 +329,58 @@ pub async fn write_frontend_log(level: String, message: String) {
 
 /// 读取日志内容用于反馈
 #[tauri::command]
-pub fn get_logs_for_feedback() -> crate::ipc_error::IpcResult<serde_json::Value> {
-    let backend_path = with_rotated_state(|s| s.backend_path.clone())
-        .or_else(fallback_backend_path)
-        .ok_or_else(|| {
-            crate::ipc_error::IpcError::new(
-                "logger.log_directory_unavailable",
-                "log directory unavailable",
-            )
-        })?;
-    let frontend_path = with_rotated_state(|s| s.frontend_path.clone())
-        .or_else(fallback_frontend_path)
-        .ok_or_else(|| {
-            crate::ipc_error::IpcError::new(
-                "logger.log_directory_unavailable",
-                "log directory unavailable",
-            )
-        })?;
+pub async fn get_logs_for_feedback() -> crate::ipc_error::IpcResult<serde_json::Value> {
+    tokio::task::spawn_blocking(|| {
+        let backend_path = with_rotated_state(|s| s.backend_path.clone())
+            .or_else(fallback_backend_path)
+            .ok_or_else(|| {
+                crate::ipc_error::IpcError::new(
+                    "logger.log_directory_unavailable",
+                    "log directory unavailable",
+                )
+            })?;
+        let frontend_path = with_rotated_state(|s| s.frontend_path.clone())
+            .or_else(fallback_frontend_path)
+            .ok_or_else(|| {
+                crate::ipc_error::IpcError::new(
+                    "logger.log_directory_unavailable",
+                    "log directory unavailable",
+                )
+            })?;
 
-    fn read_last_lines(path: &std::path::Path, max_lines: usize) -> String {
-        std::fs::read_to_string(path)
-            .map(|s| {
-                let lines: Vec<&str> = s.lines().collect();
-                let start = lines.len().saturating_sub(max_lines);
-                lines[start..].join("\n")
-            })
-            .unwrap_or_else(|_| "(无日志)".to_string())
-    }
+        fn read_last_lines(path: &std::path::Path, max_lines: usize) -> String {
+            std::fs::read(path)
+                .map(|bytes| {
+                    let s = String::from_utf8_lossy(&bytes);
+                    let lines: Vec<&str> = s.lines().collect();
+                    let start = lines.len().saturating_sub(max_lines);
+                    lines[start..].join("\n")
+                })
+                .unwrap_or_else(|_| "(无日志)".to_string())
+        }
 
-    Ok(serde_json::json!({
-        "backend": read_last_lines(&backend_path, 200),
-        "frontend": read_last_lines(&frontend_path, 200)
-    }))
+        Ok(serde_json::json!({
+            "backend": read_last_lines(&backend_path, 200),
+            "frontend": read_last_lines(&frontend_path, 200)
+        }))
+    })
+    .await
+    .map_err(|e| crate::ipc_error::IpcError::operation_failed("logger", e.to_string()))?
 }
 
 /// 获取日志根目录(`…/mxtools/logs`,其下为各日期的子文件夹)
 #[tauri::command]
-pub fn get_log_folder_path() -> crate::ipc_error::IpcResult<String> {
-    logs_root()
-        .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| {
-            crate::ipc_error::IpcError::new(
-                "logger.log_directory_unavailable",
-                "log directory unavailable",
-            )
-        })
+pub async fn get_log_folder_path() -> crate::ipc_error::IpcResult<String> {
+    tokio::task::spawn_blocking(|| {
+        logs_root()
+            .map(|p| p.to_string_lossy().to_string())
+            .ok_or_else(|| {
+                crate::ipc_error::IpcError::new(
+                    "logger.log_directory_unavailable",
+                    "log directory unavailable",
+                )
+            })
+    })
+    .await
+    .map_err(|e| crate::ipc_error::IpcError::operation_failed("logger", e.to_string()))?
 }

@@ -23,6 +23,10 @@ function ratesEqual(left: readonly number[], right: readonly number[]): boolean 
   return left.length === right.length && left.every((rate, index) => rate === right[index]);
 }
 
+function lastRate(rates: readonly number[]): number | undefined {
+  return rates[rates.length - 1];
+}
+
 export function razerModelKey(
   device: Pick<RazerPollingDevice, 'vendorId' | 'productId'>,
 ): string {
@@ -73,10 +77,23 @@ export function recordVerifiedModelPreset(
   const existing = config.deviceProfiles[deviceId];
   config.deviceProfiles[deviceId] = {
     ...existing,
-    idleRateHz: existing?.idleRateHz ?? status.currentRateHz,
+    idleRateHz: supportedIdleRate(existing?.idleRateHz, status.currentRateHz, rates),
     verifiedRatesHz: rates,
   };
   return true;
+}
+
+// The idle rate must stay inside the verified set; otherwise the background
+// worker would restore idle to a rate the device never confirmed.
+function supportedIdleRate(
+  previous: number | undefined,
+  current: number,
+  rates: readonly number[],
+): number {
+  if (previous != null && rates.includes(previous)) return previous;
+  if (rates.includes(current)) return current;
+  return rates.reduce((nearest, rate) =>
+    Math.abs(rate - current) < Math.abs(nearest - current) ? rate : nearest);
 }
 
 export function highestConfirmedRate(status: RazerPollingStatus): number | null {
@@ -105,6 +122,25 @@ export function syncConnectedDeviceProfiles(
     config.deviceProfiles[deviceId] = next;
     changed = true;
   }
+  return backfillGameDeviceRates(config, statuses) || changed;
+}
+
+// A device connected after games were added gets its verified maximum for
+// each game; rates the user already chose for other devices stay untouched.
+export function backfillGameDeviceRates(
+  config: RazerBackgroundConfig,
+  statuses: readonly RazerPollingStatus[],
+): boolean {
+  let changed = false;
+  for (const status of connectedRazerStatuses(statuses)) {
+    const rate = lastRate(verifiedRatesForStatus(config, status));
+    if (rate == null) continue;
+    for (const game of config.games) {
+      if (game.deviceRatesHz[status.device.deviceId] != null) continue;
+      game.deviceRatesHz[status.device.deviceId] = rate;
+      changed = true;
+    }
+  }
   return changed;
 }
 
@@ -122,6 +158,11 @@ export function mergeScannedGame(
 ): boolean {
   const existing = config.games.find(item => item.id === game.logicalId);
   if (existing?.userEdited) return false;
+  // Automatic scans respect a removal; an explicit add (userEdited) undoes it.
+  if (isDismissedGame(config, game.logicalId)) {
+    if (!userEdited) return false;
+    config.dismissedGameIds = config.dismissedGameIds!.filter(id => id !== game.logicalId);
+  }
   const matchers = scannedGameMatchers(game);
   const deviceRatesHz = {...existing?.deviceRatesHz};
   for (const status of connectedRazerStatuses(statuses)) {
@@ -143,11 +184,30 @@ export function mergeScannedGame(
   return true;
 }
 
+export const MANUAL_GAME_ID_PREFIX = 'manual-';
+
+export function isDismissedGame(config: RazerBackgroundConfig, gameId: string): boolean {
+  return config.dismissedGameIds?.includes(gameId) ?? false;
+}
+
+export function removeGame(config: RazerBackgroundConfig, gameId: string): boolean {
+  const index = config.games.findIndex(game => game.id === gameId);
+  if (index < 0) return false;
+  config.games.splice(index, 1);
+  // Manual games have no scan source; scanned ones would come back on the
+  // next automatic scan unless the removal is remembered.
+  if (!gameId.startsWith(MANUAL_GAME_ID_PREFIX) && !isDismissedGame(config, gameId)) {
+    config.dismissedGameIds = [...config.dismissedGameIds ?? [], gameId];
+  }
+  return true;
+}
+
 export function createManualGame(
   id: string,
   name: string,
   executablePaths: readonly string[],
   statuses: readonly RazerPollingStatus[],
+  config?: RazerBackgroundConfig,
 ): RazerBackgroundGame {
   const seen = new Set<string>();
   const paths = executablePaths.filter((path) => {
@@ -158,7 +218,10 @@ export function createManualGame(
   });
   const deviceRatesHz: Record<string, number> = {};
   for (const status of connectedRazerStatuses(statuses)) {
-    const rate = highestConfirmedRate(status);
+    // Match scanned games: model presets verified earlier count as confirmed.
+    const rate = config
+      ? lastRate(verifiedRatesForStatus(config, status))
+      : highestConfirmedRate(status);
     if (rate != null) deviceRatesHz[status.device.deviceId] = rate;
   }
   return {

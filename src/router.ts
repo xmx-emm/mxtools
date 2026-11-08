@@ -8,7 +8,6 @@ import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {getCurrentWindow} from '@tauri-apps/api/window';
 import {
   openAboutWindow,
-  openApexQWindow,
   openApexQuickPresetWindow,
   openRepairToolWindow,
 } from '@/utils/windows.ts';
@@ -31,8 +30,6 @@ function getTauriCurrentWindow() {
 
 const HomeView = () => import('./views/HomeView.vue');
 const AboutView = () => import('./views/AboutView.vue');
-const ApexQOverlayView = () => import('./views/ApexQOverlayView.vue');
-const ApexQWindowView = () => import('./views/ApexQWindowView.vue');
 const ApexQuickPresetWindowView = () => import('./views/ApexQuickPresetWindowView.vue');
 const ApexConfigExportWindowView = () => import('./views/ApexConfigExportWindowView.vue');
 const ApexConfigImportWindowView = () => import('./views/ApexConfigImportWindowView.vue');
@@ -60,8 +57,6 @@ const PubgPage = () => import('./pages/game/PubgPage.vue');
 /** 不参与「恢复上次页面」的路径名列表(不含 query/hash；与 `to.fullPath` 去掉参数字段后比较) */
 export const RESTORE_LAST_ROUTE_EXCLUDED_PATHS: readonly string[] = [
   '/about',
-  '/apex-q-overlay',
-  '/apex-q',
   '/apex-quick-preset',
   '/apex-config-import',
   '/apex-config-export',
@@ -227,11 +222,9 @@ const routes = [
   { path: '/tools', component: HomeView, redirect: '/game', children: tools, name: 'Tools' },
 
   { path: '/about', component: AboutView },
-  { path: '/apex-q', component: ApexQWindowView },
   { path: '/apex-quick-preset', component: ApexQuickPresetWindowView },
   { path: '/apex-config-export', component: ApexConfigExportWindowView },
   { path: '/apex-config-import', component: ApexConfigImportWindowView },
-  { path: '/apex-q-overlay', component: ApexQOverlayView },
   { path: '/repair-store', component: AppRepairPage, meta: {repairToolTarget: 'store'} },
   { path: '/repair-onedrive', component: AppRepairPage, meta: {repairToolTarget: 'onedrive'} },
   { path: '/repair-icon-cache', component: AppRepairPage, meta: {repairToolTarget: 'icon-cache'} },
@@ -440,20 +433,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 主窗口不渲染 APEX Q 设置页，改为独立窗口
-  if (toPathOnly === '/apex-q') {
-    const win = getTauriCurrentWindow();
-    if (win?.label === 'main') {
-      if (!settings.betaFeaturesEnabled) {
-        next(false);
-        return;
-      }
-      void openApexQWindow().catch((error) => console.warn('open apex-q route failed', error));
-      next(false);
-      return;
-    }
-  }
-
   if (toPathOnly === '/apex-quick-preset') {
     const win = getTauriCurrentWindow();
     if (win?.label === 'main') {
@@ -464,10 +443,8 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 悬浮结果窗 / APEX Q 独立窗：不走主窗口恢复路由逻辑
-  if (toPathOnly === '/apex-q-overlay'
-    || toPathOnly === '/apex-q'
-    || toPathOnly === '/apex-quick-preset') {
+  // 快捷预设独立窗：不走主窗口恢复路由逻辑
+  if (toPathOnly === '/apex-quick-preset') {
     next();
     return;
   }

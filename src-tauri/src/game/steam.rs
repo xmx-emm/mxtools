@@ -34,7 +34,7 @@ pub async fn thoroughly_kill_steam() -> IpcResult<u32> {
     } else {
         vec!["steam", "steamwebhelper"]
     };
-    thoroughly_kill_named("Steam", target_processes, ProcessNameMatchMode::Contains)
+    thoroughly_kill_named("Steam", target_processes, ProcessNameMatchMode::Exact)
         .await
         .map_err(|error| IpcError::operation_failed("steam", error))
 }

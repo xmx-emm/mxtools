@@ -176,13 +176,22 @@ pub async fn repair_network(
         .map_err(|error| network_repair_error("operation_failed", error.to_string()))?
 }
 
+/// 解析 `WinHttpSettings` 二进制值：偏移 8 的 DWORD 是连接标志
+/// （0x01 直连、0x02 手动代理、0x04 PAC、0x08 自动检测）。
+/// 返回 `Some(true)` 表示直连，数据过短时返回 `None`。
+#[cfg_attr(not(windows), allow(dead_code))]
+fn winhttp_settings_is_direct(bytes: &[u8]) -> Option<bool> {
+    let flags = u32::from_le_bytes(bytes.get(8..12)?.try_into().ok()?);
+    Some(flags & 0x0E == 0)
+}
+
 #[cfg(windows)]
 mod windows_impl {
     use super::*;
     use std::net::{TcpStream, ToSocketAddrs};
     use std::process::{Command, Output};
     use std::time::Duration;
-    use windows_tool::utils::decode_process_output;
+    use windows_tool::utils::{decode_process_output, CommandHiddenWindowExt};
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE};
     use winreg::RegKey;
 
@@ -191,9 +200,12 @@ mod windows_impl {
     const WININET_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
     const WININET_POLICY_PATH: &str =
         r"Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings";
+    const WINHTTP_CONNECTIONS_PATH: &str =
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Connections";
 
     fn command_output(program: &str, args: &[&str]) -> Result<Output, String> {
         Command::new(program)
+            .with_hidden_window()
             .args(args)
             .output()
             .map_err(|error| error.to_string())
@@ -314,7 +326,31 @@ mod windows_impl {
         }
     }
 
+    fn winhttp_proxy_from_registry() -> Option<bool> {
+        let key = match RegKey::predef(HKEY_LOCAL_MACHINE)
+            .open_subkey_with_flags(WINHTTP_CONNECTIONS_PATH, KEY_READ)
+        {
+            Ok(key) => key,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Some(true),
+            Err(_) => return None,
+        };
+        match key.get_raw_value("WinHttpSettings") {
+            Ok(value) => winhttp_settings_is_direct(&value.bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(true),
+            Err(_) => None,
+        }
+    }
+
     fn check_winhttp_proxy() -> NetworkRepairCheck {
+        // 优先读注册表，避免依赖 netsh 的本地化输出；读不到时再解析 netsh。
+        if let Some(direct) = winhttp_proxy_from_registry() {
+            return if direct {
+                NetworkRepairCheck::new("winhttp_proxy", CheckStatus::Pass, "direct")
+            } else {
+                NetworkRepairCheck::new("winhttp_proxy", CheckStatus::Warning, "configured")
+                    .with_actions(&["reset_winhttp_proxy"], true)
+            };
+        }
         match command_output("netsh.exe", &["winhttp", "show", "proxy"]) {
             Ok(output) if output.status.success() => {
                 let text = format!(
@@ -324,7 +360,7 @@ mod windows_impl {
                 )
                 .to_ascii_lowercase();
                 let direct = text.contains("direct access")
-                    || text.contains("directe zugriff")
+                    || text.contains("direkter zugriff")
                     || text.contains("\u{76f4}\u{63a5}\u{8bbf}\u{95ee}")
                     || text.contains("\u{65e0}\u{4ee3}\u{7406}")
                     || text.contains("kein proxy")
@@ -440,10 +476,34 @@ mod windows_impl {
                     .any(|candidate| candidate.eq_ignore_ascii_case(name))
             })
             .collect::<Vec<_>>();
+        let changed = !names.is_empty();
         for name in names {
             key.delete_value(name).map_err(|error| error.to_string())?;
         }
+        if changed {
+            broadcast_environment_change();
+        }
         Ok(())
+    }
+
+    /// 通知 Explorer 等进程重新读取环境变量，新启动的程序才不会继承旧代理。
+    fn broadcast_environment_change() {
+        use winapi::um::winuser::{
+            SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+        };
+        let area = "Environment\0".encode_utf16().collect::<Vec<u16>>();
+        let mut result = 0;
+        unsafe {
+            SendMessageTimeoutW(
+                HWND_BROADCAST,
+                WM_SETTINGCHANGE,
+                0,
+                area.as_ptr() as isize,
+                SMTO_ABORTIFHUNG,
+                2000,
+                &mut result,
+            );
+        }
     }
 
     fn disable_wininet() -> Result<(), String> {
@@ -581,4 +641,12 @@ mod tests {
         assert!(normalized_check_id("estimated_progress".into()).is_err());
         assert_eq!(CHECK_IDS.len(), 7);
     }
+}
+
+#[cfg(test)]
+mod winhttp_settings_tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/rust/src-tauri/network_repair_winhttp_settings.rs"
+    ));
 }

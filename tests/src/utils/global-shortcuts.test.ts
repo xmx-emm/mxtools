@@ -14,7 +14,6 @@ const mocks = vi.hoisted(() => ({
     setLocale: vi.fn(),
   },
   setAppLocale: vi.fn(),
-  loadApexQPrefs: vi.fn(),
   isRegistered: vi.fn(),
   unregister: vi.fn(),
   addEventListener: vi.fn(),
@@ -28,10 +27,6 @@ vi.mock('@/stores/settings.ts', () => ({
 
 vi.mock('@/stores/background_runtime.ts', () => ({
   useBackgroundRuntimeStore: () => mocks.backgroundRuntime,
-}));
-
-vi.mock('@/stores/apex_q_preferences.ts', () => ({
-  loadApexQPrefs: mocks.loadApexQPrefs,
 }));
 
 vi.mock('@/i18n/i18n.ts', () => ({
@@ -66,11 +61,6 @@ describe('locale shortcut cleanup', () => {
     mocks.settings.toggleLocaleShortcutEnabled = true;
     mocks.settings.locale = 'zh-CN';
     mocks.keydownHandler = null;
-    mocks.loadApexQPrefs.mockReturnValue({
-      enabled: false,
-      setupDone: false,
-      hotkey: 'F12',
-    });
     mocks.isRegistered.mockResolvedValue(true);
     mocks.unregister.mockResolvedValue(undefined);
     mocks.setAppLocale.mockResolvedValue(true);
@@ -85,33 +75,9 @@ describe('locale shortcut cleanup', () => {
     vi.stubGlobal('document', {documentElement: {lang: 'zh-CN'}});
   });
 
-  it('does not unregister an enabled, configured APEX Q hotkey', async () => {
-    mocks.settings.resolvedToggleLocaleShortcut = ' Ctrl+ALT+Z ';
+  it('cleans every legacy locale candidate', async () => {
+    mocks.settings.resolvedToggleLocaleShortcut = 'Ctrl+Alt+Z';
     mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadApexQPrefs.mockReturnValue({
-      enabled: true,
-      setupDone: true,
-      hotkey: 'ctrl+alt+z',
-    });
-
-    const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
-    await applyLocaleToggleShortcut();
-
-    expect(mocks.isRegistered).toHaveBeenCalledTimes(2);
-    expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+Shift+Z');
-    expect(mocks.isRegistered).toHaveBeenCalledWith('Ctrl+Alt+X');
-    expect(mocks.unregister).toHaveBeenCalledTimes(2);
-    expect(mocks.unregister).toHaveBeenCalledWith('Ctrl+Alt+Shift+Z');
-    expect(mocks.unregister).toHaveBeenCalledWith('Ctrl+Alt+X');
-  });
-
-  it('cleans the locale candidates when APEX Q is not active', async () => {
-    mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadApexQPrefs.mockReturnValue({
-      enabled: false,
-      setupDone: true,
-      hotkey: 'Ctrl+Alt+Z',
-    });
 
     const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
     await applyLocaleToggleShortcut();
@@ -124,13 +90,7 @@ describe('locale shortcut cleanup', () => {
   });
 
   it('does not clean global shortcuts from a child WebView', async () => {
-    mocks.currentWindow.label = 'apex-q-window';
-    mocks.settings.toggleLocaleShortcut = 'Ctrl+Alt+X';
-    mocks.loadApexQPrefs.mockReturnValue({
-      enabled: true,
-      setupDone: true,
-      hotkey: 'Ctrl+Alt+Z',
-    });
+    mocks.currentWindow.label = 'apex-quick-preset';
 
     const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
     await applyLocaleToggleShortcut();
@@ -138,30 +98,6 @@ describe('locale shortcut cleanup', () => {
     expect(mocks.isRegistered).not.toHaveBeenCalled();
     expect(mocks.unregister).not.toHaveBeenCalled();
     expect(mocks.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function), true);
-  });
-
-  it('gives a shared accelerator to APEX Q without toggling locale', async () => {
-    mocks.settings.resolvedToggleLocaleShortcut = ' Ctrl+ALT+Z ';
-    mocks.loadApexQPrefs.mockReturnValue({
-      enabled: true,
-      setupDone: true,
-      hotkey: 'ctrl+alt+z',
-    });
-
-    const {applyLocaleToggleShortcut} = await import('@/utils/global-shortcuts.ts');
-    await applyLocaleToggleShortcut();
-    const preventDefault = vi.fn();
-    const stopPropagation = vi.fn();
-    mocks.keydownHandler?.({
-      repeat: false,
-      target: null,
-      preventDefault,
-      stopPropagation,
-    } as unknown as KeyboardEvent);
-
-    expect(mocks.settings.setLocale).not.toHaveBeenCalled();
-    expect(preventDefault).not.toHaveBeenCalled();
-    expect(stopPropagation).not.toHaveBeenCalled();
   });
 
   it('loads and activates the next locale before updating browser metadata', async () => {

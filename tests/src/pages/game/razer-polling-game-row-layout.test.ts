@@ -22,7 +22,7 @@ describe('Razer polling game row layout', () => {
     expect(pageSource).toMatch(
       /\.razer-game-meta span \{[^}]*font-size: 11px;/,
     );
-    expect(pageSource).toMatch(/grid-template-columns: 42px minmax\(0, 1fr\) minmax\(0, 280px\) 180px;/);
+    expect(pageSource).toMatch(/grid-template-columns: 42px minmax\(0, 1fr\) minmax\(0, 280px\) 180px 28px;/);
   });
 
   it('keeps the metadata together above the polling-rate field on narrow layouts', () => {

@@ -6,7 +6,6 @@ import {
   setBackgroundRuntimeAutostart,
   setBackgroundRuntimeBetaFeatures,
   setBackgroundRuntimeLocale,
-  updateBackgroundRuntimeApexQ,
   updateBackgroundRuntimeRazer,
 } from '@/ipc/commands.ts';
 import type {
@@ -117,14 +116,6 @@ export const useBackgroundRuntimeStore = defineStore('background-runtime', {
       await this.startEventSync();
       const eventVersion = this.eventVersion;
       const snapshot = await configureBackgroundRuntime(config);
-      if (this.eventVersion === eventVersion) this.snapshot = snapshot;
-      return this.snapshot;
-    },
-    async configureApexQ(apexQ: BackgroundRuntimeConfig['apexQ']) {
-      if (!hasTauriRuntime()) return this.snapshot;
-      await this.startEventSync();
-      const eventVersion = this.eventVersion;
-      const snapshot = await updateBackgroundRuntimeApexQ(apexQ);
       if (this.eventVersion === eventVersion) this.snapshot = snapshot;
       return this.snapshot;
     },

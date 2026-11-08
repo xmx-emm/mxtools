@@ -118,8 +118,6 @@ export function createApexState() {
     quick_preset_display: <PrimaryDisplayInfo | null>null,
     quick_preset_applying: false,
 
-    apex_q_dialog: false,
-
     config_export_dialog: false,
     config_import_dialog: false,
     config_import_snapshot: <ApexConfigSnapshot | null>null,

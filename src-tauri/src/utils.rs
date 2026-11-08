@@ -12,20 +12,27 @@ pub async fn await_time() {
     time::sleep(Duration::from_millis(WAIT_MILLIS)).await;
 }
 
-/// 轮询直到 `pred` 为真或达到尝试次数；返回最后一次 `pred` 的结果。
-pub async fn poll_until<F>(mut pred: F) -> bool
+/// 在阻塞线程池轮询可能触发子进程/磁盘 I/O 的谓词。
+pub async fn poll_until_blocking<F>(pred: F) -> bool
 where
-    F: FnMut() -> bool,
+    F: Fn() -> bool + Send + Sync + 'static,
 {
+    let pred = std::sync::Arc::new(pred);
     for i in 0..POLL_ATTEMPTS {
-        if pred() {
+        let p = pred.clone();
+        if tokio::task::spawn_blocking(move || p())
+            .await
+            .unwrap_or(false)
+        {
             return true;
         }
         if i + 1 < POLL_ATTEMPTS {
             time::sleep(Duration::from_millis(POLL_INTERVAL_MS)).await;
         }
     }
-    pred()
+    tokio::task::spawn_blocking(move || pred())
+        .await
+        .unwrap_or(false)
 }
 
 /// 在阻塞线程池执行可能耗时的同步操作，避免卡住 Tauri 主运行时。
@@ -53,7 +60,6 @@ where
 #[derive(Clone, Copy)]
 pub enum ProcessNameMatchMode {
     Exact,
-    Contains,
 }
 
 fn force_kill_process_by_pid(pid: String) {
@@ -95,7 +101,6 @@ pub fn kill_processes_by_names(
 
         let matched = target_lower.iter().any(|target| match match_mode {
             ProcessNameMatchMode::Exact => process_name == *target,
-            ProcessNameMatchMode::Contains => process_name.contains(target),
         });
 
         if !matched {

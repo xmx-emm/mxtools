@@ -4,7 +4,6 @@ import {
   useSettingsStore,
 } from '@/stores/settings.ts';
 import type {LocaleCode} from '@/utils/locale.ts';
-import {loadApexQPrefs} from '@/stores/apex_q_preferences.ts';
 import {applyDocumentLocale, resolveLocale} from '@/utils/locale.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
 import {
@@ -19,10 +18,6 @@ export {DEFAULT_TOGGLE_LOCALE_SHORTCUT};
 
 let appListenerBound = false;
 let localeTransitionQueue: Promise<unknown> = Promise.resolve();
-
-function normalizeShortcut(value: string | null | undefined) {
-  return (value ?? '').trim().toLowerCase().replace(/\s+/g, '');
-}
 
 async function runLocaleTransition(locale: LocaleCode): Promise<boolean> {
   const settings = useSettingsStore();
@@ -72,15 +67,6 @@ function onAppKeyDown(e: KeyboardEvent) {
   const settings = useSettingsStore();
   if (!settings.toggleLocaleShortcutEnabled) return;
   const shortcut = settings.resolvedToggleLocaleShortcut;
-  const apexQPrefs = loadApexQPrefs();
-  const apexQShortcut = apexQPrefs.enabled && apexQPrefs.setupDone
-    ? apexQPrefs.hotkey
-    : '';
-  // A shared accelerator must belong to OCR; otherwise one keypress would
-  // also toggle the app language in the focused WebView.
-  if (normalizeShortcut(shortcut) && normalizeShortcut(shortcut) === normalizeShortcut(apexQShortcut)) {
-    return;
-  }
   if (!matchesAccelerator(e, shortcut)) return;
 
   e.preventDefault();
@@ -94,23 +80,12 @@ function onAppKeyDown(e: KeyboardEvent) {
  */
 async function unregisterLegacyGlobalLocaleShortcut() {
   const settings = useSettingsStore();
-  const apexQPrefs = loadApexQPrefs();
   const candidates = new Set([
     settings.resolvedToggleLocaleShortcut,
     DEFAULT_TOGGLE_LOCALE_SHORTCUT,
     settings.toggleLocaleShortcut,
-    apexQPrefs.hotkey,
   ].filter(Boolean) as string[]);
-  const protectedApexQShortcut = apexQPrefs.enabled === true
-    && apexQPrefs.setupDone === true
-    && typeof apexQPrefs.hotkey === 'string'
-    ? apexQPrefs.hotkey.trim().toLowerCase()
-    : '';
-
   for (const shortcut of candidates) {
-    if (protectedApexQShortcut && shortcut.trim().toLowerCase() === protectedApexQShortcut) {
-      continue;
-    }
     try {
       if (await isShortcutRegistered(shortcut)) {
         await unregisterGlobalShortcut(shortcut);

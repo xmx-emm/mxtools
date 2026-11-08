@@ -18,6 +18,7 @@ import {
 } from '@/ipc/commands.ts';
 import {ipcErrorKey} from '@/ipc/error.ts';
 import {useBackgroundRuntimeStore} from '@/stores/background_runtime.ts';
+import {useIsStoreBuild} from '@/utils/app_info.ts';
 import type {
   RazerBackgroundConfig,
   RazerBackgroundGame,
@@ -27,13 +28,17 @@ import type {RazerPollingStatus} from '@/types/razer_polling.ts';
 import {
   createManualGame,
   hasModelPreset,
+  isDismissedGame,
+  MANUAL_GAME_ID_PREFIX,
   mergeScannedGame,
   recordVerifiedModelPreset,
+  removeGame,
   syncConnectedDeviceProfiles,
   verifiedRatesForStatus,
 } from '@/utils/razer_polling_config.ts';
 import {cloneRazerBackgroundConfig} from '@/utils/background_runtime.ts';
 import {createRazerStatusRefresh} from '@/utils/razer_status_refresh.ts';
+import {confirm} from '@/utils/app_confirmation.ts';
 
 type TauriRuntimeWindow = Window & {__TAURI_INTERNALS__?: unknown};
 const isTauriRuntime = typeof window !== 'undefined'
@@ -42,6 +47,8 @@ const isTauriRuntime = typeof window !== 'undefined'
 const {t, te} = useI18n();
 const toast = useToast();
 const runtime = useBackgroundRuntimeStore();
+// A Run-key autostart cannot target an MSIX package.
+const isStoreBuild = useIsStoreBuild();
 const statuses = ref<RazerPollingStatus[]>([]);
 const selectedDeviceId = ref<string | null>(null);
 const config = ref<RazerBackgroundConfig>({
@@ -76,7 +83,8 @@ const configuredIds = computed(() => new Set(config.value.games.map(game => game
 const otherGames = computed(() => {
   const query = otherSearch.value.trim().toLocaleLowerCase();
   return (scanReport.value?.games ?? [])
-    .filter(game => !game.isShooter && !configuredIds.value.has(game.logicalId))
+    .filter(game => (!game.isShooter || isDismissedGame(config.value, game.logicalId))
+      && !configuredIds.value.has(game.logicalId))
     .filter(game => !query || game.name.toLocaleLowerCase().includes(query));
 });
 const rateOptions = computed(() => selectedStatus.value
@@ -170,6 +178,9 @@ async function restore(deviceId: string) {
     if (status) status.currentRateHz = result.currentRateHz;
     toast.success(t('razerPolling.restored', {rate: result.currentRateHz}));
   } catch (error) {
+    // A failed restore may leave the device at an unknown rate; re-read it
+    // like setRate does so the page does not keep showing a stale value.
+    await refreshDevices();
     feedback.value = errorMessage(error);
   } finally {
     applying.value = false;
@@ -275,6 +286,16 @@ function markGameEdited(game: RazerBackgroundGame) {
   });
 }
 
+async function requestRemoveGame(game: RazerBackgroundGame) {
+  const accepted = await confirm(t('razerPolling.removeGameConfirm', {name: game.name}), {
+    title: t('razerPolling.removeGameTitle'),
+    kind: 'warning',
+    confirmText: t('razerPolling.removeGame'),
+  });
+  if (!accepted || !removeGame(config.value, game.id)) return;
+  await persistConfig();
+}
+
 function setGameRate(game: RazerBackgroundGame, rateHz: number) {
   if (!selectedDeviceId.value) return;
   game.deviceRatesHz[selectedDeviceId.value] = rateHz;
@@ -305,8 +326,10 @@ async function addManualExecutable() {
 async function saveManualGame() {
   const name = manualName.value.trim();
   if (!name || !manualExecutables.value.length) return;
-  const id = `manual-${Date.now().toString(36)}-${config.value.games.length}`;
-  config.value.games.push(createManualGame(id, name, manualExecutables.value, statuses.value));
+  const id = `${MANUAL_GAME_ID_PREFIX}${Date.now().toString(36)}-${config.value.games.length}`;
+  config.value.games.push(createManualGame(
+    id, name, manualExecutables.value, statuses.value, config.value,
+  ));
   manualDialog.value = false;
   await persistConfig();
 }
@@ -407,7 +430,7 @@ onUnmounted(() => {
                 })
                 : t('razerPolling.autoDesktop', {rate: selectedStatus.currentRateHz ?? '-'}) }}
           </p>
-          <div class="razer-autostart-row">
+          <div v-if="isStoreBuild === false" class="razer-autostart-row">
             <BackgroundAutostartSwitch compact />
           </div>
           <div v-if="selectedProfile" class="razer-idle-rate">
@@ -481,6 +504,15 @@ onUnmounted(() => {
               >
                 {{ t('razerPolling.addExecutable') }}
               </v-btn>
+              <v-btn
+                class="razer-game-remove"
+                size="small"
+                variant="text"
+                icon="mdi-delete-outline"
+                :aria-label="t('razerPolling.removeGameNamed', {name: game.name})"
+                :title="t('razerPolling.removeGame')"
+                @click="requestRemoveGame(game)"
+              />
             </article>
           </div>
           <p v-else class="razer-empty">{{ t('razerPolling.noProfiles') }}</p>
@@ -623,7 +655,8 @@ onUnmounted(() => {
 .razer-games, .razer-scan-results { border-top: 1px solid var(--app-border); border-bottom: 1px solid var(--app-border); }
 .razer-section-heading > span { color: rgba(var(--v-theme-on-surface), .45); font-size: 11px; }
 .razer-game-list, .razer-other-games { border-top: 1px solid var(--app-border); }
-.razer-game-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(0, 280px) 180px; align-items: center; gap: 12px; min-height: 68px; padding: 9px 16px; }
+.razer-game-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(0, 280px) 180px 28px; align-items: center; gap: 12px; min-height: 68px; padding: 9px 16px; }
+.razer-game-remove { grid-column: 5; }
 .razer-game-row + .razer-game-row, .razer-other-row + .razer-other-row { border-top: 1px solid rgba(var(--v-border-color), .075); }
 .razer-game-copy, .razer-other-row > div { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
 .razer-game-name { display: flex; align-items: center; gap: 8px; }
@@ -655,6 +688,7 @@ onUnmounted(() => {
   .razer-game-meta { grid-column: 2; justify-content: flex-start; overflow: hidden; }
   .razer-game-rate { grid-column: 2; width: 100%; }
   .razer-game-executable { grid-column: 2; justify-self: start; }
+  .razer-game-remove { grid-column: 2; justify-self: start; }
   .razer-idle-rate { grid-template-columns: 1fr; }
 }
 </style>
