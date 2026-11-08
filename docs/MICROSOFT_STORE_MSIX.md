@@ -84,6 +84,27 @@ npm run "build window msix"
 
 截图使用应用真实界面（1366×768 以上），不要使用游戏官方美术素材。
 
+### 商店图片素材
+
+由 `scripts/make-store-art.py` 生成到 `artifacts/marketing/covers/<版本>/`，需要 Python 和 Pillow。
+只使用应用图标和实机截图，不含游戏官方美术；改动界面后重新生成即可：
+
+```bash
+python scripts/make-store-art.py --version 0.1.3
+```
+
+| 用途 | 文件 | 尺寸 |
+| --- | --- | --- |
+| 2:3 竖版封面（海报图） | `mxtools-0.1.3-store-poster-1440x2160.png` | 1440×2160，标题在上 2/3 |
+| 16:9 主视觉（Super hero） | `mxtools-0.1.3-store-hero-1920x1080.png` | 1920×1080 |
+| 1:1 方形图（Box art） | `mxtools-0.1.3-store-boxart-2160x2160.png` | 2160×2160 |
+| 商店徽标 1:1 | `mxtools-0.1.3-store-logo-1080x1080.png` | 1080×1080，透明底 |
+| 商店徽标小图 | `mxtools-0.1.3-store-logo-300x300.png` | 300×300，透明底 |
+| 截图（至少 1 张，建议 4 张以上） | `store-screenshots/01…07-*.png` | 1366×768 |
+
+- 海报图必须带产品名，且名字放在画面上 2/3：商店会在下 1/3 叠加文字和渐变。
+- 主视觉和方形图不放年龄分级图标、奖项、开发商 logo 或促销语。
+
 ### 年龄分级（IARC 问卷）
 
 - 应用类型选“非游戏应用”（工具）。

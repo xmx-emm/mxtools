@@ -43,3 +43,7 @@ components.d.ts
 # Local release and marketing covers
 /artifacts/marketing/covers/
 /docs/releases/covers/
+
+# Python bytecode from repo scripts
+__pycache__/
+*.pyc
