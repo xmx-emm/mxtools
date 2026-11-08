@@ -4,6 +4,8 @@ export interface OnlineAccount {
   id: string;
   email: string;
   displayName: string | null;
+  /** 账号中心同步的头像地址；前端通过 onlineAuthGetAvatar 取 data URL 显示 */
+  avatarUrl?: string | null;
   role: 'USER' | 'MODERATOR' | 'ADMIN';
 }
 

@@ -25,12 +25,14 @@ fn poll_result_serializes_with_a_status_tag() {
             id: "user-1".into(),
             email: "user@example.com".into(),
             display_name: None,
+            avatar_url: Some("https://cdn.example.com/a.png".into()),
             role: "USER".into(),
         },
     })
     .unwrap();
     assert_eq!(approved["status"], "approved");
     assert_eq!(approved["account"]["email"], "user@example.com");
+    assert_eq!(approved["account"]["avatarUrl"], "https://cdn.example.com/a.png");
 }
 
 #[test]

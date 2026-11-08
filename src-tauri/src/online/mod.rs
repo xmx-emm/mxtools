@@ -4,6 +4,7 @@
 //! 令牌也不进入前端 localStorage。
 
 pub mod auth;
+pub mod avatar;
 mod credential_store;
 pub mod presets;
 

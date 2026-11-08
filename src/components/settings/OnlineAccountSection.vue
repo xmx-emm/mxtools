@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import {onUnmounted, ref} from 'vue';
+import {computed, onUnmounted, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useToast} from 'vue-toastification';
 import {writeText} from '@tauri-apps/plugin-clipboard-manager';
 import {
   onlineAuthCancelDeviceLogin,
   onlineAuthGetAccount,
+  onlineAuthGetAvatar,
   onlineAuthLogout,
   onlineAuthOpenVerification,
   onlineAuthPollDeviceLogin,
@@ -25,7 +26,32 @@ type LoginStage = 'starting' | 'waiting' | 'denied' | 'expired' | 'failed';
 
 const accountState = ref<AccountState>(isTauriRuntime ? 'checking' : 'browser');
 const account = ref<OnlineAccount | null>(null);
+const avatarSrc = ref<string | null>(null);
 const loggingOut = ref(false);
+let avatarGeneration = 0;
+
+const avatarInitial = computed(() => {
+  const name = account.value?.displayName?.trim() || account.value?.email || '';
+  return Array.from(name)[0]?.toUpperCase() ?? '';
+});
+
+/** 头像由 Rust 侧下载为 data URL；失败时保留首字母占位，不打断账号显示。 */
+async function loadAvatar() {
+  const generation = ++avatarGeneration;
+  avatarSrc.value = null;
+  if (!account.value?.avatarUrl) return;
+  try {
+    const src = await onlineAuthGetAvatar();
+    if (generation === avatarGeneration) avatarSrc.value = src;
+  } catch {
+    // 头像只是装饰，静默回退到首字母。
+  }
+}
+
+function setAccount(value: OnlineAccount | null) {
+  account.value = value;
+  void loadAvatar();
+}
 
 const dialogOpen = ref(false);
 const loginStage = ref<LoginStage>('starting');
@@ -38,7 +64,7 @@ async function refreshAccount() {
   if (!isTauriRuntime) return;
   accountState.value = 'checking';
   try {
-    account.value = await onlineAuthGetAccount();
+    setAccount(await onlineAuthGetAccount());
     accountState.value = account.value ? 'loggedIn' : 'loggedOut';
   } catch {
     accountState.value = 'error';
@@ -74,7 +100,7 @@ async function pollOnce(generation: number) {
       return;
     }
     if (result.status === 'approved') {
-      account.value = result.account;
+      setAccount(result.account);
       accountState.value = 'loggedIn';
       toast.success(t('settings.deviceLoginApproved'));
       closeDialog();
@@ -141,7 +167,7 @@ async function logout() {
   loggingOut.value = true;
   try {
     await onlineAuthLogout();
-    account.value = null;
+    setAccount(null);
     accountState.value = 'loggedOut';
     toast.success(t('settings.onlineAccountLogoutDone'));
   } catch (error) {
@@ -179,10 +205,16 @@ onUnmounted(stopPolling);
       </div>
 
       <div v-else-if="accountState === 'loggedIn' && account" class="setting-row">
-        <span>
-          <strong>{{ account.displayName || account.email }}</strong>
-          <small>{{ account.displayName ? account.email : t('settings.onlineAccount') }}</small>
-        </span>
+        <div class="account-identity">
+          <v-avatar class="account-avatar" size="36" color="primary" variant="tonal">
+            <v-img v-if="avatarSrc" :src="avatarSrc" :alt="account.displayName || account.email" cover/>
+            <span v-else class="account-avatar-initial">{{ avatarInitial }}</span>
+          </v-avatar>
+          <span>
+            <strong>{{ account.displayName || account.email }}</strong>
+            <small>{{ account.displayName ? account.email : t('settings.onlineAccount') }}</small>
+          </span>
+        </div>
         <v-btn
           variant="tonal"
           rounded="lg"
@@ -202,20 +234,20 @@ onUnmounted(stopPolling);
       </div>
 
       <div v-else class="setting-row">
-        <span>
-          <strong>{{ t('settings.onlineAccountLoggedOut') }}</strong>
-          <small>{{ t('settings.onlineAccountLoggedOutHint') }}</small>
-        </span>
-        <v-btn
-          color="primary"
-          variant="tonal"
-          rounded="lg"
-          size="small"
-          prepend-icon="mdi-account-check"
-          @click="startLogin"
-        >
-          {{ t('settings.onlineAccountLogin') }}
-        </v-btn>
+        <div class="account-identity">
+          <button
+            type="button"
+            class="account-avatar account-avatar-login"
+            :title="t('settings.onlineAccountLogin')"
+            @click="startLogin"
+          >
+            {{ t('settings.onlineAccountLogin') }}
+          </button>
+          <span>
+            <strong>{{ t('settings.onlineAccountLoggedOut') }}</strong>
+            <small>{{ t('settings.onlineAccountLoggedOutHint') }}</small>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -303,7 +335,44 @@ onUnmounted(stopPolling);
   gap: 20px;
   padding: 10px 18px;
 }
-.setting-row > span { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.setting-row > span,
+.account-identity > span { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.account-avatar { flex: 0 0 auto; }
+.account-avatar-initial {
+  font-size: 14px;
+  font-weight: 640;
+}
+.account-avatar-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px dashed rgba(var(--v-theme-primary), 0.55);
+  border-radius: 50%;
+  background: rgba(var(--v-theme-primary), 0.08);
+  color: rgb(var(--v-theme-primary));
+  font: inherit;
+  font-size: 10px;
+  font-weight: 620;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.account-avatar-login:hover {
+  border-style: solid;
+  background: rgba(var(--v-theme-primary), 0.16);
+}
+.account-avatar-login:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
 .setting-row strong {
   overflow: hidden;
   font-size: 11px;

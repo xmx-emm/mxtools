@@ -40,6 +40,10 @@ noncommercial mirrors and public modified versions are allowed.
   The browser-open command accepts no URL input: it uses only the unexpired,
   origin-validated pending native login. This also supports local development
   without widening the WebView opener allowlist.
+  The settings account row shows the account avatar (or a "登录" entry when
+  signed out). `online/avatar.rs` downloads only the `avatarUrl` from the last
+  `/me` (http(s), PNG/JPEG/WebP/GIF/AVIF, ≤512 KiB, no SVG) and returns a data
+  URL through `online_auth_get_avatar`, so `img-src` stays unchanged.
   Tokens live only in the Windows Credential Manager (`MxTools/OnlineAccount`).
   Client-verifiable handling and explicitly unknown server retention/deletion
   behavior are documented in `docs/ONLINE_ACCOUNT_DATA_HANDLING.md`. Error

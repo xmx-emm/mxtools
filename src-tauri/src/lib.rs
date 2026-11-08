@@ -103,6 +103,7 @@ use crate::online::auth::{
     online_auth_cancel_device_login, online_auth_get_account, online_auth_logout,
     online_auth_open_verification, online_auth_poll_device_login, online_auth_start_device_login,
 };
+use crate::online::avatar::online_auth_get_avatar;
 use crate::online::presets::{
     online_preset_comment_create, online_preset_comments, online_preset_publish,
     online_preset_report, online_preset_use, online_presets_list,
@@ -261,6 +262,7 @@ pub fn run() {
             online_auth_poll_device_login,
             online_auth_cancel_device_login,
             online_auth_get_account,
+            online_auth_get_avatar,
             online_auth_logout,
             // Online presets
             online_presets_list,

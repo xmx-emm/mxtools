@@ -967,6 +967,11 @@ export function onlineAuthGetAccount(): Promise<OnlineAccount | null> {
   return ipcInvoke<OnlineAccount | null>('online_auth_get_account');
 }
 
+/** 当前账号头像的 data URL；无头像或下载失败返回 null。 */
+export function onlineAuthGetAvatar(): Promise<string | null> {
+  return ipcInvoke<string | null>('online_auth_get_avatar');
+}
+
 export function onlineAuthLogout(): Promise<void> {
   return ipcInvoke<void>('online_auth_logout');
 }

@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use tauri_plugin_opener::OpenerExt;
 use zeroize::Zeroize;
 
-use super::{api_base, credential_store, http_client};
+use super::{api_base, avatar, credential_store, http_client};
 use crate::ipc_error::{IpcError, IpcResult};
 
 struct PendingDeviceLogin {
@@ -58,6 +58,8 @@ pub struct OnlineAccount {
     pub id: String,
     pub email: String,
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
     pub role: String,
 }
 
@@ -367,10 +369,12 @@ async fn fetch_me(client: &reqwest::Client, access_token: &str) -> IpcResult<Onl
     if !response.status().is_success() {
         return Err(error_from_response(response).await);
     }
-    response
+    let account = response
         .json::<OnlineAccount>()
         .await
-        .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))
+        .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))?;
+    avatar::remember_avatar_url(account.avatar_url.as_deref());
+    Ok(account)
 }
 
 /// 用 refresh token 换新令牌。返回 `Ok(None)` 表示 refresh 已失效（应登出）。
@@ -443,6 +447,7 @@ pub(super) fn access_token_is_fresh(
 #[tauri::command]
 pub async fn online_auth_get_account() -> IpcResult<Option<OnlineAccount>> {
     let Some(tokens) = load_tokens()? else {
+        avatar::remember_avatar_url(None);
         return Ok(None);
     };
     let client = http_client()?;
@@ -458,6 +463,7 @@ pub async fn online_auth_get_account() -> IpcResult<Option<OnlineAccount>> {
             .json::<OnlineAccount>()
             .await
             .map_err(|error| IpcError::new("online_auth.protocol", error.to_string()))?;
+        avatar::remember_avatar_url(account.avatar_url.as_deref());
         return Ok(Some(account));
     }
     if response.status().as_u16() != 401 {
@@ -466,7 +472,10 @@ pub async fn online_auth_get_account() -> IpcResult<Option<OnlineAccount>> {
 
     match refresh_serialized(&client, &tokens).await? {
         Some(renewed) => Ok(Some(fetch_me(&client, &renewed.access_token).await?)),
-        None => Ok(None),
+        None => {
+            avatar::remember_avatar_url(None);
+            Ok(None)
+        }
     }
 }
 
@@ -516,6 +525,7 @@ pub async fn online_auth_logout() -> IpcResult<()> {
     }
     credential_store::delete().map_err(credential_error)?;
     clear_pending_login();
+    avatar::remember_avatar_url(None);
     Ok(())
 }
 
