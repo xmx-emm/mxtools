@@ -58,9 +58,10 @@ pub async fn backups_explorer_registry() -> IpcResult<bool> {
 
 #[tauri::command]
 pub async fn explorer_registry_path() -> IpcResult<String> {
-    let maybe_path = blocking_value(|| backups_explorer_registry_path(OUTPUT_FOLDER_CATEGORIZE, true))
-        .await
-        .map_err(backups_error)?;
+    let maybe_path =
+        blocking_value(|| backups_explorer_registry_path(OUTPUT_FOLDER_CATEGORIZE, true))
+            .await
+            .map_err(backups_error)?;
     match maybe_path {
         Some(path) => Ok(path),
         None => Err(IpcError::new(
@@ -94,7 +95,7 @@ pub async fn backups_port_forwarding(output: String) -> IpcResult<bool> {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
         }
-        backups_to_file(validated.to_string_lossy().into_owned())
+        backups_to_file(validated.to_string_lossy())
     })
     .await
     .map_err(backups_error)

@@ -156,7 +156,6 @@ mod win {
         process::Command, time::Instant,
     };
     use sysinfo::{ProcessesToUpdate, System};
-    use windows_tool::utils::CommandHiddenWindowExt;
     use winapi::shared::minwindef::{DWORD, UINT};
     use winapi::um::{
         wingdi::DEVMODEW,
@@ -167,6 +166,7 @@ mod win {
             SPI_SETSTICKYKEYS, SPI_SETTOGGLEKEYS,
         },
     };
+    use windows_tool::utils::CommandHiddenWindowExt;
     use winreg::{
         enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
         RegKey,

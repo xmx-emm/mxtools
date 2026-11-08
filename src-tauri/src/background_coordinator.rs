@@ -260,7 +260,6 @@ mod tests {
         assert!(!native.enabled);
         assert!(native.devices.is_empty());
     }
-
 }
 
 #[cfg(test)]

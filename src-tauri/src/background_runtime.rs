@@ -1406,7 +1406,7 @@ mod tests {
     fn partial_runtime_commits_preserve_unrelated_fields() {
         let dir = TestDir::new("partial-commit");
         let store = BackgroundRuntimeStore::new(&dir.0);
-        let mut original = BackgroundRuntimeConfig {
+        let original = BackgroundRuntimeConfig {
             autostart: true,
             beta_features_enabled: true,
             locale: RuntimeLocale::ZhCn,
@@ -1465,8 +1465,10 @@ mod tests {
 
     #[test]
     fn validation_rejects_invalid_runtime_inputs() {
-        let mut config = BackgroundRuntimeConfig::default();
-        config.schema_version = 99;
+        let config = BackgroundRuntimeConfig {
+            schema_version: 99,
+            ..Default::default()
+        };
         assert_eq!(
             validate_background_runtime_config(&config)
                 .unwrap_err()

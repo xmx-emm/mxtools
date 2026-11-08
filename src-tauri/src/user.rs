@@ -260,7 +260,9 @@ fn resolve_well_known_group_name(sid_str: &str) -> Option<String> {
         .iter()
         .position(|&c| c == 0)
         .unwrap_or(name_buf.len());
-    let resolved = String::from_utf16_lossy(&name_buf[..end]).trim().to_string();
+    let resolved = String::from_utf16_lossy(&name_buf[..end])
+        .trim()
+        .to_string();
     (!resolved.is_empty()).then_some(resolved)
 }
 
@@ -272,8 +274,8 @@ fn resolve_well_known_group_name(_sid_str: &str) -> Option<String> {
 fn current_windows_username() -> String {
     #[cfg(windows)]
     {
-        use winapi::shared::minwindef::DWORD;
         use winapi::shared::lmcons::UNLEN;
+        use winapi::shared::minwindef::DWORD;
         use winapi::um::winbase::GetUserNameW;
 
         let mut buf = vec![0u16; (UNLEN + 1) as usize];

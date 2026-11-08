@@ -62,17 +62,11 @@ pub(crate) fn normalize_rdp_host(raw: &str) -> Result<String, String> {
     if trimmed.starts_with('/') || trimmed.starts_with('-') {
         return Err("rdp.errors.invalidHost".to_string());
     }
-    if trimmed
-        .chars()
-        .any(|c| c.is_control() || c.is_whitespace())
-    {
+    if trimmed.chars().any(|c| c.is_control() || c.is_whitespace()) {
         return Err("rdp.errors.invalidHost".to_string());
     }
 
-    if let Some(bracketed) = trimmed
-        .strip_prefix('[')
-        .and_then(|s| s.strip_suffix(']'))
-    {
+    if let Some(bracketed) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
         if bracketed.parse::<Ipv6Addr>().is_ok() {
             return Ok(bracketed.to_string());
         }

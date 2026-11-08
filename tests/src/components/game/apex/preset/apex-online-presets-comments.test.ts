@@ -29,6 +29,7 @@ vi.mock('vuetify/components/VCheckbox', () => ({VCheckbox: {}, VCheckboxBtn: {}}
 vi.mock('vuetify/components/VIcon', () => ({VIcon: {}}));
 vi.mock('vuetify/components/transitions', () => ({VExpandTransition: {}}));
 vi.mock('vuetify/components/VSelect', () => ({VSelect: {}}));
+vi.mock('vuetify/components/VAlert', () => ({VAlert: {}}));
 import Component from '@/components/game/apex/preset/ApexOnlinePresetsDialog.vue';
 
 type State = {

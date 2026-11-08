@@ -48,7 +48,8 @@ pub(super) fn validate_publish_input(
     payload: &Value,
 ) -> IpcResult<(String, Option<String>)> {
     let title = title.trim().to_string();
-    if title.is_empty() || title.encode_utf16().count() > 80 || title.chars().any(char::is_control) {
+    if title.is_empty() || title.encode_utf16().count() > 80 || title.chars().any(char::is_control)
+    {
         return Err(invalid_publish("预设标题无效"));
     }
     let description = description
@@ -66,7 +67,9 @@ pub(super) fn validate_publish_input(
         .get("kind")
         .and_then(Value::as_str)
         .is_some_and(|kind| kind == "apex-config-snapshot");
-    let size = serde_json::to_vec(payload).map(|bytes| bytes.len()).unwrap_or(usize::MAX);
+    let size = serde_json::to_vec(payload)
+        .map(|bytes| bytes.len())
+        .unwrap_or(usize::MAX);
     if !is_snapshot || size > PUBLISH_PAYLOAD_MAX_BYTES {
         return Err(invalid_publish("预设内容无效"));
     }

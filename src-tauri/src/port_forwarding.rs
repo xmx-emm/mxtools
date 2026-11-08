@@ -17,7 +17,9 @@ pub async fn get_port_forwarding() -> IpcResult<Vec<PortForwarding>> {
 #[tauri::command]
 pub async fn reset_port_forwarding() -> IpcResult<Vec<PortForwarding>> {
     require_elevated().map_err(pf_error)?;
-    blocking_cmd(PortForwarding::reset).await.map_err(pf_error)?;
+    blocking_cmd(PortForwarding::reset)
+        .await
+        .map_err(pf_error)?;
     if !poll_until_blocking(|| {
         PortForwarding::get_ipv4_to_ipv4()
             .map(|v| v.is_empty())

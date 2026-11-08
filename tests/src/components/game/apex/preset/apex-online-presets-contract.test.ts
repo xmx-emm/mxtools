@@ -36,7 +36,8 @@ describe('apex online presets contract', () => {
     expect(dialog).toContain('v-if="account"');
     expect(dialog).toContain("t('apex.onlinePresets.publishNeedLogin')");
     expect(dialog).toContain("t('apex.onlinePresets.commentNeedLogin')");
-    expect(dialog).toContain('apex_store.build_config_snapshot({...publish_selection})');
+    expect(dialog).toContain('apex_store.build_config_snapshot({');
+    expect(dialog).toContain('buildPublishPayload(current, baseline)');
   });
 
   it('supports one-level replies through the server parentId contract', () => {

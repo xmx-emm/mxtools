@@ -2640,9 +2640,10 @@ pub async fn razer_polling_configure<R: Runtime>(
                     .devices
                     .iter()
                     .filter_map(|(device_id, slot)| {
-                        slot.runtime.lock().ok().and_then(|runtime| {
-                            runtime.baseline_rate_hz.map(|_| device_id.clone())
-                        })
+                        slot.runtime
+                            .lock()
+                            .ok()
+                            .and_then(|runtime| runtime.baseline_rate_hz.map(|_| device_id.clone()))
                     })
                     .collect::<BTreeSet<_>>(),
             )

@@ -38,8 +38,8 @@ use crate::background_runtime::BackgroundRuntimeStore;
 use crate::background_runtime::{
     background_runtime_configure, background_runtime_get, background_runtime_main_window_ready,
     background_runtime_set_autostart, background_runtime_set_beta_features,
-    background_runtime_set_locale,
-    background_runtime_update_razer, destroy_main_window, ensure_main_window, LaunchMode,
+    background_runtime_set_locale, background_runtime_update_razer, destroy_main_window,
+    ensure_main_window, LaunchMode,
 };
 use crate::backups::{
     backups_explorer_registry, backups_port_forwarding, backups_port_forwarding_default_path,
@@ -130,8 +130,8 @@ use crate::system::{
     get_primary_display_info, read_utf8_file, system_info, system_total_memory_mb, write_utf8_file,
 };
 use crate::tray::{
-    handle_close_requested, set_tray_beta_features, set_tray_locale,
-    setup_tray, sync_tray_with_main_window, tray_set_close_to_tray,
+    handle_close_requested, set_tray_beta_features, set_tray_locale, setup_tray,
+    sync_tray_with_main_window, tray_set_close_to_tray,
 };
 use crate::user::{
     add_windows_user, delete_windows_user, get_windows_users, modify_windows_user_password,

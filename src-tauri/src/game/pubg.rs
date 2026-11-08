@@ -174,11 +174,10 @@ pub(crate) fn prepare_open_folder_target(raw: &str) -> Result<std::path::PathBuf
     };
 
     #[cfg(not(windows))]
-    let resolved = std::fs::canonicalize(&validated)
-        .map_err(|_| "pubg.errors.pathNotFound".to_string())?;
+    let resolved =
+        std::fs::canonicalize(&validated).map_err(|_| "pubg.errors.pathNotFound".to_string())?;
 
-    let meta = std::fs::metadata(&resolved)
-        .map_err(|_| "pubg.errors.pathNotFound".to_string())?;
+    let meta = std::fs::metadata(&resolved).map_err(|_| "pubg.errors.pathNotFound".to_string())?;
     if !meta.is_dir() {
         return Err("pubg.errors.notADirectory".into());
     }

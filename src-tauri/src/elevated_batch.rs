@@ -94,7 +94,9 @@ pub(crate) fn run_action_batch(
     use_admin: bool,
 ) -> HashMap<String, Result<(), String>> {
     let mut seen = HashSet::new();
-    debug_assert!(groups.iter().all(|group| seen.insert(group.action.as_str())));
+    debug_assert!(groups
+        .iter()
+        .all(|group| seen.insert(group.action.as_str())));
     if groups.iter().all(|group| group.commands.is_empty()) {
         return resolve_action_results(groups, true, None);
     }

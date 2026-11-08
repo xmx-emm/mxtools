@@ -92,7 +92,10 @@ pub async fn list_context_menu_items() -> IpcResult<Vec<ContextMenuItem>> {
 }
 
 #[tauri::command]
-pub async fn set_context_menu_item_enabled(id: String, enabled: bool) -> IpcResult<ContextMenuItem> {
+pub async fn set_context_menu_item_enabled(
+    id: String,
+    enabled: bool,
+) -> IpcResult<ContextMenuItem> {
     blocking_cmd(move || {
         let hive = context_menu::context_menu_item_hive(&id)?;
         if hive == ContextMenuHive::HKLM {
